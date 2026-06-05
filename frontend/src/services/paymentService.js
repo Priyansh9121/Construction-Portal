@@ -1,0 +1,16 @@
+import axiosClient from "../api/axiosClient";
+
+export const getPayments = async () => {
+  const res = await axiosClient.get("/payments");
+  return res.data.payments;
+};
+
+export const createPayment = async (data) => {
+  const res = await axiosClient.post("/payments", data);
+  return res.data;
+};
+
+export const deletePayment = async (id) => {
+  const res = await axiosClient.delete(`/payments/${id}`);
+  return res.data;
+};

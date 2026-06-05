@@ -1,0 +1,21 @@
+import axiosClient from "../api/axiosClient";
+
+export const getSiteLogs = async () => {
+  const res = await axiosClient.get("/site-logs");
+  return res.data.siteLogs;
+};
+
+export const createSiteLog = async (data) => {
+  const res = await axiosClient.post("/site-logs", data);
+  return res.data;
+};
+
+export const uploadSitePhoto = async (formData) => {
+  const res = await axiosClient.post("/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return res.data;
+};
