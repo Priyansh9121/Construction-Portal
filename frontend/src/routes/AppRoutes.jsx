@@ -14,7 +14,7 @@ import ReportsPage from "../pages/ReportsPage";
 import SettingsPage from "../pages/SettingsPage";
 import TenderDetailsPage from "../pages/TenderDetailsPage";
 import SubcontractorsPage from "../pages/SubcontractorsPage";
-import SubcontractorsPage from "../pages/SubcontractorsPage";
+
 
 function AppRoutes(props) {
   return (
