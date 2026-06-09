@@ -6,12 +6,14 @@ function AppLayout({ children }) {
   const location = useLocation();
 
   const navItems = [
-    { label: "Home", path: "/dashboard" },
-    { label: "Pay", path: "/payments" },
+    { label: "Dashboard", path: "/dashboard" },
+    { label: "Payments", path: "/payments" },
     { label: "Workers", path: "/workers" },
     { label: "Sites", path: "/sites" },
     { label: "Tenders", path: "/tenders" },
-    { label: "More", path: "/reports" },
+    { label: "Invoices", path: "/invoices" },
+    { label: "Reports", path: "/reports" },
+    { label: "Settings", path: "/settings" },
   ];
 
   const isActive = (path) => {
@@ -28,20 +30,21 @@ function AppLayout({ children }) {
 
       <main className="main-content">
         <Topbar />
+
+        <nav className="mobile-page-nav">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={isActive(item.path) ? "mobile-page-active" : ""}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
         <div className="page-content">{children}</div>
       </main>
-
-      <nav className="mobile-bottom-nav">
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={isActive(item.path) ? "mobile-nav-active" : ""}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
     </div>
   );
 }
