@@ -395,3 +395,62 @@ th {
     color: white;
   }
 }
+
+
+/* TENDER DETAILS */
+
+.tender-details-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tender-header h2 {
+  margin: 0 0 10px;
+  font-size: 28px;
+}
+
+.tender-header p {
+  margin: 6px 0;
+  color: #6b7280;
+}
+
+.tender-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.tender-tabs button {
+  border: none;
+  background: #e5e7eb;
+  color: #111827;
+  padding: 11px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tender-tabs button.active-tab {
+  background: #0f172a;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .tender-header h2 {
+    font-size: 22px;
+  }
+
+  .tender-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 6px;
+  }
+
+  .tender-tabs button {
+    flex: 0 0 auto;
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+}
