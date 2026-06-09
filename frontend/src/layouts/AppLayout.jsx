@@ -6,8 +6,8 @@ function AppLayout({ children }) {
   const location = useLocation();
 
   const navItems = [
-    { label: "Dashboard", path: "/dashboard" },
-    { label: "Payments", path: "/payments" },
+    { label: "Home", path: "/dashboard" },
+    { label: "Pay", path: "/payments" },
     { label: "Workers", path: "/workers" },
     { label: "Sites", path: "/sites" },
     { label: "Tenders", path: "/tenders" },
