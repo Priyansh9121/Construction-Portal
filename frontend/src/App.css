@@ -307,3 +307,81 @@ th {
     grid-template-columns: 1fr;
   }
 }
+
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    display: block;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    width: 100%;
+    padding: 16px;
+    padding-bottom: 90px;
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .dashboard-grid,
+  .payment-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .panel,
+  .stat-card {
+    width: 100%;
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    background: #0f172a;
+    padding: 10px;
+    z-index: 9999;
+  }
+
+  .mobile-bottom-nav a {
+    color: #cbd5e1;
+    text-decoration: none;
+    text-align: center;
+    font-size: 12px;
+    padding: 10px 6px;
+    border-radius: 10px;
+  }
+
+  .mobile-bottom-nav a.mobile-nav-active {
+    background: #ffffff;
+    color: #0f172a;
+    font-weight: 700;
+  }
+}
