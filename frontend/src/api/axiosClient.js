@@ -1,9 +1,7 @@
 import axios from "axios";
 
 const axiosClient = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL ||
-    "http://127.0.0.1:5051/api",
+  baseURL: "https://construction-portal-backend-0j4g.onrender.com/api",
 });
 
 axiosClient.interceptors.request.use((config) => {
