@@ -11,8 +11,16 @@ function AppLayout({ children }) {
     { label: "Workers", path: "/workers" },
     { label: "Sites", path: "/sites" },
     { label: "Tenders", path: "/tenders" },
-    { label: "Invoices", path: "/invoices" },
+    { label: "More", path: "/reports" },
   ];
+
+  const isActive = (path) => {
+    if (path === "/tenders") {
+      return location.pathname.startsWith("/tenders");
+    }
+
+    return location.pathname === path;
+  };
 
   return (
     <div className="app-layout">
@@ -20,7 +28,7 @@ function AppLayout({ children }) {
 
       <main className="main-content">
         <Topbar />
-        {children}
+        <div className="page-content">{children}</div>
       </main>
 
       <nav className="mobile-bottom-nav">
@@ -28,9 +36,7 @@ function AppLayout({ children }) {
           <Link
             key={item.path}
             to={item.path}
-            className={
-              location.pathname === item.path ? "mobile-nav-active" : ""
-            }
+            className={isActive(item.path) ? "mobile-nav-active" : ""}
           >
             {item.label}
           </Link>
