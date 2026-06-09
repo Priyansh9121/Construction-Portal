@@ -1,49 +1,76 @@
-import { Link, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
+
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 
-function AppLayout({ children }) {
-  const location = useLocation();
-
-  const navItems = [
-    { label: "Dashboard", path: "/dashboard" },
-    { label: "Payments", path: "/payments" },
-    { label: "Workers", path: "/workers" },
-    { label: "Sites", path: "/sites" },
-    { label: "Tenders", path: "/tenders" },
-    { label: "Invoices", path: "/invoices" },
-    { label: "Reports", path: "/reports" },
-    { label: "Settings", path: "/settings" },
-  ];
-
-  const isActive = (path) => {
-    if (path === "/tenders") {
-      return location.pathname.startsWith("/tenders");
-    }
-
-    return location.pathname === path;
-  };
-
+function AppLayout({ children, activePage }) {
   return (
     <div className="app-layout">
       <Sidebar />
 
       <main className="main-content">
-        <Topbar />
+        <Topbar activePage={activePage} />
 
-        <nav className="mobile-page-nav">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={isActive(item.path) ? "mobile-page-active" : ""}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {/* MOBILE NAVIGATION */}
+        <div className="mobile-page-nav">
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Dashboard
+          </NavLink>
 
-        <div className="page-content">{children}</div>
+          <NavLink
+            to="/payments"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Payments
+          </NavLink>
+
+          <NavLink
+            to="/workers"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Workers
+          </NavLink>
+
+          <NavLink
+            to="/sites"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Sites
+          </NavLink>
+
+          <NavLink
+            to="/tenders"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Tenders
+          </NavLink>
+
+          <NavLink
+            to="/invoices"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Invoices
+          </NavLink>
+        </div>
+
+        <div className="page-content">
+          {children}
+        </div>
       </main>
     </div>
   );
