@@ -377,6 +377,13 @@ function TenderDetailsPage() {
                   setMaterialForm({ ...materialForm, rate: e.target.value })
                 }
               />
+              <p className="form-preview-total">
+                Total: $
+                {(
+                  Number(materialForm.quantity || 0) *
+                  Number(materialForm.rate || 0)
+                ).toFixed(2)}
+              </p>
 
               <input
                 placeholder="Notes"
