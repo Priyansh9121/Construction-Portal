@@ -14,6 +14,7 @@ import ReportsPage from "../pages/ReportsPage";
 import SettingsPage from "../pages/SettingsPage";
 import TenderDetailsPage from "../pages/TenderDetailsPage";
 import SubcontractorsPage from "../pages/SubcontractorsPage";
+import SubcontractorsPage from "../pages/SubcontractorsPage";
 
 function AppRoutes(props) {
   return (
@@ -54,6 +55,16 @@ function AppRoutes(props) {
           </AppLayout>
         }
       />
+
+      <Route
+        path="/subcontractors"
+        element={
+          <AppLayout>
+            <SubcontractorsPage />
+          </AppLayout>
+        }
+      />
+
       <Route
         path="/subcontractors"
         element={
