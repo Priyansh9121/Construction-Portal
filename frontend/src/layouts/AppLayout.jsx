@@ -41,6 +41,15 @@ function AppLayout({ children, activePage }) {
           </NavLink>
 
           <NavLink
+            to="/subcontractors"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Subs
+          </NavLink>
+
+          <NavLink
             to="/sites"
             className={({ isActive }) =>
               isActive ? "mobile-page-active" : ""
@@ -65,6 +74,24 @@ function AppLayout({ children, activePage }) {
             }
           >
             Invoices
+          </NavLink>
+
+          <NavLink
+            to="/reports"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Reports
+          </NavLink>
+
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Settings
           </NavLink>
         </div>
 

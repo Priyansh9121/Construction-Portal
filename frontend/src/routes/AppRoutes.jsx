@@ -13,6 +13,7 @@ import DailySiteUpdatesPage from "../pages/DailySiteUpdatesPage";
 import ReportsPage from "../pages/ReportsPage";
 import SettingsPage from "../pages/SettingsPage";
 import TenderDetailsPage from "../pages/TenderDetailsPage";
+import SubcontractorsPage from "../pages/SubcontractorsPage";
 
 function AppRoutes(props) {
   return (
@@ -50,6 +51,14 @@ function AppRoutes(props) {
               addWorker={props.addWorker}
               deleteWorker={props.deleteWorker}
             />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/subcontractors"
+        element={
+          <AppLayout>
+            <SubcontractorsPage />
           </AppLayout>
         }
       />

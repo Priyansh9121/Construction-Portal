@@ -1,31 +1,33 @@
 import { NavLink } from "react-router-dom";
 
 function Sidebar() {
-  const menuItems = [
+  const links = [
     { label: "Dashboard", path: "/dashboard" },
     { label: "Payments", path: "/payments" },
     { label: "Workers", path: "/workers" },
-    { label: "Worker Money", path: "/worker-money" },
+    { label: "Subcontractors", path: "/subcontractors" },
     { label: "Sites", path: "/sites" },
-    { label: "Daily Site Updates", path: "/daily-site-updates" },
     { label: "Tenders", path: "/tenders" },
     { label: "Invoices", path: "/invoices" },
+    { label: "Daily Updates", path: "/daily-site-updates" },
     { label: "Reports", path: "/reports" },
     { label: "Settings", path: "/settings" },
   ];
 
   return (
     <aside className="sidebar">
-      <h2>ConstructPro</h2>
+      <h2>Construction Portal</h2>
 
       <nav>
-        {menuItems.map((item) => (
+        {links.map((link) => (
           <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => (isActive ? "active" : "")}
+            key={link.path}
+            to={link.path}
+            className={({ isActive }) =>
+              isActive ? "active" : ""
+            }
           >
-            {item.label}
+            {link.label}
           </NavLink>
         ))}
       </nav>
