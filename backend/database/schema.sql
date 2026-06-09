@@ -1,4 +1,4 @@
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   full_name VARCHAR(100) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
@@ -7,21 +7,21 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE companies (
+CREATE TABLE IF NOT EXISTS companies (
   id SERIAL PRIMARY KEY,
   company_name VARCHAR(150) NOT NULL,
   owner_user_id INT REFERENCES users(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE company_users (
+CREATE TABLE IF NOT EXISTS company_users (
   id SERIAL PRIMARY KEY,
   company_id INT REFERENCES companies(id) ON DELETE CASCADE,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
   role VARCHAR(50) DEFAULT 'manager'
 );
 
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,
   company_id INT REFERENCES companies(id) ON DELETE CASCADE,
   payment_type VARCHAR(50),
@@ -33,7 +33,7 @@ CREATE TABLE payments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE workers (
+CREATE TABLE IF NOT EXISTS workers (
   id SERIAL PRIMARY KEY,
   company_id INT REFERENCES companies(id) ON DELETE CASCADE,
   full_name VARCHAR(100),
@@ -43,7 +43,7 @@ CREATE TABLE workers (
   status VARCHAR(50) DEFAULT 'active'
 );
 
-CREATE TABLE sites (
+CREATE TABLE IF NOT EXISTS sites (
   id SERIAL PRIMARY KEY,
   company_id INT REFERENCES companies(id) ON DELETE CASCADE,
   site_type VARCHAR(50),
@@ -52,7 +52,7 @@ CREATE TABLE sites (
   status VARCHAR(50) DEFAULT 'active'
 );
 
-CREATE TABLE tenders (
+CREATE TABLE IF NOT EXISTS tenders (
   id SERIAL PRIMARY KEY,
   company_id INT REFERENCES companies(id) ON DELETE CASCADE,
   site_id INT REFERENCES sites(id) ON DELETE CASCADE,
@@ -62,7 +62,7 @@ CREATE TABLE tenders (
   description TEXT
 );
 
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
   id SERIAL PRIMARY KEY,
   company_id INT REFERENCES companies(id) ON DELETE CASCADE,
   tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
@@ -72,7 +72,7 @@ CREATE TABLE invoices (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE daily_site_logs (
+CREATE TABLE IF NOT EXISTS daily_site_logs (
   id SERIAL PRIMARY KEY,
   site_id INT REFERENCES sites(id) ON DELETE CASCADE,
   worker_id INT REFERENCES workers(id) ON DELETE SET NULL,
@@ -82,7 +82,7 @@ CREATE TABLE daily_site_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE worker_allocations (
+CREATE TABLE IF NOT EXISTS worker_allocations (
   id SERIAL PRIMARY KEY,
   worker_id INT REFERENCES workers(id) ON DELETE CASCADE,
   allocated_amount DECIMAL(12,2),
@@ -91,7 +91,7 @@ CREATE TABLE worker_allocations (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE worker_expenses (
+CREATE TABLE IF NOT EXISTS worker_expenses (
   id SERIAL PRIMARY KEY,
   allocation_id INT REFERENCES worker_allocations(id) ON DELETE CASCADE,
   expense_amount DECIMAL(12,2),
@@ -102,45 +102,7 @@ CREATE TABLE worker_expenses (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tender_documents (
-  id SERIAL PRIMARY KEY,
-  tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
-  document_name VARCHAR(150),
-  document_type VARCHAR(50),
-  file_url TEXT,
-  uploaded_by INT REFERENCES users(id),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE tender_materials (
-  id SERIAL PRIMARY KEY,
-  tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
-  section_name VARCHAR(100),
-  material_name VARCHAR(100),
-  quantity DECIMAL(12,2),
-  unit VARCHAR(50),
-  rate DECIMAL(12,2),
-  total_amount DECIMAL(12,2),
-  notes TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE tender_banking (
-  id SERIAL PRIMARY KEY,
-  tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
-  payment_type VARCHAR(100),
-  bank_name VARCHAR(150),
-  account_name VARCHAR(150),
-  account_number VARCHAR(100),
-  amount DECIMAL(12,2),
-  gst_amount DECIMAL(12,2),
-  notes TEXT,
-  payment_date DATE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-
-CREATE TABLE subcontractors (
+CREATE TABLE IF NOT EXISTS subcontractors (
   id SERIAL PRIMARY KEY,
   company_id INT REFERENCES companies(id) ON DELETE CASCADE,
   full_name VARCHAR(150) NOT NULL,
@@ -156,7 +118,7 @@ CREATE TABLE subcontractors (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tender_subcontractors (
+CREATE TABLE IF NOT EXISTS tender_subcontractors (
   id SERIAL PRIMARY KEY,
   tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
   subcontractor_id INT REFERENCES subcontractors(id) ON DELETE CASCADE,
@@ -166,7 +128,7 @@ CREATE TABLE tender_subcontractors (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tender_documents (
+CREATE TABLE IF NOT EXISTS tender_documents (
   id SERIAL PRIMARY KEY,
   tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
   document_name VARCHAR(150),
@@ -176,7 +138,7 @@ CREATE TABLE tender_documents (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tender_materials (
+CREATE TABLE IF NOT EXISTS tender_materials (
   id SERIAL PRIMARY KEY,
   tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
   section_name VARCHAR(100),
@@ -189,7 +151,7 @@ CREATE TABLE tender_materials (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tender_banking (
+CREATE TABLE IF NOT EXISTS tender_banking (
   id SERIAL PRIMARY KEY,
   tender_id INT REFERENCES tenders(id) ON DELETE CASCADE,
   payment_type VARCHAR(100),
