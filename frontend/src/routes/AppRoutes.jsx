@@ -12,6 +12,7 @@ import InvoicesPage from "../pages/InvoicesPage";
 import DailySiteUpdatesPage from "../pages/DailySiteUpdatesPage";
 import ReportsPage from "../pages/ReportsPage";
 import SettingsPage from "../pages/SettingsPage";
+import TenderDetailsPage from "../pages/TenderDetailsPage";
 
 function AppRoutes(props) {
   return (
@@ -95,6 +96,15 @@ function AppRoutes(props) {
       />
 
       <Route
+        path="/tenders/:id"
+        element={
+          <AppLayout>
+            <TenderDetailsPage />
+          </AppLayout>
+        }
+      />
+
+      <Route
         path="/invoices"
         element={
           <AppLayout>
@@ -145,6 +155,8 @@ function AppRoutes(props) {
         }
       />
     </Routes>
+
+    
   );
 }
 
