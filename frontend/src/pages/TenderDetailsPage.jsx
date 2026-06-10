@@ -71,21 +71,25 @@ function TenderDetailsPage() {
   const fetchTenderDetails = async () => {
     try {
       setLoading(true);
-
+  
       const data = await getTenderDetails(id);
-
+  
       setTender(data.tender);
       setDocuments(data.documents || []);
       setMaterials(data.materials || []);
       setBanking(data.banking || []);
       setDailyUpdates(data.dailyUpdates || []);
       setSubcontractors(data.subcontractors || []);
-
-      const subData = await getSubcontractors();
-      setAllSubcontractors(subData.subcontractors || []);
+  
+      try {
+        const subData = await getSubcontractors();
+        setAllSubcontractors(subData.subcontractors || []);
+      } catch (subError) {
+        console.error("Subcontractors fetch error:", subError);
+        setAllSubcontractors([]);
+      }
     } catch (error) {
       console.error("Tender details fetch error:", error);
-      alert("Failed to load tender details");
     } finally {
       setLoading(false);
     }
