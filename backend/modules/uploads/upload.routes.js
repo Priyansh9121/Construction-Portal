@@ -1,45 +1,67 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
+const { createClient } = require("@supabase/supabase-js");
 
 const router = express.Router();
 
-const uploadDir = path.join(__dirname, "../../uploads");
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-
-  filename: (req, file, cb) => {
-    const uniqueName =
-      Date.now() + "-" + Math.round(Math.random() * 1e9);
-
-    cb(null, uniqueName + path.extname(file.originalname));
-  },
+const upload = multer({
+  storage: multer.memoryStorage(),
 });
 
-const upload = multer({ storage });
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-router.post("/", upload.single("photo"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({
+router.post("/", upload.single("photo"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    const bucket = process.env.SUPABASE_BUCKET || "construction-files";
+
+    const fileExt = path.extname(req.file.originalname);
+    const fileName = `${Date.now()}-${Math.round(
+      Math.random() * 1e9
+    )}${fileExt}`;
+
+    const filePath = `tender-documents/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    const { data } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    res.status(200).json({
+      success: true,
+      fileUrl: data.publicUrl,
+    });
+  } catch (error) {
+    console.error("Supabase upload error:", error);
+
+    res.status(500).json({
       success: false,
-      message: "No file uploaded",
+      message: "File upload failed",
     });
   }
-
-  const baseUrl = process.env.BASE_URL || "http://127.0.0.1:5051";
-
-  res.status(200).json({
-    success: true,
-    fileUrl: `${baseUrl}/uploads/${req.file.filename}`,
-  });
 });
 
 module.exports = router;
