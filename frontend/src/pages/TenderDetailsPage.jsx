@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+
 import {
   getTenderDetails,
   addTenderMaterial,
@@ -9,7 +10,11 @@ import {
   addTenderDocument,
   deleteTenderDocument,
   uploadFile,
+  assignTenderSubcontractor,
+  removeTenderSubcontractor,
 } from "../services/tenderDetailsService";
+
+import { getSubcontractors } from "../services/subcontractorService";
 
 function TenderDetailsPage() {
   const { id } = useParams();
@@ -23,6 +28,15 @@ function TenderDetailsPage() {
   const [banking, setBanking] = useState([]);
   const [dailyUpdates, setDailyUpdates] = useState([]);
   const [subcontractors, setSubcontractors] = useState([]);
+
+  const [allSubcontractors, setAllSubcontractors] = useState([]);
+
+  const [subcontractorForm, setSubcontractorForm] = useState({
+    subcontractor_id: "",
+    work_description: "",
+    assigned_amount: "",
+    status: "active",
+  });
 
   const [documentForm, setDocumentForm] = useState({
     document_name: "",
@@ -55,16 +69,28 @@ function TenderDetailsPage() {
   const fetchTenderDetails = async () => {
     try {
       setLoading(true);
+  
       const data = await getTenderDetails(id);
-
+  
       setTender(data.tender);
       setDocuments(data.documents || []);
       setMaterials(data.materials || []);
       setBanking(data.banking || []);
       setDailyUpdates(data.dailyUpdates || []);
       setSubcontractors(data.subcontractors || []);
+  
+      const subData = await getSubcontractors();
+  
+      setAllSubcontractors(
+        subData.subcontractors || []
+      );
+  
     } catch (error) {
-      console.error("Tender details fetch error:", error);
+      console.error(
+        "Tender details fetch error:",
+        error
+      );
+  
       alert("Failed to load tender details");
     } finally {
       setLoading(false);
@@ -154,6 +180,27 @@ function TenderDetailsPage() {
     (sum, item) => sum + Number(item.amount || 0),
     0
   );
+
+  const handleAssignSubcontractor = async (e) => {
+    e.preventDefault();
+  
+    await assignTenderSubcontractor({
+      tender_id: id,
+      subcontractor_id: Number(subcontractorForm.subcontractor_id),
+      work_description: subcontractorForm.work_description,
+      assigned_amount: Number(subcontractorForm.assigned_amount || 0),
+      status: subcontractorForm.status,
+    });
+  
+    setSubcontractorForm({
+      subcontractor_id: "",
+      work_description: "",
+      assigned_amount: "",
+      status: "active",
+    });
+  
+    fetchTenderDetails();
+  };
 
   const tabs = [
     { key: "overview", label: "Overview" },
@@ -619,42 +666,120 @@ function TenderDetailsPage() {
           </table>
         </div>
       )}
-
       {activeTab === "subcontractors" && (
-        <div className="panel">
-          <h2>Subcontractors</h2>
+        <div className="payment-grid">
+          <div className="panel">
+            <h2>Assign Subcontractor</h2>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Business</th>
-                <th>Phone</th>
-                <th>Work</th>
-                <th>Assigned Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
+            <form className="payment-form" onSubmit={handleAssignSubcontractor}>
+              <select
+                value={subcontractorForm.subcontractor_id}
+                onChange={(e) =>
+                  setSubcontractorForm({
+                    ...subcontractorForm,
+                    subcontractor_id: e.target.value,
+                  })
+                }
+                required
+              >
+                <option value="">Select Subcontractor</option>
 
-            <tbody>
-              {subcontractors.map((sub) => (
-                <tr key={sub.id}>
-                  <td>{sub.full_name}</td>
-                  <td>{sub.business_name}</td>
-                  <td>{sub.phone}</td>
-                  <td>{sub.work_description}</td>
-                  <td>{sub.assigned_amount}</td>
-                  <td>{sub.status}</td>
-                </tr>
-              ))}
+                {allSubcontractors.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.full_name}
+                    {sub.business_name ? ` - ${sub.business_name}` : ""}
+                  </option>
+                ))}
+              </select>
 
-              {subcontractors.length === 0 && (
+              <input
+                placeholder="Work description"
+                value={subcontractorForm.work_description}
+                onChange={(e) =>
+                  setSubcontractorForm({
+                    ...subcontractorForm,
+                    work_description: e.target.value,
+                  })
+                }
+              />
+
+              <input
+                type="number"
+                placeholder="Assigned amount"
+                value={subcontractorForm.assigned_amount}
+                onChange={(e) =>
+                  setSubcontractorForm({
+                    ...subcontractorForm,
+                    assigned_amount: e.target.value,
+                  })
+                }
+              />
+
+              <select
+                value={subcontractorForm.status}
+                onChange={(e) =>
+                  setSubcontractorForm({
+                    ...subcontractorForm,
+                    status: e.target.value,
+                  })
+                }
+              >
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="paused">Paused</option>
+              </select>
+
+              <button type="submit">Assign to Tender</button>
+            </form>
+          </div>
+
+          <div className="panel">
+            <h2>Assigned Subcontractors</h2>
+
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan="6">No subcontractors assigned yet.</td>
+                  <th>Name</th>
+                  <th>Business</th>
+                  <th>Phone</th>
+                  <th>Work</th>
+                  <th>Assigned Amount</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {subcontractors.map((sub) => (
+                  <tr key={sub.id}>
+                    <td>{sub.full_name}</td>
+                    <td>{sub.business_name}</td>
+                    <td>{sub.phone}</td>
+                    <td>{sub.work_description}</td>
+                    <td>{sub.assigned_amount}</td>
+                    <td>{sub.status}</td>
+                    <td>
+                      <button
+                        className="delete-btn"
+                        onClick={async () => {
+                          await removeTenderSubcontractor(sub.id);
+                          fetchTenderDetails();
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {subcontractors.length === 0 && (
+                  <tr>
+                    <td colSpan="7">No subcontractors assigned yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>
