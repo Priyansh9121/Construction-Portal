@@ -164,3 +164,5 @@ CREATE TABLE IF NOT EXISTS tender_banking (
   payment_date DATE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+  

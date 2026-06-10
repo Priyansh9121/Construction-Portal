@@ -4,7 +4,7 @@ const asyncHandler = require("../../utils/asyncHandler");
 exports.getPayments = asyncHandler(async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM payments ORDER BY created_at DESC"
+      "SELECT * FROM payments WHERE is_deleted = FALSE ORDER BY created_at DESC"
     );
 
     res.status(200).json({
@@ -65,9 +65,16 @@ exports.deletePayment = async (req, res) => {
     try {
       const { id } = req.params;
   
+      const deletedBy = req.user?.id || null;
+
       const result = await pool.query(
-        "DELETE FROM payments WHERE id = $1 RETURNING *",
-        [id]
+        `UPDATE payments
+         SET is_deleted = TRUE,
+             deleted_at = NOW(),
+             deleted_by = $2
+         WHERE id = $1
+         RETURNING *`,
+        [id, deletedBy]
       );
   
       if (result.rows.length === 0) {
