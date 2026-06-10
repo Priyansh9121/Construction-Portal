@@ -27,29 +27,35 @@ exports.getTenderDetails = async (req, res) => {
     }
 
     const documents = await pool.query(
-      `SELECT *
-       FROM tender_documents
-       WHERE tender_id = $1
-       AND is_deleted = FALSE
-       ORDER BY id DESC`,
+      `
+      SELECT *
+      FROM tender_documents
+      WHERE tender_id = $1
+      AND is_deleted = FALSE
+      ORDER BY id DESC
+      `,
       [id]
     );
 
     const materials = await pool.query(
-      `SELECT *
-       FROM tender_materials
-       WHERE tender_id = $1
-       AND is_deleted = FALSE
-       ORDER BY id DESC`,
+      `
+      SELECT *
+      FROM tender_materials
+      WHERE tender_id = $1
+      AND is_deleted = FALSE
+      ORDER BY id DESC
+      `,
       [id]
     );
 
     const banking = await pool.query(
-      `SELECT *
-       FROM tender_banking
-       WHERE tender_id = $1
-       AND is_deleted = FALSE
-       ORDER BY id DESC`,
+      `
+      SELECT *
+      FROM tender_banking
+      WHERE tender_id = $1
+      AND is_deleted = FALSE
+      ORDER BY id DESC
+      `,
       [id]
     );
 
@@ -119,17 +125,24 @@ exports.addDocument = async (req, res) => {
       document_name,
       document_type,
       file_url,
-      uploaded_by,
     } = req.body;
+
+    const uploadedBy = req.user?.id || null;
 
     const result = await pool.query(
       `
       INSERT INTO tender_documents
-      (tender_id, document_name, document_type, file_url, uploaded_by)
-      VALUES ($1, $2, $3, $4, $5)
+      (tender_id, document_name, document_type, file_url, uploaded_by, is_deleted)
+      VALUES ($1, $2, $3, $4, $5, FALSE)
       RETURNING *
       `,
-      [tender_id, document_name, document_type, file_url, uploaded_by]
+      [
+        tender_id,
+        document_name,
+        document_type,
+        file_url || null,
+        uploadedBy,
+      ]
     );
 
     res.status(201).json({
@@ -138,7 +151,11 @@ exports.addDocument = async (req, res) => {
     });
   } catch (error) {
     console.error("Add document error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
+    });
   }
 };
 
@@ -148,12 +165,14 @@ exports.deleteDocument = async (req, res) => {
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
-      `UPDATE tender_documents
-       SET is_deleted = TRUE,
-           deleted_at = NOW(),
-           deleted_by = $2
-       WHERE id = $1
-       RETURNING *`,
+      `
+      UPDATE tender_documents
+      SET is_deleted = TRUE,
+          deleted_at = NOW(),
+          deleted_by = $2
+      WHERE id = $1
+      RETURNING *
+      `,
       [documentId, deletedBy]
     );
 
@@ -223,12 +242,14 @@ exports.deleteMaterial = async (req, res) => {
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
-      `UPDATE tender_materials
-       SET is_deleted = TRUE,
-           deleted_at = NOW(),
-           deleted_by = $2
-       WHERE id = $1
-       RETURNING *`,
+      `
+      UPDATE tender_materials
+      SET is_deleted = TRUE,
+          deleted_at = NOW(),
+          deleted_by = $2
+      WHERE id = $1
+      RETURNING *
+      `,
       [materialId, deletedBy]
     );
 
@@ -299,12 +320,14 @@ exports.deleteBanking = async (req, res) => {
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
-      `UPDATE tender_banking
-       SET is_deleted = TRUE,
-           deleted_at = NOW(),
-           deleted_by = $2
-       WHERE id = $1
-       RETURNING *`,
+      `
+      UPDATE tender_banking
+      SET is_deleted = TRUE,
+          deleted_at = NOW(),
+          deleted_by = $2
+      WHERE id = $1
+      RETURNING *
+      `,
       [bankingId, deletedBy]
     );
 
@@ -338,8 +361,8 @@ exports.assignSubcontractor = async (req, res) => {
     const result = await pool.query(
       `
       INSERT INTO tender_subcontractors
-      (tender_id, subcontractor_id, work_description, assigned_amount, status)
-      VALUES ($1, $2, $3, $4, $5)
+      (tender_id, subcontractor_id, work_description, assigned_amount, status, is_deleted)
+      VALUES ($1, $2, $3, $4, $5, FALSE)
       RETURNING *
       `,
       [
@@ -367,12 +390,14 @@ exports.removeSubcontractor = async (req, res) => {
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
-      `UPDATE tender_subcontractors
-       SET is_deleted = TRUE,
-           deleted_at = NOW(),
-           deleted_by = $2
-       WHERE id = $1
-       RETURNING *`,
+      `
+      UPDATE tender_subcontractors
+      SET is_deleted = TRUE,
+          deleted_at = NOW(),
+          deleted_by = $2
+      WHERE id = $1
+      RETURNING *
+      `,
       [tenderSubcontractorId, deletedBy]
     );
 

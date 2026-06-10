@@ -97,28 +97,27 @@ function TenderDetailsPage() {
 
   const handleAddDocument = async (e) => {
     e.preventDefault();
-
+  
     let uploadedUrl = documentForm.file_url;
-
+  
     if (selectedFile) {
       const uploadResult = await uploadFile(selectedFile);
       uploadedUrl = uploadResult.fileUrl;
     }
-
+  
     await addTenderDocument({
       tender_id: id,
       document_name: documentForm.document_name,
       document_type: documentForm.document_type,
-      file_url: uploadedUrl,
-      uploaded_by: 1,
+      file_url: uploadedUrl || null,
     });
-
+  
     setDocumentForm({
       document_name: "",
       document_type: "PDF",
       file_url: "",
     });
-
+  
     setSelectedFile(null);
     fetchTenderDetails();
   };
