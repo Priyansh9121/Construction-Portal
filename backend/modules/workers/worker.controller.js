@@ -1,9 +1,12 @@
-const pool = require("../../database/pool")
+const pool = require("../../database/pool");
 
 exports.getWorkers = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM workers ORDER BY id DESC"
+      `SELECT *
+       FROM workers
+       WHERE is_deleted = FALSE
+       ORDER BY id DESC`
     );
 
     res.status(200).json({
@@ -12,6 +15,7 @@ exports.getWorkers = async (req, res) => {
     });
   } catch (error) {
     console.error("Get workers error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -21,10 +25,17 @@ exports.getWorkers = async (req, res) => {
 
 exports.createWorker = async (req, res) => {
   try {
-    const { company_id, full_name, phone, salary, role, status } = req.body;
+    const {
+      company_id = null,
+      full_name,
+      phone,
+      salary,
+      role,
+      status,
+    } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO workers 
+      `INSERT INTO workers
        (company_id, full_name, phone, salary, role, status)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
@@ -37,6 +48,7 @@ exports.createWorker = async (req, res) => {
     });
   } catch (error) {
     console.error("Create worker error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -48,9 +60,16 @@ exports.deleteWorker = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const deletedBy = req.user?.id || null;
+
     const result = await pool.query(
-      "DELETE FROM workers WHERE id = $1 RETURNING *",
-      [id]
+      `UPDATE workers
+       SET is_deleted = TRUE,
+           deleted_at = NOW(),
+           deleted_by = $2
+       WHERE id = $1
+       RETURNING *`,
+      [id, deletedBy]
     );
 
     if (result.rows.length === 0) {
@@ -66,6 +85,7 @@ exports.deleteWorker = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete worker error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",
