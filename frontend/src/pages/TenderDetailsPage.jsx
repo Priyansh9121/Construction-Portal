@@ -180,6 +180,18 @@ function TenderDetailsPage() {
     (sum, item) => sum + Number(item.amount || 0),
     0
   );
+  const gstTotal = banking.reduce(
+    (sum, item) => sum + Number(item.gst_amount || 0),
+    0
+  );
+  
+  const loanedTotal = banking
+    .filter((item) => item.payment_type === "loaned_amount")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  
+  const returnedTotal = banking
+    .filter((item) => item.payment_type === "company_returned")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const handleAssignSubcontractor = async (e) => {
     e.preventDefault();
@@ -497,132 +509,189 @@ function TenderDetailsPage() {
       )}
 
       {activeTab === "banking" && (
-        <div className="payment-grid">
-          <div className="panel">
-            <h2>Add Banking Entry</h2>
+        <>
+          <div className="summary-cards">
+            <div className="card">
+              <p>Total Banking</p>
+              <h2>${bankingTotal.toFixed(2)}</h2>
+            </div>
 
-            <form className="payment-form" onSubmit={handleAddBanking}>
-              <input
-                placeholder="Payment type"
-                value={bankingForm.payment_type}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, payment_type: e.target.value })
-                }
-                required
-              />
+            <div className="card">
+              <p>GST Total</p>
+              <h2>${gstTotal.toFixed(2)}</h2>
+            </div>
 
-              <input
-                placeholder="Bank name"
-                value={bankingForm.bank_name}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, bank_name: e.target.value })
-                }
-              />
+            <div className="card">
+              <p>Loaned Amount</p>
+              <h2>${loanedTotal.toFixed(2)}</h2>
+            </div>
 
-              <input
-                placeholder="Account name"
-                value={bankingForm.account_name}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, account_name: e.target.value })
-                }
-              />
-
-              <input
-                placeholder="Account number"
-                value={bankingForm.account_number}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, account_number: e.target.value })
-                }
-              />
-
-              <input
-                placeholder="Amount"
-                type="number"
-                value={bankingForm.amount}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, amount: e.target.value })
-                }
-              />
-
-              <input
-                placeholder="GST Amount"
-                type="number"
-                value={bankingForm.gst_amount}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, gst_amount: e.target.value })
-                }
-              />
-
-              <input
-                type="date"
-                value={bankingForm.payment_date}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, payment_date: e.target.value })
-                }
-              />
-
-              <input
-                placeholder="Notes"
-                value={bankingForm.notes}
-                onChange={(e) =>
-                  setBankingForm({ ...bankingForm, notes: e.target.value })
-                }
-              />
-
-              <button type="submit">Add Banking Entry</button>
-            </form>
+            <div className="card">
+              <p>Returned by Company</p>
+              <h2>${returnedTotal.toFixed(2)}</h2>
+            </div>
           </div>
 
-          <div className="panel">
-            <h2>Banking / Payments</h2>
+          <div className="payment-grid">
+            <div className="panel">
+              <h2>Add Banking Entry</h2>
 
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Bank</th>
-                  <th>Account</th>
-                  <th>Amount</th>
-                  <th>GST</th>
-                  <th>Date</th>
-                  <th>Notes</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
+              <form className="payment-form" onSubmit={handleAddBanking}>
+                <select
+                  value={bankingForm.payment_type}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      payment_type: e.target.value,
+                    })
+                  }
+                  required
+                >
+                  <option value="">Select Payment Type</option>
+                  <option value="government_payment">Government Payment</option>
+                  <option value="company_returned">Returned by Company</option>
+                  <option value="loaned_amount">Loaned Amount</option>
+                  <option value="third_party_payment">Third Party Payment</option>
+                  <option value="gst_payment">GST Payment</option>
+                  <option value="subcontractor_payment">Subcontractor Payment</option>
+                  <option value="material_payment">Material Payment</option>
+                  <option value="other">Other</option>
+                </select>
 
-              <tbody>
-                {banking.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.payment_type}</td>
-                    <td>{item.bank_name}</td>
-                    <td>{item.account_name}</td>
-                    <td>{item.amount}</td>
-                    <td>{item.gst_amount}</td>
-                    <td>{item.payment_date}</td>
-                    <td>{item.notes}</td>
-                    <td>
-                      <button
-                        className="delete-btn"
-                        onClick={async () => {
-                          await deleteTenderBanking(item.id);
-                          fetchTenderDetails();
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                <input
+                  placeholder="Bank name"
+                  value={bankingForm.bank_name}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      bank_name: e.target.value,
+                    })
+                  }
+                />
 
-                {banking.length === 0 && (
+                <input
+                  placeholder="Account name"
+                  value={bankingForm.account_name}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      account_name: e.target.value,
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="Account number"
+                  value={bankingForm.account_number}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      account_number: e.target.value,
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="Amount"
+                  type="number"
+                  value={bankingForm.amount}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      amount: e.target.value,
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="GST Amount"
+                  type="number"
+                  value={bankingForm.gst_amount}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      gst_amount: e.target.value,
+                    })
+                  }
+                />
+
+                <input
+                  type="date"
+                  value={bankingForm.payment_date}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      payment_date: e.target.value,
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="Notes"
+                  value={bankingForm.notes}
+                  onChange={(e) =>
+                    setBankingForm({
+                      ...bankingForm,
+                      notes: e.target.value,
+                    })
+                  }
+                />
+
+                <button type="submit">Add Banking Entry</button>
+              </form>
+            </div>
+
+            <div className="panel">
+              <h2>Banking / Payments</h2>
+
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan="8">No banking entries added yet.</td>
+                    <th>Type</th>
+                    <th>Bank</th>
+                    <th>Account</th>
+                    <th>Amount</th>
+                    <th>GST</th>
+                    <th>Date</th>
+                    <th>Notes</th>
+                    <th>Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {banking.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.payment_type}</td>
+                      <td>{item.bank_name}</td>
+                      <td>{item.account_name}</td>
+                      <td>{item.amount}</td>
+                      <td>{item.gst_amount}</td>
+                      <td>{item.payment_date}</td>
+                      <td>{item.notes}</td>
+                      <td>
+                        <button
+                          className="delete-btn"
+                          onClick={async () => {
+                            await deleteTenderBanking(item.id);
+                            fetchTenderDetails();
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {banking.length === 0 && (
+                    <tr>
+                      <td colSpan="8">No banking entries added yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {activeTab === "daily" && (
