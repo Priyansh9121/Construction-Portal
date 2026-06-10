@@ -3,7 +3,7 @@ const pool = require("../../database/pool")
 exports.getInvoices = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM invoices ORDER BY id DESC"
+      "SELECT * FROM invoices WHERE is_deleted = FALSE ORDER BY id DESC"
     );
 
     res.status(200).json({
@@ -62,9 +62,16 @@ exports.deleteInvoice = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const deletedBy = req.user?.id || null;
+
     const result = await pool.query(
-      "DELETE FROM invoices WHERE id = $1 RETURNING *",
-      [id]
+      `UPDATE invoices
+       SET is_deleted = TRUE,
+           deleted_at = NOW(),
+           deleted_by = $2
+       WHERE id = $1
+       RETURNING *`,
+      [id, deletedBy]
     );
 
     if (result.rows.length === 0) {
