@@ -1,8 +1,13 @@
-const pool = require("../../database/pool")
+const pool = require("../../database/pool");
 
 exports.getTenders = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM tenders ORDER BY id DESC");
+    const result = await pool.query(
+      `SELECT *
+       FROM tenders
+       WHERE is_deleted = FALSE
+       ORDER BY id DESC`
+    );
 
     res.status(200).json({
       success: true,
@@ -10,6 +15,7 @@ exports.getTenders = async (req, res) => {
     });
   } catch (error) {
     console.error("Get tenders error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -19,15 +25,28 @@ exports.getTenders = async (req, res) => {
 
 exports.createTender = async (req, res) => {
   try {
-    const { company_id, site_id, title, status, due_date, description } =
-      req.body;
+    const {
+      company_id = null,
+      site_id = null,
+      title,
+      status,
+      due_date,
+      description,
+    } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO tenders 
+      `INSERT INTO tenders
        (company_id, site_id, title, status, due_date, description)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [company_id, site_id, title, status, due_date, description]
+      [
+        company_id,
+        site_id,
+        title,
+        status,
+        due_date,
+        description,
+      ]
     );
 
     res.status(201).json({
@@ -36,6 +55,7 @@ exports.createTender = async (req, res) => {
     });
   } catch (error) {
     console.error("Create tender error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -47,9 +67,16 @@ exports.deleteTender = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const deletedBy = req.user?.id || null;
+
     const result = await pool.query(
-      "DELETE FROM tenders WHERE id = $1 RETURNING *",
-      [id]
+      `UPDATE tenders
+       SET is_deleted = TRUE,
+           deleted_at = NOW(),
+           deleted_by = $2
+       WHERE id = $1
+       RETURNING *`,
+      [id, deletedBy]
     );
 
     if (result.rows.length === 0) {
@@ -65,6 +92,7 @@ exports.deleteTender = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete tender error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",
