@@ -62,7 +62,7 @@ function AppRoutes(props) {
         path="/dashboard"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <DashboardPage
                 payments={props.payments}
                 workers={props.workers}
@@ -80,7 +80,7 @@ function AppRoutes(props) {
         path="/payments"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <PaymentsPage
                 payments={props.payments}
                 addPayment={props.addPayment}
@@ -95,7 +95,7 @@ function AppRoutes(props) {
         path="/workers"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <WorkersPage
                 workers={props.workers}
                 addWorker={props.addWorker}
@@ -110,7 +110,7 @@ function AppRoutes(props) {
         path="/subcontractors"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <SubcontractorsPage />
             </AppLayout>
           </ProtectedRoute>
@@ -121,7 +121,7 @@ function AppRoutes(props) {
         path="/worker-money"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <WorkerMoneyPage
                 workers={props.workers}
                 allocations={props.allocations}
@@ -138,7 +138,7 @@ function AppRoutes(props) {
         path="/sites"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <SitesPage
                 sites={props.sites}
                 addSite={props.addSite}
@@ -153,7 +153,7 @@ function AppRoutes(props) {
         path="/sites/:id"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <SiteDetailsPage />
             </AppLayout>
           </ProtectedRoute>
@@ -164,7 +164,7 @@ function AppRoutes(props) {
         path="/tenders"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <TendersPage
                 tenders={props.tenders}
                 sites={props.sites}
@@ -180,7 +180,7 @@ function AppRoutes(props) {
         path="/tenders/:id"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <TenderDetailsPage />
             </AppLayout>
           </ProtectedRoute>
@@ -191,7 +191,7 @@ function AppRoutes(props) {
         path="/invoices"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <InvoicesPage
                 invoices={props.invoices}
                 addInvoice={props.addInvoice}
@@ -206,7 +206,7 @@ function AppRoutes(props) {
         path="/daily-site-updates"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <DailySiteUpdatesPage
                 sites={props.sites}
                 workers={props.workers}
@@ -222,7 +222,7 @@ function AppRoutes(props) {
         path="/reports"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <ReportsPage
                 payments={props.payments}
                 workers={props.workers}
@@ -239,9 +239,13 @@ function AppRoutes(props) {
         path="/users"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
-              <UsersPage />
-            </AppLayout>
+            {props.user?.role === "admin" ? (
+              <AppLayout user={props.user}>
+                <UsersPage />
+              </AppLayout>
+            ) : (
+              <Navigate to="/dashboard" />
+            )}
           </ProtectedRoute>
         }
       />
@@ -250,7 +254,7 @@ function AppRoutes(props) {
         path="/settings"
         element={
           <ProtectedRoute user={props.user}>
-            <AppLayout>
+            <AppLayout user={props.user}>
               <SettingsPage />
             </AppLayout>
           </ProtectedRoute>

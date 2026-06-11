@@ -1,12 +1,16 @@
 import { NavLink } from "react-router-dom";
 
-function Sidebar() {
+function Sidebar({ user }) {
   const links = [
     { label: "Dashboard", path: "/dashboard" },
     { label: "Payments", path: "/payments" },
     { label: "Workers", path: "/workers" },
     { label: "Subcontractors", path: "/subcontractors" },
-    { label: "Users", path: "/users" },
+
+    ...(user?.role === "admin"
+      ? [{ label: "Users", path: "/users" }]
+      : []),
+
     { label: "Sites", path: "/sites" },
     { label: "Tenders", path: "/tenders" },
     { label: "Invoices", path: "/invoices" },

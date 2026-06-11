@@ -3,10 +3,10 @@ import { NavLink } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 
-function AppLayout({ children, activePage }) {
+function AppLayout({ children, activePage, user }) {
   return (
     <div className="app-layout">
-      <Sidebar />
+      <Sidebar user={user} />
 
       <main className="main-content">
         <Topbar activePage={activePage} />
@@ -85,15 +85,17 @@ function AppLayout({ children, activePage }) {
             Reports
           </NavLink>
 
-          <NavLink
-            to="/users"
-            className={({ isActive }) =>
-              isActive ? "mobile-page-active" : ""
-            }
-          >
-            Users
-          </NavLink>
-          
+          {user?.role === "admin" && (
+            <NavLink
+              to="/users"
+              className={({ isActive }) =>
+                isActive ? "mobile-page-active" : ""
+              }
+            >
+              Users
+            </NavLink>
+          )}
+
           <NavLink
             to="/settings"
             className={({ isActive }) =>
