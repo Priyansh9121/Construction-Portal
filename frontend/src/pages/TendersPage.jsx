@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateTender } from "../services/tenderService";
 
-function TendersPage({ tenders, addTender, deleteTender }) {
+function TendersPage({ tenders, sites, addTender, deleteTender }) {
   const navigate = useNavigate();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -19,15 +19,22 @@ function TendersPage({ tenders, addTender, deleteTender }) {
     site_id: "",
   });
 
+  const getSiteName = (siteId) => {
+    const site = sites?.find((s) => Number(s.id) === Number(siteId));
+    return site ? site.site_name : "N/A";
+  };
+
   const filteredTenders = tenders.filter((tender) => {
     const search = searchTerm.toLowerCase();
     const matchesTab = tender.status === activeTab;
+    const siteName = getSiteName(tender.site_id).toLowerCase();
 
     const matchesSearch =
       tender.title?.toLowerCase().includes(search) ||
       tender.status?.toLowerCase().includes(search) ||
       tender.description?.toLowerCase().includes(search) ||
-      tender.due_date?.toLowerCase().includes(search);
+      tender.due_date?.toLowerCase().includes(search) ||
+      siteName.includes(search);
 
     return matchesTab && matchesSearch;
   });
@@ -77,7 +84,7 @@ function TendersPage({ tenders, addTender, deleteTender }) {
 
     await updateTender(editingTender.id, {
       ...editForm,
-      site_id: editForm.site_id || null,
+      site_id: editForm.site_id ? Number(editForm.site_id) : null,
     });
 
     window.location.reload();
@@ -91,6 +98,19 @@ function TendersPage({ tenders, addTender, deleteTender }) {
 
           {editingTender ? (
             <form className="payment-form" onSubmit={handleUpdateTender}>
+              <select
+                name="site_id"
+                value={editForm.site_id}
+                onChange={handleEditChange}
+              >
+                <option value="">Select Site</option>
+                {sites?.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.site_name} - {site.site_type}
+                  </option>
+                ))}
+              </select>
+
               <input
                 name="title"
                 placeholder="Tender Title"
@@ -133,6 +153,15 @@ function TendersPage({ tenders, addTender, deleteTender }) {
             </form>
           ) : (
             <form className="payment-form" onSubmit={addTender}>
+              <select name="site_id" defaultValue="">
+                <option value="">Select Site</option>
+                {sites?.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.site_name} - {site.site_type}
+                  </option>
+                ))}
+              </select>
+
               <input name="title" placeholder="Tender Title" required />
 
               <select name="status" defaultValue="running" required>
@@ -143,7 +172,10 @@ function TendersPage({ tenders, addTender, deleteTender }) {
 
               <input name="due_date" type="date" required />
 
-              <textarea name="description" placeholder="Tender Description"></textarea>
+              <textarea
+                name="description"
+                placeholder="Tender Description"
+              ></textarea>
 
               <button type="submit">Add Tender</button>
             </form>
@@ -182,7 +214,7 @@ function TendersPage({ tenders, addTender, deleteTender }) {
           <input
             className="search-input"
             type="text"
-            placeholder="Search tenders by title, status, due date or description..."
+            placeholder="Search tenders by title, site, status, due date or description..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -191,6 +223,7 @@ function TendersPage({ tenders, addTender, deleteTender }) {
             <thead>
               <tr>
                 <th>Title</th>
+                <th>Site</th>
                 <th>Status</th>
                 <th>Due Date</th>
                 <th>Description</th>
@@ -202,6 +235,8 @@ function TendersPage({ tenders, addTender, deleteTender }) {
               {filteredTenders.map((tender) => (
                 <tr key={tender.id}>
                   <td>{tender.title}</td>
+
+                  <td>{getSiteName(tender.site_id)}</td>
 
                   <td>{tender.status}</td>
 
@@ -250,7 +285,7 @@ function TendersPage({ tenders, addTender, deleteTender }) {
 
               {filteredTenders.length === 0 && (
                 <tr>
-                  <td colSpan="5">No tenders found.</td>
+                  <td colSpan="6">No tenders found.</td>
                 </tr>
               )}
             </tbody>

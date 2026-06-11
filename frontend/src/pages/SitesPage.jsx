@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateSite } from "../services/siteService";
 
 function SitesPage({ sites, addSite, deleteSite }) {
+  const navigate = useNavigate();
+
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingSite, setEditingSite] = useState(null);
   const [activeTab, setActiveTab] = useState("Personal Site");
@@ -17,13 +20,14 @@ function SitesPage({ sites, addSite, deleteSite }) {
 
   const filteredSites = sites.filter((site) => {
     const matchesTab = site.site_type === activeTab;
-  
+    const search = searchTerm.toLowerCase();
+
     const matchesSearch =
-      site.site_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      site.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      site.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      site.site_type?.toLowerCase().includes(searchTerm.toLowerCase());
-  
+      site.site_name?.toLowerCase().includes(search) ||
+      site.address?.toLowerCase().includes(search) ||
+      site.status?.toLowerCase().includes(search) ||
+      site.site_type?.toLowerCase().includes(search);
+
     return matchesTab && matchesSearch;
   });
 
@@ -89,9 +93,7 @@ function SitesPage({ sites, addSite, deleteSite }) {
               >
                 <option value="">Select Site Type</option>
                 <option value="Personal Site">Personal Site</option>
-                <option value="Subcontractor Site">
-                  Subcontractor Site
-                </option>
+                <option value="Subcontractor Site">Subcontractor Site</option>
               </select>
 
               <input
@@ -132,9 +134,7 @@ function SitesPage({ sites, addSite, deleteSite }) {
               <select name="site_type" defaultValue={activeTab} required>
                 <option value="">Select Site Type</option>
                 <option value="Personal Site">Personal Site</option>
-                <option value="Subcontractor Site">
-                  Subcontractor Site
-                </option>
+                <option value="Subcontractor Site">Subcontractor Site</option>
               </select>
 
               <input name="site_name" placeholder="Site Name" required />
@@ -202,7 +202,20 @@ function SitesPage({ sites, addSite, deleteSite }) {
                   <td>{site.address}</td>
                   <td>{site.status}</td>
 
-                  <td>
+                  <td
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/sites/${site.id}`)}
+                    >
+                      Open Site
+                    </button>
+
                     <button type="button" onClick={() => startEdit(site)}>
                       Edit
                     </button>

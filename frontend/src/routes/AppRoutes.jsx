@@ -18,6 +18,7 @@ import UsersPage from "../pages/UsersPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import LoginPage from "../pages/LoginPage";
+import SiteDetailsPage from "../pages/SiteDetailsPage";
 
 function ProtectedRoute({ user, children }) {
   if (!user) {
@@ -149,12 +150,24 @@ function AppRoutes(props) {
       />
 
       <Route
+        path="/sites/:id"
+        element={
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <SiteDetailsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/tenders"
         element={
           <ProtectedRoute user={props.user}>
             <AppLayout>
               <TendersPage
                 tenders={props.tenders}
+                sites={props.sites}
                 addTender={props.addTender}
                 deleteTender={props.deleteTender}
               />

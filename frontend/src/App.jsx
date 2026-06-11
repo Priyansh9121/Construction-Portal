@@ -192,7 +192,7 @@ function App() {
 
     const newTender = {
       company_id: null,
-      site_id: null,
+      site_id: form.site_id.value ? Number(form.site_id.value) : null,
       title: form.title.value,
       status: form.status.value,
       due_date: form.due_date.value,
