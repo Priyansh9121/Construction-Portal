@@ -2,8 +2,20 @@ const pool = require("../../database/pool")
 
 exports.getInvoices = async (req, res) => {
   try {
+    const search = req.query.search || "";
+
     const result = await pool.query(
-      "SELECT * FROM invoices WHERE is_deleted = FALSE ORDER BY id DESC"
+      `
+      SELECT *
+      FROM invoices
+      WHERE is_deleted = FALSE
+      AND (
+        invoice_number ILIKE $1
+        OR status ILIKE $1
+      )
+      ORDER BY created_at DESC
+      `,
+      [`%${search}%`]
     );
 
     res.status(200).json({
@@ -87,6 +99,44 @@ exports.deleteInvoice = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete invoice error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+exports.updateInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { invoice_number, amount, status } = req.body;
+
+    const result = await pool.query(
+      `UPDATE invoices
+       SET invoice_number = $1,
+           amount = $2,
+           status = $3
+       WHERE id = $4
+       AND is_deleted = FALSE
+       RETURNING *`,
+      [invoice_number, amount, status, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      invoice: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update invoice error:", error);
 
     res.status(500).json({
       success: false,

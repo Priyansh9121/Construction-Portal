@@ -14,3 +14,12 @@ export const deleteSubcontractor = async (id) => {
   const response = await axiosClient.delete(`/subcontractors/${id}`);
   return response.data;
 };
+
+export const updateSubcontractor = async (id, payload) => {
+  const response = await axiosClient.put(
+    `/subcontractors/${id}`,
+    payload
+  );
+
+  return response.data;
+};

@@ -5,13 +5,16 @@ import {
   getSubcontractors,
   createSubcontractor,
   deleteSubcontractor,
+  updateSubcontractor,
 } from "../services/subcontractorService";
 
 function SubcontractorsPage() {
   const [subcontractors, setSubcontractors] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingSubcontractor, setEditingSubcontractor] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     full_name: "",
     phone: "",
     email: "",
@@ -22,11 +25,35 @@ function SubcontractorsPage() {
     account_number: "",
     ifsc_code: "",
     status: "active",
+  };
+
+  const [formData, setFormData] = useState(emptyForm);
+
+  const filteredSubcontractors = subcontractors.filter((sub) => {
+    const search = searchTerm.toLowerCase();
+
+    return (
+      sub.full_name?.toLowerCase().includes(search) ||
+      sub.phone?.toLowerCase().includes(search) ||
+      sub.email?.toLowerCase().includes(search) ||
+      sub.business_name?.toLowerCase().includes(search) ||
+      sub.gst_number?.toLowerCase().includes(search) ||
+      sub.bank_name?.toLowerCase().includes(search) ||
+      sub.account_name?.toLowerCase().includes(search) ||
+      sub.account_number?.toLowerCase().includes(search) ||
+      sub.ifsc_code?.toLowerCase().includes(search) ||
+      sub.status?.toLowerCase().includes(search)
+    );
   });
 
   const fetchSubcontractors = async () => {
-    const data = await getSubcontractors();
-    setSubcontractors(data.subcontractors || []);
+    try {
+      const data = await getSubcontractors();
+
+      setSubcontractors(data.subcontractors || []);
+    } catch (err) {
+      console.error("Failed to load subcontractors", err);
+    }
   };
 
   useEffect(() => {
@@ -40,28 +67,53 @@ function SubcontractorsPage() {
     }));
   };
 
+  const resetForm = () => {
+    setFormData(emptyForm);
+    setEditingSubcontractor(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    await createSubcontractor({
-      company_id: null,
-      ...formData,
-    });
+    try {
+      if (editingSubcontractor) {
+        const result = await updateSubcontractor(
+          editingSubcontractor.id,
+          formData
+        );
+
+        console.log("Subcontractor updated:", result);
+      } else {
+        const result = await createSubcontractor({
+          company_id: null,
+          ...formData,
+        });
+
+        console.log("Subcontractor created:", result);
+      }
+
+      resetForm();
+      await fetchSubcontractors();
+    } catch (err) {
+      console.error("Failed to save subcontractor:", err.response?.data || err);
+    }
+  };
+
+  const startEdit = (sub) => {
+    setEditingSubcontractor(sub);
 
     setFormData({
-      full_name: "",
-      phone: "",
-      email: "",
-      business_name: "",
-      gst_number: "",
-      bank_name: "",
-      account_name: "",
-      account_number: "",
-      ifsc_code: "",
-      status: "active",
+      full_name: sub.full_name || "",
+      phone: sub.phone || "",
+      email: sub.email || "",
+      business_name: sub.business_name || "",
+      gst_number: sub.gst_number || "",
+      bank_name: sub.bank_name || "",
+      account_name: sub.account_name || "",
+      account_number: sub.account_number || "",
+      ifsc_code: sub.ifsc_code || "",
+      status: sub.status || "active",
     });
-
-    fetchSubcontractors();
   };
 
   const handleConfirmDelete = async () => {
@@ -69,14 +121,18 @@ function SubcontractorsPage() {
 
     await deleteSubcontractor(deleteTarget.id);
     setDeleteTarget(null);
-    fetchSubcontractors();
+    await fetchSubcontractors();
   };
 
   return (
     <>
       <section className="payment-grid">
         <div className="panel">
-          <h2>Add Subcontractor</h2>
+          <h2>
+            {editingSubcontractor
+              ? "Edit Subcontractor"
+              : "Add Subcontractor"}
+          </h2>
 
           <form className="payment-form" onSubmit={handleSubmit}>
             <input
@@ -152,12 +208,28 @@ function SubcontractorsPage() {
               <option value="inactive">Inactive</option>
             </select>
 
-            <button type="submit">Add Subcontractor</button>
+            <button type="submit">
+              {editingSubcontractor ? "Save Changes" : "Add Subcontractor"}
+            </button>
+
+            {editingSubcontractor && (
+              <button type="button" onClick={resetForm}>
+                Cancel
+              </button>
+            )}
           </form>
         </div>
 
         <div className="panel">
           <h2>Subcontractors List</h2>
+
+          <input
+            className="search-input"
+            type="text"
+            placeholder="Search subcontractors by name, business, phone, GST, bank or status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
 
           <table>
             <thead>
@@ -173,7 +245,7 @@ function SubcontractorsPage() {
             </thead>
 
             <tbody>
-              {subcontractors.map((sub) => (
+              {filteredSubcontractors.map((sub) => (
                 <tr key={sub.id}>
                   <td>{sub.full_name}</td>
                   <td>{sub.business_name}</td>
@@ -182,6 +254,10 @@ function SubcontractorsPage() {
                   <td>{sub.bank_name}</td>
                   <td>{sub.status}</td>
                   <td>
+                    <button type="button" onClick={() => startEdit(sub)}>
+                      Edit
+                    </button>
+
                     <button
                       type="button"
                       className="delete-btn"
@@ -193,9 +269,9 @@ function SubcontractorsPage() {
                 </tr>
               ))}
 
-              {subcontractors.length === 0 && (
+              {filteredSubcontractors.length === 0 && (
                 <tr>
-                  <td colSpan="7">No subcontractors added yet.</td>
+                  <td colSpan="7">No subcontractors found.</td>
                 </tr>
               )}
             </tbody>

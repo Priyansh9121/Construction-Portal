@@ -14,3 +14,12 @@ export const deleteTender = async (id) => {
   const res = await axiosClient.delete(`/tenders/${id}`);
   return res.data;
 };
+
+export const updateTender = async (id, payload) => {
+  const response = await axiosClient.put(
+    `/tenders/${id}`,
+    payload
+  );
+
+  return response.data;
+};

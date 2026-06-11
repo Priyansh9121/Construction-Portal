@@ -12,7 +12,7 @@ export default function usePayments(user) {
   const fetchPayments = async () => {
     try {
       const data = await getPayments();
-      setPayments(data);
+      setPayments(data.payments || []);
     } catch (err) {
       console.error("Failed to load payments", err);
     }
@@ -25,13 +25,21 @@ export default function usePayments(user) {
   }, [user]);
 
   const addPayment = async (payment) => {
-    await createPayment(payment);
-    fetchPayments();
+    const data = await createPayment(payment);
+  
+    if (data.payment) {
+      setPayments((prev) => [
+        data.payment,
+        ...prev,
+      ]);
+    } else {
+      await fetchPayments();
+    }
   };
 
   const removePayment = async (id) => {
     await deletePayment(id);
-    fetchPayments();
+    await fetchPayments();
   };
 
   return {

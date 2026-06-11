@@ -92,3 +92,57 @@ exports.deleteWorker = async (req, res) => {
     });
   }
 };
+
+exports.updateWorker = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      full_name,
+      phone,
+      salary,
+      role,
+      status,
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE workers
+       SET full_name = $1,
+           phone = $2,
+           salary = $3,
+           role = $4,
+           status = $5
+       WHERE id = $6
+       AND is_deleted = FALSE
+       RETURNING *`,
+      [
+        full_name,
+        phone,
+        salary,
+        role,
+        status,
+        id,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Worker not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      worker: result.rows[0],
+    });
+
+  } catch (error) {
+    console.error("Update worker error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

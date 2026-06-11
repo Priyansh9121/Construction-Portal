@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
+import { updateInvoice } from "../services/invoiceService";
 
 function InvoicesPage({
   invoices,
@@ -7,6 +8,14 @@ function InvoicesPage({
   deleteInvoice,
 }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [search, setSearch] = useState("");
+  const [editingInvoice, setEditingInvoice] = useState(null);
+
+  const [editForm, setEditForm] = useState({
+    invoice_number: "",
+    amount: "",
+    status: "pending",
+  });
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
@@ -15,38 +24,143 @@ function InvoicesPage({
     setDeleteTarget(null);
   };
 
+  const startEdit = (invoice) => {
+    setEditingInvoice(invoice);
+
+    setEditForm({
+      invoice_number: invoice.invoice_number || "",
+      amount: invoice.amount || "",
+      status: invoice.status || "pending",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingInvoice(null);
+
+    setEditForm({
+      invoice_number: "",
+      amount: "",
+      status: "pending",
+    });
+  };
+
+  const handleEditChange = (e) => {
+    setEditForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleUpdateInvoice = async (e) => {
+    e.preventDefault();
+
+    if (!editingInvoice) return;
+
+    await updateInvoice(editingInvoice.id, editForm);
+
+    window.location.reload();
+  };
+
+  const filteredInvoices = invoices.filter((invoice) => {
+    const searchValue = search.toLowerCase();
+  
+    return (
+      invoice.invoice_number?.toLowerCase().includes(searchValue) ||
+      invoice.status?.toLowerCase().includes(searchValue) ||
+      String(invoice.amount || "").toLowerCase().includes(searchValue) ||
+      invoice.created_at?.toLowerCase().includes(searchValue)
+    );
+  });
+
   return (
     <>
       <section className="payment-grid">
         <div className="panel">
-          <h2>Add Invoice</h2>
+          <h2>{editingInvoice ? "Edit Invoice" : "Add Invoice"}</h2>
 
-          <form className="payment-form" onSubmit={addInvoice}>
-            <input
-              name="invoice_number"
-              placeholder="Invoice Number"
-              required
-            />
+          {editingInvoice ? (
+            <form className="payment-form" onSubmit={handleUpdateInvoice}>
+              <input
+                name="invoice_number"
+                placeholder="Invoice Number"
+                value={editForm.invoice_number}
+                onChange={handleEditChange}
+                required
+              />
 
-            <input
-              name="amount"
-              type="number"
-              placeholder="Amount"
-              required
-            />
+              <input
+                name="amount"
+                type="number"
+                placeholder="Amount"
+                value={editForm.amount}
+                onChange={handleEditChange}
+                required
+              />
 
-            <select name="status" required>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="overdue">Overdue</option>
-            </select>
+              <select
+                name="status"
+                value={editForm.status}
+                onChange={handleEditChange}
+                required
+              >
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="overdue">Overdue</option>
+              </select>
 
-            <button type="submit">Add Invoice</button>
-          </form>
+              <button type="submit">Save Changes</button>
+
+              <button type="button" onClick={cancelEdit}>
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <form className="payment-form" onSubmit={addInvoice}>
+              <input
+                name="invoice_number"
+                placeholder="Invoice Number"
+                required
+              />
+
+              <input
+                name="amount"
+                type="number"
+                placeholder="Amount"
+                required
+              />
+
+              <select name="status" required>
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="overdue">Overdue</option>
+              </select>
+
+              <button type="submit">Add Invoice</button>
+            </form>
+          )}
         </div>
 
         <div className="panel">
-          <h2>Invoices List</h2>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "16px",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <h2>Invoices List</h2>
+
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Search invoices by invoice no, status, amount or date..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
           <table>
             <thead>
@@ -60,17 +174,28 @@ function InvoicesPage({
             </thead>
 
             <tbody>
-              {invoices.map((invoice) => (
+              {filteredInvoices.map((invoice) => (
                 <tr key={invoice.id}>
                   <td>{invoice.invoice_number}</td>
 
-                  <td>${Number(invoice.amount).toFixed(2)}</td>
+                  <td>
+                    ${Number(invoice.amount).toFixed(2)}
+                  </td>
 
                   <td>{invoice.status}</td>
 
-                  <td>{invoice.created_at?.slice(0, 10)}</td>
+                  <td>
+                    {invoice.created_at?.slice(0, 10)}
+                  </td>
 
                   <td>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(invoice)}
+                    >
+                      Edit
+                    </button>
+
                     <button
                       type="button"
                       className="delete-btn"
@@ -82,9 +207,11 @@ function InvoicesPage({
                 </tr>
               ))}
 
-              {invoices.length === 0 && (
+              {filteredInvoices.length === 0 && (
                 <tr>
-                  <td colSpan="5">No invoices added yet.</td>
+                  <td colSpan="5">
+                    No matching invoices found.
+                  </td>
                 </tr>
               )}
             </tbody>

@@ -86,6 +86,15 @@ function AppLayout({ children, activePage }) {
           </NavLink>
 
           <NavLink
+            to="/users"
+            className={({ isActive }) =>
+              isActive ? "mobile-page-active" : ""
+            }
+          >
+            Users
+          </NavLink>
+          
+          <NavLink
             to="/settings"
             className={({ isActive }) =>
               isActive ? "mobile-page-active" : ""

@@ -14,169 +14,236 @@ import ReportsPage from "../pages/ReportsPage";
 import SettingsPage from "../pages/SettingsPage";
 import TenderDetailsPage from "../pages/TenderDetailsPage";
 import SubcontractorsPage from "../pages/SubcontractorsPage";
+import UsersPage from "../pages/UsersPage";
+import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
+import LoginPage from "../pages/LoginPage";
 
+function ProtectedRoute({ user, children }) {
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return children;
+}
 
 function AppRoutes(props) {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      <Route
+        path="/login"
+        element={
+          props.user ? (
+            <Navigate to="/dashboard" />
+          ) : (
+            <LoginPage
+              email={props.email}
+              setEmail={props.setEmail}
+              password={props.password}
+              setPassword={props.setPassword}
+              message={props.message}
+              handleLogin={props.handleLogin}
+            />
+          )
+        }
+      />
+
+      <Route
+        path="/"
+        element={<Navigate to={props.user ? "/dashboard" : "/login"} />}
+      />
 
       <Route
         path="/dashboard"
         element={
-          <AppLayout>
-            <DashboardPage payments={props.payments} workers={props.workers} />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <DashboardPage
+                payments={props.payments}
+                workers={props.workers}
+                sites={props.sites}
+                tenders={props.tenders}
+                invoices={props.invoices}
+                subcontractors={[]}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/payments"
         element={
-          <AppLayout>
-            <PaymentsPage
-              payments={props.payments}
-              addPayment={props.addPayment}
-              deletePayment={props.deletePayment}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <PaymentsPage
+                payments={props.payments}
+                addPayment={props.addPayment}
+                deletePayment={props.deletePayment}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/workers"
         element={
-          <AppLayout>
-            <WorkersPage
-              workers={props.workers}
-              addWorker={props.addWorker}
-              deleteWorker={props.deleteWorker}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <WorkersPage
+                workers={props.workers}
+                addWorker={props.addWorker}
+                deleteWorker={props.deleteWorker}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/subcontractors"
         element={
-          <AppLayout>
-            <SubcontractorsPage />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/subcontractors"
-        element={
-          <AppLayout>
-            <SubcontractorsPage />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <SubcontractorsPage />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/worker-money"
         element={
-          <AppLayout>
-            <WorkerMoneyPage
-              workers={props.workers}
-              allocations={props.allocations}
-              expenses={props.expenses}
-              addAllocation={props.addAllocation}
-              addExpense={props.addExpense}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <WorkerMoneyPage
+                workers={props.workers}
+                allocations={props.allocations}
+                expenses={props.expenses}
+                addAllocation={props.addAllocation}
+                addExpense={props.addExpense}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/sites"
         element={
-          <AppLayout>
-            <SitesPage
-              sites={props.sites}
-              addSite={props.addSite}
-              deleteSite={props.deleteSite}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <SitesPage
+                sites={props.sites}
+                addSite={props.addSite}
+                deleteSite={props.deleteSite}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/tenders"
         element={
-          <AppLayout>
-            <TendersPage
-              tenders={props.tenders}
-              addTender={props.addTender}
-              deleteTender={props.deleteTender}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <TendersPage
+                tenders={props.tenders}
+                addTender={props.addTender}
+                deleteTender={props.deleteTender}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/tenders/:id"
         element={
-          <AppLayout>
-            <TenderDetailsPage />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <TenderDetailsPage />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/invoices"
         element={
-          <AppLayout>
-            <InvoicesPage
-              invoices={props.invoices}
-              addInvoice={props.addInvoice}
-              deleteInvoice={props.deleteInvoice}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <InvoicesPage
+                invoices={props.invoices}
+                addInvoice={props.addInvoice}
+                deleteInvoice={props.deleteInvoice}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/daily-site-updates"
         element={
-          <AppLayout>
-            <DailySiteUpdatesPage
-              sites={props.sites}
-              workers={props.workers}
-              siteLogs={props.siteLogs}
-              addSiteLog={props.addSiteLog}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <DailySiteUpdatesPage
+                sites={props.sites}
+                workers={props.workers}
+                siteLogs={props.siteLogs}
+                addSiteLog={props.addSiteLog}
+              />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/reports"
         element={
-          <AppLayout>
-            <ReportsPage
-              payments={props.payments}
-              workers={props.workers}
-              sites={props.sites}
-              tenders={props.tenders}
-              invoices={props.invoices}
-            />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <ReportsPage
+                payments={props.payments}
+                workers={props.workers}
+                sites={props.sites}
+                tenders={props.tenders}
+                invoices={props.invoices}
+              />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <UsersPage />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
 
       <Route
         path="/settings"
         element={
-          <AppLayout>
-            <SettingsPage />
-          </AppLayout>
+          <ProtectedRoute user={props.user}>
+            <AppLayout>
+              <SettingsPage />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
     </Routes>
-
-    
   );
 }
 

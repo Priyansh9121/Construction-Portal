@@ -6,6 +6,7 @@ const validateWorker = require("./validations/worker.validation");
 
 router.get("/", workerController.getWorkers);
 router.post("/", validateWorker, workerController.createWorker);
+router.put("/:id", workerController.updateWorker);
 router.delete("/:id", workerController.deleteWorker);
 
 module.exports = router;

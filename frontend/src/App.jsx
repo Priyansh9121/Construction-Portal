@@ -76,9 +76,20 @@ function App() {
       });
 
       setUser(data.user);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("token", data.token);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(data.user)
+      );
+      
+      localStorage.setItem(
+        "token",
+        data.token
+      );
+      
       setMessage("");
+      
+      window.location.reload();
     } catch (err) {
       setMessage(err.response?.data?.message || "Login failed");
     }
@@ -103,7 +114,7 @@ function App() {
       await savePayment(newPayment);
       form.reset();
     } catch (err) {
-      console.error("Failed to save payment", err);
+      console.error("Failed to save payment", err.response?.data || err);
     }
   };
 
@@ -304,42 +315,36 @@ function App() {
     }
   };
 
-  if (user) {
-    return (
-      <AppRoutes
-        payments={payments}
-        addPayment={addPayment}
-        deletePayment={deletePayment}
-        workers={workers}
-        addWorker={addWorker}
-        deleteWorker={deleteWorker}
-        sites={sites}
-        addSite={addSite}
-        deleteSite={deleteSite}
-        tenders={tenders}
-        addTender={addTender}
-        deleteTender={deleteTender}
-        invoices={invoices}
-        addInvoice={addInvoice}
-        deleteInvoice={deleteInvoice}
-        siteLogs={siteLogs}
-        addSiteLog={addSiteLog}
-        allocations={allocations}
-        expenses={expenses}
-        addAllocation={addAllocation}
-        addExpense={addExpense}
-      />
-    );
-  }
-
   return (
-    <LoginPage
+    <AppRoutes
+      user={user}
       email={email}
       setEmail={setEmail}
       password={password}
       setPassword={setPassword}
       message={message}
       handleLogin={handleLogin}
+      payments={payments}
+      addPayment={addPayment}
+      deletePayment={deletePayment}
+      workers={workers}
+      addWorker={addWorker}
+      deleteWorker={deleteWorker}
+      sites={sites}
+      addSite={addSite}
+      deleteSite={deleteSite}
+      tenders={tenders}
+      addTender={addTender}
+      deleteTender={deleteTender}
+      invoices={invoices}
+      addInvoice={addInvoice}
+      deleteInvoice={deleteInvoice}
+      siteLogs={siteLogs}
+      addSiteLog={addSiteLog}
+      allocations={allocations}
+      expenses={expenses}
+      addAllocation={addAllocation}
+      addExpense={addExpense}
     />
   );
 }

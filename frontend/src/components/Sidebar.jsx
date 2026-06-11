@@ -6,6 +6,7 @@ function Sidebar() {
     { label: "Payments", path: "/payments" },
     { label: "Workers", path: "/workers" },
     { label: "Subcontractors", path: "/subcontractors" },
+    { label: "Users", path: "/users" },
     { label: "Sites", path: "/sites" },
     { label: "Tenders", path: "/tenders" },
     { label: "Invoices", path: "/invoices" },

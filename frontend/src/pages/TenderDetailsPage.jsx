@@ -13,6 +13,7 @@ import {
   uploadFile,
   assignTenderSubcontractor,
   removeTenderSubcontractor,
+  updateTenderSubcontractor,
 } from "../services/tenderDetailsService";
 
 import { getSubcontractors } from "../services/subcontractorService";
@@ -32,6 +33,7 @@ function TenderDetailsPage() {
   const [allSubcontractors, setAllSubcontractors] = useState([]);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingAssignedSub, setEditingAssignedSub] = useState(null);
 
   const [subcontractorForm, setSubcontractorForm] = useState({
     subcontractor_id: "",
@@ -54,6 +56,7 @@ function TenderDetailsPage() {
     quantity: "",
     unit: "",
     rate: "",
+    vendor_name: "",
     notes: "",
   });
 
@@ -140,6 +143,7 @@ function TenderDetailsPage() {
       quantity: "",
       unit: "",
       rate: "",
+      vendor_name: "",
       notes: "",
     });
 
@@ -170,23 +174,75 @@ function TenderDetailsPage() {
 
   const handleAssignSubcontractor = async (e) => {
     e.preventDefault();
-
-    await assignTenderSubcontractor({
-      tender_id: id,
-      subcontractor_id: Number(subcontractorForm.subcontractor_id),
-      work_description: subcontractorForm.work_description,
-      assigned_amount: Number(subcontractorForm.assigned_amount || 0),
-      status: subcontractorForm.status,
-    });
-
+  
+    if (!subcontractorForm.subcontractor_id) {
+      alert("Please select a subcontractor");
+      return;
+    }
+  
+    if (!subcontractorForm.work_description.trim()) {
+      alert("Please enter work description");
+      return;
+    }
+  
+    if (
+      !subcontractorForm.assigned_amount ||
+      Number(subcontractorForm.assigned_amount) <= 0
+    ) {
+      alert("Please enter assigned amount greater than 0");
+      return;
+    }
+  
+    if (editingAssignedSub) {
+      await updateTenderSubcontractor(
+        editingAssignedSub.id,
+        {
+          work_description:
+            subcontractorForm.work_description,
+          assigned_amount: Number(
+            subcontractorForm.assigned_amount
+          ),
+          status: subcontractorForm.status,
+        }
+      );
+    } else {
+      await assignTenderSubcontractor({
+        tender_id: id,
+        subcontractor_id: Number(
+          subcontractorForm.subcontractor_id
+        ),
+        work_description:
+          subcontractorForm.work_description,
+        assigned_amount: Number(
+          subcontractorForm.assigned_amount
+        ),
+        status: subcontractorForm.status,
+      });
+    }
+  
     setSubcontractorForm({
       subcontractor_id: "",
       work_description: "",
       assigned_amount: "",
       status: "active",
     });
-
+  
+    setEditingAssignedSub(null);
+  
     fetchTenderDetails();
+  };
+
+  const startEditAssignedSubcontractor = (sub) => {
+    setEditingAssignedSub(sub);
+  
+    setSubcontractorForm({
+      subcontractor_id: sub.subcontractor_id,
+      work_description:
+        sub.work_description || "",
+      assigned_amount:
+        sub.assigned_amount || "",
+      status: sub.status || "active",
+    });
   };
 
   const handleConfirmDelete = async () => {
@@ -214,6 +270,11 @@ function TenderDetailsPage() {
 
   const materialTotal = materials.reduce(
     (sum, item) => sum + Number(item.total_amount || 0),
+    0
+  );
+
+  const subcontractorAssignedTotal = subcontractors.reduce(
+    (sum, sub) => sum + Number(sub.assigned_amount || 0),
     0
   );
 
@@ -426,8 +487,7 @@ function TenderDetailsPage() {
               <h2>Add Material</h2>
 
               <form className="payment-form" onSubmit={handleAddMaterial}>
-                <input
-                  placeholder="Section e.g. Cement, Steel"
+                <select
                   value={materialForm.section_name}
                   onChange={(e) =>
                     setMaterialForm({
@@ -436,7 +496,19 @@ function TenderDetailsPage() {
                     })
                   }
                   required
-                />
+                >
+                  <option value="">Select Material Category</option>
+                  <option value="Steel">Steel</option>
+                  <option value="Sand">Sand</option>
+                  <option value="Cement">Cement</option>
+                  <option value="Kapchi">Kapchi</option>
+                  <option value="Crushed Stone">Crushed Stone</option>
+                  <option value="Tiles">Tiles</option>
+                  <option value="Pipe">Pipe</option>
+                  <option value="Blocks">Blocks</option>
+                  <option value="Wood">Wood</option>
+                  <option value="Other">Other</option>
+                </select>
 
                 <input
                   placeholder="Material name"
@@ -484,6 +556,16 @@ function TenderDetailsPage() {
                     })
                   }
                 />
+                <input
+                  placeholder="Vendor / Supplier Name"
+                  value={materialForm.vendor_name}
+                  onChange={(e) =>
+                    setMaterialForm({
+                      ...materialForm,
+                      vendor_name: e.target.value,
+                    })
+                  }
+                />
 
                 <p className="form-preview-total">
                   Total: $
@@ -520,6 +602,7 @@ function TenderDetailsPage() {
                     <th>Unit</th>
                     <th>Rate</th>
                     <th>Total</th>
+                    <th>Vendor</th>
                     <th>Notes</th>
                     <th>Action</th>
                   </tr>
@@ -534,6 +617,7 @@ function TenderDetailsPage() {
                       <td>{item.unit}</td>
                       <td>{item.rate}</td>
                       <td>{item.total_amount}</td>
+                      <td>{item.vendor_name}</td>
                       <td>{item.notes}</td>
                       <td>
                         <button
@@ -554,7 +638,7 @@ function TenderDetailsPage() {
 
                   {materials.length === 0 && (
                     <tr>
-                      <td colSpan="8">No materials added yet.</td>
+                      <td colSpan="9">No materials added yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -807,123 +891,192 @@ function TenderDetailsPage() {
         )}
 
         {activeTab === "subcontractors" && (
-          <div className="payment-grid">
-            <div className="panel">
-              <h2>Assign Subcontractor</h2>
+          <>
+            <div className="summary-cards">
+              <div className="card">
+                <p>Assigned Subcontractors</p>
+                <h2>{subcontractors.length}</h2>
+              </div>
 
-              <form className="payment-form" onSubmit={handleAssignSubcontractor}>
-                <select
-                  value={subcontractorForm.subcontractor_id}
-                  onChange={(e) =>
-                    setSubcontractorForm({
-                      ...subcontractorForm,
-                      subcontractor_id: e.target.value,
-                    })
-                  }
-                  required
+              <div className="card">
+                <p>Total Assigned Amount</p>
+                <h2>
+                  ${subcontractorAssignedTotal.toFixed(2)}
+                </h2>
+              </div>
+            </div>
+
+            <div className="payment-grid">
+              <div className="panel">
+              <h2>
+                {editingAssignedSub
+                  ? "Edit Assigned Subcontractor"
+                  : "Assign Subcontractor"}
+              </h2>
+
+                <form
+                  className="payment-form"
+                  onSubmit={handleAssignSubcontractor}
                 >
-                  <option value="">Select Subcontractor</option>
-
-                  {allSubcontractors.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.full_name}
-                      {sub.business_name ? ` - ${sub.business_name}` : ""}
+                  <select
+                    value={subcontractorForm.subcontractor_id}
+                    onChange={(e) =>
+                      setSubcontractorForm({
+                        ...subcontractorForm,
+                        subcontractor_id: e.target.value,
+                      })
+                    }
+                    required
+                  >
+                    <option value="">
+                      Select Subcontractor
                     </option>
-                  ))}
-                </select>
 
-                <input
-                  placeholder="Work description"
-                  value={subcontractorForm.work_description}
-                  onChange={(e) =>
-                    setSubcontractorForm({
-                      ...subcontractorForm,
-                      work_description: e.target.value,
-                    })
-                  }
-                />
+                    {allSubcontractors.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.full_name}
+                        {sub.business_name
+                          ? ` - ${sub.business_name}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
 
-                <input
-                  type="number"
-                  placeholder="Assigned amount"
-                  value={subcontractorForm.assigned_amount}
-                  onChange={(e) =>
-                    setSubcontractorForm({
-                      ...subcontractorForm,
-                      assigned_amount: e.target.value,
-                    })
-                  }
-                />
+                  <input
+                    placeholder="Work description"
+                    value={subcontractorForm.work_description}
+                    onChange={(e) =>
+                      setSubcontractorForm({
+                        ...subcontractorForm,
+                        work_description: e.target.value,
+                      })
+                    }
+                  />
 
-                <select
-                  value={subcontractorForm.status}
-                  onChange={(e) =>
-                    setSubcontractorForm({
-                      ...subcontractorForm,
-                      status: e.target.value,
-                    })
-                  }
-                >
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="paused">Paused</option>
-                </select>
+                  <input
+                    type="number"
+                    placeholder="Assigned amount"
+                    value={subcontractorForm.assigned_amount}
+                    onChange={(e) =>
+                      setSubcontractorForm({
+                        ...subcontractorForm,
+                        assigned_amount: e.target.value,
+                      })
+                    }
+                  />
 
-                <button type="submit">Assign to Tender</button>
-              </form>
-            </div>
+                  <select
+                    value={subcontractorForm.status}
+                    onChange={(e) =>
+                      setSubcontractorForm({
+                        ...subcontractorForm,
+                        status: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="paused">Paused</option>
+                  </select>
 
-            <div className="panel">
-              <h2>Assigned Subcontractors</h2>
+                  <button type="submit">
+                    {editingAssignedSub
+                      ? "Save Changes"
+                      : "Assign to Tender"}
+                  </button>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Business</th>
-                    <th>Phone</th>
-                    <th>Work</th>
-                    <th>Assigned Amount</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
+                  {editingAssignedSub && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAssignedSub(null);
 
-                <tbody>
-                  {subcontractors.map((sub) => (
-                    <tr key={sub.id}>
-                      <td>{sub.full_name}</td>
-                      <td>{sub.business_name}</td>
-                      <td>{sub.phone}</td>
-                      <td>{sub.work_description}</td>
-                      <td>{sub.assigned_amount}</td>
-                      <td>{sub.status}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="delete-btn"
-                          onClick={() =>
-                            setDeleteTarget({
-                              type: "subcontractor",
-                              item: sub,
-                            })
-                          }
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {subcontractors.length === 0 && (
-                    <tr>
-                      <td colSpan="7">No subcontractors assigned yet.</td>
-                    </tr>
+                        setSubcontractorForm({
+                          subcontractor_id: "",
+                          work_description: "",
+                          assigned_amount: "",
+                          status: "active",
+                        });
+                      }}
+                    >
+                      Cancel
+                    </button>
                   )}
-                </tbody>
-              </table>
+                </form>
+              </div>
+
+              <div className="panel">
+                <h2>Assigned Subcontractors</h2>
+
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Business</th>
+                      <th>Phone</th>
+                      <th>Work</th>
+                      <th>Assigned Amount</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {subcontractors.map((sub) => (
+                      <tr key={sub.id}>
+                        <td>{sub.full_name}</td>
+                        <td>{sub.business_name}</td>
+                        <td>{sub.phone}</td>
+                        <td>{sub.work_description}</td>
+                        <td>
+                          ${Number(sub.assigned_amount).toFixed(2)}
+                        </td>
+                        <td>{sub.status}</td>
+
+                        <td
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startEditAssignedSubcontractor(sub)
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="delete-btn"
+                            onClick={() =>
+                              setDeleteTarget({
+                                type: "subcontractor",
+                                item: sub,
+                              })
+                            }
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {subcontractors.length === 0 && (
+                      <tr>
+                        <td colSpan="7">
+                          No subcontractors assigned yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </section>
 

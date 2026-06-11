@@ -14,6 +14,11 @@ router.delete("/materials/:materialId", tenderDetailsController.deleteMaterial);
 router.post("/banking", tenderDetailsController.addBanking);
 router.delete("/banking/:bankingId", tenderDetailsController.deleteBanking);
 
+router.put(
+  "/subcontractors/:tenderSubcontractorId",
+  tenderDetailsController.updateTenderSubcontractor
+);
+
 router.post("/subcontractors", tenderDetailsController.assignSubcontractor);
 router.delete(
   "/subcontractors/:tenderSubcontractorId",

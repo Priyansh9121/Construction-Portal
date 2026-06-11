@@ -99,3 +99,56 @@ exports.deleteTender = async (req, res) => {
     });
   }
 };
+
+exports.updateTender = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      title,
+      status,
+      due_date,
+      description,
+      site_id,
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE tenders
+       SET title = $1,
+           status = $2,
+           due_date = $3,
+           description = $4,
+           site_id = $5
+       WHERE id = $6
+       AND is_deleted = FALSE
+       RETURNING *`,
+      [
+        title,
+        status,
+        due_date,
+        description,
+        site_id || null,
+        id,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Tender not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      tender: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update tender error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

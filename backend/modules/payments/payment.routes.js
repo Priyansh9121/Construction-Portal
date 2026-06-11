@@ -6,6 +6,7 @@ const validatePayment = require("./validations/payment.validation");
 
 router.get("/", paymentController.getPayments);
 router.post("/", validatePayment, paymentController.createPayment);
+router.put("/:id", paymentController.updatePayment);
 router.delete("/:id", paymentController.deletePayment);
 
 module.exports = router;

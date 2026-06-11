@@ -1,8 +1,31 @@
 import { useState } from "react";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
+import { updatePayment } from "../services/paymentService";
 
 function PaymentsPage({ payments, addPayment, deletePayment }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [editForm, setEditForm] = useState({
+    payment_type: "",
+    category: "",
+    amount: "",
+    payment_date: "",
+    description: "",
+  });
+
+  const filteredPayments = payments.filter((payment) => {
+    const search = searchTerm.toLowerCase();
+
+    return (
+      payment.payment_type?.toLowerCase().includes(search) ||
+      payment.category?.toLowerCase().includes(search) ||
+      payment.description?.toLowerCase().includes(search) ||
+      payment.payment_date?.toLowerCase().includes(search) ||
+      String(payment.amount || "").toLowerCase().includes(search)
+    );
+  });
 
   const totalIncome = payments
     .filter((p) => p.payment_type === "Income")
@@ -19,6 +42,49 @@ function PaymentsPage({ payments, addPayment, deletePayment }) {
 
     await deletePayment(deleteTarget.id);
     setDeleteTarget(null);
+  };
+
+  const startEdit = (payment) => {
+    setEditingPayment(payment);
+
+    setEditForm({
+      payment_type: payment.payment_type || "",
+      category: payment.category || "",
+      amount: payment.amount || "",
+      payment_date: payment.payment_date
+        ? payment.payment_date.slice(0, 10)
+        : "",
+      description: payment.description || "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingPayment(null);
+
+    setEditForm({
+      payment_type: "",
+      category: "",
+      amount: "",
+      payment_date: "",
+      description: "",
+    });
+  };
+
+  const handleEditChange = (e) => {
+    setEditForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+
+    if (!editingPayment) return;
+
+    await updatePayment(editingPayment.id, editForm);
+
+    window.location.reload();
   };
 
   return (
@@ -42,45 +108,121 @@ function PaymentsPage({ payments, addPayment, deletePayment }) {
 
       <section className="payment-grid">
         <div className="panel">
-          <h2>Add Payment</h2>
+          <h2>{editingPayment ? "Edit Payment" : "Add Payment"}</h2>
 
-          <form className="payment-form" onSubmit={addPayment}>
-            <select name="payment_type" required>
-              <option value="">Select Payment Type</option>
-              <option value="Income">Income</option>
-              <option value="Expense">Expense</option>
-              <option value="Investment">Partner Investment</option>
-              <option value="Loan">Loan</option>
-              <option value="Return">Returned Payment</option>
-            </select>
+          {editingPayment ? (
+            <form className="payment-form" onSubmit={handleUpdatePayment}>
+              <select
+                name="payment_type"
+                value={editForm.payment_type}
+                onChange={handleEditChange}
+                required
+              >
+                <option value="">Select Payment Type</option>
+                <option value="Income">Income</option>
+                <option value="Expense">Expense</option>
+                <option value="Investment">Partner Investment</option>
+                <option value="Loan">Loan</option>
+                <option value="Return">Returned Payment</option>
+              </select>
 
-            <select name="category" required>
-              <option value="">Select Category</option>
-              <option value="Government Payment">Government Payment</option>
-              <option value="Worker Salary">Worker Salary</option>
-              <option value="Subcontractor Payment">
-                Subcontractor Payment
-              </option>
-              <option value="Partner Internal Transfer">
-                Partner Internal Transfer
-              </option>
-              <option value="Personal Investment">Personal Investment</option>
-              <option value="Company Expense">Company Expense</option>
-              <option value="Material Purchase">Material Purchase</option>
-            </select>
+              <select
+                name="category"
+                value={editForm.category}
+                onChange={handleEditChange}
+                required
+              >
+                <option value="">Select Category</option>
+                <option value="Government Payment">Government Payment</option>
+                <option value="Worker Salary">Worker Salary</option>
+                <option value="Subcontractor Payment">
+                  Subcontractor Payment
+                </option>
+                <option value="Partner Internal Transfer">
+                  Partner Internal Transfer
+                </option>
+                <option value="Personal Investment">Personal Investment</option>
+                <option value="Company Expense">Company Expense</option>
+                <option value="Material Purchase">Material Purchase</option>
+              </select>
 
-            <input name="amount" type="number" placeholder="Amount" required />
+              <input
+                name="amount"
+                type="number"
+                placeholder="Amount"
+                value={editForm.amount}
+                onChange={handleEditChange}
+                required
+              />
 
-            <input name="payment_date" type="date" required />
+              <input
+                name="payment_date"
+                type="date"
+                value={editForm.payment_date}
+                onChange={handleEditChange}
+                required
+              />
 
-            <textarea name="description" placeholder="Description"></textarea>
+              <textarea
+                name="description"
+                placeholder="Description"
+                value={editForm.description}
+                onChange={handleEditChange}
+              ></textarea>
 
-            <button type="submit">Add Payment</button>
-          </form>
+              <button type="submit">Save Changes</button>
+
+              <button type="button" onClick={cancelEdit}>
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <form className="payment-form" onSubmit={addPayment}>
+              <select name="payment_type" required>
+                <option value="">Select Payment Type</option>
+                <option value="Income">Income</option>
+                <option value="Expense">Expense</option>
+                <option value="Investment">Partner Investment</option>
+                <option value="Loan">Loan</option>
+                <option value="Return">Returned Payment</option>
+              </select>
+
+              <select name="category" required>
+                <option value="">Select Category</option>
+                <option value="Government Payment">Government Payment</option>
+                <option value="Worker Salary">Worker Salary</option>
+                <option value="Subcontractor Payment">
+                  Subcontractor Payment
+                </option>
+                <option value="Partner Internal Transfer">
+                  Partner Internal Transfer
+                </option>
+                <option value="Personal Investment">Personal Investment</option>
+                <option value="Company Expense">Company Expense</option>
+                <option value="Material Purchase">Material Purchase</option>
+              </select>
+
+              <input name="amount" type="number" placeholder="Amount" required />
+
+              <input name="payment_date" type="date" required />
+
+              <textarea name="description" placeholder="Description"></textarea>
+
+              <button type="submit">Add Payment</button>
+            </form>
+          )}
         </div>
 
         <div className="panel">
           <h2>Payment Records</h2>
+
+          <input
+            className="search-input"
+            type="text"
+            placeholder="Search payments by type, category, amount, date or description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
 
           <table>
             <thead>
@@ -95,7 +237,7 @@ function PaymentsPage({ payments, addPayment, deletePayment }) {
             </thead>
 
             <tbody>
-              {payments.map((payment) => (
+              {filteredPayments.map((payment) => (
                 <tr key={payment.id}>
                   <td>{payment.payment_type}</td>
                   <td>{payment.category}</td>
@@ -107,6 +249,10 @@ function PaymentsPage({ payments, addPayment, deletePayment }) {
                   <td>{payment.description}</td>
                   <td>${Number(payment.amount).toFixed(2)}</td>
                   <td>
+                    <button type="button" onClick={() => startEdit(payment)}>
+                      Edit
+                    </button>
+
                     <button
                       type="button"
                       className="delete-btn"
@@ -118,9 +264,9 @@ function PaymentsPage({ payments, addPayment, deletePayment }) {
                 </tr>
               ))}
 
-              {payments.length === 0 && (
+              {filteredPayments.length === 0 && (
                 <tr>
-                  <td colSpan="6">No payments added yet.</td>
+                  <td colSpan="6">No payments found.</td>
                 </tr>
               )}
             </tbody>

@@ -14,3 +14,8 @@ export const deletePayment = async (id) => {
   const res = await axiosClient.delete(`/payments/${id}`);
   return res.data;
 };
+
+export const updatePayment = async (id, payload) => {
+  const response = await axiosClient.put(`/payments/${id}`, payload);
+  return response.data;
+};

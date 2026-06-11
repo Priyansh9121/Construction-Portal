@@ -156,3 +156,12 @@ export const removeTenderSubcontractor = async (
 
   return response.data;
 };
+
+export const updateTenderSubcontractor = async (id, payload) => {
+  const response = await axiosClient.put(
+    `/tender-details/subcontractors/${id}`,
+    payload
+  );
+
+  return response.data;
+};

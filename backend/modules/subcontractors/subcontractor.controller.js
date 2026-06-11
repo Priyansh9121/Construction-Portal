@@ -97,3 +97,67 @@ exports.deleteSubcontractor = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+exports.updateSubcontractor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      full_name,
+      phone,
+      email,
+      business_name,
+      gst_number,
+      bank_name,
+      account_name,
+      account_number,
+      ifsc_code,
+      status,
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE subcontractors
+       SET full_name = $1,
+           phone = $2,
+           email = $3,
+           business_name = $4,
+           gst_number = $5,
+           bank_name = $6,
+           account_name = $7,
+           account_number = $8,
+           ifsc_code = $9,
+           status = $10
+       WHERE id = $11
+       AND is_deleted = FALSE
+       RETURNING *`,
+      [
+        full_name,
+        phone,
+        email,
+        business_name,
+        gst_number,
+        bank_name,
+        account_name,
+        account_number,
+        ifsc_code,
+        status,
+        id,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Subcontractor not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      subcontractor: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update subcontractor error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

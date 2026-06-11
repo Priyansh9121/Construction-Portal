@@ -202,6 +202,7 @@ exports.addMaterial = async (req, res) => {
       quantity,
       unit,
       rate,
+      vendor_name,
       notes,
     } = req.body;
 
@@ -210,8 +211,18 @@ exports.addMaterial = async (req, res) => {
     const result = await pool.query(
       `
       INSERT INTO tender_materials
-      (tender_id, section_name, material_name, quantity, unit, rate, total_amount, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      (
+        tender_id,
+        section_name,
+        material_name,
+        quantity,
+        unit,
+        rate,
+        total_amount,
+        vendor_name,
+        notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
       `,
       [
@@ -222,6 +233,7 @@ exports.addMaterial = async (req, res) => {
         unit,
         rate,
         totalAmount,
+        vendor_name,
         notes,
       ]
     );
@@ -415,5 +427,54 @@ exports.removeSubcontractor = async (req, res) => {
   } catch (error) {
     console.error("Remove subcontractor error:", error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+exports.updateTenderSubcontractor = async (req, res) => {
+  try {
+    const { tenderSubcontractorId } = req.params;
+
+    const {
+      work_description,
+      assigned_amount,
+      status,
+    } = req.body;
+
+    const result = await pool.query(
+      `
+      UPDATE tender_subcontractors
+      SET work_description = $1,
+          assigned_amount = $2,
+          status = $3
+      WHERE id = $4
+      AND is_deleted = FALSE
+      RETURNING *
+      `,
+      [
+        work_description,
+        assigned_amount,
+        status,
+        tenderSubcontractorId,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Assigned subcontractor not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      tenderSubcontractor: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update assigned subcontractor error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
