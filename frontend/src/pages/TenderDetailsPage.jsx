@@ -74,16 +74,16 @@ function TenderDetailsPage() {
   const fetchTenderDetails = async () => {
     try {
       setLoading(true);
-  
+
       const data = await getTenderDetails(id);
-  
+
       setTender(data.tender);
       setDocuments(data.documents || []);
       setMaterials(data.materials || []);
       setBanking(data.banking || []);
       setDailyUpdates(data.dailyUpdates || []);
       setSubcontractors(data.subcontractors || []);
-  
+
       try {
         const subData = await getSubcontractors();
         setAllSubcontractors(subData.subcontractors || []);
@@ -104,27 +104,27 @@ function TenderDetailsPage() {
 
   const handleAddDocument = async (e) => {
     e.preventDefault();
-  
+
     let uploadedUrl = documentForm.file_url;
-  
+
     if (selectedFile) {
       const uploadResult = await uploadFile(selectedFile);
       uploadedUrl = uploadResult.fileUrl;
     }
-  
+
     await addTenderDocument({
       tender_id: id,
       document_name: documentForm.document_name,
       document_type: documentForm.document_type,
       file_url: uploadedUrl || null,
     });
-  
+
     setDocumentForm({
       document_name: "",
       document_type: "PDF",
       file_url: "",
     });
-  
+
     setSelectedFile(null);
     fetchTenderDetails();
   };
@@ -174,17 +174,17 @@ function TenderDetailsPage() {
 
   const handleAssignSubcontractor = async (e) => {
     e.preventDefault();
-  
+
     if (!subcontractorForm.subcontractor_id) {
       alert("Please select a subcontractor");
       return;
     }
-  
+
     if (!subcontractorForm.work_description.trim()) {
       alert("Please enter work description");
       return;
     }
-  
+
     if (
       !subcontractorForm.assigned_amount ||
       Number(subcontractorForm.assigned_amount) <= 0
@@ -192,55 +192,41 @@ function TenderDetailsPage() {
       alert("Please enter assigned amount greater than 0");
       return;
     }
-  
+
     if (editingAssignedSub) {
-      await updateTenderSubcontractor(
-        editingAssignedSub.id,
-        {
-          work_description:
-            subcontractorForm.work_description,
-          assigned_amount: Number(
-            subcontractorForm.assigned_amount
-          ),
-          status: subcontractorForm.status,
-        }
-      );
+      await updateTenderSubcontractor(editingAssignedSub.id, {
+        work_description: subcontractorForm.work_description,
+        assigned_amount: Number(subcontractorForm.assigned_amount),
+        status: subcontractorForm.status,
+      });
     } else {
       await assignTenderSubcontractor({
         tender_id: id,
-        subcontractor_id: Number(
-          subcontractorForm.subcontractor_id
-        ),
-        work_description:
-          subcontractorForm.work_description,
-        assigned_amount: Number(
-          subcontractorForm.assigned_amount
-        ),
+        subcontractor_id: Number(subcontractorForm.subcontractor_id),
+        work_description: subcontractorForm.work_description,
+        assigned_amount: Number(subcontractorForm.assigned_amount),
         status: subcontractorForm.status,
       });
     }
-  
+
     setSubcontractorForm({
       subcontractor_id: "",
       work_description: "",
       assigned_amount: "",
       status: "active",
     });
-  
+
     setEditingAssignedSub(null);
-  
     fetchTenderDetails();
   };
 
   const startEditAssignedSubcontractor = (sub) => {
     setEditingAssignedSub(sub);
-  
+
     setSubcontractorForm({
       subcontractor_id: sub.subcontractor_id,
-      work_description:
-        sub.work_description || "",
-      assigned_amount:
-        sub.assigned_amount || "",
+      work_description: sub.work_description || "",
+      assigned_amount: sub.assigned_amount || "",
       status: sub.status || "active",
     });
   };
@@ -296,6 +282,40 @@ function TenderDetailsPage() {
     .filter((item) => item.payment_type === "company_returned")
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
+  const subcontractorCost = subcontractors.reduce(
+    (sum, sub) => sum + Number(sub.assigned_amount || 0),
+    0
+  );
+
+  const materialCost = materials.reduce(
+    (sum, item) => sum + Number(item.total_amount || 0),
+    0
+  );
+
+  const bankingCost = banking
+    .filter((item) =>
+      [
+        "subcontractor_payment",
+        "material_payment",
+        "gst_payment",
+        "third_party_payment",
+        "other",
+      ].includes(item.payment_type)
+    )
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const tenderIncome = banking
+    .filter((item) =>
+      ["government_payment", "company_returned"].includes(item.payment_type)
+    )
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const totalTenderCost = materialCost + subcontractorCost + bankingCost;
+  const tenderProfit = tenderIncome - totalTenderCost;
+
+  const tenderProfitPercentage =
+    tenderIncome > 0 ? (tenderProfit / tenderIncome) * 100 : 0;
+
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "documents", label: "Documents" },
@@ -345,27 +365,93 @@ function TenderDetailsPage() {
         </div>
 
         {activeTab === "overview" && (
-          <div className="summary-cards">
-            <div className="card">
-              <p>Documents</p>
-              <h2>{documents.length}</h2>
+          <>
+            <div className="summary-cards">
+              <div className="card">
+                <p>Documents</p>
+                <h2>{documents.length}</h2>
+              </div>
+
+              <div className="card">
+                <p>Material Total</p>
+                <h2>${materialTotal.toFixed(2)}</h2>
+              </div>
+
+              <div className="card">
+                <p>Banking Total</p>
+                <h2>${bankingTotal.toFixed(2)}</h2>
+              </div>
+
+              <div className="card">
+                <p>Daily Updates</p>
+                <h2>{dailyUpdates.length}</h2>
+              </div>
+
+              <div className="card">
+                <p>Tender Income</p>
+                <h2>${tenderIncome.toFixed(2)}</h2>
+              </div>
+
+              <div className="card">
+                <p>Total Cost</p>
+                <h2>${totalTenderCost.toFixed(2)}</h2>
+              </div>
+
+              <div className="card">
+                <p>Profit / Loss</p>
+                <h2>${tenderProfit.toFixed(2)}</h2>
+              </div>
+
+              <div className="card">
+                <p>Profit %</p>
+                <h2>{tenderProfitPercentage.toFixed(2)}%</h2>
+              </div>
             </div>
 
-            <div className="card">
-              <p>Material Total</p>
-              <h2>${materialTotal.toFixed(2)}</h2>
-            </div>
+            <div className="panel">
+              <h2>Tender Profit Breakdown</h2>
 
-            <div className="card">
-              <p>Banking Total</p>
-              <h2>${bankingTotal.toFixed(2)}</h2>
-            </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
 
-            <div className="card">
-              <p>Daily Updates</p>
-              <h2>{dailyUpdates.length}</h2>
+                <tbody>
+                  <tr>
+                    <td>Tender Income</td>
+                    <td>${tenderIncome.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Material Cost</td>
+                    <td>${materialCost.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Subcontractor Cost</td>
+                    <td>${subcontractorCost.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Banking/Other Cost</td>
+                    <td>${bankingCost.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Total Cost</td>
+                    <td>${totalTenderCost.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Profit / Loss</td>
+                    <td>${tenderProfit.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Profit Percentage</td>
+                    <td>{tenderProfitPercentage.toFixed(2)}%</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </div>
+          </>
         )}
 
         {activeTab === "documents" && (
@@ -556,6 +642,7 @@ function TenderDetailsPage() {
                     })
                   }
                 />
+
                 <input
                   placeholder="Vendor / Supplier Name"
                   value={materialForm.vendor_name}
@@ -900,19 +987,17 @@ function TenderDetailsPage() {
 
               <div className="card">
                 <p>Total Assigned Amount</p>
-                <h2>
-                  ${subcontractorAssignedTotal.toFixed(2)}
-                </h2>
+                <h2>${subcontractorAssignedTotal.toFixed(2)}</h2>
               </div>
             </div>
 
             <div className="payment-grid">
               <div className="panel">
-              <h2>
-                {editingAssignedSub
-                  ? "Edit Assigned Subcontractor"
-                  : "Assign Subcontractor"}
-              </h2>
+                <h2>
+                  {editingAssignedSub
+                    ? "Edit Assigned Subcontractor"
+                    : "Assign Subcontractor"}
+                </h2>
 
                 <form
                   className="payment-form"
@@ -928,16 +1013,12 @@ function TenderDetailsPage() {
                     }
                     required
                   >
-                    <option value="">
-                      Select Subcontractor
-                    </option>
+                    <option value="">Select Subcontractor</option>
 
                     {allSubcontractors.map((sub) => (
                       <option key={sub.id} value={sub.id}>
                         {sub.full_name}
-                        {sub.business_name
-                          ? ` - ${sub.business_name}`
-                          : ""}
+                        {sub.business_name ? ` - ${sub.business_name}` : ""}
                       </option>
                     ))}
                   </select>
@@ -980,9 +1061,7 @@ function TenderDetailsPage() {
                   </select>
 
                   <button type="submit">
-                    {editingAssignedSub
-                      ? "Save Changes"
-                      : "Assign to Tender"}
+                    {editingAssignedSub ? "Save Changes" : "Assign to Tender"}
                   </button>
 
                   {editingAssignedSub && (
@@ -990,7 +1069,6 @@ function TenderDetailsPage() {
                       type="button"
                       onClick={() => {
                         setEditingAssignedSub(null);
-
                         setSubcontractorForm({
                           subcontractor_id: "",
                           work_description: "",
@@ -1028,9 +1106,7 @@ function TenderDetailsPage() {
                         <td>{sub.business_name}</td>
                         <td>{sub.phone}</td>
                         <td>{sub.work_description}</td>
-                        <td>
-                          ${Number(sub.assigned_amount).toFixed(2)}
-                        </td>
+                        <td>${Number(sub.assigned_amount).toFixed(2)}</td>
                         <td>{sub.status}</td>
 
                         <td
@@ -1067,9 +1143,7 @@ function TenderDetailsPage() {
 
                     {subcontractors.length === 0 && (
                       <tr>
-                        <td colSpan="7">
-                          No subcontractors assigned yet.
-                        </td>
+                        <td colSpan="7">No subcontractors assigned yet.</td>
                       </tr>
                     )}
                   </tbody>
