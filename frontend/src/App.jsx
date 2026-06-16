@@ -197,6 +197,9 @@ function App() {
       status: form.status.value,
       due_date: form.due_date.value,
       description: form.description.value,
+      estimated_value: form.estimated_value.value
+        ? Number(form.estimated_value.value)
+        : 0,
     };
 
     try {

@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS tenders (
   site_id INT REFERENCES sites(id) ON DELETE CASCADE,
   title VARCHAR(150),
   status VARCHAR(50),
+  estimated_value NUMERIC(14,2) DEFAULT 0
   due_date DATE,
   description TEXT
 );
@@ -146,6 +147,7 @@ CREATE TABLE IF NOT EXISTS tender_materials (
   quantity DECIMAL(12,2),
   unit VARCHAR(50),
   rate DECIMAL(12,2),
+  vendor_name VARCHAR(255)
   total_amount DECIMAL(12,2),
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

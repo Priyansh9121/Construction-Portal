@@ -17,6 +17,7 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
     due_date: "",
     description: "",
     site_id: "",
+    estimated_value: "",
   });
 
   const getSiteName = (siteId) => {
@@ -55,6 +56,7 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
       due_date: tender.due_date ? tender.due_date.slice(0, 10) : "",
       description: tender.description || "",
       site_id: tender.site_id || "",
+      estimated_value: tender.estimated_value || "",
     });
   };
 
@@ -67,6 +69,7 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
       due_date: "",
       description: "",
       site_id: "",
+      estimated_value: "",
     });
   };
 
@@ -119,6 +122,14 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
                 required
               />
 
+              <input
+                name="estimated_value"
+                type="number"
+                placeholder="Tender Value / Estimated Value"
+                value={editForm.estimated_value}
+                onChange={handleEditChange}
+              />
+
               <select
                 name="status"
                 value={editForm.status}
@@ -163,6 +174,12 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
               </select>
 
               <input name="title" placeholder="Tender Title" required />
+
+              <input
+                name="estimated_value"
+                type="number"
+                placeholder="Tender Value / Estimated Value"
+              />
 
               <select name="status" defaultValue="running" required>
                 <option value="running">Running</option>
@@ -224,6 +241,7 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
               <tr>
                 <th>Title</th>
                 <th>Site</th>
+                <th>Value</th>
                 <th>Status</th>
                 <th>Due Date</th>
                 <th>Description</th>
@@ -237,6 +255,10 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
                   <td>{tender.title}</td>
 
                   <td>{getSiteName(tender.site_id)}</td>
+
+                  <td>
+                    ${Number(tender.estimated_value || 0).toFixed(2)}
+                  </td>
 
                   <td>{tender.status}</td>
 
@@ -285,7 +307,7 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
 
               {filteredTenders.length === 0 && (
                 <tr>
-                  <td colSpan="6">No tenders found.</td>
+                  <td colSpan="7">No tenders found.</td>
                 </tr>
               )}
             </tbody>

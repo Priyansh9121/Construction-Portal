@@ -311,6 +311,8 @@ function TenderDetailsPage() {
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const totalTenderCost = materialCost + subcontractorCost + bankingCost;
+  const tenderValue = Number(tender?.estimated_value || 0);
+  const remainingBudget = tenderValue - totalTenderCost;
   const tenderProfit = tenderIncome - totalTenderCost;
 
   const tenderProfitPercentage =
@@ -368,6 +370,16 @@ function TenderDetailsPage() {
           <>
             <div className="summary-cards">
               <div className="card">
+                <p>Tender Value</p>
+                <h2>${tenderValue.toFixed(2)}</h2>
+              </div>
+
+              <div className="card">
+                <p>Remaining Budget</p>
+                <h2>${remainingBudget.toFixed(2)}</h2>
+              </div>
+
+              <div className="card">
                 <p>Documents</p>
                 <h2>{documents.length}</h2>
               </div>
@@ -421,8 +433,22 @@ function TenderDetailsPage() {
 
                 <tbody>
                   <tr>
+                    <td>Tender Value</td>
+                    <td>${tenderValue.toFixed(2)}</td>
+                  </tr>
+
+                  <tr>
+                    <td>Remaining Budget</td>
+                    <td>${remainingBudget.toFixed(2)}</td>
+                  </tr>
+
+                  <tr>
                     <td>Tender Income</td>
                     <td>${tenderIncome.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td>Remaining Budget</td>
+                    <td>${remainingBudget.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td>Material Cost</td>

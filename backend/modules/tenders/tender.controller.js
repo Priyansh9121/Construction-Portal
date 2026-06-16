@@ -32,12 +32,13 @@ exports.createTender = async (req, res) => {
       status,
       due_date,
       description,
+      estimated_value = 0,
     } = req.body;
 
     const result = await pool.query(
       `INSERT INTO tenders
-       (company_id, site_id, title, status, due_date, description)
-       VALUES ($1, $2, $3, $4, $5, $6)
+       (company_id, site_id, title, status, due_date, description, estimated_value)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         company_id,
@@ -46,6 +47,7 @@ exports.createTender = async (req, res) => {
         status,
         due_date,
         description,
+        estimated_value || 0,
       ]
     );
 
@@ -110,6 +112,7 @@ exports.updateTender = async (req, res) => {
       due_date,
       description,
       site_id,
+      estimated_value = 0,
     } = req.body;
 
     const result = await pool.query(
@@ -118,8 +121,9 @@ exports.updateTender = async (req, res) => {
            status = $2,
            due_date = $3,
            description = $4,
-           site_id = $5
-       WHERE id = $6
+           site_id = $5,
+           estimated_value = $6
+       WHERE id = $7
        AND is_deleted = FALSE
        RETURNING *`,
       [
@@ -128,6 +132,7 @@ exports.updateTender = async (req, res) => {
         due_date,
         description,
         site_id || null,
+        estimated_value || 0,
         id,
       ]
     );
