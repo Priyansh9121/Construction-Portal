@@ -383,13 +383,27 @@ th {
   .mobile-page-nav {
     display: flex !important;
     gap: 8px;
+  
     overflow-x: auto;
+    overflow-y: hidden;
+  
+    white-space: nowrap;
+  
+    -webkit-overflow-scrolling: touch;
+  
     padding: 8px 0 16px;
     margin-bottom: 12px;
+  
+    scrollbar-width: none;
+  }
+  
+  .mobile-page-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .mobile-page-nav a {
-    flex: 0 0 auto;
+    flex-shrink: 0;
+    white-space: nowrap;
     text-decoration: none;
     background: #e5e7eb;
     color: #111827;
@@ -677,8 +691,22 @@ textarea {
     top: 0;
     z-index: 50;
     background: #f8fafc;
+  
+    display: flex !important;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
+
+  .mobile-page-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  
   .modal-card {
     width: calc(100% - 32px);
     max-width: 360px;
