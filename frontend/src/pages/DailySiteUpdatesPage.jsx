@@ -40,12 +40,20 @@ function DailySiteUpdatesPage({
           <label>Take Site Photo</label>
 
           <input
-            name="photo"
+            name="camera_photo"
             type="file"
             accept="image/*"
             capture="environment"
           />
 
+          <label>Upload Existing Photo</label>
+
+          <input
+            name="gallery_photo"
+            type="file"
+            accept="image/*"
+          />
+          
           <button type="submit">Add Update</button>
         </form>
       </div>

@@ -294,9 +294,13 @@ function App() {
     const form = e.target;
     let photoUrl = null;
 
-    if (form.photo.files[0]) {
+    const selectedPhoto =
+      form.camera_photo.files[0] ||
+      form.gallery_photo.files[0];
+
+    if (selectedPhoto) {
       const formData = new FormData();
-      formData.append("photo", form.photo.files[0]);
+      formData.append("photo", selectedPhoto);
 
       const uploadRes = await uploadSitePhoto(formData);
       photoUrl = uploadRes.fileUrl;
