@@ -5,11 +5,13 @@ const path = require("path");
 const { PORT } = require("./config/env");
 
 const authMiddleware = require("./middleware/authMiddleware");
+const roleMiddleware = require("./middleware/roleMiddleware");
 const errorHandler = require("./middleware/errorHandler");
 const requestLogger = require("./middleware/requestLogger");
 
 const tenderDetailsRoutes = require("./modules/tenderDetails/tenderDetails.routes");
 const subcontractorRoutes = require("./modules/subcontractors/subcontractor.routes");
+const workerPortalRoutes = require("./modules/workerPortal/workerPortal.routes");
 
 const app = express();
 
@@ -110,6 +112,21 @@ app.use(
   "/api/upload",
   authMiddleware,
   require("./modules/uploads/upload.routes")
+);
+
+/*
+|--------------------------------------------------------------------------
+| Worker Portal Routes
+|--------------------------------------------------------------------------
+| Only logged-in users with role = worker can access this.
+|--------------------------------------------------------------------------
+*/
+
+app.use(
+  "/api/worker-portal",
+  authMiddleware,
+  roleMiddleware(["worker"]),
+  workerPortalRoutes
 );
 
 /*
