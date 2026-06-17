@@ -57,19 +57,7 @@ function WorkerPortalPage({ logout }) {
     }
   };
 
-  const loadDocuments = async (assignment) => {
-    if (!assignment?.tender_id) {
-      setDocuments([]);
-      return;
-    }
-
-    try {
-      const data = await getWorkerTenderDocuments(assignment.tender_id);
-      setDocuments(data.documents || []);
-    } catch (error) {
-      setDocuments([]);
-    }
-  };
+ 
 
   useEffect(() => {
     setLogDate(new Date().toISOString().split("T")[0]);
@@ -77,8 +65,24 @@ function WorkerPortalPage({ logout }) {
   }, []);
 
   useEffect(() => {
-    loadDocuments(selectedAssignment);
+    async function loadDocuments() {
+      if (!selectedAssignment?.tender_id) return;
+  
+      try {
+        const data = await getWorkerTenderDocuments(
+          selectedAssignment.tender_id
+        );
+  
+        setDocuments(data.documents || []);
+      } catch (err) {
+        console.error("Failed to load documents", err);
+      }
+    }
+  
+    loadDocuments();
   }, [selectedAssignment]);
+
+ 
 
   const handleLogout = () => {
     logout();
@@ -315,40 +319,47 @@ function WorkerPortalPage({ logout }) {
         </div>
 
         <div className="panel">
-          <h2>Tender Documents</h2>
+            <h2>Tender Documents</h2>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Document</th>
-                <th>Type</th>
-                <th>Uploaded</th>
-                <th>Open</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {documents.map((doc) => (
-                <tr key={doc.id}>
-                  <td>{doc.document_name}</td>
-                  <td>{doc.file_type || "File"}</td>
-                  <td>{doc.uploaded_at?.slice(0, 10)}</td>
-                  <td>
-                    <a href={doc.file_url} target="_blank" rel="noreferrer">
-                      View
-                    </a>
-                  </td>
-                </tr>
-              ))}
-
-              {documents.length === 0 && (
+            <table>
+                <thead>
                 <tr>
-                  <td colSpan="4">No documents found for this tender.</td>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Download</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+
+                <tbody>
+                {documents.map((doc) => (
+                    <tr key={doc.id}>
+                    <td>{doc.document_name}</td>
+                    <td>{doc.document_type}</td>
+
+                    <td>
+                        <a
+                        href={doc.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        >
+                        Open
+                        </a>
+                    </td>
+                    </tr>
+                ))}
+
+                {documents.length === 0 && (
+                    <tr>
+                    <td colSpan="3">
+                        No documents uploaded.
+                    </td>
+                    </tr>
+                )}
+                </tbody>
+            </table>
         </div>
+
+        
 
         <div className="panel">
           <h2>My Daily Updates</h2>
