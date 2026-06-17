@@ -19,10 +19,21 @@ import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import LoginPage from "../pages/LoginPage";
 import SiteDetailsPage from "../pages/SiteDetailsPage";
+import WorkerPortalPage from "../pages/WorkerPortalPage";
 
 function ProtectedRoute({ user, children }) {
   if (!user) {
     return <Navigate to="/login" />;
+  }
+
+  return children;
+}
+
+function RoleRoute({ user, allowedRoles, children }) {
+  if (!user) return <Navigate to="/login" />;
+
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" />;
   }
 
   return children;
@@ -39,7 +50,7 @@ function AppRoutes(props) {
         path="/login"
         element={
           props.user ? (
-            <Navigate to="/dashboard" />
+            <Navigate to={props.user.role === "worker" ? "/worker-portal" : "/dashboard"} />
           ) : (
             <LoginPage
               email={props.email}
@@ -55,7 +66,17 @@ function AppRoutes(props) {
 
       <Route
         path="/"
-        element={<Navigate to={props.user ? "/dashboard" : "/login"} />}
+        element={
+          <Navigate
+            to={
+              props.user
+                ? props.user.role === "worker"
+                  ? "/worker-portal"
+                  : "/dashboard"
+                : "/login"
+            }
+          />
+        }
       />
 
       <Route
@@ -247,6 +268,15 @@ function AppRoutes(props) {
               <Navigate to="/dashboard" />
             )}
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/worker-portal"
+        element={
+          <RoleRoute user={props.user} allowedRoles={["worker"]}>
+            <WorkerPortalPage logout={props.logout} />
+          </RoleRoute>
         }
       />
 

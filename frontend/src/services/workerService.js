@@ -23,3 +23,8 @@ export const updateWorker = async (id, payload) => {
 
   return response.data;
 };
+
+export const getWorkerTenderDocuments = async (tenderId) => {
+  const response = await axiosClient.get(`/worker-portal/tenders/${tenderId}/documents`);
+  return response.data;
+};

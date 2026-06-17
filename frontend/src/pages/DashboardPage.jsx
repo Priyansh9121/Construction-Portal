@@ -80,7 +80,7 @@ function DashboardPage({
         <StatCard title="Subcontractors" value={subcontractors.length} />
       </section>
 
-      <section className="payment-grid">
+      <section className="dashboard-grid">
         <div className="panel">
           <h2>Recent Payments</h2>
 

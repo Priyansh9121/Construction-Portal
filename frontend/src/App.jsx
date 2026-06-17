@@ -21,7 +21,7 @@ import AppRoutes from "./routes/AppRoutes";
 function App() {
   const [email, setEmail] = useState("admin@test.com");
   const [password, setPassword] = useState("");
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const [message, setMessage] = useState("");
 
   const {
@@ -89,7 +89,7 @@ function App() {
       
       setMessage("");
       
-      window.location.reload();
+      
     } catch (err) {
       setMessage(err.response?.data?.message || "Login failed");
     }
@@ -325,6 +325,7 @@ function App() {
   return (
     <AppRoutes
       user={user}
+      logout={logout}
       email={email}
       setEmail={setEmail}
       password={password}
