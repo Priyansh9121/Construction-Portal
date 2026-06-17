@@ -386,3 +386,133 @@ exports.createMyDailyUpdate = async (req, res) => {
     });
   }
 };
+
+
+exports.getMyTenderDocuments = async (req, res) => {
+    try {
+      const loggedInUserId = req.user.id;
+      const tenderId = Number(req.params.id);
+  
+      const worker = await getWorkerByLoggedInUser(loggedInUserId);
+  
+      if (!worker) {
+        return res.status(404).json({
+          success: false,
+          message: "No worker profile is linked to this login user.",
+        });
+      }
+  
+      const assignmentCheck = await pool.query(
+        `
+        SELECT id
+        FROM worker_assignments
+        WHERE worker_id = $1
+          AND tender_id = $2
+          AND status = 'active'
+          AND COALESCE(is_deleted, FALSE) = FALSE
+        LIMIT 1
+        `,
+        [worker.worker_id, tenderId]
+      );
+  
+      if (assignmentCheck.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not assigned to this tender.",
+        });
+      }
+  
+      const documentsResult = await pool.query(
+        `
+        SELECT
+          id,
+          tender_id,
+          document_name,
+          file_url,
+          file_type,
+          uploaded_at
+        FROM tender_documents
+        WHERE tender_id = $1
+          AND COALESCE(is_deleted, FALSE) = FALSE
+        ORDER BY id DESC
+        `,
+        [tenderId]
+      );
+  
+      res.status(200).json({
+        success: true,
+        documents: documentsResult.rows,
+      });
+    } catch (error) {
+      console.error("Worker tender documents error:", error);
+  
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  };
+  exports.getMyTenderDocuments = async (req, res) => {
+    try {
+      const loggedInUserId = req.user.id;
+      const tenderId = Number(req.params.id);
+  
+      const worker = await getWorkerByLoggedInUser(loggedInUserId);
+  
+      if (!worker) {
+        return res.status(404).json({
+          success: false,
+          message: "No worker profile is linked to this login user.",
+        });
+      }
+  
+      const assignmentCheck = await pool.query(
+        `
+        SELECT id
+        FROM worker_assignments
+        WHERE worker_id = $1
+          AND tender_id = $2
+          AND status = 'active'
+          AND COALESCE(is_deleted, FALSE) = FALSE
+        LIMIT 1
+        `,
+        [worker.worker_id, tenderId]
+      );
+  
+      if (assignmentCheck.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not assigned to this tender.",
+        });
+      }
+  
+      const documentsResult = await pool.query(
+        `
+        SELECT
+          id,
+          tender_id,
+          document_name,
+          document_type,
+          file_url,
+          created_at
+        FROM tender_documents
+        WHERE tender_id = $1
+          AND COALESCE(is_deleted, FALSE) = FALSE
+        ORDER BY id DESC
+        `,
+        [tenderId]
+      );
+  
+      res.status(200).json({
+        success: true,
+        documents: documentsResult.rows,
+      });
+    } catch (error) {
+      console.error("Worker tender documents error:", error);
+  
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  };

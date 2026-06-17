@@ -25,4 +25,14 @@ router.get("/daily-updates", workerPortalController.getMyDailyUpdates);
 
 router.post("/daily-updates", workerPortalController.createMyDailyUpdate);
 
+router.get(
+    "/tenders/:id/documents",
+    workerPortalController.getMyTenderDocuments
+  );
+
+router.get(
+    "/tenders/:id/documents",
+    workerPortalController.getMyTenderDocuments
+);
+
 module.exports = router;
