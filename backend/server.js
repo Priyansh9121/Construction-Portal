@@ -13,6 +13,8 @@ const tenderDetailsRoutes = require("./modules/tenderDetails/tenderDetails.route
 const subcontractorRoutes = require("./modules/subcontractors/subcontractor.routes");
 const workerPortalRoutes = require("./modules/workerPortal/workerPortal.routes");
 
+const subcontractorPortalRoutes = require("./modules/subcontractorPortal/subcontractorPortal.routes");
+
 const app = express();
 
 app.use(cors());
@@ -127,6 +129,21 @@ app.use(
   authMiddleware,
   roleMiddleware(["worker"]),
   workerPortalRoutes
+);
+
+/*
+|--------------------------------------------------------------------------
+  Subcontractor Portal Routes
+|--------------------------------------------------------------------------
+| Only logged-in users with role = subcontractor can access this.
+|--------------------------------------------------------------------------
+*/
+
+app.use(
+  "/api/subcontractor-portal",
+  authMiddleware,
+  roleMiddleware(["subcontractor"]),
+  subcontractorPortalRoutes
 );
 
 /*
