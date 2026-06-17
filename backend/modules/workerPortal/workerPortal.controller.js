@@ -11,32 +11,43 @@ const pool = require("../../database/pool");
 | to this login user.
 */
 async function getWorkerByLoggedInUser(userId) {
-  const result = await pool.query(
-    `
-    SELECT
-      w.id AS worker_id,
-      w.company_id,
-      w.user_id,
-      w.full_name,
-      w.phone,
-      w.salary,
-      w.role AS worker_job_role,
-      w.status AS worker_status,
-      u.email AS login_email,
-      u.role AS login_role
-    FROM workers w
-    INNER JOIN users u ON u.id = w.user_id
-    WHERE w.user_id = $1
-      AND w.is_deleted = FALSE
-      AND COALESCE(w.status, 'active') != 'inactive'
-    LIMIT 1
-    `,
-    [userId]
-  );
-
-  return result.rows[0];
+    console.log("DEBUG logged in userId:", userId);
+  
+    const checkAllWorkers = await pool.query(`
+      SELECT id, full_name, user_id, status, is_deleted
+      FROM workers
+      ORDER BY id
+    `);
+  
+    console.log("DEBUG all workers:", checkAllWorkers.rows);
+  
+    const result = await pool.query(
+      `
+      SELECT
+        w.id AS worker_id,
+        w.company_id,
+        w.user_id,
+        w.full_name,
+        w.phone,
+        w.salary,
+        w.role AS worker_job_role,
+        w.status AS worker_status,
+        u.email AS login_email,
+        u.role AS login_role
+      FROM workers w
+      INNER JOIN users u ON u.id = w.user_id
+      WHERE w.user_id = $1
+        AND COALESCE(w.is_deleted, FALSE) = FALSE
+        AND COALESCE(w.status, 'active') != 'inactive'
+      LIMIT 1
+      `,
+      [userId]
+    );
+  
+    console.log("DEBUG matched worker:", result.rows);
+  
+    return result.rows[0];
 }
-
 /*
 |--------------------------------------------------------------------------
 | Helper: check if worker is allowed to submit update
