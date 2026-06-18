@@ -233,7 +233,9 @@ function SitesPage({ sites, addSite, deleteSite }) {
 
               {filteredSites.length === 0 && (
                 <tr>
-                  <td colSpan="5">No sites added yet.</td>
+                  <td colSpan="5" className="empty-table-message">
+                    No sites found.
+                  </td>
                 </tr>
               )}
             </tbody>

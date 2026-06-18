@@ -53,7 +53,7 @@ function DailySiteUpdatesPage({
             type="file"
             accept="image/*"
           />
-          
+
           <button type="submit">Add Update</button>
         </form>
       </div>
@@ -98,8 +98,8 @@ function DailySiteUpdatesPage({
 
             {siteLogs.length === 0 && (
               <tr>
-                <td colSpan="5">
-                  No daily site updates added yet.
+                <td colSpan="5" className="empty-table-message">
+                  No daily updates found.
                 </td>
               </tr>
             )}

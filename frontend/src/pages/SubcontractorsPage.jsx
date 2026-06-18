@@ -271,7 +271,9 @@ function SubcontractorsPage() {
 
               {filteredSubcontractors.length === 0 && (
                 <tr>
-                  <td colSpan="7">No subcontractors found.</td>
+                  <td colSpan="7" className="empty-table-message">
+                    No subcontractors found.
+                  </td>
                 </tr>
               )}
             </tbody>

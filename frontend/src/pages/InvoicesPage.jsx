@@ -178,7 +178,7 @@ function InvoicesPage({
                 <tr key={invoice.id}>
                   <td>{invoice.invoice_number}</td>
 
-                  <td>
+                  <td className="amount-cell">
                     ${Number(invoice.amount).toFixed(2)}
                   </td>
 
@@ -209,7 +209,7 @@ function InvoicesPage({
 
               {filteredInvoices.length === 0 && (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan="5" className="empty-table-message">
                     No matching invoices found.
                   </td>
                 </tr>

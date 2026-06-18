@@ -198,7 +198,9 @@ function WorkersPage({ workers, addWorker, deleteWorker }) {
 
               {filteredWorkers.length === 0 && (
                 <tr>
-                  <td colSpan="6">No workers found.</td>
+                  <td colSpan="6" className="empty-table-message">
+                    No workers found.
+                  </td>
                 </tr>
               )}
             </tbody>

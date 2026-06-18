@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+
 function ReportsPage({
   payments = [],
   workers = [],
@@ -5,275 +7,313 @@ function ReportsPage({
   tenders = [],
   invoices = [],
 }) {
-  const totalIncome = payments
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [paymentType, setPaymentType] = useState("all");
+  const [invoiceStatus, setInvoiceStatus] = useState("all");
+
+  const money = (value) =>
+    `$${Number(value || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const inDateRange = (dateValue) => {
+    if (!dateValue) return true;
+    const date = new Date(dateValue);
+    if (fromDate && date < new Date(fromDate)) return false;
+    if (toDate && date > new Date(toDate)) return false;
+    return true;
+  };
+
+  const filteredPayments = useMemo(() => {
+    return payments.filter((p) => {
+      const typeMatch = paymentType === "all" || p.payment_type === paymentType;
+      return typeMatch && inDateRange(p.payment_date || p.created_at);
+    });
+  }, [payments, paymentType, fromDate, toDate]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((i) => {
+      const statusMatch = invoiceStatus === "all" || i.status === invoiceStatus;
+      return statusMatch && inDateRange(i.created_at);
+    });
+  }, [invoices, invoiceStatus, fromDate, toDate]);
+
+  const totalIncome = filteredPayments
     .filter((p) => p.payment_type === "Income")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const totalExpense = payments
+  const totalExpense = filteredPayments
     .filter((p) => p.payment_type === "Expense")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const balance = totalIncome - totalExpense;
 
-  const governmentPayments = payments
-    .filter((p) => p.category === "Government Payment")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const workerSalaries = payments
-    .filter((p) => p.category === "Worker Salary")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const subcontractorPayments = payments
-    .filter((p) => p.category === "Subcontractor Payment")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const materialPurchases = payments
-    .filter((p) => p.category === "Material Purchase")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const runningTenders = tenders.filter((t) => t.status === "running").length;
-  const passedTenders = tenders.filter((t) => t.status === "passed").length;
-  const dueSoonTenders = tenders.filter((t) => t.status === "due soon").length;
-
-  const activeWorkers = workers.filter((w) => w.status === "active").length;
-  const inactiveWorkers = workers.filter((w) => w.status === "inactive").length;
-
-  const personalSites = sites.filter((s) => s.site_type === "Personal Site").length;
-  const subcontractorSites = sites.filter(
-    (s) => s.site_type === "Subcontractor Site"
-  ).length;
-
-  const activeSites = sites.filter((s) => s.status === "active").length;
-  const completedSites = sites.filter((s) => s.status === "completed").length;
-  const pendingSites = sites.filter((s) => s.status === "pending").length;
-
-  const pendingInvoices = invoices.filter((i) => i.status === "pending").length;
-  const paidInvoices = invoices.filter((i) => i.status === "paid").length;
-  const overdueInvoices = invoices.filter((i) => i.status === "overdue").length;
-
-  const invoiceTotal = invoices.reduce(
-    (sum, invoice) => sum + Number(invoice.amount || 0),
+  const invoiceTotal = filteredInvoices.reduce(
+    (sum, i) => sum + Number(i.amount || 0),
     0
   );
 
-  const paidInvoiceTotal = invoices
-    .filter((invoice) => invoice.status === "paid")
-    .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+  const paidInvoiceTotal = filteredInvoices
+    .filter((i) => i.status === "paid")
+    .reduce((sum, i) => sum + Number(i.amount || 0), 0);
 
-  const pendingInvoiceTotal = invoices
-    .filter((invoice) => invoice.status !== "paid")
-    .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+  const unpaidInvoiceTotal = filteredInvoices
+    .filter((i) => i.status !== "paid")
+    .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+
+  const categoryTotals = filteredPayments.reduce((acc, payment) => {
+    const category = payment.category || "Other";
+    acc[category] = (acc[category] || 0) + Number(payment.amount || 0);
+    return acc;
+  }, {});
+
+  const maxCategoryAmount = Math.max(...Object.values(categoryTotals), 1);
+
+  const tenderStats = {
+    running: tenders.filter((t) => t.status === "running").length,
+    passed: tenders.filter((t) => t.status === "passed").length,
+    dueSoon: tenders.filter((t) => t.status === "due soon").length,
+  };
+
+  const workerStats = {
+    active: workers.filter((w) => w.status === "active").length,
+    inactive: workers.filter((w) => w.status === "inactive").length,
+  };
+
+  const siteStats = {
+    personal: sites.filter((s) => s.site_type === "Personal Site").length,
+    subcontractor: sites.filter((s) => s.site_type === "Subcontractor Site")
+      .length,
+    active: sites.filter((s) => s.status === "active").length,
+    completed: sites.filter((s) => s.status === "completed").length,
+  };
+
+  const exportCSV = () => {
+    const rows = [
+      ["Report Type", "Name", "Type/Status", "Amount"],
+      ["Payment", "Total Income", "Income", totalIncome],
+      ["Payment", "Total Expense", "Expense", totalExpense],
+      ["Payment", "Balance", "Profit/Loss", balance],
+      ["Invoice", "Total Invoice Amount", "All", invoiceTotal],
+      ["Invoice", "Paid Invoice Amount", "Paid", paidInvoiceTotal],
+      ["Invoice", "Unpaid Invoice Amount", "Pending/Overdue", unpaidInvoiceTotal],
+      ...Object.entries(categoryTotals).map(([category, amount]) => [
+        "Category",
+        category,
+        "Payment Category",
+        amount,
+      ]),
+    ];
+
+    const csv = rows.map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "construction-report.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <>
-      <section className="cards">
-        <div className="card">
-          <p>Company Balance</p>
-          <h2>${balance.toFixed(2)}</h2>
+      <div className="page-header">
+        <div>
+          <h1>Reports</h1>
+          <p>Financial, tender, site, worker and invoice overview.</p>
         </div>
 
+        <button className="primary-btn" onClick={exportCSV}>
+          Export CSV
+        </button>
+      </div>
+
+      <section className="panel">
+        <h2>Report Filters</h2>
+
+        <div className="form-grid">
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+          />
+
+          <select
+            value={paymentType}
+            onChange={(e) => setPaymentType(e.target.value)}
+          >
+            <option value="all">All Payment Types</option>
+            <option value="Income">Income</option>
+            <option value="Expense">Expense</option>
+            <option value="Investment">Investment</option>
+            <option value="Loan">Loan</option>
+            <option value="Return">Return</option>
+          </select>
+
+          <select
+            value={invoiceStatus}
+            onChange={(e) => setInvoiceStatus(e.target.value)}
+          >
+            <option value="all">All Invoice Status</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </div>
+      </section>
+
+      <section className="cards">
         <div className="card">
           <p>Total Income</p>
-          <h2>${totalIncome.toFixed(2)}</h2>
+          <h2>{money(totalIncome)}</h2>
         </div>
 
         <div className="card">
           <p>Total Expense</p>
-          <h2>${totalExpense.toFixed(2)}</h2>
+          <h2>{money(totalExpense)}</h2>
         </div>
 
         <div className="card">
-          <p>Profit / Loss</p>
-          <h2>${balance.toFixed(2)}</h2>
+          <p>Balance</p>
+          <h2>{money(balance)}</h2>
+        </div>
+
+        <div className="card">
+          <p>Unpaid Invoices</p>
+          <h2>{money(unpaidInvoiceTotal)}</h2>
         </div>
       </section>
 
       <section className="payment-grid">
         <div className="panel">
-          <h2>Financial Report</h2>
+          <h2>Payment Category Chart</h2>
+
+          {Object.keys(categoryTotals).length === 0 ? (
+            <p>No payment data found for selected filters.</p>
+          ) : (
+            <div className="report-chart">
+              {Object.entries(categoryTotals).map(([category, amount]) => (
+                <div className="report-bar-row" key={category}>
+                  <div className="report-bar-label">{category}</div>
+                  <div className="report-bar-track">
+                    <div
+                      className="report-bar-fill"
+                      style={{
+                        width: `${(amount / maxCategoryAmount) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="report-bar-value">{money(amount)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="panel">
+          <h2>Invoice Summary</h2>
 
           <table>
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Total Amount</th>
-              </tr>
-            </thead>
+          <tbody>
+            <tr>
+              <td>Total Invoices</td>
+              <td className="number-cell">{filteredInvoices.length}</td>
+            </tr>
+            <tr>
+              <td>Paid Invoices</td>
+              <td className="number-cell">
+                {filteredInvoices.filter((i) => i.status === "paid").length}
+              </td>
+            </tr>
+            <tr>
+              <td>Pending Invoices</td>
+              <td className="number-cell">
+                {filteredInvoices.filter((i) => i.status === "pending").length}
+              </td>
+            </tr>
+            <tr>
+              <td>Overdue Invoices</td>
+              <td className="number-cell">
+                {filteredInvoices.filter((i) => i.status === "overdue").length}
+              </td>
+            </tr>
+            <tr>
+              <td>Total Invoice Amount</td>
+              <td className="amount-cell">{money(invoiceTotal)}</td>
+            </tr>
+            <tr>
+              <td>Paid Amount</td>
+              <td className="amount-cell">{money(paidInvoiceTotal)}</td>
+            </tr>
+            <tr>
+              <td>Pending / Unpaid Amount</td>
+              <td className="amount-cell">{money(unpaidInvoiceTotal)}</td>
+            </tr>
+          </tbody>
+          </table>
+        </div>
+      </section>
 
+      <section className="payment-grid">
+        <div className="panel">
+          <h2>Tender Summary</h2>
+
+          <table>
             <tbody>
               <tr>
-                <td>Government Payments</td>
-                <td>${governmentPayments.toFixed(2)}</td>
+                <td>Running Tenders</td>
+                <td className="number-cell">{tenderStats.running}</td>
               </tr>
-
               <tr>
-                <td>Worker Salaries</td>
-                <td>${workerSalaries.toFixed(2)}</td>
+                <td>Passed Tenders</td>
+                <td className="number-cell">{tenderStats.passed}</td>
               </tr>
-
               <tr>
-                <td>Subcontractor Payments</td>
-                <td>${subcontractorPayments.toFixed(2)}</td>
-              </tr>
-
-              <tr>
-                <td>Material Purchases</td>
-                <td>${materialPurchases.toFixed(2)}</td>
+                <td>Due Soon Tenders</td>
+                <td className="number-cell">{tenderStats.dueSoon}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <div className="panel">
-          <h2>Tender Report</h2>
+          <h2>Site & Worker Summary</h2>
 
           <table>
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Count</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td>Running</td>
-                <td>{runningTenders}</td>
-              </tr>
-
-              <tr>
-                <td>Passed</td>
-                <td>{passedTenders}</td>
-              </tr>
-
-              <tr>
-                <td>Due Soon</td>
-                <td>{dueSoonTenders}</td>
-              </tr>
-
-              <tr>
-                <td>Total Tenders</td>
-                <td>{tenders.length}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <h2>Workforce Report</h2>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Worker Status</th>
-                <th>Count</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td>Active Workers</td>
-                <td>{activeWorkers}</td>
-              </tr>
-
-              <tr>
-                <td>Inactive Workers</td>
-                <td>{inactiveWorkers}</td>
-              </tr>
-
-              <tr>
-                <td>Total Workers</td>
-                <td>{workers.length}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <h2>Site Report</h2>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Site Type / Status</th>
-                <th>Count</th>
-              </tr>
-            </thead>
-
             <tbody>
               <tr>
                 <td>Personal Sites</td>
-                <td>{personalSites}</td>
+                <td className="number-cell">{siteStats.personal}</td>
               </tr>
-
               <tr>
                 <td>Subcontractor Sites</td>
-                <td>{subcontractorSites}</td>
+                <td className="number-cell">{siteStats.subcontractor}</td>
               </tr>
-
               <tr>
                 <td>Active Sites</td>
-                <td>{activeSites}</td>
+                <td className="number-cell">{siteStats.active}</td>
               </tr>
-
               <tr>
                 <td>Completed Sites</td>
-                <td>{completedSites}</td>
+                <td className="number-cell">{siteStats.completed}</td>
               </tr>
-
               <tr>
-                <td>Pending Sites</td>
-                <td>{pendingSites}</td>
+                <td>Active Workers</td>
+                <td className="number-cell">{workerStats.active}</td>
               </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <h2>Invoice Report</h2>
-
-          <table>
-            <thead>
               <tr>
-                <th>Invoice Metric</th>
-                <th>Value</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td>Total Invoices</td>
-                <td>{invoices.length}</td>
-              </tr>
-
-              <tr>
-                <td>Paid Invoices</td>
-                <td>{paidInvoices}</td>
-              </tr>
-
-              <tr>
-                <td>Pending Invoices</td>
-                <td>{pendingInvoices}</td>
-              </tr>
-
-              <tr>
-                <td>Overdue Invoices</td>
-                <td>{overdueInvoices}</td>
-              </tr>
-
-              <tr>
-                <td>Total Invoice Amount</td>
-                <td>${invoiceTotal.toFixed(2)}</td>
-              </tr>
-
-              <tr>
-                <td>Paid Invoice Amount</td>
-                <td>${paidInvoiceTotal.toFixed(2)}</td>
-              </tr>
-
-              <tr>
-                <td>Pending / Unpaid Amount</td>
-                <td>${pendingInvoiceTotal.toFixed(2)}</td>
+                <td>Inactive Workers</td>
+                <td className="number-cell">{workerStats.inactive}</td>
               </tr>
             </tbody>
           </table>

@@ -307,7 +307,7 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
 
               {filteredTenders.length === 0 && (
                 <tr>
-                  <td colSpan="7">No tenders found.</td>
+                  <td colSpan="7" className="empty-table-message">No tenders found.</td>
                 </tr>
               )}
             </tbody>

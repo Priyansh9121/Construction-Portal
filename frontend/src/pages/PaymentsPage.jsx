@@ -247,7 +247,9 @@ function PaymentsPage({ payments, addPayment, deletePayment }) {
                       : ""}
                   </td>
                   <td>{payment.description}</td>
-                  <td>${Number(payment.amount).toFixed(2)}</td>
+                  <td className="amount-cell">
+                    ${Number(payment.amount).toFixed(2)}
+                  </td> 
                   <td>
                     <button type="button" onClick={() => startEdit(payment)}>
                       Edit
@@ -266,7 +268,9 @@ function PaymentsPage({ payments, addPayment, deletePayment }) {
 
               {filteredPayments.length === 0 && (
                 <tr>
-                  <td colSpan="6">No payments found.</td>
+                  <td colSpan="6" className="empty-table-message">
+                    No payments found.
+                  </td>
                 </tr>
               )}
             </tbody>
