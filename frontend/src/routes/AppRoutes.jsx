@@ -20,6 +20,8 @@ import ResetPasswordPage from "../pages/ResetPasswordPage";
 import LoginPage from "../pages/LoginPage";
 import SiteDetailsPage from "../pages/SiteDetailsPage";
 import WorkerPortalPage from "../pages/WorkerPortalPage";
+import SubcontractorPortalPage from "../pages/SubcontractorPortalPage";
+
 
 function ProtectedRoute({ user, children }) {
   if (!user) {
@@ -50,7 +52,15 @@ function AppRoutes(props) {
         path="/login"
         element={
           props.user ? (
-            <Navigate to={props.user.role === "worker" ? "/worker-portal" : "/dashboard"} />
+            <Navigate
+              to={
+                props.user.role === "worker"
+                  ? "/worker-portal"
+                  : props.user.role === "subcontractor"
+                  ? "/subcontractor-portal"
+                  : "/dashboard"
+              }
+            />
           ) : (
             <LoginPage
               email={props.email}
@@ -67,15 +77,19 @@ function AppRoutes(props) {
       <Route
         path="/"
         element={
-          <Navigate
-            to={
-              props.user
-                ? props.user.role === "worker"
+          props.user ? (
+            <Navigate
+              to={
+                props.user.role === "worker"
                   ? "/worker-portal"
+                  : props.user.role === "subcontractor"
+                  ? "/subcontractor-portal"
                   : "/dashboard"
-                : "/login"
-            }
-          />
+              }
+            />
+          ) : (
+            <Navigate to="/login" />
+          )
         }
       />
 
@@ -276,6 +290,20 @@ function AppRoutes(props) {
         element={
           <RoleRoute user={props.user} allowedRoles={["worker"]}>
             <WorkerPortalPage logout={props.logout} />
+          </RoleRoute>
+        }
+      />
+
+      <Route
+        path="/subcontractor-portal"
+        element={
+          <RoleRoute
+            user={props.user}
+            allowedRoles={["subcontractor"]}
+          >
+            <SubcontractorPortalPage
+              logout={props.logout}
+            />
           </RoleRoute>
         }
       />

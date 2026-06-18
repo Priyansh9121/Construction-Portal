@@ -930,3 +930,10 @@ textarea {
     gap: 12px;
   }
 }
+
+.worker-photo-thumb {
+  width: 120px;
+  border-radius: 8px;
+  margin-top: 8px;
+  display: block;
+}

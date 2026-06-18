@@ -337,12 +337,18 @@ function WorkerPortalPage({ logout }) {
                     <td>{doc.document_type}</td>
 
                     <td>
-                        <a
+                    <a
                         href={doc.file_url}
                         target="_blank"
                         rel="noreferrer"
                         >
                         Open
+                        </a>
+
+                        {" | "}
+
+                        <a href={doc.file_url} download>
+                        Download
                         </a>
                     </td>
                     </tr>
@@ -383,12 +389,22 @@ function WorkerPortalPage({ logout }) {
                   <td>{update.tender_title}</td>
                   <td>{update.notes}</td>
                   <td>
-                    {update.photo_url ? (
-                      <a href={update.photo_url} target="_blank" rel="noreferrer">
-                        View Photo
-                      </a>
+                  {update.photo_url ? (
+                    <>
+                        <a href={update.photo_url} target="_blank" rel="noreferrer">
+                        Open
+                        </a>
+
+                        <br />
+
+                        <img
+                        src={update.photo_url}
+                        alt="Site Update"
+                        className="worker-photo-thumb"
+                        />
+                    </>
                     ) : (
-                      "No photo"
+                    "No photo"
                     )}
                   </td>
                 </tr>
