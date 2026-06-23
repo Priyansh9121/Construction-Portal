@@ -16,6 +16,14 @@ import {
   updateTenderSubcontractor,
 } from "../services/tenderDetailsService";
 
+import {
+  getTenderFinanceRecords,
+  getTenderFinanceSummary,
+  createFinanceRecord,
+  updateFinanceRecord,
+  deleteFinanceRecord,
+} from "../services/tenderFinanceService";
+
 import { getSubcontractors } from "../services/subcontractorService";
 
 function TenderDetailsPage() {
@@ -31,6 +39,27 @@ function TenderDetailsPage() {
   const [dailyUpdates, setDailyUpdates] = useState([]);
   const [subcontractors, setSubcontractors] = useState([]);
   const [allSubcontractors, setAllSubcontractors] = useState([]);
+
+
+  const [financeRecords, setFinanceRecords] = useState([]);
+  const [financeSummary, setFinanceSummary] = useState(null);
+  const [editingFinance, setEditingFinance] = useState(null);
+  const [financeForm, setFinanceForm] = useState({
+    record_type: "GOVERNMENT_BILL",
+    source_name: "",
+    payment_mode: "Bank",
+    amount: "",
+    interest_percent: "",
+    gst_percent: "18",
+    gst_total: "",
+    gst_done: "",
+    company_charge_percent: "",
+    company_charge_total: "",
+    company_charge_done: "",
+    tds_amount: "",
+    record_date: "",
+    notes: "",
+  });
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingAssignedSub, setEditingAssignedSub] = useState(null);
@@ -98,8 +127,21 @@ function TenderDetailsPage() {
     }
   };
 
+  const loadFinanceData = async () => {
+    try {
+      const recordsRes = await getTenderFinanceRecords(id);
+      const summaryRes = await getTenderFinanceSummary(id);
+  
+      setFinanceRecords(recordsRes.records || []);
+      setFinanceSummary(summaryRes.summary || null);
+    } catch (error) {
+      console.error("Load finance data error:", error);
+    }
+  };
+
   useEffect(() => {
     fetchTenderDetails();
+    loadFinanceData();
   }, [id]);
 
   const handleAddDocument = async (e) => {
@@ -170,6 +212,114 @@ function TenderDetailsPage() {
     });
 
     fetchTenderDetails();
+  };
+
+  const handleAddFinanceRecord = async (e) => {
+    e.preventDefault();
+  
+    if (
+      financeForm.record_type === "GST_RETURN" &&
+      Number(financeForm.amount) > Number(financeSummary?.gst_left || 0)
+    ) {
+      alert("GST Return cannot be greater than remaining GST.");
+      return;
+    }
+  
+    if (
+      financeForm.record_type === "COMPANY_CHARGE_PAYMENT" &&
+      Number(financeForm.amount) >
+        Number(financeSummary?.company_charge_left || 0)
+    ) {
+      alert(
+        "Company Charge Payment cannot be greater than remaining Company Charge."
+      );
+      return;
+    }
+  
+    const payload = {
+      site_id: tender?.site_id || null,
+      tender_id: id,
+      ...financeForm,
+  
+      amount: Number(financeForm.amount || 0),
+      interest_percent: Number(financeForm.interest_percent || 0),
+  
+      gst_percent: Number(financeForm.gst_percent || 0),
+      gst_total:
+        financeForm.record_type === "GOVERNMENT_BILL"
+          ? calculatedGstTotal
+          : 0,
+      gst_done:
+        financeForm.record_type === "GST_RETURN"
+          ? Number(financeForm.amount || 0)
+          : Number(financeForm.gst_done || 0),
+  
+      company_charge_percent: Number(financeForm.company_charge_percent || 0),
+      company_charge_total:
+        financeForm.record_type === "COMPANY_CHARGE"
+          ? calculatedCompanyChargeTotal
+          : 0,
+      company_charge_done:
+        financeForm.record_type === "COMPANY_CHARGE_PAYMENT"
+          ? Number(financeForm.amount || 0)
+          : Number(financeForm.company_charge_done || 0),
+  
+      tds_amount: Number(financeForm.tds_amount || 0),
+    };
+  
+    if (editingFinance) {
+      await updateFinanceRecord(editingFinance.id, payload);
+    } else {
+      await createFinanceRecord(payload);
+    }
+  
+    setFinanceForm({
+      record_type: "GOVERNMENT_BILL",
+      source_name: "",
+      payment_mode: "Bank",
+      amount: "",
+      interest_percent: "",
+      gst_percent: "18",
+      gst_total: "",
+      gst_done: "",
+      company_charge_percent: "",
+      company_charge_total: "",
+      company_charge_done: "",
+      tds_amount: "",
+      record_date: "",
+      notes: "",
+    });
+  
+    setEditingFinance(null);
+    await loadFinanceData();
+  };
+  
+
+  const startEditFinanceRecord = (item) => {
+    setEditingFinance(item);
+  
+    setFinanceForm({
+      record_type: item.record_type || "GOVERNMENT_BILL",
+      source_name: item.source_name || "",
+      payment_mode: item.payment_mode || "Bank",
+      amount: item.amount ? String(item.amount) : "",
+      interest_percent: item.interest_percent ? String(item.interest_percent) : "",
+      gst_percent: item.gst_percent ? String(item.gst_percent) : "",
+      gst_total: item.gst_total ? String(item.gst_total) : "",
+      gst_done: item.gst_done ? String(item.gst_done) : "",
+      company_charge_percent: item.company_charge_percent
+        ? String(item.company_charge_percent)
+        : "",
+      company_charge_total: item.company_charge_total
+        ? String(item.company_charge_total)
+        : "",
+      company_charge_done: item.company_charge_done
+        ? String(item.company_charge_done)
+        : "",
+      tds_amount: item.tds_amount ? String(item.tds_amount) : "",
+      record_date: item.record_date ? item.record_date.slice(0, 10) : "",
+      notes: item.notes || "",
+    });
   };
 
   const handleAssignSubcontractor = async (e) => {
@@ -250,6 +400,11 @@ function TenderDetailsPage() {
       await removeTenderSubcontractor(deleteTarget.item.id);
     }
 
+    if (deleteTarget.type === "finance") {
+      await deleteFinanceRecord(deleteTarget.item.id);
+      await loadFinanceData();
+    }
+
     setDeleteTarget(null);
     fetchTenderDetails();
   };
@@ -318,11 +473,28 @@ function TenderDetailsPage() {
   const tenderProfitPercentage =
     tenderIncome > 0 ? (tenderProfit / tenderIncome) * 100 : 0;
 
+
+  
+  const financeAmount = Number(financeForm.amount || 0);
+  const financeGstPercent = Number(financeForm.gst_percent || 0);
+  const financeCompanyPercent = Number(financeForm.company_charge_percent || 0);
+    
+  const calculatedGstTotal =
+    financeForm.record_type === "GOVERNMENT_BILL"
+      ? (financeAmount * financeGstPercent) / 100
+      : Number(financeForm.gst_total || 0);
+  
+  const calculatedCompanyChargeTotal =
+    financeForm.record_type === "COMPANY_CHARGE"
+      ? (financeAmount * financeCompanyPercent) / 100
+      : Number(financeForm.company_charge_total || 0);
+  
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "documents", label: "Documents" },
     { key: "materials", label: "Materials" },
     { key: "banking", label: "Banking" },
+    { key: "finance", label: "Finance" },
     { key: "daily", label: "Daily Progress" },
     { key: "subcontractors", label: "Subcontractors" },
   ];
@@ -417,6 +589,70 @@ function TenderDetailsPage() {
               <div className="card">
                 <p>Profit %</p>
                 <h2>{tenderProfitPercentage.toFixed(2)}%</h2>
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  background: "#fff3cd",
+                  border: "2px solid #ffc107",
+                }}
+              >
+                <p style={{ fontWeight: "bold", color: "#856404" }}>
+                  Baki GST
+                </p>
+
+                <h2 style={{ color: "#dc3545" }}>
+                  ${Number(financeSummary?.gst_left || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  background: "#ffe5e5",
+                  border: "2px solid #dc3545",
+                }}
+              >
+                <p style={{ fontWeight: "bold", color: "#dc3545" }}>
+                  Baki Company Charge
+                </p>
+
+                <h2 style={{ color: "#dc3545" }}>
+                  ${Number(financeSummary?.company_charge_left || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  background: "#e8f5e9",
+                  border: "2px solid #28a745",
+                }}
+              >
+                <p style={{ fontWeight: "bold" }}>
+                  Overall Done
+                </p>
+
+                <h2 style={{ color: "#28a745" }}>
+                  ${Number(financeSummary?.overall_done || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  background: "#fff3cd",
+                  border: "2px solid #fd7e14",
+                }}
+              >
+                <p style={{ fontWeight: "bold", color: "#fd7e14" }}>
+                  Overall Left
+                </p>
+
+                <h2 style={{ color: "#fd7e14" }}>
+                  ${Number(financeSummary?.overall_left || 0).toFixed(2)}
+                </h2>
               </div>
             </div>
 
@@ -948,6 +1184,360 @@ function TenderDetailsPage() {
                     {banking.length === 0 && (
                       <tr>
                         <td colSpan="8">No banking entries added yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "finance" && (
+          <>
+            <div className="summary-cards">
+              <div className="card">
+                <p>GST Total</p>
+                <h2>
+                  $
+                  {Number(financeSummary?.gst_total || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div className="card">
+                <p>GST Done</p>
+                <h2>
+                  ${Number(financeSummary?.gst_done || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div
+                className="stat-card"
+                style={{
+                  background: "#fff3cd",
+                  border: "2px solid #ffc107",
+                }}
+              >
+                <p style={{ color: "#856404", fontWeight: "bold" }}>
+                  Baki GST
+                </p>
+
+                <h2
+                  style={{
+                    color: "#dc3545",
+                    fontWeight: "bold",
+                  }}
+                >
+                  ${Number(financeSummary?.gst_left || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div className="card">
+                <p>Company Charge</p>
+                <h2>
+                  $
+                  {Number(financeSummary?.company_charge_total || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div className="card">
+                <p>Company Charge Done</p>
+                <h2>
+                  ${Number(financeSummary?.company_charge_done || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div
+                className="stat-card"
+                style={{
+                  background: "#ffe5e5",
+                  border: "2px solid #dc3545",
+                }}
+              >
+                <p style={{ color: "#dc3545", fontWeight: "bold" }}>
+                  Baki Company Charge
+                </p>
+
+                <h2
+                  style={{
+                    color: "#dc3545",
+                    fontWeight: "bold",
+                  }}
+                >
+                  ${Number(financeSummary?.company_charge_left || 0).toFixed(2)}
+                </h2>
+              </div>
+              <div className="stat-card">
+                <p>Overall Total</p>
+                <h2>
+                  ${Number(financeSummary?.overall_total || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div className="stat-card">
+                <p>Overall Done</p>
+                <h2>
+                  ${Number(financeSummary?.overall_done || 0).toFixed(2)}
+                </h2>
+              </div>
+
+              <div
+                className="stat-card"
+                style={{
+                  background: "#e8f5e9",
+                  border: "2px solid #28a745",
+                }}
+              >
+                <p style={{ fontWeight: "bold" }}>
+                  Overall Left
+                </p>
+
+                <h2
+                  style={{
+                    color: "#28a745",
+                    fontWeight: "bold",
+                  }}
+                >
+                  ${Number(financeSummary?.overall_left || 0).toFixed(2)}
+                </h2>
+              </div>
+            </div>
+
+          
+
+            <div className="payment-grid">
+              <div className="panel">
+                <h2>{editingFinance ? "Edit Finance Record" : "Add Finance Record"}</h2>
+
+                <form
+                  className="payment-form"
+                  onSubmit={handleAddFinanceRecord}
+                >
+                  <select
+                    value={financeForm.record_type}
+                    onChange={(e) => {
+                      const type = e.target.value;
+                    
+                      setFinanceForm({
+                        ...financeForm,
+                        record_type: type,
+                        gst_percent: type === "GOVERNMENT_BILL" ? "18" : "",
+                        company_charge_percent: type === "COMPANY_CHARGE" ? "2" : "",
+                        gst_total: "",
+                        company_charge_total: "",
+                      });
+                    }}
+                  >
+                    <option value="INVESTOR">Investor</option>
+                    <option value="GOVERNMENT_BILL">
+                      Government Bill
+                    </option>
+                    <option value="SUBCONTRACTOR">
+                      Subcontractor
+                    </option>
+                    <option value="OFFICE">Office</option>
+                    <option value="COMPANY_CHARGE">
+                      Company Charge
+                    </option>
+
+                    <option value="COMPANY_CHARGE_PAYMENT">
+                      Company Charge Payment
+                    </option>
+                    <option value="TDS">TDS</option>
+                    <option value="GST_RETURN">
+                      GST Return
+                    </option>
+                  </select>
+
+                  
+
+                  <input
+                    placeholder={
+                      financeForm.record_type === "INVESTOR"
+                        ? "Investor Name"
+                        : financeForm.record_type === "OFFICE"
+                        ? "Source / Company Name"
+                        : "Source Name"
+                    }
+                    value={financeForm.source_name}
+                    onChange={(e) =>
+                      setFinanceForm({
+                        ...financeForm,
+                        source_name: e.target.value,
+                      })
+                    }
+                  />
+
+                  <select
+                    value={financeForm.payment_mode}
+                    onChange={(e) =>
+                      setFinanceForm({
+                        ...financeForm,
+                        payment_mode: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="Bank">Bank</option>
+                    <option value="Cash">Cash</option>
+                  </select>
+
+                  <input
+                    placeholder="Amount"
+                    type="number"
+                    value={financeForm.amount}
+                    onChange={(e) =>
+                      setFinanceForm({
+                        ...financeForm,
+                        amount: e.target.value,
+                      })
+                    }
+                  />
+
+                  {financeForm.record_type === "INVESTOR" && (
+                    <input
+                      placeholder="Interest %"
+                      type="number"
+                      value={financeForm.interest_percent}
+                      onChange={(e) =>
+                        setFinanceForm({
+                          ...financeForm,
+                          interest_percent: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+
+                  {financeForm.record_type === "GOVERNMENT_BILL" && (
+                    <>
+                      <input
+                        placeholder="GST %"
+                        type="number"
+                        value={financeForm.gst_percent}
+                        onChange={(e) =>
+                          setFinanceForm({
+                            ...financeForm,
+                            gst_percent: e.target.value,
+                          })
+                        }
+                      />
+
+                      <p className="form-preview-total">
+                        GST Total: ${calculatedGstTotal.toFixed(2)}
+                      </p>
+                    </>
+                  )}
+
+                 
+
+                  {financeForm.record_type === "COMPANY_CHARGE" && (
+                    <>
+                      <input
+                        placeholder="Company Charge %"
+                        type="number"
+                        value={financeForm.company_charge_percent}
+                        onChange={(e) =>
+                          setFinanceForm({
+                            ...financeForm,
+                            company_charge_percent: e.target.value,
+                          })
+                        }
+                      />
+
+                      <p className="form-preview-total">
+                        Company Charge: ${calculatedCompanyChargeTotal.toFixed(2)}
+                      </p>
+                    </>
+                  )}
+
+
+                  <input
+                    type="date"
+                    value={financeForm.record_date}
+                    onChange={(e) =>
+                      setFinanceForm({
+                        ...financeForm,
+                        record_date: e.target.value,
+                      })
+                    }
+                  />
+
+                  <input
+                    placeholder="Notes"
+                    value={financeForm.notes}
+                    onChange={(e) =>
+                      setFinanceForm({
+                        ...financeForm,
+                        notes: e.target.value,
+                      })
+                    }
+                  />
+
+                  <button type="submit">
+                    {editingFinance
+                      ? "Save Finance Record"
+                      : "Add Finance Record"}
+                  </button>
+                </form>
+              </div>
+
+              <div className="panel">
+                <h2>Finance Records</h2>
+
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Source</th>
+                      <th>Amount</th>
+                      <th>GST</th>
+                      <th>Company Charge</th>
+                      <th>Date</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {financeRecords.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.record_type}</td>
+                        <td>{item.source_name}</td>
+                        <td>${item.amount}</td>
+                        <td>${item.gst_total}</td>
+                        <td>
+                          ${item.company_charge_total}
+                        </td>
+                        <td>
+                          {item.record_date?.slice(0, 10)}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => startEditFinanceRecord(item)}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="delete-btn"
+                            onClick={() =>
+                              setDeleteTarget({
+                                type: "finance",
+                                item,
+                              })
+                            }
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {financeRecords.length === 0 && (
+                      <tr>
+                        <td colSpan="7">
+                          No finance records yet.
+                        </td>
                       </tr>
                     )}
                   </tbody>

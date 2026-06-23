@@ -12,6 +12,7 @@ const requestLogger = require("./middleware/requestLogger");
 const tenderDetailsRoutes = require("./modules/tenderDetails/tenderDetails.routes");
 const subcontractorRoutes = require("./modules/subcontractors/subcontractor.routes");
 const workerPortalRoutes = require("./modules/workerPortal/workerPortal.routes");
+const tenderFinanceRoutes = require("./modules/tenderFinance/tenderFinance.routes");
 
 const subcontractorPortalRoutes = require("./modules/subcontractorPortal/subcontractorPortal.routes");
 
@@ -115,6 +116,8 @@ app.use(
   authMiddleware,
   require("./modules/uploads/upload.routes")
 );
+
+app.use("/api/tender-finance", authMiddleware, tenderFinanceRoutes);
 
 /*
 |--------------------------------------------------------------------------
