@@ -134,8 +134,8 @@ exports.forgotPassword = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Password reset token generated",
-      resetToken,
+      message: "Password reset token generated. Check server logs in development.",
+      resetToken: process.env.NODE_ENV === "development" ? resetToken : undefined,
     });
   } catch (error) {
     console.error("Forgot password error:", error);
