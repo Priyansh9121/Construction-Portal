@@ -67,7 +67,7 @@ exports.createSiteLog = async (req, res) => {
       });
     }
 
-    cconst result = await pool.query(
+    const result = await pool.query(
       `INSERT INTO daily_site_logs
        (site_id, tender_id, worker_id, log_date, notes, photo_url)
        VALUES ($1, $2, $3, $4, $5, $6)
