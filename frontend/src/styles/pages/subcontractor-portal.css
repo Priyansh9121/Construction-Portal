@@ -1,0 +1,13 @@
+.subcontractor-portal-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 28px 48px;
+  }
+  
+  .subcontractor-profile,
+  .subcontractor-tenders,
+  .subcontractor-tender-details {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }

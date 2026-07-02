@@ -125,19 +125,30 @@ function WorkerPortalPage({ logout }) {
         photoUrl = uploadRes.fileUrl;
       }
 
-      await createWorkerDailyUpdate({
+      const result = await createWorkerDailyUpdate({
         site_id: selectedAssignment.site_id,
         tender_id: selectedAssignment.tender_id,
         log_date: logDate,
         notes,
         photo_url: photoUrl,
       });
-
+      
+      console.log("DAILY UPDATE RESPONSE:", result);
+      
       setNotes("");
       setPhotoFile(null);
       setPhotoPreview("");
+      
+      if (result.requiresApproval) {
+        setMessage(
+          result.message ||
+            "This update has been sent to admin for approval."
+        );
+        return;
+      }
+      
       setMessage("Daily update submitted successfully.");
-
+      
       const updatesData = await getWorkerDailyUpdates();
       setUpdates(updatesData.updates || []);
     } catch (error) {
@@ -171,7 +182,11 @@ function WorkerPortalPage({ logout }) {
         </button>
       </section>
 
-      {message && <p>{message}</p>}
+      {message && (
+        <p className="success-message">
+          {message}
+        </p>
+      )}
 
       <section className="cards">
         <div className="card">

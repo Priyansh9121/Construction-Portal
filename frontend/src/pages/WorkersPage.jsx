@@ -2,7 +2,7 @@ import { useState } from "react";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateWorker } from "../services/workerService";
 
-function WorkersPage({ workers, addWorker, deleteWorker }) {
+function WorkersPage({ workers, addWorker, deleteWorker, fetchWorkers, }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingWorker, setEditingWorker] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,7 +72,8 @@ function WorkersPage({ workers, addWorker, deleteWorker }) {
 
     await updateWorker(editingWorker.id, editForm);
 
-    window.location.reload();
+    await fetchWorkers()
+    cancelEdit()
   };
 
   return (

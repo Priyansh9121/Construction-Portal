@@ -119,6 +119,18 @@ app.use(
 
 app.use("/api/tender-finance", authMiddleware, tenderFinanceRoutes);
 
+app.use(
+  "/api/tender-workers",
+  authMiddleware,
+  require("./modules/tenderWorkers/tenderWorker.routes")
+);
+
+app.use(
+  "/api/daily-update-approvals",
+  authMiddleware,
+  require("./modules/dailyUpdateApprovals/dailyUpdateApproval.routes")
+);
+
 /*
 |--------------------------------------------------------------------------
 | Worker Portal Routes
@@ -130,7 +142,7 @@ app.use("/api/tender-finance", authMiddleware, tenderFinanceRoutes);
 app.use(
   "/api/worker-portal",
   authMiddleware,
-  roleMiddleware(["worker"]),
+  roleMiddleware(["admin", "worker"]),
   workerPortalRoutes
 );
 
@@ -145,7 +157,7 @@ app.use(
 app.use(
   "/api/subcontractor-portal",
   authMiddleware,
-  roleMiddleware(["subcontractor"]),
+  roleMiddleware(["admin", "subcontractor"]),
   subcontractorPortalRoutes
 );
 

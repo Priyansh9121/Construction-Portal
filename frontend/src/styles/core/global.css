@@ -1,0 +1,65 @@
+:root {
+  --primary: #0f172a;
+  --primary-light: #1e293b;
+
+  --danger: #dc2626;
+  --danger-light: #ffe5e5;
+
+  --success: #16a34a;
+  --success-light: #dcfce7;
+
+  --warning: #f59e0b;
+  --warning-light: #fff3cd;
+
+  --blue-light: #dbeafe;
+  --blue-dark: #1e40af;
+
+  --bg: #f4f6f8;
+  --mobile-bg: #f8fafc;
+  --panel-bg: #ffffff;
+
+  --text: #111827;
+  --muted: #64748b;
+  --border: #e5e7eb;
+  --input-border: #cbd5e1;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  --shadow-panel: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --shadow-login: 0 20px 45px rgba(15, 23, 42, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: hidden;
+  font-family: Inter, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}

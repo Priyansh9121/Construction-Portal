@@ -1,0 +1,6 @@
+.payment-grid {
+    display: grid;
+    grid-template-columns: 420px minmax(0, 1fr);
+    gap: 22px;
+    margin-bottom: 22px;
+  }

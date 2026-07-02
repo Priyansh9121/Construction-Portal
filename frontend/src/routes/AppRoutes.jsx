@@ -21,6 +21,7 @@ import LoginPage from "../pages/LoginPage";
 import SiteDetailsPage from "../pages/SiteDetailsPage";
 import WorkerPortalPage from "../pages/WorkerPortalPage";
 import SubcontractorPortalPage from "../pages/SubcontractorPortalPage";
+import DailyUpdateApprovalsPage from "../pages/DailyUpdateApprovalsPage";
 
 
 function ProtectedRoute({ user, children }) {
@@ -120,6 +121,7 @@ function AppRoutes(props) {
                 payments={props.payments}
                 addPayment={props.addPayment}
                 deletePayment={props.deletePayment}
+                fetchPayments={props.fetchPayments}
               />
             </AppLayout>
           </ProtectedRoute>
@@ -135,6 +137,7 @@ function AppRoutes(props) {
                 workers={props.workers}
                 addWorker={props.addWorker}
                 deleteWorker={props.deleteWorker}
+                fetchWorkers={props.fetchWorkers}
               />
             </AppLayout>
           </ProtectedRoute>
@@ -178,6 +181,7 @@ function AppRoutes(props) {
                 sites={props.sites}
                 addSite={props.addSite}
                 deleteSite={props.deleteSite}
+                fetchSites={props.fetchSites}
               />
             </AppLayout>
           </ProtectedRoute>
@@ -205,6 +209,7 @@ function AppRoutes(props) {
                 sites={props.sites}
                 addTender={props.addTender}
                 deleteTender={props.deleteTender}
+                fetchTenders={props.fetchTenders}
               />
             </AppLayout>
           </ProtectedRoute>
@@ -231,6 +236,7 @@ function AppRoutes(props) {
                 invoices={props.invoices}
                 addInvoice={props.addInvoice}
                 deleteInvoice={props.deleteInvoice}
+                fetchInvoices={props.fetchInvoices}
               />
             </AppLayout>
           </ProtectedRoute>
@@ -242,12 +248,25 @@ function AppRoutes(props) {
         element={
           <ProtectedRoute user={props.user}>
             <AppLayout user={props.user}>
-              <DailySiteUpdatesPage
-                sites={props.sites}
-                workers={props.workers}
-                siteLogs={props.siteLogs}
-                addSiteLog={props.addSiteLog}
-              />
+            <DailySiteUpdatesPage
+              sites={props.sites}
+              tenders={props.tenders}
+              workers={props.workers}
+              siteLogs={props.siteLogs}
+              addSiteLog={props.addSiteLog}
+              deleteSiteLog={props.deleteSiteLog}
+            />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+        
+      <Route
+        path="/daily-update-approvals"
+        element={
+          <ProtectedRoute user={props.user}>
+            <AppLayout user={props.user}>
+              <DailyUpdateApprovalsPage />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -288,7 +307,7 @@ function AppRoutes(props) {
       <Route
         path="/worker-portal"
         element={
-          <RoleRoute user={props.user} allowedRoles={["worker"]}>
+          <RoleRoute user={props.user} allowedRoles={["admin", "worker"]}>
             <WorkerPortalPage logout={props.logout} />
           </RoleRoute>
         }
@@ -299,7 +318,7 @@ function AppRoutes(props) {
         element={
           <RoleRoute
             user={props.user}
-            allowedRoles={["subcontractor"]}
+            allowedRoles={["admin", "subcontractor"]}
           >
             <SubcontractorPortalPage
               logout={props.logout}

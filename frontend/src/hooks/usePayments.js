@@ -1,51 +1,58 @@
 import { useEffect, useState } from "react";
-
 import {
   getPayments,
   createPayment,
   deletePayment,
 } from "../services/paymentService";
 
-export default function usePayments(user) {
+function usePayments(user) {
   const [payments, setPayments] = useState([]);
 
   const fetchPayments = async () => {
+    if (!user) return;
+
     try {
       const data = await getPayments();
-      setPayments(data.payments || []);
+      console.log("Fetched payments:", data);
+
+      setPayments(Array.isArray(data) ? data : data.payments || []);
     } catch (err) {
-      console.error("Failed to load payments", err);
+      console.error("Failed to fetch payments", err);
+      setPayments([]);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      fetchPayments();
-    }
+    fetchPayments();
   }, [user]);
 
-  const addPayment = async (payment) => {
-    const data = await createPayment(payment);
+  const addPayment = async (paymentData) => {
+    const data = await createPayment(paymentData);
   
-    if (data.payment) {
-      setPayments((prev) => [
-        data.payment,
-        ...prev,
-      ]);
-    } else {
-      await fetchPayments();
-    }
+    setPayments((prev) => [
+      data.payment,
+      ...prev,
+    ]);
+  
+    await fetchPayments();
+  
+    return data;
   };
 
   const removePayment = async (id) => {
     await deletePayment(id);
-    await fetchPayments();
+
+    setPayments((prev) =>
+      prev.filter((payment) => payment.id !== id)
+    );
   };
 
   return {
     payments,
+    fetchPayments,
     addPayment,
     removePayment,
-    fetchPayments,
   };
 }
+
+export default usePayments;

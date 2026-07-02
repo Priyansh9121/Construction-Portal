@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateSite } from "../services/siteService";
 
-function SitesPage({ sites, addSite, deleteSite }) {
+function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
   const navigate = useNavigate();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -74,7 +74,8 @@ function SitesPage({ sites, addSite, deleteSite }) {
 
     await updateSite(editingSite.id, editForm);
 
-    window.location.reload();
+    await fetchSites();
+    cancelEdit()
   };
 
   return (

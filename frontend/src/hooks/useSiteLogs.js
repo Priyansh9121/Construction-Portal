@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   getSiteLogs,
   createSiteLog,
+  deleteSiteLog,
 } from "../services/siteLogService";
 
 export default function useSiteLogs(user) {
@@ -28,9 +29,15 @@ export default function useSiteLogs(user) {
     fetchSiteLogs();
   };
 
+  const removeSiteLog = async (id) => {
+    await deleteSiteLog(id);
+    fetchSiteLogs();
+  };
+
   return {
     siteLogs,
     addSiteLog,
+    removeSiteLog,
     fetchSiteLogs,
   };
 }

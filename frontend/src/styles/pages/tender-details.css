@@ -1,0 +1,25 @@
+.tender-details-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  
+  .tender-header h2 {
+    margin: 0 0 10px;
+    font-size: 28px;
+  }
+  
+  .tender-header p {
+    margin: 6px 0;
+    color: #6b7280;
+  }
+  
+  .tender-documents,
+  .tender-materials,
+  .tender-banking,
+  .tender-subcontractors,
+  .tender-finance-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }

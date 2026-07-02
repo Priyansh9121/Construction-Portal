@@ -1,0 +1,39 @@
+.report-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  
+  .report-bar-row {
+    display: grid;
+    grid-template-columns: 150px 1fr 120px;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .report-bar-track {
+    height: 12px;
+    background: #e5e7eb;
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+  
+  .report-bar-fill {
+    height: 100%;
+    background: #2563eb;
+    border-radius: var(--radius-pill);
+  }
+  
+  .report-bar-value {
+    font-size: 14px;
+    font-weight: 600;
+    text-align: right;
+  }
+  
+  .report-filter-row,
+  .export-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }

@@ -1,0 +1,27 @@
+.tenders-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  
+  .tender-filter-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  
+  .tender-list {
+    width: 100%;
+  }
+  
+  .tender-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 700;
+    background: #e5e7eb;
+    color: var(--text);
+  }

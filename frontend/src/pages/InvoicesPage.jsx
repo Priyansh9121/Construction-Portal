@@ -6,6 +6,7 @@ function InvoicesPage({
   invoices,
   addInvoice,
   deleteInvoice,
+  fetchInvoices,
 }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState("");
@@ -58,7 +59,8 @@ function InvoicesPage({
 
     await updateInvoice(editingInvoice.id, editForm);
 
-    window.location.reload();
+    await fetchInvoices()
+    cancelEdit()
   };
 
   const filteredInvoices = invoices.filter((invoice) => {

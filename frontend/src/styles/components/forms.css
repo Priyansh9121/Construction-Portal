@@ -1,0 +1,68 @@
+button,
+.primary-btn,
+.login-box button,
+.topbar button,
+.payment-form button,
+.action-row button {
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.delete-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--danger);
+  color: white;
+  font-weight: 700;
+}
+
+.payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.login-box input,
+.payment-form input,
+.payment-form select,
+.payment-form textarea,
+.form-grid input,
+.form-grid select,
+.search-input,
+.modal-card input {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: white;
+}
+
+.payment-form textarea {
+  min-height: 90px;
+}
+
+.search-input {
+  margin: 10px 0 15px;
+}
+
+.form-preview-total {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  font-weight: 700;
+}

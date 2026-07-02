@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import DeleteVerificationModal from "../components/DeleteVerificationModal";
+
 import {
   getUsers,
   createUser,
@@ -19,6 +21,7 @@ function UsersPage() {
   const [formData, setFormData] = useState(emptyForm);
   const [editingUser, setEditingUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [disableTarget, setDisableTarget] = useState(null);
 
   const fetchUsers = async () => {
     const data = await getUsers();
@@ -84,136 +87,154 @@ function UsersPage() {
     }
 
     resetForm();
-    fetchUsers();
+    await fetchUsers();
   };
 
-  const handleDisable = async (id) => {
-    await disableUser(id);
-    fetchUsers();
+  const handleConfirmDisable = async () => {
+    if (!disableTarget) return;
+
+    await disableUser(disableTarget.id);
+
+    setDisableTarget(null);
+    await fetchUsers();
   };
 
   return (
-    <section className="payment-grid">
-      <div className="panel">
-        <h2>{editingUser ? "Edit User" : "Create User"}</h2>
+    <>
+      <section className="payment-grid">
+        <div className="panel">
+          <h2>{editingUser ? "Edit User" : "Create User"}</h2>
 
-        <form className="payment-form" onSubmit={handleSubmit}>
-          <input
-            name="full_name"
-            placeholder="Full Name"
-            value={formData.full_name}
-            onChange={handleChange}
-            required
-          />
-
-          <input
-            name="email"
-            type="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-
-          {!editingUser && (
+          <form className="payment-form" onSubmit={handleSubmit}>
             <input
-              name="password"
-              type="password"
-              placeholder="Password"
-              value={formData.password}
+              name="full_name"
+              placeholder="Full Name"
+              value={formData.full_name}
               onChange={handleChange}
               required
             />
-          )}
 
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            required
-          >
-            <option value="admin">Admin</option>
-            <option value="manager">Manager</option>
-            <option value="worker">Worker</option>
-            <option value="subcontractor">Subcontractor</option>
-          </select>
+            <input
+              name="email"
+              type="email"
+              placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
 
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            required
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-
-          <button type="submit">
-            {editingUser ? "Save Changes" : "Create User"}
-          </button>
-
-          {editingUser && (
-            <button type="button" onClick={resetForm}>
-              Cancel
-            </button>
-          )}
-        </form>
-      </div>
-
-      <div className="panel">
-        <h2>Users List</h2>
-
-        <input
-          className="search-input"
-          type="text"
-          placeholder="Search users by name, email, role or status..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {filteredUsers.map((user) => (
-              <tr key={user.id}>
-                <td>{user.full_name}</td>
-                <td>{user.email}</td>
-                <td>{user.role}</td>
-                <td>{user.status}</td>
-                <td>
-                  <button type="button" onClick={() => startEdit(user)}>
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    className="delete-btn"
-                    onClick={() => handleDisable(user.id)}
-                  >
-                    Disable
-                  </button>
-                </td>
-              </tr>
-            ))}
-
-            {filteredUsers.length === 0 && (
-              <tr>
-                <td colSpan="5">No users found.</td>
-              </tr>
+            {!editingUser && (
+              <input
+                name="password"
+                type="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
             )}
-          </tbody>
-        </table>
-      </div>
-    </section>
+
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              required
+            >
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="worker">Worker</option>
+              <option value="subcontractor">Subcontractor</option>
+            </select>
+
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              required
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
+            <button type="submit">
+              {editingUser ? "Save Changes" : "Create User"}
+            </button>
+
+            {editingUser && (
+              <button type="button" onClick={resetForm}>
+                Cancel
+              </button>
+            )}
+          </form>
+        </div>
+
+        <div className="panel">
+          <h2>Users List</h2>
+
+          <input
+            className="search-input"
+            type="text"
+            placeholder="Search users by name, email, role or status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.full_name}</td>
+                    <td>{user.email}</td>
+                    <td>{user.role}</td>
+                    <td>{user.status}</td>
+                    <td>
+                      <button type="button" onClick={() => startEdit(user)}>
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        className="delete-btn"
+                        disabled={user.status === "inactive"}
+                        onClick={() => setDisableTarget(user)}
+                      >
+                        {user.status === "inactive" ? "Disabled" : "Disable"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredUsers.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="empty-table-message">
+                      No users found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <DeleteVerificationModal
+        open={!!disableTarget}
+        itemName={disableTarget?.full_name || "user"}
+        onCancel={() => setDisableTarget(null)}
+        onConfirm={handleConfirmDisable}
+      />
+    </>
   );
 }
 

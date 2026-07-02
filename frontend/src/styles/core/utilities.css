@@ -1,0 +1,46 @@
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.text-center {
+  text-align: center;
+}
+
+.align-right {
+  text-align: right;
+}
+
+.success-message {
+  color: #166534;
+  background: var(--success-light);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.error {
+  color: var(--danger);
+  font-weight: 700;
+}

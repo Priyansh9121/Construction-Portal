@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
 import { getSiteById } from "../services/siteService";
+import { createTender } from "../services/tenderService";
+import { siteTabs } from "../config/siteTabs";
+
+import {
+  getRunningTenders,
+  getPassedTenders,
+  getDueSoonTenders,
+  getTenderValue,
+} from "../utils/tenderCalculations";
+
+import SiteSummaryCards from "../components/siteDetails/SiteSummaryCards";
+import SiteTenderTable from "../components/siteDetails/SiteTenderTable";
 
 function SiteDetailsPage() {
   const { id } = useParams();
@@ -9,8 +22,16 @@ function SiteDetailsPage() {
   const [site, setSite] = useState(null);
   const [tenders, setTenders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("running");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [tenderForm, setTenderForm] = useState({
+    title: "",
+    status: "running",
+    due_date: "",
+    description: "",
+    estimated_value: "",
+  });
 
   const fetchSiteDetails = async () => {
     try {
@@ -31,18 +52,68 @@ function SiteDetailsPage() {
     fetchSiteDetails();
   }, [id]);
 
-  const filteredTenders = tenders.filter((tender) => {
+  const handleTenderFormChange = (event) => {
+    const { name, value } = event.target;
+
+    setTenderForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleAddTender = async (event) => {
+    event.preventDefault();
+
+    try {
+      await createTender({
+        company_id: null,
+        site_id: Number(id),
+        title: tenderForm.title,
+        status: tenderForm.status,
+        due_date: tenderForm.due_date || null,
+        description: tenderForm.description,
+        estimated_value: Number(tenderForm.estimated_value || 0),
+      });
+
+      setTenderForm({
+        title: "",
+        status: "running",
+        due_date: "",
+        description: "",
+        estimated_value: "",
+      });
+
+      await fetchSiteDetails();
+      setActiveTab(tenderForm.status || "running");
+    } catch (error) {
+      console.error("Failed to add tender:", error);
+      alert(error.response?.data?.message || "Failed to add tender.");
+    }
+  };
+
+  const runningTenders = getRunningTenders(tenders);
+  const passedTenders = getPassedTenders(tenders);
+  const dueSoonTenders = getDueSoonTenders(tenders);
+  const totalTenderValue = getTenderValue(tenders).toFixed(2);
+
+  const getTendersForTab = () => {
+    if (activeTab === "running") return runningTenders;
+    if (activeTab === "passed") return passedTenders;
+    if (activeTab === "due soon") return dueSoonTenders;
+
+    return tenders;
+  };
+
+  const filteredTenders = getTendersForTab().filter((tender) => {
     const search = searchTerm.toLowerCase();
 
-    const matchesTab = activeTab === "all" || tender.status === activeTab;
-
-    const matchesSearch =
+    return (
       tender.title?.toLowerCase().includes(search) ||
       tender.status?.toLowerCase().includes(search) ||
       tender.description?.toLowerCase().includes(search) ||
-      tender.due_date?.toLowerCase().includes(search);
-
-    return matchesTab && matchesSearch;
+      tender.due_date?.toLowerCase().includes(search) ||
+      String(tender.estimated_value || "").includes(search)
+    );
   });
 
   if (loading) {
@@ -58,9 +129,10 @@ function SiteDetailsPage() {
       <div className="panel tender-header">
         <div>
           <h2>{site.site_name}</h2>
-          <p>Type: {site.site_type}</p>
-          <p>Status: {site.status}</p>
-          <p>Address: {site.address || "N/A"}</p>
+          <p>
+            {site.site_type} | {site.status}
+          </p>
+          <p>{site.address || "No address added"}</p>
         </div>
 
         <button type="button" onClick={() => navigate("/sites")}>
@@ -68,110 +140,103 @@ function SiteDetailsPage() {
         </button>
       </div>
 
-      <div className="summary-cards">
-        <div className="card">
-          <p>Total Tenders</p>
-          <h2>{tenders.length}</h2>
+      <SiteSummaryCards
+        totalTenders={tenders.length}
+        runningTenders={runningTenders.length}
+        passedTenders={passedTenders.length}
+        dueSoonTenders={dueSoonTenders.length}
+        totalValue={totalTenderValue}
+      />
+
+      <section className="payment-grid">
+        <div className="panel">
+          <h2>Add Tender to This Site</h2>
+
+          <form className="payment-form" onSubmit={handleAddTender}>
+            <input
+              name="title"
+              placeholder="Tender Title"
+              value={tenderForm.title}
+              onChange={handleTenderFormChange}
+              required
+            />
+
+            <select
+              name="status"
+              value={tenderForm.status}
+              onChange={handleTenderFormChange}
+              required
+            >
+              <option value="running">Running</option>
+              <option value="passed">Passed</option>
+              <option value="due soon">Due Soon</option>
+              <option value="pending">Pending</option>
+            </select>
+
+            <input
+              name="due_date"
+              type="date"
+              value={tenderForm.due_date}
+              onChange={handleTenderFormChange}
+            />
+
+            <input
+              name="estimated_value"
+              type="number"
+              placeholder="Estimated Value"
+              value={tenderForm.estimated_value}
+              onChange={handleTenderFormChange}
+            />
+
+            <textarea
+              name="description"
+              placeholder="Description"
+              value={tenderForm.description}
+              onChange={handleTenderFormChange}
+            />
+
+            <button type="submit">Add Tender</button>
+          </form>
         </div>
 
-        <div className="card">
-          <p>Running</p>
-          <h2>{tenders.filter((t) => t.status === "running").length}</h2>
-        </div>
+        <div className="panel">
+          <div className="section-title-row">
+            <div>
+              <h2>Site Tenders</h2>
+              <p style={{ margin: "6px 0 0", color: "#64748b" }}>
+                Open a tender from this site to view documents, materials,
+                finance, daily progress and subcontractors.
+              </p>
+            </div>
+          </div>
 
-        <div className="card">
-          <p>Passed</p>
-          <h2>{tenders.filter((t) => t.status === "passed").length}</h2>
-        </div>
-
-        <div className="card">
-          <p>Due Soon</p>
-          <h2>{tenders.filter((t) => t.status === "due soon").length}</h2>
-        </div>
-      </div>
-
-      <div className="panel">
-        <h2>Site Tenders</h2>
-
-        <div className="tabs">
-          <button
-            type="button"
-            className={activeTab === "all" ? "active-tab" : ""}
-            onClick={() => setActiveTab("all")}
-          >
-            All
-          </button>
-
-          <button
-            type="button"
-            className={activeTab === "running" ? "active-tab" : ""}
-            onClick={() => setActiveTab("running")}
-          >
-            Running
-          </button>
-
-          <button
-            type="button"
-            className={activeTab === "passed" ? "active-tab" : ""}
-            onClick={() => setActiveTab("passed")}
-          >
-            Passed
-          </button>
-
-          <button
-            type="button"
-            className={activeTab === "due soon" ? "active-tab" : ""}
-            onClick={() => setActiveTab("due soon")}
-          >
-            Due Soon
-          </button>
-        </div>
-
-        <input
-          className="search-input"
-          type="text"
-          placeholder="Search site tenders by title, status, date or description..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Due Date</th>
-              <th>Description</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {filteredTenders.map((tender) => (
-              <tr key={tender.id}>
-                <td>{tender.title}</td>
-                <td>{tender.status}</td>
-                <td>{tender.due_date ? tender.due_date.slice(0, 10) : ""}</td>
-                <td>{tender.description}</td>
-                <td>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/tenders/${tender.id}`)}
-                  >
-                    Open Tender
-                  </button>
-                </td>
-              </tr>
+          <div className="tabs">
+            {siteTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={activeTab === tab.key ? "active-tab" : ""}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
             ))}
+          </div>
 
-            {filteredTenders.length === 0 && (
-              <tr>
-                <td colSpan="5">No tenders found for this filter.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          <input
+            className="search-input"
+            type="text"
+            placeholder="Search tenders by title, status, value, date or description..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+
+          <SiteTenderTable
+            tenders={filteredTenders}
+            onOpenTender={(tenderId) => navigate(`/tenders/${tenderId}`)}
+          />
+        </div>
+      </section>
     </section>
   );
 }

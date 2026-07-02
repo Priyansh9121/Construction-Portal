@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateTender } from "../services/tenderService";
 
-function TendersPage({ tenders, sites, addTender, deleteTender }) {
+function TendersPage({ tenders, sites, addTender, deleteTender, fetchTenders, }) {
   const navigate = useNavigate();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -90,7 +90,8 @@ function TendersPage({ tenders, sites, addTender, deleteTender }) {
       site_id: editForm.site_id ? Number(editForm.site_id) : null,
     });
 
-    window.location.reload();
+    await fetchTenders()
+    cancelEdit()
   };
 
   return (

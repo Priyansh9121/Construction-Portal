@@ -1,5 +1,5 @@
 import { useState } from "react";
-import "./App.css";
+
 
 import LoginPage from "./pages/LoginPage";
 
@@ -28,35 +28,41 @@ function App() {
     payments,
     addPayment: savePayment,
     removePayment: deletePaymentRecord,
+    fetchPayments,
   } = usePayments(user);
 
   const {
     workers,
     addWorker: saveWorker,
     removeWorker: deleteWorkerRecord,
+    fetchWorkers,
   } = useWorkers(user);
 
   const {
     sites,
     addSite: saveSite,
     removeSite: deleteSiteRecord,
+    fetchSites,
   } = useSites(user);
 
   const {
     tenders,
     addTender: saveTender,
     removeTender: deleteTenderRecord,
+    fetchTenders,
   } = useTenders(user);
 
   const {
     invoices,
     addInvoice: saveInvoice,
     removeInvoice: deleteInvoiceRecord,
+    fetchInvoices,
   } = useInvoices(user);
 
   const {
     siteLogs,
     addSiteLog: saveSiteLog,
+    removeSiteLog: deleteSiteLogRecord,
   } = useSiteLogs(user);
 
   const {
@@ -95,34 +101,39 @@ function App() {
     }
   };
 
-  const addPayment = async (e) => {
-    e.preventDefault();
-
-    const form = e.target;
-
-    const newPayment = {
-      company_id: null,
-      payment_type: form.payment_type.value,
-      category: form.category.value,
-      amount: Number(form.amount.value),
-      description: form.description.value,
-      payment_date: form.payment_date.value,
-      created_by: user.id,
-    };
-
+  const addPayment = async (paymentData) => {
     try {
-      await savePayment(newPayment);
-      form.reset();
+      console.log("Payment payload from App:", paymentData);
+  
+      await savePayment({
+        company_id: null,
+        payment_type: paymentData.payment_type,
+        category: paymentData.category || paymentData.payment_sub_type,
+        amount: Number(paymentData.amount || 0),
+        description: paymentData.description || "",
+        payment_date: paymentData.payment_date,
+  
+        payment_scope: paymentData.payment_scope || null,
+        payment_sub_type: paymentData.payment_sub_type || null,
+        tender_id: paymentData.tender_id || null,
+        site_id: paymentData.site_id || null,
+        material_name: paymentData.material_name || null,
+        quantity: Number(paymentData.quantity || 0),
+        gst_amount: Number(paymentData.gst_amount || 0),
+        collected_gst: Number(paymentData.collected_gst || 0),
+        payment_mode: paymentData.payment_mode || null,
+        details: paymentData.details || null,
+        worker_name: paymentData.worker_name || null,
+        investor_name: paymentData.investor_name || null,
+        interest_percent: Number(paymentData.interest_percent || 0),
+        fd_site: paymentData.fd_site || null,
+        created_by: user?.id || null,
+      });
+  
+      await fetchPayments();
     } catch (err) {
       console.error("Failed to save payment", err.response?.data || err);
-    }
-  };
-
-  const deletePayment = async (id) => {
-    try {
-      await deletePaymentRecord(id);
-    } catch (err) {
-      console.error("Failed to delete payment", err);
+      throw err;
     }
   };
 
@@ -290,40 +301,65 @@ function App() {
 
   const addSiteLog = async (e) => {
     e.preventDefault();
-
+  
     const form = e.target;
     let photoUrl = null;
 
-    const selectedPhoto =
-      form.camera_photo.files[0] ||
-      form.gallery_photo.files[0];
+    const selectedDate = new Date(form.log_date.value);
+    const today = new Date();
 
-    if (selectedPhoto) {
-      const formData = new FormData();
-      formData.append("photo", selectedPhoto);
+    selectedDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
 
-      const uploadRes = await uploadSitePhoto(formData);
-      photoUrl = uploadRes.fileUrl;
+    const diffDays = Math.floor(
+      (today - selectedDate) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays > 3 && user?.role !== "admin") {
+      alert(
+        "You cannot add a photo/update older than 3 days. Please ask admin permission."
+      );
+      return;
     }
 
-    const newLog = {
-      site_id: Number(form.site_id.value),
-      worker_id: Number(form.worker_id.value),
-      log_date: form.log_date.value,
-      notes: form.notes.value,
-      photo_url: photoUrl,
-    };
-
+    if (diffDays < 0) {
+      alert("You cannot add a daily update for a future date.");
+      return;
+    }
+  
     try {
+      const selectedPhoto =
+        form.camera_photo.files[0] ||
+        form.gallery_photo.files[0];
+  
+      if (selectedPhoto) {
+        const formData = new FormData();
+        formData.append("photo", selectedPhoto);
+  
+        const uploadRes = await uploadSitePhoto(formData);
+        photoUrl = uploadRes.fileUrl;
+      }
+  
+      const newLog = {
+        site_id: Number(form.site_id.value),
+        tender_id: form.tender_id.value ? Number(form.tender_id.value) : null,
+        worker_id: Number(form.worker_id.value),
+        log_date: form.log_date.value,
+        notes: form.notes.value,
+        photo_url: photoUrl,
+      };
+  
       await saveSiteLog(newLog);
       form.reset();
     } catch (err) {
-      console.error("Failed to add site log", err);
+      console.error("Failed to add site log", err.response?.data || err);
+      alert(err.response?.data?.message || "Failed to add daily site update");
     }
   };
 
   return (
     <AppRoutes
+      // AUTH
       user={user}
       logout={logout}
       email={email}
@@ -332,23 +368,43 @@ function App() {
       setPassword={setPassword}
       message={message}
       handleLogin={handleLogin}
+
+      // PAYMENTS
       payments={payments}
       addPayment={addPayment}
-      deletePayment={deletePayment}
+      deletePayment={deletePaymentRecord}
+      fetchPayments={fetchPayments}
+
+      // WORKERS
       workers={workers}
       addWorker={addWorker}
       deleteWorker={deleteWorker}
+      fetchWorkers={fetchWorkers}
+
+      // SITES
       sites={sites}
       addSite={addSite}
       deleteSite={deleteSite}
+      fetchSites={fetchSites}
+
+      // TENDERS
       tenders={tenders}
       addTender={addTender}
       deleteTender={deleteTender}
+      fetchTenders={fetchTenders}
+
+      // INVOICES
       invoices={invoices}
       addInvoice={addInvoice}
       deleteInvoice={deleteInvoice}
+      fetchInvoices={fetchInvoices}
+
+      // DAILY UPDATES
       siteLogs={siteLogs}
       addSiteLog={addSiteLog}
+      deleteSiteLog={deleteSiteLogRecord}
+
+      // WORKER MONEY
       allocations={allocations}
       expenses={expenses}
       addAllocation={addAllocation}

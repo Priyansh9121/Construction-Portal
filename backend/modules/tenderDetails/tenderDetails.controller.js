@@ -93,10 +93,11 @@ exports.getTenderDetails = async (req, res) => {
         w.full_name AS worker_name
       FROM daily_site_logs dsl
       LEFT JOIN workers w ON dsl.worker_id = w.id
-      WHERE dsl.site_id = $1
+      WHERE dsl.tender_id = $1
+      AND COALESCE(dsl.is_deleted, FALSE) = FALSE
       ORDER BY dsl.log_date DESC, dsl.id DESC
       `,
-      [tenderResult.rows[0].site_id]
+      [id]
     );
 
     res.status(200).json({

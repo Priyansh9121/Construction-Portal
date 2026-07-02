@@ -19,3 +19,8 @@ export const uploadSitePhoto = async (formData) => {
 
   return res.data;
 };
+
+export const deleteSiteLog = async (id) => {
+  const res = await axiosClient.delete(`/site-logs/${id}`);
+  return res.data;
+};

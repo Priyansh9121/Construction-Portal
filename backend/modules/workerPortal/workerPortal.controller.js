@@ -4,73 +4,52 @@ const pool = require("../../database/pool");
 |--------------------------------------------------------------------------
 | Helper: get logged-in worker profile
 |--------------------------------------------------------------------------
-| req.user comes from authMiddleware.
-| req.user.id is the logged-in user's ID from JWT.
-|
-| We use workers.user_id to find the worker record connected
-| to this login user.
 */
 async function getWorkerByLoggedInUser(userId) {
-    console.log("DEBUG logged in userId:", userId);
-  
-    const checkAllWorkers = await pool.query(`
-      SELECT id, full_name, user_id, status, is_deleted
-      FROM workers
-      ORDER BY id
-    `);
-  
-    console.log("DEBUG all workers:", checkAllWorkers.rows);
-  
-    const result = await pool.query(
-      `
-      SELECT
-        w.id AS worker_id,
-        w.company_id,
-        w.user_id,
-        w.full_name,
-        w.phone,
-        w.salary,
-        w.role AS worker_job_role,
-        w.status AS worker_status,
-        u.email AS login_email,
-        u.role AS login_role
-      FROM workers w
-      INNER JOIN users u ON u.id = w.user_id
-      WHERE w.user_id = $1
-        AND COALESCE(w.is_deleted, FALSE) = FALSE
-        AND COALESCE(w.status, 'active') != 'inactive'
-      LIMIT 1
-      `,
-      [userId]
-    );
-  
-    console.log("DEBUG matched worker:", result.rows);
-  
-    return result.rows[0];
+  const result = await pool.query(
+    `
+    SELECT
+      w.id AS worker_id,
+      w.company_id,
+      w.user_id,
+      w.full_name,
+      w.phone,
+      w.salary,
+      w.role AS worker_job_role,
+      w.status AS worker_status,
+      u.email AS login_email,
+      u.role AS login_role
+    FROM workers w
+    LEFT JOIN users u ON u.id = w.user_id
+    WHERE w.user_id = $1
+      AND COALESCE(w.is_deleted, FALSE) = FALSE
+    LIMIT 1
+    `,
+    [userId]
+  );
+
+  return result.rows[0];
 }
+
 /*
 |--------------------------------------------------------------------------
-| Helper: check if worker is allowed to submit update
+| Helper: check active tender assignment
 |--------------------------------------------------------------------------
-| A worker should only submit daily progress for the site/tender
-| they are assigned to.
 */
 async function getActiveAssignment(workerId, siteId, tenderId) {
   const result = await pool.query(
     `
-    SELECT *
-    FROM worker_assignments
-    WHERE worker_id = $1
-      AND site_id = $2
-      AND (
-        tender_id = $3
-        OR ($3::INT IS NULL AND tender_id IS NULL)
-      )
-      AND status = 'active'
-      AND is_deleted = FALSE
+    SELECT tw.*
+    FROM tender_workers tw
+    INNER JOIN tenders t ON t.id = tw.tender_id
+    WHERE tw.worker_id = $1
+      AND t.site_id = $2
+      AND tw.tender_id = $3
+      AND tw.status = 'active'
+      AND COALESCE(tw.is_deleted, FALSE) = FALSE
     LIMIT 1
     `,
-    [workerId, siteId, tenderId || null]
+    [workerId, siteId, tenderId]
   );
 
   return result.rows[0];
@@ -80,12 +59,10 @@ async function getActiveAssignment(workerId, siteId, tenderId) {
 |--------------------------------------------------------------------------
 | GET /api/worker-portal/me
 |--------------------------------------------------------------------------
-| Purpose:
-| Return the logged-in worker profile.
 */
 exports.getMyProfile = async (req, res) => {
   try {
-    const loggedInUserId = req.user.id;
+    const loggedInUserId = Number(req.user?.id || req.user?.userId);
 
     const worker = await getWorkerByLoggedInUser(loggedInUserId);
 
@@ -97,14 +74,14 @@ exports.getMyProfile = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       worker,
     });
   } catch (error) {
     console.error("Worker portal profile error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     });
@@ -115,12 +92,10 @@ exports.getMyProfile = async (req, res) => {
 |--------------------------------------------------------------------------
 | GET /api/worker-portal/assignments
 |--------------------------------------------------------------------------
-| Purpose:
-| Show the logged-in worker's assigned sites/tenders.
 */
 exports.getMyAssignments = async (req, res) => {
   try {
-    const loggedInUserId = req.user.id;
+    const loggedInUserId = Number(req.user?.id || req.user?.userId);
 
     const worker = await getWorkerByLoggedInUser(loggedInUserId);
 
@@ -135,13 +110,13 @@ exports.getMyAssignments = async (req, res) => {
     const result = await pool.query(
       `
       SELECT
-        wa.id AS assignment_id,
-        wa.worker_id,
-        wa.site_id,
-        wa.tender_id,
-        wa.notes AS assignment_notes,
-        wa.status AS assignment_status,
-        wa.created_at AS assigned_at,
+        tw.id AS assignment_id,
+        tw.worker_id,
+        t.site_id,
+        tw.tender_id,
+        tw.notes AS assignment_notes,
+        tw.status AS assignment_status,
+        tw.created_at AS assigned_at,
 
         s.site_name,
         s.address,
@@ -152,23 +127,19 @@ exports.getMyAssignments = async (req, res) => {
         t.status AS tender_status,
         t.due_date,
         t.description AS tender_description
-      FROM worker_assignments wa
-      INNER JOIN sites s ON s.id = wa.site_id
-      LEFT JOIN tenders t ON t.id = wa.tender_id
-      WHERE wa.worker_id = $1
-        AND wa.status = 'active'
-        AND wa.is_deleted = FALSE
-        AND s.is_deleted = FALSE
-        AND (
-          t.id IS NULL
-          OR t.is_deleted = FALSE
-        )
-      ORDER BY wa.id DESC
+      FROM tender_workers tw
+      INNER JOIN tenders t ON t.id = tw.tender_id
+      LEFT JOIN sites s ON s.id = t.site_id
+      WHERE tw.worker_id = $1
+        AND tw.status = 'active'
+        AND COALESCE(tw.is_deleted, FALSE) = FALSE
+        AND COALESCE(t.is_deleted, FALSE) = FALSE
+      ORDER BY tw.id DESC
       `,
       [worker.worker_id]
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       worker,
       assignments: result.rows,
@@ -176,7 +147,7 @@ exports.getMyAssignments = async (req, res) => {
   } catch (error) {
     console.error("Worker assignments error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     });
@@ -187,12 +158,10 @@ exports.getMyAssignments = async (req, res) => {
 |--------------------------------------------------------------------------
 | GET /api/worker-portal/daily-updates
 |--------------------------------------------------------------------------
-| Purpose:
-| Show only this worker's own daily progress updates.
 */
 exports.getMyDailyUpdates = async (req, res) => {
   try {
-    const loggedInUserId = req.user.id;
+    const loggedInUserId = Number(req.user?.id || req.user?.userId);
 
     const worker = await getWorkerByLoggedInUser(loggedInUserId);
 
@@ -225,20 +194,21 @@ exports.getMyDailyUpdates = async (req, res) => {
       LEFT JOIN sites s ON s.id = dsl.site_id
       LEFT JOIN tenders t ON t.id = dsl.tender_id
       WHERE dsl.worker_id = $1
-        AND dsl.is_deleted = FALSE
+        AND COALESCE(dsl.is_deleted, FALSE) = FALSE
+        AND dsl.created_at >= NOW() - INTERVAL '24 hours'
       ORDER BY dsl.log_date DESC, dsl.id DESC
       `,
       [worker.worker_id]
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       updates: result.rows,
     });
   } catch (error) {
     console.error("Get worker daily updates error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     });
@@ -249,21 +219,10 @@ exports.getMyDailyUpdates = async (req, res) => {
 |--------------------------------------------------------------------------
 | POST /api/worker-portal/daily-updates
 |--------------------------------------------------------------------------
-| Purpose:
-| Worker submits daily progress.
-|
-| Body expected:
-| {
-|   site_id: 1,
-|   tender_id: 2,
-|   log_date: "2026-06-16",
-|   notes: "Completed slab work",
-|   photo_url: "https://..."
-| }
 */
 exports.createMyDailyUpdate = async (req, res) => {
   try {
-    const loggedInUserId = req.user.id;
+    const loggedInUserId = Number(req.user?.id || req.user?.userId);
 
     const worker = await getWorkerByLoggedInUser(loggedInUserId);
 
@@ -301,6 +260,26 @@ exports.createMyDailyUpdate = async (req, res) => {
       });
     }
 
+    const selectedDate = new Date(log_date);
+    const today = new Date();
+
+    selectedDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.floor(
+      (today - selectedDate) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Future daily updates are not allowed.",
+      });
+    }
+
+    console.log("LOG DATE:", log_date);
+    console.log("DIFF DAYS:", diffDays);
+
     const assignment = await getActiveAssignment(
       worker.worker_id,
       numericSiteId,
@@ -312,6 +291,46 @@ exports.createMyDailyUpdate = async (req, res) => {
         success: false,
         message:
           "You are not assigned to this site/tender, so you cannot submit a daily update for it.",
+      });
+    }
+
+    if (diffDays > 3) {
+      console.log("CREATING APPROVAL REQUEST");
+      const approvalResult = await pool.query(
+        `
+        INSERT INTO daily_update_approvals
+          (
+            worker_id,
+            site_id,
+            tender_id,
+            log_date,
+            notes,
+            photo_url,
+            reason,
+            status
+          )
+        VALUES
+          ($1, $2, $3, $4, $5, $6, $7, 'pending')
+        RETURNING *
+        `,
+        [
+          worker.worker_id,
+          numericSiteId,
+          numericTenderId,
+          log_date,
+          notes || "",
+          photo_url || null,
+          "Worker submitted an update older than 3 days.",
+        ]
+        
+      );
+
+      return res.status(202).json({
+        success: true,
+        requiresApproval: true,
+        message:
+          "This update is older than 3 days and has been sent to admin for approval.",
+        approval: approvalResult.rows[0],
       });
     }
 
@@ -372,7 +391,7 @@ exports.createMyDailyUpdate = async (req, res) => {
       [newLogId]
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Daily update submitted successfully.",
       update: fullLogResult.rows[0],
@@ -380,139 +399,79 @@ exports.createMyDailyUpdate = async (req, res) => {
   } catch (error) {
     console.error("Create worker daily update error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Server error",
     });
   }
 };
 
-
+/*
+|--------------------------------------------------------------------------
+| GET /api/worker-portal/tenders/:id/documents
+|--------------------------------------------------------------------------
+*/
 exports.getMyTenderDocuments = async (req, res) => {
-    try {
-      const loggedInUserId = req.user.id;
-      const tenderId = Number(req.params.id);
-  
-      const worker = await getWorkerByLoggedInUser(loggedInUserId);
-  
-      if (!worker) {
-        return res.status(404).json({
-          success: false,
-          message: "No worker profile is linked to this login user.",
-        });
-      }
-  
-      const assignmentCheck = await pool.query(
-        `
-        SELECT id
-        FROM worker_assignments
-        WHERE worker_id = $1
-          AND tender_id = $2
-          AND status = 'active'
-          AND COALESCE(is_deleted, FALSE) = FALSE
-        LIMIT 1
-        `,
-        [worker.worker_id, tenderId]
-      );
-  
-      if (assignmentCheck.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: "You are not assigned to this tender.",
-        });
-      }
-  
-      const documentsResult = await pool.query(
-        `
-        SELECT
-          id,
-          tender_id,
-          document_name,
-          file_url,
-          file_type,
-          uploaded_at
-        FROM tender_documents
-        WHERE tender_id = $1
-          AND COALESCE(is_deleted, FALSE) = FALSE
-        ORDER BY id DESC
-        `,
-        [tenderId]
-      );
-  
-      res.status(200).json({
-        success: true,
-        documents: documentsResult.rows,
-      });
-    } catch (error) {
-      console.error("Worker tender documents error:", error);
-  
-      res.status(500).json({
+  try {
+    const loggedInUserId = Number(req.user?.id || req.user?.userId);
+    const tenderId = Number(req.params.id);
+
+    const worker = await getWorkerByLoggedInUser(loggedInUserId);
+
+    if (!worker) {
+      return res.status(404).json({
         success: false,
-        message: "Server error",
+        message: "No worker profile is linked to this login user.",
       });
     }
-  };
-  exports.getMyTenderDocuments = async (req, res) => {
-    try {
-      const loggedInUserId = req.user.id;
-      const tenderId = Number(req.params.id);
-  
-      const worker = await getWorkerByLoggedInUser(loggedInUserId);
-  
-      if (!worker) {
-        return res.status(404).json({
-          success: false,
-          message: "No worker profile is linked to this login user.",
-        });
-      }
-  
-      const assignmentCheck = await pool.query(
-        `
-        SELECT id
-        FROM worker_assignments
-        WHERE worker_id = $1
-          AND tender_id = $2
-          AND status = 'active'
-          AND COALESCE(is_deleted, FALSE) = FALSE
-        LIMIT 1
-        `,
-        [worker.worker_id, tenderId]
-      );
-  
-      if (assignmentCheck.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: "You are not assigned to this tender.",
-        });
-      }
-  
-      const documentsResult = await pool.query(
-        `
-        SELECT
-          id,
-          tender_id,
-          document_name,
-          document_type,
-          file_url,
-          created_at
-        FROM tender_documents
-        WHERE tender_id = $1
-          AND COALESCE(is_deleted, FALSE) = FALSE
-        ORDER BY id DESC
-        `,
-        [tenderId]
-      );
-  
-      res.status(200).json({
-        success: true,
-        documents: documentsResult.rows,
-      });
-    } catch (error) {
-      console.error("Worker tender documents error:", error);
-  
-      res.status(500).json({
+
+    const assignmentCheck = await pool.query(
+      `
+      SELECT id
+      FROM tender_workers
+      WHERE worker_id = $1
+        AND tender_id = $2
+        AND status = 'active'
+        AND COALESCE(is_deleted, FALSE) = FALSE
+      LIMIT 1
+      `,
+      [worker.worker_id, tenderId]
+    );
+
+    if (assignmentCheck.rows.length === 0) {
+      return res.status(403).json({
         success: false,
-        message: "Server error",
+        message: "You are not assigned to this tender.",
       });
     }
-  };
+
+    const documentsResult = await pool.query(
+      `
+      SELECT
+        id,
+        tender_id,
+        document_name,
+        document_type,
+        file_url,
+        created_at
+      FROM tender_documents
+      WHERE tender_id = $1
+        AND COALESCE(is_deleted, FALSE) = FALSE
+      ORDER BY id DESC
+      `,
+      [tenderId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      documents: documentsResult.rows,
+    });
+  } catch (error) {
+    console.error("Worker tender documents error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

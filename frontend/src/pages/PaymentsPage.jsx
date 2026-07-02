@@ -1,281 +1,259 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updatePayment } from "../services/paymentService";
+import { getTenders } from "../services/tenderService";
+import { getSites } from "../services/siteService";
 
-function PaymentsPage({ payments, addPayment, deletePayment }) {
+import {
+  getActiveSections,
+  getDefaultSectionKey,
+} from "../config/paymentSections";
+
+import { calculatePaymentSummary } from "../utils/paymentCalculations";
+import { buildPaymentPayload } from "../utils/paymentHelpers";
+
+import PaymentSummaryCards from "../components/payments/PaymentSummaryCards";
+import PaymentTabs from "../components/payments/PaymentTabs";
+import PaymentFormRenderer from "../components/payments/PaymentFormRenderer";
+import PaymentRecordsTable from "../components/payments/PaymentRecordsTable";
+
+function PaymentsPage({ payments, addPayment, deletePayment, fetchPayments }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [tenders, setTenders] = useState([]);
+  const [sites, setSites] = useState([]);
 
-  const [editForm, setEditForm] = useState({
-    payment_type: "",
-    category: "",
+  const [mainTab, setMainTab] = useState("Income");
+  const [sectionTab, setSectionTab] = useState("PERSONAL_INVESTOR");
+
+  const activeSections = getActiveSections(mainTab);
+
+  const activeSection =
+    activeSections.find((section) => section.key === sectionTab) ||
+    activeSections[0];
+
+  const getEmptyForm = () => ({
+    payment_type: mainTab,
+    payment_scope: activeSection.scope,
+    payment_sub_type: activeSection.subType,
+    category: activeSection.label,
     amount: "",
     payment_date: "",
     description: "",
+    tender_id: "",
+    site_id: "",
+    material_name: "",
+    quantity: "",
+    gst_amount: "",
+    collected_gst: "",
+    payment_mode: "Bank",
+    details: "",
+    worker_name: "",
+    investor_name: "",
+    interest_percent: "",
+    fd_site: "",
   });
+
+  const [addForm, setAddForm] = useState(getEmptyForm);
+  const [editForm, setEditForm] = useState(getEmptyForm);
+
+  useEffect(() => {
+    const loadDropdownData = async () => {
+      try {
+        const tenderData = await getTenders();
+        const siteData = await getSites();
+
+        setTenders(tenderData || []);
+        setSites(siteData || []);
+      } catch (error) {
+        console.error("Payment dropdown data error:", error);
+      }
+    };
+
+    loadDropdownData();
+  }, []);
+
+  useEffect(() => {
+    setAddForm(getEmptyForm());
+    setEditingPayment(null);
+  }, [mainTab, sectionTab]);
+
+  const summary = calculatePaymentSummary(payments);
 
   const filteredPayments = payments.filter((payment) => {
     const search = searchTerm.toLowerCase();
 
-    return (
-      payment.payment_type?.toLowerCase().includes(search) ||
+    const matchesSection =
+      payment.payment_type === mainTab &&
+      payment.payment_scope === activeSection.scope &&
+      payment.payment_sub_type === activeSection.subType;
+
+    const matchesSearch =
       payment.category?.toLowerCase().includes(search) ||
+      payment.payment_sub_type?.toLowerCase().includes(search) ||
       payment.description?.toLowerCase().includes(search) ||
+      payment.details?.toLowerCase().includes(search) ||
+      payment.investor_name?.toLowerCase().includes(search) ||
+      payment.worker_name?.toLowerCase().includes(search) ||
+      payment.material_name?.toLowerCase().includes(search) ||
       payment.payment_date?.toLowerCase().includes(search) ||
-      String(payment.amount || "").toLowerCase().includes(search)
-    );
+      String(payment.amount || "").includes(search);
+
+    return matchesSection && matchesSearch;
   });
 
-  const totalIncome = payments
-    .filter((p) => p.payment_type === "Income")
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const handleMainTabClick = (tab) => {
+    setMainTab(tab);
+    setSectionTab(getDefaultSectionKey(tab));
+  };
 
-  const totalExpense = payments
-    .filter((p) => p.payment_type === "Expense")
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const handleSectionClick = (section) => {
+    setSectionTab(section.key);
+  };
 
-  const balance = totalIncome - totalExpense;
+  const handleAddChange = (event) => {
+    const { name, value } = event.target;
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+    setAddForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
-    await deletePayment(deleteTarget.id);
-    setDeleteTarget(null);
+  const handleEditChange = (event) => {
+    const { name, value } = event.target;
+
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleAddPaymentSubmit = async (event) => {
+    event.preventDefault();
+
+    try {
+      await addPayment(buildPaymentPayload(addForm));
+
+      if (fetchPayments) {
+        await fetchPayments();
+      }
+
+      setAddForm(getEmptyForm());
+    } catch (error) {
+      console.error("Add payment error:", error);
+      alert(error.response?.data?.message || "Failed to add payment");
+    }
   };
 
   const startEdit = (payment) => {
     setEditingPayment(payment);
 
     setEditForm({
-      payment_type: payment.payment_type || "",
-      category: payment.category || "",
+      payment_type: payment.payment_type || mainTab,
+      payment_scope: payment.payment_scope || activeSection.scope,
+      payment_sub_type: payment.payment_sub_type || activeSection.subType,
+      category: payment.category || activeSection.label,
       amount: payment.amount || "",
       payment_date: payment.payment_date
         ? payment.payment_date.slice(0, 10)
         : "",
       description: payment.description || "",
+      tender_id: payment.tender_id || "",
+      site_id: payment.site_id || "",
+      material_name: payment.material_name || "",
+      quantity: payment.quantity || "",
+      gst_amount: payment.gst_amount || "",
+      collected_gst: payment.collected_gst || "",
+      payment_mode: payment.payment_mode || "Bank",
+      details: payment.details || "",
+      worker_name: payment.worker_name || "",
+      investor_name: payment.investor_name || "",
+      interest_percent: payment.interest_percent || "",
+      fd_site: payment.fd_site || "",
     });
   };
 
   const cancelEdit = () => {
     setEditingPayment(null);
-
-    setEditForm({
-      payment_type: "",
-      category: "",
-      amount: "",
-      payment_date: "",
-      description: "",
-    });
+    setEditForm(getEmptyForm());
   };
 
-  const handleEditChange = (e) => {
-    setEditForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
-
-  const handleUpdatePayment = async (e) => {
-    e.preventDefault();
+  const handleUpdatePayment = async (event) => {
+    event.preventDefault();
 
     if (!editingPayment) return;
 
-    await updatePayment(editingPayment.id, editForm);
+    try {
+      await updatePayment(editingPayment.id, buildPaymentPayload(editForm));
 
-    window.location.reload();
+      if (fetchPayments) {
+        await fetchPayments();
+      }
+
+      cancelEdit();
+    } catch (error) {
+      console.error("Update payment error:", error);
+      alert(error.response?.data?.message || "Failed to update payment");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    await deletePayment(deleteTarget.id);
+
+    if (fetchPayments) {
+      await fetchPayments();
+    }
+
+    setDeleteTarget(null);
   };
 
   return (
     <>
-      <section className="summary-cards">
-        <div className="card">
-          <p>Total Income</p>
-          <h2>${totalIncome.toFixed(2)}</h2>
-        </div>
+      <PaymentSummaryCards summary={summary} />
 
-        <div className="card">
-          <p>Total Expense</p>
-          <h2>${totalExpense.toFixed(2)}</h2>
-        </div>
-
-        <div className="card">
-          <p>Balance</p>
-          <h2>${balance.toFixed(2)}</h2>
-        </div>
-      </section>
+      <PaymentTabs
+        mainTab={mainTab}
+        activeSections={activeSections}
+        sectionTab={sectionTab}
+        onMainTabClick={handleMainTabClick}
+        onSectionClick={handleSectionClick}
+      />
 
       <section className="payment-grid">
         <div className="panel">
-          <h2>{editingPayment ? "Edit Payment" : "Add Payment"}</h2>
+          <h2>
+            {editingPayment ? "Edit" : "Add"} {activeSection.label}
+          </h2>
 
-          {editingPayment ? (
-            <form className="payment-form" onSubmit={handleUpdatePayment}>
-              <select
-                name="payment_type"
-                value={editForm.payment_type}
-                onChange={handleEditChange}
-                required
-              >
-                <option value="">Select Payment Type</option>
-                <option value="Income">Income</option>
-                <option value="Expense">Expense</option>
-                <option value="Investment">Partner Investment</option>
-                <option value="Loan">Loan</option>
-                <option value="Return">Returned Payment</option>
-              </select>
-
-              <select
-                name="category"
-                value={editForm.category}
-                onChange={handleEditChange}
-                required
-              >
-                <option value="">Select Category</option>
-                <option value="Government Payment">Government Payment</option>
-                <option value="Worker Salary">Worker Salary</option>
-                <option value="Subcontractor Payment">
-                  Subcontractor Payment
-                </option>
-                <option value="Partner Internal Transfer">
-                  Partner Internal Transfer
-                </option>
-                <option value="Personal Investment">Personal Investment</option>
-                <option value="Company Expense">Company Expense</option>
-                <option value="Material Purchase">Material Purchase</option>
-              </select>
-
-              <input
-                name="amount"
-                type="number"
-                placeholder="Amount"
-                value={editForm.amount}
-                onChange={handleEditChange}
-                required
-              />
-
-              <input
-                name="payment_date"
-                type="date"
-                value={editForm.payment_date}
-                onChange={handleEditChange}
-                required
-              />
-
-              <textarea
-                name="description"
-                placeholder="Description"
-                value={editForm.description}
-                onChange={handleEditChange}
-              ></textarea>
-
-              <button type="submit">Save Changes</button>
-
-              <button type="button" onClick={cancelEdit}>
-                Cancel
-              </button>
-            </form>
-          ) : (
-            <form className="payment-form" onSubmit={addPayment}>
-              <select name="payment_type" required>
-                <option value="">Select Payment Type</option>
-                <option value="Income">Income</option>
-                <option value="Expense">Expense</option>
-                <option value="Investment">Partner Investment</option>
-                <option value="Loan">Loan</option>
-                <option value="Return">Returned Payment</option>
-              </select>
-
-              <select name="category" required>
-                <option value="">Select Category</option>
-                <option value="Government Payment">Government Payment</option>
-                <option value="Worker Salary">Worker Salary</option>
-                <option value="Subcontractor Payment">
-                  Subcontractor Payment
-                </option>
-                <option value="Partner Internal Transfer">
-                  Partner Internal Transfer
-                </option>
-                <option value="Personal Investment">Personal Investment</option>
-                <option value="Company Expense">Company Expense</option>
-                <option value="Material Purchase">Material Purchase</option>
-              </select>
-
-              <input name="amount" type="number" placeholder="Amount" required />
-
-              <input name="payment_date" type="date" required />
-
-              <textarea name="description" placeholder="Description"></textarea>
-
-              <button type="submit">Add Payment</button>
-            </form>
-          )}
-        </div>
-
-        <div className="panel">
-          <h2>Payment Records</h2>
-
-          <input
-            className="search-input"
-            type="text"
-            placeholder="Search payments by type, category, amount, date or description..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+          <PaymentFormRenderer
+            activeSection={activeSection}
+            editingPayment={editingPayment}
+            addForm={addForm}
+            editForm={editForm}
+            handleAddChange={handleAddChange}
+            handleEditChange={handleEditChange}
+            handleAddPaymentSubmit={handleAddPaymentSubmit}
+            handleUpdatePayment={handleUpdatePayment}
+            cancelEdit={cancelEdit}
+            tenders={tenders}
+            sites={sites}
           />
-
-          <table>
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Category</th>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredPayments.map((payment) => (
-                <tr key={payment.id}>
-                  <td>{payment.payment_type}</td>
-                  <td>{payment.category}</td>
-                  <td>
-                    {payment.payment_date
-                      ? payment.payment_date.slice(0, 10)
-                      : ""}
-                  </td>
-                  <td>{payment.description}</td>
-                  <td className="amount-cell">
-                    ${Number(payment.amount).toFixed(2)}
-                  </td> 
-                  <td>
-                    <button type="button" onClick={() => startEdit(payment)}>
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={() => setDeleteTarget(payment)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-
-              {filteredPayments.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="empty-table-message">
-                    No payments found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
+
+        <PaymentRecordsTable
+          activeSection={activeSection}
+          payments={filteredPayments}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          sites={sites}
+          tenders={tenders}
+          startEdit={startEdit}
+          setDeleteTarget={setDeleteTarget}
+        />
       </section>
 
       <DeleteVerificationModal
