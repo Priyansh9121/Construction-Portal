@@ -307,6 +307,7 @@ exports.deleteFinanceRecord = async (req, res) => {
         is_deleted = TRUE,
         updated_at = NOW()
       WHERE id = $1
+      AND COALESCE(is_deleted, FALSE) = FALSE
       RETURNING *
       `,
       [id]
