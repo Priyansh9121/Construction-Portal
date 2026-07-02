@@ -1,15 +1,9 @@
+const { FINANCE_RECORD_TYPES } = require("../../config/constants");
+
 const pool = require("../../database/pool");
 
-const VALID_FINANCE_TYPES = [
-  "INVESTOR",
-  "GOVERNMENT_BILL",
-  "SUBCONTRACTOR",
-  "OFFICE",
-  "COMPANY_CHARGE",
-  "COMPANY_CHARGE_PAYMENT",
-  "TDS",
-  "GST_RETURN",
-];
+const VALID_FINANCE_TYPES = Object.values(FINANCE_RECORD_TYPES);
+
 
 function toNumber(value) {
   return Number(value || 0);

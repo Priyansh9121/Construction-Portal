@@ -1,3 +1,9 @@
+import {
+  FINANCE_RECORD_TYPES,
+  FINANCE_TYPE_LABELS,
+  PAYMENT_MODES,
+} from "../../config/financeConstants";
+
 function TenderFinanceTab({
     financeSummary,
     financeRecords,
@@ -11,13 +17,23 @@ function TenderFinanceTab({
     calculatedGstTotal,
     calculatedCompanyChargeTotal,
   }) {
+    const financeTypeOptions = Object.values(FINANCE_RECORD_TYPES).map((value) => ({
+      value,
+      label: FINANCE_TYPE_LABELS[value],
+    }));
+    
+    const paymentModeOptions = Object.values(PAYMENT_MODES).map((value) => ({
+      value,
+      label: value.toUpperCase(),
+    }));
+
     const resetFinanceForm = () => {
       setEditingFinance(null);
   
       setFinanceForm({
         record_type: "GOVERNMENT_BILL",
         source_name: "",
-        payment_mode: "Bank",
+        payment_mode: PAYMENT_MODES.BANK,
         amount: "",
         interest_percent: "",
         gst_percent: "18",
@@ -134,16 +150,11 @@ function TenderFinanceTab({
                   });
                 }}
               >
-                <option value="INVESTOR">Investor</option>
-                <option value="GOVERNMENT_BILL">Government Bill</option>
-                <option value="SUBCONTRACTOR">Subcontractor</option>
-                <option value="OFFICE">Office</option>
-                <option value="COMPANY_CHARGE">Company Charge</option>
-                <option value="COMPANY_CHARGE_PAYMENT">
-                  Company Charge Payment
-                </option>
-                <option value="TDS">TDS</option>
-                <option value="GST_RETURN">GST Return</option>
+                {financeTypeOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
   
               <input
@@ -172,8 +183,11 @@ function TenderFinanceTab({
                   })
                 }
               >
-                <option value="Bank">Bank</option>
-                <option value="Cash">Cash</option>
+               {paymentModeOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
               </select>
   
               <input
@@ -298,7 +312,7 @@ function TenderFinanceTab({
                 <tbody>
                   {financeRecords.map((item) => (
                     <tr key={item.id}>
-                      <td>{item.record_type}</td>
+                      <td>{FINANCE_TYPE_LABELS[item.record_type] || item.record_type}</td>
                       <td>{item.source_name}</td>
                       <td>${Number(item.amount || 0).toFixed(2)}</td>
                       <td>${Number(item.gst_total || 0).toFixed(2)}</td>
