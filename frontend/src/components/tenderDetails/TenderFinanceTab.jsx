@@ -51,6 +51,45 @@ function TenderFinanceTab({
     return (
       <>
         <div className="summary-cards">
+        <div className="card">
+          <p>Investor Total</p>
+          <h2>${Number(financeSummary?.investor_total || 0).toFixed(2)}</h2>
+        </div>
+
+        <div className="card">
+          <p>Government Bills</p>
+          <h2>${Number(financeSummary?.government_bill_total || 0).toFixed(2)}</h2>
+        </div>
+
+        <div className="card">
+          <p>Subcontractor Total</p>
+          <h2>${Number(financeSummary?.subcontractor_total || 0).toFixed(2)}</h2>
+        </div>
+
+        <div className="card">
+          <p>Office Total</p>
+          <h2>${Number(financeSummary?.office_total || 0).toFixed(2)}</h2>
+        </div>
+
+        <div className="card">
+          <p>TDS Total</p>
+          <h2>${Number(financeSummary?.tds_total || 0).toFixed(2)}</h2>
+        </div>
+
+        <div className="stat-card">
+          <p>Total Income</p>
+          <h2>${Number(financeSummary?.total_income || 0).toFixed(2)}</h2>
+        </div>
+
+        <div className="stat-card">
+          <p>Total Expense</p>
+          <h2>${Number(financeSummary?.total_expense || 0).toFixed(2)}</h2>
+        </div>
+
+        <div className="stat-card">
+          <p>Net Profit</p>
+          <h2>${Number(financeSummary?.net_profit || 0).toFixed(2)}</h2>
+        </div>
           <div className="card">
             <p>GST Total</p>
             <h2>${Number(financeSummary?.gst_total || 0).toFixed(2)}</h2>
