@@ -14,7 +14,7 @@ import useSiteLogs from "./hooks/useSiteLogs";
 import useWorkerMoney from "./hooks/useWorkerMoney";
 
 import { loginUser } from "./services/authService";
-import { uploadSitePhoto } from "./services/siteLogService";
+import { uploadFile } from "./services/uploadService";
 
 import AppRoutes from "./routes/AppRoutes";
 
@@ -333,11 +333,7 @@ function App() {
         form.gallery_photo.files[0];
   
       if (selectedPhoto) {
-        const formData = new FormData();
-        formData.append("photo", selectedPhoto);
-  
-        const uploadRes = await uploadSitePhoto(formData);
-        photoUrl = uploadRes.fileUrl;
+        photoUrl = await uploadFile(selectedPhoto);
       }
   
       const newLog = {

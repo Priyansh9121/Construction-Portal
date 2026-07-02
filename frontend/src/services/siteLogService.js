@@ -10,16 +10,6 @@ export const createSiteLog = async (data) => {
   return res.data;
 };
 
-export const uploadSitePhoto = async (formData) => {
-  const res = await axiosClient.post("/upload", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-
-  return res.data;
-};
-
 export const deleteSiteLog = async (id) => {
   const res = await axiosClient.delete(`/site-logs/${id}`);
   return res.data;

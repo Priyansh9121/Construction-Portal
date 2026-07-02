@@ -1,5 +1,5 @@
 import axiosClient from "../api/axiosClient";
-
+import { uploadFile } from "./uploadService";
 /*
 |--------------------------------------------------------------------------
 | Tender Details
@@ -83,29 +83,6 @@ export const deleteTenderDocument = async (id) => {
   return response.data;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Uploads
-|--------------------------------------------------------------------------
-*/
-
-export const uploadFile = async (file) => {
-  const formData = new FormData();
-
-  formData.append("photo", file);
-
-  const response = await axiosClient.post(
-    "/upload",
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    }
-  );
-
-  return response.data;
-};
 
 /*
 |--------------------------------------------------------------------------

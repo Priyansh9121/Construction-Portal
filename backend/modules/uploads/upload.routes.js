@@ -14,7 +14,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-router.post("/", upload.single("photo"), async (req, res) => {
+router.post("/", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({

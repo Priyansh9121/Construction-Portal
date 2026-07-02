@@ -7,7 +7,7 @@ import {
   createWorkerDailyUpdate,
   getWorkerTenderDocuments,
 } from "../services/workerPortalService";
-import { uploadSitePhoto } from "../services/siteLogService";
+import { uploadFile } from "../services/uploadService";
 
 function WorkerPortalPage({ logout }) {
   const navigate = useNavigate();
@@ -118,11 +118,7 @@ function WorkerPortalPage({ logout }) {
       let photoUrl = null;
 
       if (photoFile) {
-        const formData = new FormData();
-        formData.append("photo", photoFile);
-
-        const uploadRes = await uploadSitePhoto(formData);
-        photoUrl = uploadRes.fileUrl;
+        photoUrl = await uploadFile(photoFile);
       }
 
       const result = await createWorkerDailyUpdate({
