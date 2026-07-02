@@ -333,7 +333,26 @@ exports.getTenderFinanceSummary = async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT *
+      SELECT
+        COALESCE(SUM(CASE WHEN record_type = 'INVESTOR' THEN amount ELSE 0 END), 0) AS investor_total,
+        COALESCE(SUM(CASE WHEN record_type = 'GOVERNMENT_BILL' THEN amount ELSE 0 END), 0) AS government_bill_total,
+        COALESCE(SUM(CASE WHEN record_type = 'SUBCONTRACTOR' THEN amount ELSE 0 END), 0) AS subcontractor_total,
+        COALESCE(SUM(CASE WHEN record_type = 'OFFICE' THEN amount ELSE 0 END), 0) AS office_total,
+        COALESCE(SUM(CASE WHEN record_type = 'TDS' THEN tds_amount ELSE 0 END), 0) AS tds_total,
+
+        COALESCE(SUM(CASE WHEN record_type = 'GOVERNMENT_BILL' THEN gst_total ELSE 0 END), 0) AS gst_total,
+        COALESCE(SUM(CASE WHEN record_type = 'GST_RETURN' THEN amount ELSE 0 END), 0) AS gst_done,
+
+        COALESCE(SUM(CASE WHEN record_type = 'COMPANY_CHARGE' THEN company_charge_total ELSE 0 END), 0) AS company_charge_total,
+        COALESCE(SUM(CASE WHEN record_type = 'COMPANY_CHARGE_PAYMENT' THEN amount ELSE 0 END), 0) AS company_charge_done,
+
+        COALESCE(SUM(CASE 
+          WHEN record_type IN ('INVESTOR', 'GOVERNMENT_BILL', 'GST_RETURN') 
+          THEN amount ELSE 0 END), 0) AS total_income,
+
+        COALESCE(SUM(CASE 
+          WHEN record_type IN ('SUBCONTRACTOR', 'OFFICE', 'TDS', 'COMPANY_CHARGE_PAYMENT') 
+          THEN amount ELSE 0 END), 0) AS total_expense
       FROM tender_finance_records
       WHERE tender_id = $1
       AND COALESCE(is_deleted, FALSE) = FALSE
@@ -341,34 +360,26 @@ exports.getTenderFinanceSummary = async (req, res) => {
       [tenderId]
     );
 
-    const records = result.rows;
+    const row = result.rows[0];
 
-    const gstTotal = records
-      .filter((r) => r.record_type === "GOVERNMENT_BILL")
-      .reduce((sum, r) => sum + toNumber(r.gst_total), 0);
+    const gstTotal = Number(row.gst_total || 0);
+    const gstDone = Number(row.gst_done || 0);
 
-    const gstDone = records
-      .filter((r) => r.record_type === "GST_RETURN")
-      .reduce((sum, r) => sum + toNumber(r.amount), 0);
+    const companyChargeTotal = Number(row.company_charge_total || 0);
+    const companyChargeDone = Number(row.company_charge_done || 0);
 
-    const companyChargeTotal = records
-      .filter((r) => r.record_type === "COMPANY_CHARGE")
-      .reduce((sum, r) => sum + toNumber(r.company_charge_total), 0);
-
-    const companyChargeDone = records
-      .filter((r) => r.record_type === "COMPANY_CHARGE_PAYMENT")
-      .reduce((sum, r) => sum + toNumber(r.amount), 0);
-
-    const overallTotal = records.reduce(
-      (sum, r) => sum + toNumber(r.amount),
-      0
-    );
-
-    const overallDone = gstDone + companyChargeDone;
+    const totalIncome = Number(row.total_income || 0);
+    const totalExpense = Number(row.total_expense || 0);
 
     res.status(200).json({
       success: true,
       summary: {
+        investor_total: Number(row.investor_total || 0),
+        government_bill_total: Number(row.government_bill_total || 0),
+        subcontractor_total: Number(row.subcontractor_total || 0),
+        office_total: Number(row.office_total || 0),
+        tds_total: Number(row.tds_total || 0),
+
         gst_total: gstTotal,
         gst_done: gstDone,
         gst_left: gstTotal - gstDone,
@@ -377,13 +388,22 @@ exports.getTenderFinanceSummary = async (req, res) => {
         company_charge_done: companyChargeDone,
         company_charge_left: companyChargeTotal - companyChargeDone,
 
-        overall_total: overallTotal,
-        overall_done: overallDone,
-        overall_left: overallTotal - overallDone,
+        total_income: totalIncome,
+        total_expense: totalExpense,
+        net_profit: totalIncome - totalExpense,
+
+        overall_total: totalIncome + totalExpense,
+        overall_done: gstDone + companyChargeDone,
+        overall_left:
+          gstTotal -
+          gstDone +
+          companyChargeTotal -
+          companyChargeDone,
       },
     });
   } catch (error) {
     console.error("Get tender finance summary error:", error.message);
+
     res.status(500).json({
       success: false,
       message: error.message,
