@@ -240,6 +240,20 @@ function TenderFinanceTab({
                   })
                 }
               />
+
+              {financeForm.record_type === "TDS" && (
+                <input
+                  placeholder="TDS Amount"
+                  type="number"
+                  value={financeForm.tds_amount}
+                  onChange={(e) =>
+                    setFinanceForm({
+                      ...financeForm,
+                      tds_amount: e.target.value,
+                    })
+                  }
+                />
+              )}
   
               {financeForm.record_type === "INVESTOR" && (
                 <input
@@ -274,6 +288,12 @@ function TenderFinanceTab({
                   </p>
                 </>
               )}
+
+              {financeForm.record_type === "GST_RETURN" && (
+                <p className="form-preview-total">
+                  This amount will be counted as GST Done / GST Return.
+                </p>
+              )}
   
               {financeForm.record_type === "COMPANY_CHARGE" && (
                 <>
@@ -293,6 +313,12 @@ function TenderFinanceTab({
                     Company Charge: ${calculatedCompanyChargeTotal.toFixed(2)}
                   </p>
                 </>
+              )}
+
+              {financeForm.record_type === "COMPANY_CHARGE_PAYMENT" && (
+                <p className="form-preview-total">
+                  This amount will be counted as Company Charge Done.
+                </p>
               )}
   
               <input
