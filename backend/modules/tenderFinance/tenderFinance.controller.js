@@ -1,5 +1,10 @@
 const { FINANCE_RECORD_TYPES } = require("../../config/constants");
 
+const finalTdsAmount =
+  record_type === "TDS" && toNumber(tds_amount) === 0
+    ? toNumber(amount)
+    : toNumber(tds_amount);
+
 const pool = require("../../database/pool");
 
 const VALID_FINANCE_TYPES = Object.values(FINANCE_RECORD_TYPES);
@@ -139,7 +144,7 @@ exports.createFinanceRecord = async (req, res) => {
         finalCompanyChargeTotal,
         finalCompanyChargeDone,
         finalCompanyChargeLeft,
-        toNumber(tds_amount),
+        finalTdsAmount,
         record_date || null,
         notes || null,
         status,
