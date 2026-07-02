@@ -43,11 +43,12 @@ import {
   deleteTenderBanking,
   addTenderDocument,
   deleteTenderDocument,
-  uploadFile,
   assignTenderSubcontractor,
   removeTenderSubcontractor,
   updateTenderSubcontractor,
 } from "../services/tenderDetailsService";
+
+import { uploadFile } from "../services/uploadService";
 
 import {
   getTenderFinanceRecords,
