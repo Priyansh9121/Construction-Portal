@@ -1,18 +1,13 @@
 const { FINANCE_RECORD_TYPES } = require("../../config/constants");
 
-const finalTdsAmount =
-  record_type === "TDS" && toNumber(tds_amount) === 0
-    ? toNumber(amount)
-    : toNumber(tds_amount);
+const {
+  toNumber,
+  calculateFinanceValues,
+} = require("../../utils/financeCalculations");
 
 const pool = require("../../database/pool");
 
 const VALID_FINANCE_TYPES = Object.values(FINANCE_RECORD_TYPES);
-
-
-function toNumber(value) {
-  return Number(value || 0);
-}
 
 exports.getFinanceRecords = async (req, res) => {
   try {
@@ -78,26 +73,17 @@ exports.createFinanceRecord = async (req, res) => {
       });
     }
 
-    const finalGstTotal =
-      record_type === "GOVERNMENT_BILL" && toNumber(gst_total) === 0
-        ? (toNumber(amount) * toNumber(gst_percent)) / 100
-        : toNumber(gst_total);
-
-    const finalGstDone =
-      record_type === "GST_RETURN" && toNumber(gst_done) === 0
-        ? toNumber(amount)
-        : toNumber(gst_done);
-
-    const finalGstLeft = finalGstTotal - finalGstDone;
-
-    const finalCompanyChargeTotal =
-      record_type === "COMPANY_CHARGE" && toNumber(company_charge_total) === 0
-        ? (toNumber(amount) * toNumber(company_charge_percent)) / 100
-        : toNumber(company_charge_total);
-
-    const finalCompanyChargeDone = toNumber(company_charge_done);
-    const finalCompanyChargeLeft =
-      finalCompanyChargeTotal - finalCompanyChargeDone;
+    const calculated = calculateFinanceValues({
+      record_type,
+      amount,
+      gst_percent,
+      gst_total,
+      gst_done,
+      company_charge_percent,
+      company_charge_total,
+      company_charge_done,
+      tds_amount,
+    });
 
     const result = await pool.query(
       `
@@ -134,17 +120,17 @@ exports.createFinanceRecord = async (req, res) => {
         record_type,
         source_name || null,
         payment_mode || null,
-        toNumber(amount),
+        calculated.amount,
         toNumber(interest_percent),
-        toNumber(gst_percent),
-        finalGstTotal,
-        finalGstDone,
-        finalGstLeft,
-        toNumber(company_charge_percent),
-        finalCompanyChargeTotal,
-        finalCompanyChargeDone,
-        finalCompanyChargeLeft,
-        finalTdsAmount,
+        calculated.gst_percent,
+        calculated.gst_total,
+        calculated.gst_done,
+        calculated.gst_left,
+        calculated.company_charge_percent,
+        calculated.company_charge_total,
+        calculated.company_charge_done,
+        calculated.company_charge_left,
+        calculated.tds_amount,
         record_date || null,
         notes || null,
         status,
@@ -215,7 +201,8 @@ exports.updateFinanceRecord = async (req, res) => {
     const finalGstLeft = finalGstTotal - finalGstDone;
 
     const finalCompanyChargeTotal =
-      record_type === "COMPANY_CHARGE" && toNumber(company_charge_total) === 0
+      (record_type === "COMPANY_CHARGE" || record_type === "GOVERNMENT_BILL") &&
+      toNumber(company_charge_total) === 0
         ? (toNumber(amount) * toNumber(company_charge_percent)) / 100
         : toNumber(company_charge_total);
 
@@ -223,6 +210,11 @@ exports.updateFinanceRecord = async (req, res) => {
     const finalCompanyChargeLeft =
       finalCompanyChargeTotal - finalCompanyChargeDone;
 
+    const finalTdsAmount =
+      record_type === "TDS" && toNumber(tds_amount) === 0
+        ? toNumber(amount)
+        : toNumber(tds_amount);
+    
     const result = await pool.query(
       `
       UPDATE tender_finance_records
@@ -257,17 +249,17 @@ exports.updateFinanceRecord = async (req, res) => {
         record_type,
         source_name || null,
         payment_mode || null,
-        toNumber(amount),
+        calculated.amount,
         toNumber(interest_percent),
-        toNumber(gst_percent),
-        finalGstTotal,
-        finalGstDone,
-        finalGstLeft,
-        toNumber(company_charge_percent),
-        finalCompanyChargeTotal,
-        finalCompanyChargeDone,
-        finalCompanyChargeLeft,
-        toNumber(tds_amount),
+        calculated.gst_percent,
+        calculated.gst_total,
+        calculated.gst_done,
+        calculated.gst_left,
+        calculated.company_charge_percent,
+        calculated.company_charge_total,
+        calculated.company_charge_done,
+        calculated.company_charge_left,
+        calculated.tds_amount,
         record_date || null,
         notes || null,
         status,

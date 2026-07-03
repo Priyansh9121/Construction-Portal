@@ -183,7 +183,7 @@ function TenderFinanceTab({
                     record_type: type,
                     gst_percent: type === "GOVERNMENT_BILL" ? "18" : "",
                     company_charge_percent:
-                      type === "COMPANY_CHARGE" ? "2" : "",
+                      type === "COMPANY_CHARGE" || type === "GOVERNMENT_BILL" ? "2" : "",
                     gst_total: "",
                     company_charge_total: "",
                   });
@@ -295,7 +295,8 @@ function TenderFinanceTab({
                 </p>
               )}
   
-              {financeForm.record_type === "COMPANY_CHARGE" && (
+              {(financeForm.record_type === "COMPANY_CHARGE" ||
+              financeForm.record_type === "GOVERNMENT_BILL") && (
                 <>
                   <input
                     placeholder="Company Charge %"
