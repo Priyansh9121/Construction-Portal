@@ -121,7 +121,8 @@ export const getDueSoonTenders = (tenders = []) => {
         : Number(financeForm.gst_total || 0);
   
     const calculatedCompanyChargeTotal =
-      financeForm.record_type === "COMPANY_CHARGE"
+      financeForm.record_type === "COMPANY_CHARGE" ||
+      financeForm.record_type === "GOVERNMENT_BILL"
         ? (financeAmount * financeCompanyPercent) / 100
         : Number(financeForm.company_charge_total || 0);
   

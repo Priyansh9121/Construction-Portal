@@ -84,8 +84,3 @@ function calculateFinanceValues(payload) {
     tds_amount: finalTdsAmount,
   };
 }
-
-module.exports = {
-  toNumber,
-  calculateFinanceValues,
-};
