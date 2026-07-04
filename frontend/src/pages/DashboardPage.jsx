@@ -19,16 +19,49 @@ function DashboardPage({
     .filter((p) => p.payment_type === "Expense")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const balance = totalIncome - totalExpense;
+  const netProfit = totalIncome - totalExpense;
 
-  const activeWorkers = workers.filter((worker) => worker.status === "active").length;
+  const gstTotal = payments
+    .filter((p) => p.payment_sub_type === "GOVERNMENT_BILL")
+    .reduce((sum, p) => sum + Number(p.gst_amount || 0), 0);
+
+  const gstReturned = payments
+    .filter((p) => p.payment_sub_type === "GST_RETURN")
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const gstPending = gstTotal - gstReturned;
+
+  const companyChargeTotal = payments
+    .filter((p) => p.payment_sub_type === "COMPANY_CHARGE")
+    .reduce((sum, p) => sum + Number(p.gst_amount || p.amount || 0), 0);
+
+  const companyChargePaid = payments
+    .filter((p) => p.payment_sub_type === "COMPANY_CHARGE_PAYMENT")
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const companyChargePending = companyChargeTotal - companyChargePaid;
+
+  const activeWorkers = workers.filter(
+    (worker) => worker.status === "active"
+  ).length;
+
   const activeSites = sites.filter((site) => site.status === "active").length;
 
-  const runningTenders = tenders.filter((tender) => tender.status === "running").length;
-  const dueSoonTenders = tenders.filter((tender) => tender.status === "due soon").length;
+  const runningTenders = tenders.filter(
+    (tender) => tender.status === "running"
+  ).length;
 
-  const pendingInvoices = invoices.filter((invoice) => invoice.status === "pending").length;
-  const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue").length;
+  const dueSoonTenders = tenders.filter(
+    (tender) => tender.status === "due soon"
+  ).length;
+
+  const pendingInvoices = invoices.filter(
+    (invoice) => invoice.status === "pending"
+  ).length;
+
+  const overdueInvoices = invoices.filter(
+    (invoice) => invoice.status === "overdue"
+  ).length;
 
   const invoiceTotal = invoices.reduce(
     (sum, invoice) => sum + Number(invoice.amount || 0),
@@ -53,20 +86,31 @@ function DashboardPage({
       </section>
 
       <section className="cards dashboard-cards">
-        <StatCard title="Company Balance" value={money(balance)} />
         <StatCard title="Total Income" value={money(totalIncome)} />
         <StatCard title="Total Expense" value={money(totalExpense)} />
-        <StatCard title="Invoice Total" value={money(invoiceTotal)} />
+        <StatCard title="Net Profit" value={money(netProfit)} />
+        <StatCard title="GST Pending" value={money(gstPending)} />
 
-        <StatCard title="Pending Invoice Amount" value={money(pendingInvoiceTotal)} />
+        <StatCard
+          title="Company Charge Pending"
+          value={money(companyChargePending)}
+        />
+        <StatCard title="Invoice Total" value={money(invoiceTotal)} />
+        <StatCard
+          title="Pending Invoice Amount"
+          value={money(pendingInvoiceTotal)}
+        />
         <StatCard title="Pending Invoices" value={pendingInvoices} />
+
         <StatCard title="Overdue Invoices" value={overdueInvoices} />
         <StatCard title="Running Tenders" value={runningTenders} />
-
         <StatCard title="Due Soon Tenders" value={dueSoonTenders} />
         <StatCard title="Active Sites" value={activeSites} />
+
         <StatCard title="Active Workers" value={activeWorkers} />
         <StatCard title="Subcontractors" value={subcontractors.length} />
+        <StatCard title="Total Sites" value={sites.length} />
+        <StatCard title="Total Tenders" value={tenders.length} />
       </section>
 
       <section className="dashboard-grid two-column-dashboard">
@@ -91,7 +135,11 @@ function DashboardPage({
                 <tr key={payment.id}>
                   <td>{payment.payment_type}</td>
                   <td>{payment.category}</td>
-                  <td>{payment.payment_date ? payment.payment_date.slice(0, 10) : ""}</td>
+                  <td>
+                    {payment.payment_date
+                      ? payment.payment_date.slice(0, 10)
+                      : ""}
+                  </td>
                   <td className="amount-cell">{money(payment.amount)}</td>
                 </tr>
               ))}
@@ -103,6 +151,42 @@ function DashboardPage({
                   </td>
                 </tr>
               )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="panel">
+          <div className="section-title-row">
+            <h2>GST / Company Charge</h2>
+            <Link to="/payments">View finance</Link>
+          </div>
+
+          <table>
+            <tbody>
+              <tr>
+                <td>GST Total</td>
+                <td className="amount-cell">{money(gstTotal)}</td>
+              </tr>
+              <tr>
+                <td>GST Returned</td>
+                <td className="amount-cell">{money(gstReturned)}</td>
+              </tr>
+              <tr>
+                <td>GST Pending</td>
+                <td className="amount-cell">{money(gstPending)}</td>
+              </tr>
+              <tr>
+                <td>Company Charge Total</td>
+                <td className="amount-cell">{money(companyChargeTotal)}</td>
+              </tr>
+              <tr>
+                <td>Company Charge Paid</td>
+                <td className="amount-cell">{money(companyChargePaid)}</td>
+              </tr>
+              <tr>
+                <td>Company Charge Pending</td>
+                <td className="amount-cell">{money(companyChargePending)}</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -129,7 +213,9 @@ function DashboardPage({
                   <td>{invoice.invoice_number}</td>
                   <td className="amount-cell">{money(invoice.amount)}</td>
                   <td>{invoice.status}</td>
-                  <td>{invoice.created_at ? invoice.created_at.slice(0, 10) : ""}</td>
+                  <td>
+                    {invoice.created_at ? invoice.created_at.slice(0, 10) : ""}
+                  </td>
                 </tr>
               ))}
 
@@ -164,7 +250,9 @@ function DashboardPage({
                 <tr key={tender.id}>
                   <td>{tender.title}</td>
                   <td>{tender.status}</td>
-                  <td>{tender.due_date ? tender.due_date.slice(0, 10) : ""}</td>
+                  <td>
+                    {tender.due_date ? tender.due_date.slice(0, 10) : ""}
+                  </td>
                 </tr>
               ))}
 

@@ -17,4 +17,8 @@ router.get(
   workerPortalController.getMyTenderDocuments
 );
 
+router.get("/money", workerPortalController.getMyMoney);
+
+router.post("/expenses", workerPortalController.createMyExpense);
+
 module.exports = router;

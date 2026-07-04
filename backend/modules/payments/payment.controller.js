@@ -1,6 +1,27 @@
 const pool = require("../../database/pool");
 const asyncHandler = require("../../utils/asyncHandler");
 
+const VALID_PAYMENT_TYPES = ["Income", "Expense"];
+
+const VALID_PAYMENT_SUB_TYPES = [
+  "INVESTOR",
+  "GOVERNMENT_BILL",
+  "GST_RETURN",
+  "COMPANY_CHARGE",
+  "COMPANY_CHARGE_PAYMENT",
+  "TDS",
+  "MATERIAL",
+  "LABOUR",
+  "SUPERVISOR",
+  "SALARY",
+  "PF",
+  "TAX",
+  "OTHER",
+  "OFFICE_INCOME",
+];
+
+const toNumber = (value) => Number(value || 0);
+
 exports.getPayments = asyncHandler(async (req, res) => {
   try {
     const {
@@ -11,7 +32,7 @@ exports.getPayments = asyncHandler(async (req, res) => {
       payment_sub_type,
     } = req.query;
 
-    const conditions = ["is_deleted = FALSE"];
+    const conditions = ["COALESCE(is_deleted, FALSE) = FALSE"];
     const values = [];
 
     if (tender_id) {
@@ -44,7 +65,7 @@ exports.getPayments = asyncHandler(async (req, res) => {
       SELECT *
       FROM payments
       WHERE ${conditions.join(" AND ")}
-      ORDER BY created_at DESC
+      ORDER BY payment_date DESC NULLS LAST, created_at DESC
       `,
       values
     );
@@ -63,8 +84,65 @@ exports.getPayments = asyncHandler(async (req, res) => {
   }
 });
 
+function validatePaymentPayload(payload) {
+  const errors = [];
+
+  if (!payload.payment_type) {
+    errors.push("Payment type is required.");
+  }
+
+  if (payload.payment_type && !VALID_PAYMENT_TYPES.includes(payload.payment_type)) {
+    errors.push("Invalid payment type.");
+  }
+
+  if (!payload.amount || toNumber(payload.amount) <= 0) {
+    errors.push("Amount must be greater than 0.");
+  }
+
+  if (!payload.payment_date) {
+    errors.push("Payment date is required.");
+  }
+
+  if (
+    payload.payment_sub_type &&
+    !VALID_PAYMENT_SUB_TYPES.includes(payload.payment_sub_type)
+  ) {
+    errors.push("Invalid payment sub type.");
+  }
+
+  if (payload.payment_sub_type === "INVESTOR" && !payload.investor_name) {
+    errors.push("Investor name is required.");
+  }
+
+  if (
+    ["MATERIAL"].includes(payload.payment_sub_type) &&
+    !payload.material_name
+  ) {
+    errors.push("Material name is required.");
+  }
+
+  if (
+    ["LABOUR", "SUPERVISOR", "SALARY"].includes(payload.payment_sub_type) &&
+    !payload.worker_name
+  ) {
+    errors.push("Worker/name/category is required.");
+  }
+
+  return errors;
+}
+
 exports.createPayment = async (req, res) => {
   try {
+    const errors = validatePaymentPayload(req.body);
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: errors[0],
+        errors,
+      });
+    }
+
     const {
       company_id = null,
       payment_type,
@@ -72,30 +150,33 @@ exports.createPayment = async (req, res) => {
       amount,
       description,
       payment_date,
-
       payment_scope,
       payment_sub_type,
-
       tender_id,
       site_id,
-
       material_name,
       quantity,
-
       gst_amount,
       collected_gst,
-
       payment_mode,
       details,
-
       worker_name,
-
       investor_name,
       interest_percent,
       fd_site,
     } = req.body;
 
     const created_by = req.user?.id || null;
+
+    const finalAmount = toNumber(amount);
+    const finalQuantity = toNumber(quantity);
+    let finalGstAmount = toNumber(gst_amount);
+    const finalCollectedGst = toNumber(collected_gst);
+    const finalInterestPercent = toNumber(interest_percent);
+
+    if (payment_sub_type === "COMPANY_CHARGE" && finalGstAmount === 0) {
+      finalGstAmount = (finalAmount * finalInterestPercent) / 100;
+    }
 
     const result = await pool.query(
       `
@@ -108,24 +189,17 @@ exports.createPayment = async (req, res) => {
         description,
         payment_date,
         created_by,
-
         payment_scope,
         payment_sub_type,
-
         tender_id,
         site_id,
-
         material_name,
         quantity,
-
         gst_amount,
         collected_gst,
-
         payment_mode,
         details,
-
         worker_name,
-
         investor_name,
         interest_percent,
         fd_site
@@ -146,31 +220,24 @@ exports.createPayment = async (req, res) => {
       [
         company_id,
         payment_type,
-        category,
-        amount,
-        description,
+        category || payment_sub_type || payment_type,
+        finalAmount,
+        description || "",
         payment_date,
         created_by,
-
         payment_scope || null,
         payment_sub_type || null,
-
         tender_id || null,
         site_id || null,
-
         material_name || null,
-        quantity || 0,
-
-        gst_amount || 0,
-        collected_gst || 0,
-
+        finalQuantity,
+        finalGstAmount,
+        finalCollectedGst,
         payment_mode || null,
         details || null,
-
         worker_name || null,
-
         investor_name || null,
-        interest_percent || 0,
+        finalInterestPercent,
         fd_site || null,
       ]
     );
@@ -193,34 +260,47 @@ exports.updatePayment = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const errors = validatePaymentPayload(req.body);
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: errors[0],
+        errors,
+      });
+    }
+
     const {
       payment_type,
       category,
       amount,
       payment_date,
       description,
-
       payment_scope,
       payment_sub_type,
-
       tender_id,
       site_id,
-
       material_name,
       quantity,
-
       gst_amount,
       collected_gst,
-
       payment_mode,
       details,
-
       worker_name,
-
       investor_name,
       interest_percent,
       fd_site,
     } = req.body;
+
+    const finalAmount = toNumber(amount);
+    const finalQuantity = toNumber(quantity);
+    let finalGstAmount = toNumber(gst_amount);
+    const finalCollectedGst = toNumber(collected_gst);
+    const finalInterestPercent = toNumber(interest_percent);
+
+    if (payment_sub_type === "COMPANY_CHARGE" && finalGstAmount === 0) {
+      finalGstAmount = (finalAmount * finalInterestPercent) / 100;
+    }
 
     const result = await pool.query(
       `
@@ -231,59 +311,45 @@ exports.updatePayment = async (req, res) => {
         amount = $3,
         payment_date = $4,
         description = $5,
-
         payment_scope = $6,
         payment_sub_type = $7,
-
         tender_id = $8,
         site_id = $9,
-
         material_name = $10,
         quantity = $11,
-
         gst_amount = $12,
         collected_gst = $13,
-
         payment_mode = $14,
         details = $15,
-
         worker_name = $16,
-
         investor_name = $17,
         interest_percent = $18,
-        fd_site = $19
+        fd_site = $19,
+        updated_at = NOW()
       WHERE id = $20
-      AND is_deleted = FALSE
+      AND COALESCE(is_deleted, FALSE) = FALSE
       RETURNING *
       `,
       [
         payment_type,
-        category,
-        amount,
+        category || payment_sub_type || payment_type,
+        finalAmount,
         payment_date,
-        description,
-
+        description || "",
         payment_scope || null,
         payment_sub_type || null,
-
         tender_id || null,
         site_id || null,
-
         material_name || null,
-        quantity || 0,
-
-        gst_amount || 0,
-        collected_gst || 0,
-
+        finalQuantity,
+        finalGstAmount,
+        finalCollectedGst,
         payment_mode || null,
         details || null,
-
         worker_name || null,
-
         investor_name || null,
-        interest_percent || 0,
+        finalInterestPercent,
         fd_site || null,
-
         id,
       ]
     );
@@ -316,12 +382,16 @@ exports.deletePayment = async (req, res) => {
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
-      `UPDATE payments
-       SET is_deleted = TRUE,
-           deleted_at = NOW(),
-           deleted_by = $2
-       WHERE id = $1
-       RETURNING *`,
+      `
+      UPDATE payments
+      SET is_deleted = TRUE,
+          deleted_at = NOW(),
+          deleted_by = $2,
+          updated_at = NOW()
+      WHERE id = $1
+      AND COALESCE(is_deleted, FALSE) = FALSE
+      RETURNING *
+      `,
       [id, deletedBy]
     );
 
@@ -338,6 +408,7 @@ exports.deletePayment = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete payment error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",

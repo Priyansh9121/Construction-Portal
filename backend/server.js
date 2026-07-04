@@ -9,17 +9,11 @@ const roleMiddleware = require("./middleware/roleMiddleware");
 const errorHandler = require("./middleware/errorHandler");
 const requestLogger = require("./middleware/requestLogger");
 
-const tenderDetailsRoutes = require("./modules/tenderDetails/tenderDetails.routes");
-const subcontractorRoutes = require("./modules/subcontractors/subcontractor.routes");
-const workerPortalRoutes = require("./modules/workerPortal/workerPortal.routes");
-const tenderFinanceRoutes = require("./modules/tenderFinance/tenderFinance.routes");
-
-const subcontractorPortalRoutes = require("./modules/subcontractorPortal/subcontractorPortal.routes");
-
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(requestLogger);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -78,13 +72,25 @@ app.use(
 app.use(
   "/api/tender-details",
   authMiddleware,
-  tenderDetailsRoutes
+  require("./modules/tenderDetails/tenderDetails.routes")
+);
+
+app.use(
+  "/api/tender-finance",
+  authMiddleware,
+  require("./modules/tenderFinance/tenderFinance.routes")
+);
+
+app.use(
+  "/api/tender-workers",
+  authMiddleware,
+  require("./modules/tenderWorkers/tenderWorker.routes")
 );
 
 app.use(
   "/api/subcontractors",
   authMiddleware,
-  subcontractorRoutes
+  require("./modules/subcontractors/subcontractor.routes")
 );
 
 app.use(
@@ -117,17 +123,10 @@ app.use(
   require("./modules/uploads/upload.routes")
 );
 
-app.use("/api/tender-finance", authMiddleware, tenderFinanceRoutes);
-
-app.use(
-  "/api/tender-workers",
-  authMiddleware,
-  require("./modules/tenderWorkers/tenderWorker.routes")
-);
-
 app.use(
   "/api/daily-update-approvals",
   authMiddleware,
+  roleMiddleware(["admin", "manager"]),
   require("./modules/dailyUpdateApprovals/dailyUpdateApproval.routes")
 );
 
@@ -135,22 +134,18 @@ app.use(
 |--------------------------------------------------------------------------
 | Worker Portal Routes
 |--------------------------------------------------------------------------
-| Only logged-in users with role = worker can access this.
-|--------------------------------------------------------------------------
 */
 
 app.use(
   "/api/worker-portal",
   authMiddleware,
   roleMiddleware(["admin", "worker"]),
-  workerPortalRoutes
+  require("./modules/workerPortal/workerPortal.routes")
 );
 
 /*
 |--------------------------------------------------------------------------
-  Subcontractor Portal Routes
-|--------------------------------------------------------------------------
-| Only logged-in users with role = subcontractor can access this.
+| Subcontractor Portal Routes
 |--------------------------------------------------------------------------
 */
 
@@ -158,7 +153,7 @@ app.use(
   "/api/subcontractor-portal",
   authMiddleware,
   roleMiddleware(["admin", "subcontractor"]),
-  subcontractorPortalRoutes
+  require("./modules/subcontractorPortal/subcontractorPortal.routes")
 );
 
 /*
@@ -191,5 +186,3 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
-
-process.stdin.resume();

@@ -7,10 +7,26 @@ const { JWT_SECRET } = require("../../config/env");
 
 exports.register = async (req, res) => {
   try {
-    const { full_name, email, password } = req.body;
+    const { full_name, email, password, role = "worker" } = req.body;
+
+    if (!full_name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name, email and password are required.",
+      });
+    }
+
+    const allowedRoles = ["admin", "manager", "worker", "subcontractor"];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user role.",
+      });
+    }
 
     const userExists = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
       [email]
     );
 
@@ -25,10 +41,12 @@ exports.register = async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     const newUser = await pool.query(
-      `INSERT INTO users (full_name, email, password_hash)
-       VALUES ($1, $2, $3)
-       RETURNING id, full_name, email, role`,
-      [full_name, email, password_hash]
+      `
+      INSERT INTO users (full_name, email, password_hash, role, status)
+      VALUES ($1, LOWER($2), $3, $4, 'active')
+      RETURNING id, full_name, email, role, status
+      `,
+      [full_name, email, password_hash, role]
     );
 
     const user = newUser.rows[0];
@@ -56,17 +74,33 @@ exports.register = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Server error",
+      message: error.message || "Server error",
     });
   }
 };
 
 exports.createUser = async (req, res) => {
   try {
-    const { full_name, email, password, role } = req.body;
+    const { full_name, email, password, role = "worker", status = "active" } = req.body;
+
+    if (!full_name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name, email and password are required.",
+      });
+    }
+
+    const allowedRoles = ["admin", "manager", "worker", "subcontractor"];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user role.",
+      });
+    }
 
     const userExists = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
       [email]
     );
 
@@ -82,11 +116,11 @@ exports.createUser = async (req, res) => {
 
     const result = await pool.query(
       `
-      INSERT INTO users (full_name, email, password_hash, role)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, full_name, email, role
+      INSERT INTO users (full_name, email, password_hash, role, status)
+      VALUES ($1, LOWER($2), $3, $4, $5)
+      RETURNING id, full_name, email, role, status
       `,
-      [full_name, email, password_hash, role || "worker"]
+      [full_name, email, password_hash, role, status]
     );
 
     res.status(201).json({
@@ -98,7 +132,7 @@ exports.createUser = async (req, res) => {
     console.error("Create user error:", error);
     res.status(500).json({
       success: false,
-      message: "Server error",
+      message: error.message || "Server error",
     });
   }
 };
@@ -311,18 +345,21 @@ exports.disableUser = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    console.log("Login request received");
-
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required.",
+      });
+    }
+
     const userResult = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT * FROM users WHERE LOWER(email) = LOWER($1)",
       [email]
     );
 
     if (userResult.rows.length === 0) {
-      console.log("User not found");
-
       return res.status(400).json({
         success: false,
         message: "Invalid email or password",
@@ -338,18 +375,9 @@ exports.login = async (req, res) => {
       });
     }
 
-    console.log("User found:", user.email);
-
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password_hash
-    );
-
-    console.log("Password checked");
+    const isMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!isMatch) {
-      console.log("Password incorrect");
-
       return res.status(400).json({
         success: false,
         message: "Invalid email or password",
@@ -368,8 +396,6 @@ exports.login = async (req, res) => {
       }
     );
 
-    console.log("Login successful");
-
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -379,6 +405,7 @@ exports.login = async (req, res) => {
         full_name: user.full_name,
         email: user.email,
         role: user.role,
+        status: user.status,
       },
     });
   } catch (error) {

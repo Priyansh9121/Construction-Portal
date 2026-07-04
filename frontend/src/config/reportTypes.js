@@ -1,8 +1,8 @@
 export const reportTypes = [
-    "Finance",
-    "GST",
-    "Tender",
-    "Site",
-    "Worker",
-    "Subcontractor",
-  ];
+  "Finance",
+  "GST",
+  "Tender",
+  "Site",
+  "Worker",
+  "Subcontractor",
+];

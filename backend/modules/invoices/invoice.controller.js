@@ -1,4 +1,4 @@
-const pool = require("../../database/pool")
+const pool = require("../../database/pool");
 
 exports.getInvoices = async (req, res) => {
   try {
@@ -8,7 +8,7 @@ exports.getInvoices = async (req, res) => {
       `
       SELECT *
       FROM invoices
-      WHERE is_deleted = FALSE
+      WHERE COALESCE(is_deleted, FALSE) = FALSE
       AND (
         invoice_number ILIKE $1
         OR status ILIKE $1
@@ -35,24 +35,34 @@ exports.getInvoices = async (req, res) => {
 exports.createInvoice = async (req, res) => {
   try {
     const {
-      company_id,
-      tender_id,
+      company_id = null,
+      tender_id = null,
       invoice_number,
       amount,
-      status,
+      status = "pending",
     } = req.body;
 
+    if (!invoice_number || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice number and amount are required.",
+      });
+    }
+
     const result = await pool.query(
-      `INSERT INTO invoices
-      (company_id, tender_id, invoice_number, amount, status)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *`,
+      `
+      INSERT INTO invoices
+      (company_id, tender_id, invoice_number, amount, status, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+      `,
       [
         company_id,
-        tender_id,
+        tender_id || null,
         invoice_number,
-        amount,
+        Number(amount || 0),
         status,
+        req.user?.id || null,
       ]
     );
 
@@ -65,7 +75,7 @@ exports.createInvoice = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Server error",
+      message: error.message || "Server error",
     });
   }
 };
@@ -77,12 +87,16 @@ exports.deleteInvoice = async (req, res) => {
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
-      `UPDATE invoices
-       SET is_deleted = TRUE,
-           deleted_at = NOW(),
-           deleted_by = $2
-       WHERE id = $1
-       RETURNING *`,
+      `
+      UPDATE invoices
+      SET is_deleted = TRUE,
+          deleted_at = NOW(),
+          deleted_by = $2,
+          updated_at = NOW()
+      WHERE id = $1
+      AND COALESCE(is_deleted, FALSE) = FALSE
+      RETURNING *
+      `,
       [id, deletedBy]
     );
 
@@ -113,15 +127,25 @@ exports.updateInvoice = async (req, res) => {
 
     const { invoice_number, amount, status } = req.body;
 
+    if (!invoice_number || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Invoice number and amount are required.",
+      });
+    }
+
     const result = await pool.query(
-      `UPDATE invoices
-       SET invoice_number = $1,
-           amount = $2,
-           status = $3
-       WHERE id = $4
-       AND is_deleted = FALSE
-       RETURNING *`,
-      [invoice_number, amount, status, id]
+      `
+      UPDATE invoices
+      SET invoice_number = $1,
+          amount = $2,
+          status = $3,
+          updated_at = NOW()
+      WHERE id = $4
+      AND COALESCE(is_deleted, FALSE) = FALSE
+      RETURNING *
+      `,
+      [invoice_number, Number(amount || 0), status || "pending", id]
     );
 
     if (result.rows.length === 0) {
@@ -140,7 +164,7 @@ exports.updateInvoice = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Server error",
+      message: error.message || "Server error",
     });
   }
 };

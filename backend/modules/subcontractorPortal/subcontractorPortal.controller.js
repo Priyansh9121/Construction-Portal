@@ -32,6 +32,22 @@ async function getSubcontractorByLoggedInUser(userId) {
   return result.rows[0];
 }
 
+async function checkSubcontractorTenderAccess(subcontractorId, tenderId) {
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM tender_subcontractors
+    WHERE subcontractor_id = $1
+      AND tender_id = $2
+      AND COALESCE(is_deleted, FALSE) = FALSE
+    LIMIT 1
+    `,
+    [subcontractorId, tenderId]
+  );
+
+  return result.rows[0];
+}
+
 exports.getMyProfile = async (req, res) => {
   try {
     const subcontractor = await getSubcontractorByLoggedInUser(req.user.id);
@@ -132,19 +148,12 @@ exports.getMyTenderDetails = async (req, res) => {
       });
     }
 
-    const assignmentCheck = await pool.query(
-      `
-      SELECT id
-      FROM tender_subcontractors
-      WHERE subcontractor_id = $1
-        AND tender_id = $2
-        AND COALESCE(is_deleted, FALSE) = FALSE
-      LIMIT 1
-      `,
-      [subcontractor.subcontractor_id, tenderId]
+    const assignment = await checkSubcontractorTenderAccess(
+      subcontractor.subcontractor_id,
+      tenderId
     );
 
-    if (assignmentCheck.rows.length === 0) {
+    if (!assignment) {
       return res.status(403).json({
         success: false,
         message: "You are not assigned to this tender.",
@@ -174,6 +183,7 @@ exports.getMyTenderDetails = async (req, res) => {
         document_name,
         document_type,
         file_url,
+        uploaded_by,
         created_at
       FROM tender_documents
       WHERE tender_id = $1
@@ -212,14 +222,17 @@ exports.getMyTenderDetails = async (req, res) => {
         dsl.site_id,
         dsl.tender_id,
         dsl.worker_id,
+        dsl.subcontractor_id,
         dsl.log_date,
         dsl.notes,
         dsl.photo_url,
         dsl.created_at,
         w.full_name AS worker_name,
+        sc.full_name AS subcontractor_name,
         s.site_name
       FROM daily_site_logs dsl
       LEFT JOIN workers w ON w.id = dsl.worker_id
+      LEFT JOIN subcontractors sc ON sc.id = dsl.subcontractor_id
       LEFT JOIN sites s ON s.id = dsl.site_id
       WHERE dsl.tender_id = $1
         AND COALESCE(dsl.is_deleted, FALSE) = FALSE
@@ -231,6 +244,7 @@ exports.getMyTenderDetails = async (req, res) => {
     res.status(200).json({
       success: true,
       subcontractor,
+      assignment,
       tender: tenderResult.rows[0],
       documents: documents.rows,
       materials: materials.rows,
@@ -243,6 +257,203 @@ exports.getMyTenderDetails = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+exports.createMyDailyUpdate = async (req, res) => {
+  try {
+    const subcontractor = await getSubcontractorByLoggedInUser(req.user.id);
+
+    if (!subcontractor) {
+      return res.status(404).json({
+        success: false,
+        message: "No subcontractor profile is linked to this login user.",
+      });
+    }
+
+    const { site_id, tender_id, log_date, notes, photo_url } = req.body;
+
+    if (!site_id || !tender_id || !log_date) {
+      return res.status(400).json({
+        success: false,
+        message: "Site, tender and log date are required.",
+      });
+    }
+
+    const assignment = await checkSubcontractorTenderAccess(
+      subcontractor.subcontractor_id,
+      Number(tender_id)
+    );
+
+    if (!assignment) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this tender.",
+      });
+    }
+
+    const selectedDate = new Date(log_date);
+    const today = new Date();
+
+    selectedDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.floor(
+      (today - selectedDate) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Future daily updates are not allowed.",
+      });
+    }
+
+    if (diffDays > 3) {
+      const approvalResult = await pool.query(
+        `
+        INSERT INTO daily_update_approvals
+        (
+          subcontractor_id,
+          site_id,
+          tender_id,
+          log_date,
+          notes,
+          photo_url,
+          reason,
+          status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+        RETURNING *
+        `,
+        [
+          subcontractor.subcontractor_id,
+          site_id,
+          tender_id,
+          log_date,
+          notes || "",
+          photo_url || null,
+          "Subcontractor submitted an update older than 3 days.",
+        ]
+      );
+
+      return res.status(202).json({
+        success: true,
+        requiresApproval: true,
+        message:
+          "This update is older than 3 days and has been sent to admin for approval.",
+        approval: approvalResult.rows[0],
+      });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO daily_site_logs
+      (
+        site_id,
+        tender_id,
+        subcontractor_id,
+        log_date,
+        notes,
+        photo_url,
+        created_by
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+      `,
+      [
+        site_id,
+        tender_id,
+        subcontractor.subcontractor_id,
+        log_date,
+        notes || "",
+        photo_url || null,
+        req.user?.id || null,
+      ]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Subcontractor daily update submitted successfully.",
+      update: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Subcontractor daily update error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
+    });
+  }
+};
+
+exports.addMyTenderDocument = async (req, res) => {
+  try {
+    const subcontractor = await getSubcontractorByLoggedInUser(req.user.id);
+
+    if (!subcontractor) {
+      return res.status(404).json({
+        success: false,
+        message: "No subcontractor profile is linked to this login user.",
+      });
+    }
+
+    const { tender_id, document_name, document_type, file_url } = req.body;
+
+    if (!tender_id || !document_name) {
+      return res.status(400).json({
+        success: false,
+        message: "Tender and document name are required.",
+      });
+    }
+
+    const assignment = await checkSubcontractorTenderAccess(
+      subcontractor.subcontractor_id,
+      Number(tender_id)
+    );
+
+    if (!assignment) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this tender.",
+      });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO tender_documents
+      (
+        tender_id,
+        document_name,
+        document_type,
+        file_url,
+        uploaded_by,
+        uploaded_by_type,
+        is_deleted
+      )
+      VALUES ($1, $2, $3, $4, $5, 'subcontractor', FALSE)
+      RETURNING *
+      `,
+      [
+        tender_id,
+        document_name,
+        document_type || "PDF",
+        file_url || null,
+        req.user?.id || null,
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      document: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Subcontractor document upload error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
     });
   }
 };

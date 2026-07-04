@@ -21,6 +21,7 @@ exports.getPendingApprovals = async (req, res) => {
       SELECT
         dua.id,
         dua.worker_id,
+        dua.subcontractor_id,
         dua.site_id,
         dua.tender_id,
         dua.log_date,
@@ -36,10 +37,12 @@ exports.getPendingApprovals = async (req, res) => {
         dua.rejected_at,
 
         w.full_name AS worker_name,
+        sc.full_name AS subcontractor_name,
         s.site_name,
         t.title AS tender_title
       FROM daily_update_approvals dua
       LEFT JOIN workers w ON w.id = dua.worker_id
+      LEFT JOIN subcontractors sc ON sc.id = dua.subcontractor_id
       LEFT JOIN sites s ON s.id = dua.site_id
       LEFT JOIN tenders t ON t.id = dua.tender_id
       ${statusFilter}
@@ -100,19 +103,21 @@ exports.approveDailyUpdate = async (req, res) => {
         site_id,
         tender_id,
         worker_id,
+        subcontractor_id,
         log_date,
         notes,
         photo_url,
         created_by
       )
       VALUES
-      ($1, $2, $3, $4, $5, $6, $7)
+      ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
       `,
       [
         approval.site_id,
         approval.tender_id,
-        approval.worker_id,
+        approval.worker_id || null,
+        approval.subcontractor_id || null,
         approval.log_date,
         approval.notes || "",
         approval.photo_url || null,

@@ -23,6 +23,7 @@ async function getWorkerByLoggedInUser(userId) {
     LEFT JOIN users u ON u.id = w.user_id
     WHERE w.user_id = $1
       AND COALESCE(w.is_deleted, FALSE) = FALSE
+      AND COALESCE(w.status, 'active') != 'inactive'
     LIMIT 1
     `,
     [userId]
@@ -195,7 +196,6 @@ exports.getMyDailyUpdates = async (req, res) => {
       LEFT JOIN tenders t ON t.id = dsl.tender_id
       WHERE dsl.worker_id = $1
         AND COALESCE(dsl.is_deleted, FALSE) = FALSE
-        AND dsl.created_at >= NOW() - INTERVAL '24 hours'
       ORDER BY dsl.log_date DESC, dsl.id DESC
       `,
       [worker.worker_id]
@@ -236,27 +236,20 @@ exports.createMyDailyUpdate = async (req, res) => {
 
     const { site_id, tender_id, log_date, notes, photo_url } = req.body;
 
-    if (!site_id || !log_date) {
+    if (!site_id || !tender_id || !log_date) {
       return res.status(400).json({
         success: false,
-        message: "Site and log date are required.",
+        message: "Site, tender and log date are required.",
       });
     }
 
     const numericSiteId = Number(site_id);
-    const numericTenderId = tender_id ? Number(tender_id) : null;
+    const numericTenderId = Number(tender_id);
 
-    if (Number.isNaN(numericSiteId)) {
+    if (Number.isNaN(numericSiteId) || Number.isNaN(numericTenderId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid site ID.",
-      });
-    }
-
-    if (tender_id && Number.isNaN(numericTenderId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid tender ID.",
+        message: "Invalid site or tender ID.",
       });
     }
 
@@ -277,9 +270,6 @@ exports.createMyDailyUpdate = async (req, res) => {
       });
     }
 
-    console.log("LOG DATE:", log_date);
-    console.log("DIFF DAYS:", diffDays);
-
     const assignment = await getActiveAssignment(
       worker.worker_id,
       numericSiteId,
@@ -295,7 +285,6 @@ exports.createMyDailyUpdate = async (req, res) => {
     }
 
     if (diffDays > 3) {
-      console.log("CREATING APPROVAL REQUEST");
       const approvalResult = await pool.query(
         `
         INSERT INTO daily_update_approvals
@@ -322,7 +311,6 @@ exports.createMyDailyUpdate = async (req, res) => {
           photo_url || null,
           "Worker submitted an update older than 3 days.",
         ]
-        
       );
 
       return res.status(202).json({
@@ -361,40 +349,10 @@ exports.createMyDailyUpdate = async (req, res) => {
       ]
     );
 
-    const newLogId = insertResult.rows[0].id;
-
-    const fullLogResult = await pool.query(
-      `
-      SELECT
-        dsl.id,
-        dsl.site_id,
-        dsl.tender_id,
-        dsl.worker_id,
-        dsl.log_date,
-        dsl.notes,
-        dsl.photo_url,
-        dsl.created_at,
-
-        s.site_name,
-        s.address,
-
-        t.title AS tender_title,
-        t.status AS tender_status,
-
-        w.full_name AS worker_name
-      FROM daily_site_logs dsl
-      LEFT JOIN sites s ON s.id = dsl.site_id
-      LEFT JOIN tenders t ON t.id = dsl.tender_id
-      LEFT JOIN workers w ON w.id = dsl.worker_id
-      WHERE dsl.id = $1
-      `,
-      [newLogId]
-    );
-
     return res.status(201).json({
       success: true,
       message: "Daily update submitted successfully.",
-      update: fullLogResult.rows[0],
+      update: insertResult.rows[0],
     });
   } catch (error) {
     console.error("Create worker daily update error:", error);
@@ -468,6 +426,175 @@ exports.getMyTenderDocuments = async (req, res) => {
     });
   } catch (error) {
     console.error("Worker tender documents error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/worker-portal/money
+|--------------------------------------------------------------------------
+*/
+exports.getMyMoney = async (req, res) => {
+  try {
+    const loggedInUserId = Number(req.user?.id || req.user?.userId);
+    const worker = await getWorkerByLoggedInUser(loggedInUserId);
+
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        message: "No worker profile is linked to this login user.",
+      });
+    }
+
+    const allocations = await pool.query(
+      `
+      SELECT *
+      FROM worker_allocations
+      WHERE worker_id = $1
+      AND COALESCE(is_deleted, FALSE) = FALSE
+      ORDER BY id DESC
+      `,
+      [worker.worker_id]
+    );
+
+    const expenses = await pool.query(
+      `
+      SELECT
+        we.*
+      FROM worker_expenses we
+      INNER JOIN worker_allocations wa ON wa.id = we.allocation_id
+      WHERE wa.worker_id = $1
+      AND COALESCE(we.is_deleted, FALSE) = FALSE
+      AND COALESCE(wa.is_deleted, FALSE) = FALSE
+      ORDER BY we.id DESC
+      `,
+      [worker.worker_id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      worker,
+      allocations: allocations.rows,
+      expenses: expenses.rows,
+    });
+  } catch (error) {
+    console.error("Worker money error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| POST /api/worker-portal/expenses
+|--------------------------------------------------------------------------
+*/
+exports.createMyExpense = async (req, res) => {
+  try {
+    const loggedInUserId = Number(req.user?.id || req.user?.userId);
+    const worker = await getWorkerByLoggedInUser(loggedInUserId);
+
+    if (!worker) {
+      return res.status(404).json({
+        success: false,
+        message: "No worker profile is linked to this login user.",
+      });
+    }
+
+    const {
+      allocation_id,
+      expense_amount,
+      expense_description,
+      expense_date,
+      uploaded_photo,
+    } = req.body;
+
+    if (!allocation_id || !expense_amount || !expense_date) {
+      return res.status(400).json({
+        success: false,
+        message: "Allocation, expense amount and date are required.",
+      });
+    }
+
+    const allocationResult = await pool.query(
+      `
+      SELECT *
+      FROM worker_allocations
+      WHERE id = $1
+      AND worker_id = $2
+      AND approval_status = 'approved'
+      AND COALESCE(is_deleted, FALSE) = FALSE
+      `,
+      [allocation_id, worker.worker_id]
+    );
+
+    if (allocationResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Valid approved allocation not found for this worker.",
+      });
+    }
+
+    const spentResult = await pool.query(
+      `
+      SELECT COALESCE(SUM(expense_amount), 0) AS total_spent
+      FROM worker_expenses
+      WHERE allocation_id = $1
+      AND COALESCE(is_deleted, FALSE) = FALSE
+      AND COALESCE(approval_status, 'approved') != 'rejected'
+      `,
+      [allocation_id]
+    );
+
+    const allocatedAmount = Number(allocationResult.rows[0].allocated_amount);
+    const alreadySpent = Number(spentResult.rows[0].total_spent);
+    const newExpense = Number(expense_amount);
+    const remainingBalance = allocatedAmount - alreadySpent - newExpense;
+
+    const result = await pool.query(
+      `
+      INSERT INTO worker_expenses
+      (
+        allocation_id,
+        expense_amount,
+        expense_description,
+        expense_date,
+        remaining_balance,
+        uploaded_photo,
+        approval_status,
+        created_by
+      )
+      VALUES
+      ($1, $2, $3, $4, $5, $6, 'pending', $7)
+      RETURNING *
+      `,
+      [
+        allocation_id,
+        expense_amount,
+        expense_description || "",
+        expense_date,
+        remainingBalance,
+        uploaded_photo || null,
+        loggedInUserId,
+      ]
+    );
+
+    return res.status(202).json({
+      success: true,
+      requiresApproval: true,
+      message: "Expense submitted and waiting for admin approval.",
+      expense: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Create worker expense error:", error);
 
     return res.status(500).json({
       success: false,

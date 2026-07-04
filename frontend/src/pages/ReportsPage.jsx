@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
 
+import FinanceSummaryCards from "../components/finance/FinanceSummaryCards";
+import FinanceRecordsTable from "../components/finance/FinanceRecordsTable";
+import { usePaymentManager } from "../hooks/usePaymentManager";
+
 function ReportsPage({
   payments = [],
   workers = [],
@@ -7,104 +11,109 @@ function ReportsPage({
   tenders = [],
   invoices = [],
 }) {
+  const [reportType, setReportType] = useState("Overview");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [paymentType, setPaymentType] = useState("all");
-  const [invoiceStatus, setInvoiceStatus] = useState("all");
 
-  const money = (value) =>
-    `$${Number(value || 0).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+  const money = (value) => `$${Number(value || 0).toFixed(2)}`;
 
   const inDateRange = (dateValue) => {
     if (!dateValue) return true;
+
     const date = new Date(dateValue);
+
     if (fromDate && date < new Date(fromDate)) return false;
     if (toDate && date > new Date(toDate)) return false;
+
     return true;
   };
 
-  const filteredPayments = useMemo(() => {
-    return payments.filter((p) => {
-      const typeMatch = paymentType === "all" || p.payment_type === paymentType;
-      return typeMatch && inDateRange(p.payment_date || p.created_at);
-    });
-  }, [payments, paymentType, fromDate, toDate]);
+  const dateFilteredPayments = useMemo(() => {
+    return payments.filter((payment) =>
+      inDateRange(payment.payment_date || payment.created_at)
+    );
+  }, [payments, fromDate, toDate]);
 
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((i) => {
-      const statusMatch = invoiceStatus === "all" || i.status === invoiceStatus;
-      return statusMatch && inDateRange(i.created_at);
-    });
-  }, [invoices, invoiceStatus, fromDate, toDate]);
+  const { filteredPayments, summary } = usePaymentManager({
+    payments: dateFilteredPayments,
+  });
 
-  const totalIncome = filteredPayments
-    .filter((p) => p.payment_type === "Income")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const totalExpense = filteredPayments
-    .filter((p) => p.payment_type === "Expense")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const balance = totalIncome - totalExpense;
-
-  const invoiceTotal = filteredInvoices.reduce(
-    (sum, i) => sum + Number(i.amount || 0),
-    0
+  const gstPayments = filteredPayments.filter((p) =>
+    ["GOVERNMENT_BILL", "GST_RETURN"].includes(p.payment_sub_type)
   );
 
-  const paidInvoiceTotal = filteredInvoices
-    .filter((i) => i.status === "paid")
-    .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+  const companyChargePayments = filteredPayments.filter((p) =>
+    ["COMPANY_CHARGE", "COMPANY_CHARGE_PAYMENT"].includes(p.payment_sub_type)
+  );
 
-  const unpaidInvoiceTotal = filteredInvoices
-    .filter((i) => i.status !== "paid")
-    .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+  const investorPayments = filteredPayments.filter(
+    (p) => p.payment_sub_type === "INVESTOR"
+  );
 
-  const categoryTotals = filteredPayments.reduce((acc, payment) => {
-    const category = payment.category || "Other";
-    acc[category] = (acc[category] || 0) + Number(payment.amount || 0);
-    return acc;
-  }, {});
+  const labourPayments = filteredPayments.filter(
+    (p) => p.payment_sub_type === "LABOUR"
+  );
 
-  const maxCategoryAmount = Math.max(...Object.values(categoryTotals), 1);
+  const tenderProfitRows = tenders.map((tender) => {
+    const tenderPayments = filteredPayments.filter(
+      (p) => String(p.tender_id) === String(tender.id)
+    );
 
-  const tenderStats = {
-    running: tenders.filter((t) => t.status === "running").length,
-    passed: tenders.filter((t) => t.status === "passed").length,
-    dueSoon: tenders.filter((t) => t.status === "due soon").length,
-  };
+    const income = tenderPayments
+      .filter((p) => p.payment_type === "Income")
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const workerStats = {
-    active: workers.filter((w) => w.status === "active").length,
-    inactive: workers.filter((w) => w.status === "inactive").length,
-  };
+    const expense = tenderPayments
+      .filter((p) => p.payment_type === "Expense")
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const siteStats = {
-    personal: sites.filter((s) => s.site_type === "Personal Site").length,
-    subcontractor: sites.filter((s) => s.site_type === "Subcontractor Site")
-      .length,
-    active: sites.filter((s) => s.status === "active").length,
-    completed: sites.filter((s) => s.status === "completed").length,
-  };
+    return {
+      id: tender.id,
+      name: tender.title,
+      income,
+      expense,
+      profit: income - expense,
+    };
+  });
+
+  const siteProfitRows = sites.map((site) => {
+    const sitePayments = filteredPayments.filter(
+      (p) => String(p.site_id) === String(site.id)
+    );
+
+    const income = sitePayments
+      .filter((p) => p.payment_type === "Income")
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    const expense = sitePayments
+      .filter((p) => p.payment_type === "Expense")
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    return {
+      id: site.id,
+      name: site.site_name,
+      income,
+      expense,
+      profit: income - expense,
+    };
+  });
 
   const exportCSV = () => {
     const rows = [
-      ["Report Type", "Name", "Type/Status", "Amount"],
-      ["Payment", "Total Income", "Income", totalIncome],
-      ["Payment", "Total Expense", "Expense", totalExpense],
-      ["Payment", "Balance", "Profit/Loss", balance],
-      ["Invoice", "Total Invoice Amount", "All", invoiceTotal],
-      ["Invoice", "Paid Invoice Amount", "Paid", paidInvoiceTotal],
-      ["Invoice", "Unpaid Invoice Amount", "Pending/Overdue", unpaidInvoiceTotal],
-      ...Object.entries(categoryTotals).map(([category, amount]) => [
-        "Category",
-        category,
-        "Payment Category",
-        amount,
-      ]),
+      ["Report", reportType],
+      ["From", fromDate || "All"],
+      ["To", toDate || "All"],
+      [],
+      ["Metric", "Amount"],
+      ["Total Income", summary.totalIncome],
+      ["Total Expense", summary.totalExpense],
+      ["Net Profit", summary.netProfit],
+      ["GST Total", summary.gstTotal],
+      ["GST Returned", summary.gstReturned],
+      ["GST Pending", summary.gstLeft],
+      ["Company Charge Total", summary.companyChargeTotal],
+      ["Company Charge Paid", summary.companyChargePaid],
+      ["Company Charge Pending", summary.companyChargeLeft],
     ];
 
     const csv = rows.map((row) => row.join(",")).join("\n");
@@ -113,7 +122,7 @@ function ReportsPage({
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = "construction-report.csv";
+    link.download = `${reportType.toLowerCase().replaceAll(" ", "-")}-report.csv`;
     link.click();
 
     URL.revokeObjectURL(url);
@@ -124,10 +133,10 @@ function ReportsPage({
       <div className="page-header">
         <div>
           <h1>Reports</h1>
-          <p>Financial, tender, site, worker and invoice overview.</p>
+          <p>Reports are generated from Payments as the single source.</p>
         </div>
 
-        <button className="primary-btn" onClick={exportCSV}>
+        <button className="primary-btn" type="button" onClick={exportCSV}>
           Export CSV
         </button>
       </div>
@@ -136,6 +145,19 @@ function ReportsPage({
         <h2>Report Filters</h2>
 
         <div className="form-grid">
+          <select
+            value={reportType}
+            onChange={(e) => setReportType(e.target.value)}
+          >
+            <option value="Overview">Overview</option>
+            <option value="GST">GST</option>
+            <option value="Company Charge">Company Charge</option>
+            <option value="Investor">Investor</option>
+            <option value="Tender Profit">Tender Profit</option>
+            <option value="Site Profit">Site Profit</option>
+            <option value="Labour">Labour</option>
+          </select>
+
           <input
             type="date"
             value={fromDate}
@@ -147,173 +169,191 @@ function ReportsPage({
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
           />
-
-          <select
-            value={paymentType}
-            onChange={(e) => setPaymentType(e.target.value)}
-          >
-            <option value="all">All Payment Types</option>
-            <option value="Income">Income</option>
-            <option value="Expense">Expense</option>
-            <option value="Investment">Investment</option>
-            <option value="Loan">Loan</option>
-            <option value="Return">Return</option>
-          </select>
-
-          <select
-            value={invoiceStatus}
-            onChange={(e) => setInvoiceStatus(e.target.value)}
-          >
-            <option value="all">All Invoice Status</option>
-            <option value="paid">Paid</option>
-            <option value="pending">Pending</option>
-            <option value="overdue">Overdue</option>
-          </select>
         </div>
       </section>
 
-      <section className="cards">
-        <div className="card">
-          <p>Total Income</p>
-          <h2>{money(totalIncome)}</h2>
-        </div>
+      {reportType === "Overview" && (
+        <>
+          <FinanceSummaryCards summary={summary} />
 
-        <div className="card">
-          <p>Total Expense</p>
-          <h2>{money(totalExpense)}</h2>
-        </div>
+          <FinanceRecordsTable
+            title="All Finance Records"
+            payments={filteredPayments}
+          />
+        </>
+      )}
 
-        <div className="card">
-          <p>Balance</p>
-          <h2>{money(balance)}</h2>
-        </div>
+      {reportType === "GST" && (
+        <>
+          <FinanceSummaryCards summary={summary} />
 
-        <div className="card">
-          <p>Unpaid Invoices</p>
-          <h2>{money(unpaidInvoiceTotal)}</h2>
-        </div>
-      </section>
+          <FinanceRecordsTable
+            title="GST Report"
+            payments={gstPayments}
+          />
+        </>
+      )}
 
-      <section className="payment-grid">
-        <div className="panel">
-          <h2>Payment Category Chart</h2>
+      {reportType === "Company Charge" && (
+        <>
+          <FinanceSummaryCards summary={summary} />
 
-          {Object.keys(categoryTotals).length === 0 ? (
-            <p>No payment data found for selected filters.</p>
-          ) : (
-            <div className="report-chart">
-              {Object.entries(categoryTotals).map(([category, amount]) => (
-                <div className="report-bar-row" key={category}>
-                  <div className="report-bar-label">{category}</div>
-                  <div className="report-bar-track">
-                    <div
-                      className="report-bar-fill"
-                      style={{
-                        width: `${(amount / maxCategoryAmount) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="report-bar-value">{money(amount)}</div>
-                </div>
-              ))}
+          <FinanceRecordsTable
+            title="Company Charge Report"
+            payments={companyChargePayments}
+          />
+        </>
+      )}
+
+      {reportType === "Investor" && (
+        <>
+          <section className="cards">
+            <div className="card">
+              <p>Total Investor Amount</p>
+              <h2>
+                {money(
+                  investorPayments.reduce(
+                    (sum, p) => sum + Number(p.amount || 0),
+                    0
+                  )
+                )}
+              </h2>
             </div>
-          )}
-        </div>
 
-        <div className="panel">
-          <h2>Invoice Summary</h2>
+            <div className="card">
+              <p>Investor Records</p>
+              <h2>{investorPayments.length}</h2>
+            </div>
+          </section>
 
-          <table>
-          <tbody>
-            <tr>
-              <td>Total Invoices</td>
-              <td className="number-cell">{filteredInvoices.length}</td>
-            </tr>
-            <tr>
-              <td>Paid Invoices</td>
-              <td className="number-cell">
-                {filteredInvoices.filter((i) => i.status === "paid").length}
-              </td>
-            </tr>
-            <tr>
-              <td>Pending Invoices</td>
-              <td className="number-cell">
-                {filteredInvoices.filter((i) => i.status === "pending").length}
-              </td>
-            </tr>
-            <tr>
-              <td>Overdue Invoices</td>
-              <td className="number-cell">
-                {filteredInvoices.filter((i) => i.status === "overdue").length}
-              </td>
-            </tr>
-            <tr>
-              <td>Total Invoice Amount</td>
-              <td className="amount-cell">{money(invoiceTotal)}</td>
-            </tr>
-            <tr>
-              <td>Paid Amount</td>
-              <td className="amount-cell">{money(paidInvoiceTotal)}</td>
-            </tr>
-            <tr>
-              <td>Pending / Unpaid Amount</td>
-              <td className="amount-cell">{money(unpaidInvoiceTotal)}</td>
-            </tr>
-          </tbody>
-          </table>
-        </div>
-      </section>
+          <FinanceRecordsTable
+            title="Investor Report"
+            payments={investorPayments}
+          />
+        </>
+      )}
+
+      {reportType === "Labour" && (
+        <>
+          <section className="cards">
+            <div className="card">
+              <p>Total Labour Cost</p>
+              <h2>
+                {money(
+                  labourPayments.reduce(
+                    (sum, p) => sum + Number(p.amount || 0),
+                    0
+                  )
+                )}
+              </h2>
+            </div>
+
+            <div className="card">
+              <p>Labour Records</p>
+              <h2>{labourPayments.length}</h2>
+            </div>
+          </section>
+
+          <FinanceRecordsTable
+            title="Labour Report"
+            payments={labourPayments}
+          />
+        </>
+      )}
+
+      {reportType === "Tender Profit" && (
+        <section className="panel">
+          <h2>Tender Profit Report</h2>
+
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tender</th>
+                  <th>Income</th>
+                  <th>Expense</th>
+                  <th>Profit</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {tenderProfitRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.name}</td>
+                    <td>{money(row.income)}</td>
+                    <td>{money(row.expense)}</td>
+                    <td>{money(row.profit)}</td>
+                  </tr>
+                ))}
+
+                {tenderProfitRows.length === 0 && (
+                  <tr>
+                    <td colSpan="4">No tender data found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {reportType === "Site Profit" && (
+        <section className="panel">
+          <h2>Site Profit Report</h2>
+
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Site</th>
+                  <th>Income</th>
+                  <th>Expense</th>
+                  <th>Profit</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {siteProfitRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.name}</td>
+                    <td>{money(row.income)}</td>
+                    <td>{money(row.expense)}</td>
+                    <td>{money(row.profit)}</td>
+                  </tr>
+                ))}
+
+                {siteProfitRows.length === 0 && (
+                  <tr>
+                    <td colSpan="4">No site data found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section className="payment-grid">
         <div className="panel">
-          <h2>Tender Summary</h2>
+          <h2>Work Summary</h2>
 
           <table>
             <tbody>
               <tr>
-                <td>Running Tenders</td>
-                <td className="number-cell">{tenderStats.running}</td>
+                <td>Total Workers</td>
+                <td className="number-cell">{workers.length}</td>
               </tr>
               <tr>
-                <td>Passed Tenders</td>
-                <td className="number-cell">{tenderStats.passed}</td>
+                <td>Total Sites</td>
+                <td className="number-cell">{sites.length}</td>
               </tr>
               <tr>
-                <td>Due Soon Tenders</td>
-                <td className="number-cell">{tenderStats.dueSoon}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <h2>Site & Worker Summary</h2>
-
-          <table>
-            <tbody>
-              <tr>
-                <td>Personal Sites</td>
-                <td className="number-cell">{siteStats.personal}</td>
+                <td>Total Tenders</td>
+                <td className="number-cell">{tenders.length}</td>
               </tr>
               <tr>
-                <td>Subcontractor Sites</td>
-                <td className="number-cell">{siteStats.subcontractor}</td>
-              </tr>
-              <tr>
-                <td>Active Sites</td>
-                <td className="number-cell">{siteStats.active}</td>
-              </tr>
-              <tr>
-                <td>Completed Sites</td>
-                <td className="number-cell">{siteStats.completed}</td>
-              </tr>
-              <tr>
-                <td>Active Workers</td>
-                <td className="number-cell">{workerStats.active}</td>
-              </tr>
-              <tr>
-                <td>Inactive Workers</td>
-                <td className="number-cell">{workerStats.inactive}</td>
+                <td>Total Invoices</td>
+                <td className="number-cell">{invoices.length}</td>
               </tr>
             </tbody>
           </table>
