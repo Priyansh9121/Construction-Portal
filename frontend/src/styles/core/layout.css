@@ -67,3 +67,13 @@
 .mobile-page-nav {
   display: none;
 }
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar a.active {
+  box-shadow: inset 4px 0 0 white;
+}

@@ -44,3 +44,35 @@
   color: var(--danger);
   font-weight: 700;
 }
+
+.warning-message {
+  color: #854d0e;
+  background: var(--warning-light);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.muted-text {
+  color: var(--muted);
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.mt-10 {
+  margin-top: 10px;
+}
+
+.mb-10 {
+  margin-bottom: 10px;
+}

@@ -70,6 +70,14 @@ function App() {
     expenses,
     addAllocation: saveAllocation,
     addExpense: saveExpense,
+    fetchAllocations,
+    fetchExpenses,
+    updateAllocation,
+    deleteAllocation,
+    updateExpense,
+    deleteExpense,
+    approveExpense,
+    rejectExpense,
   } = useWorkerMoney(user);
 
   const handleLogin = async (e) => {
@@ -405,6 +413,15 @@ function App() {
       expenses={expenses}
       addAllocation={addAllocation}
       addExpense={addExpense}
+
+      fetchAllocations={fetchAllocations}
+      fetchExpenses={fetchExpenses}
+      updateAllocation={updateAllocation}
+      deleteAllocation={deleteAllocation}
+      updateExpense={updateExpense}
+      deleteExpense={deleteExpense}
+      approveExpense={approveExpense}
+      rejectExpense={rejectExpense}
     />
   );
 }

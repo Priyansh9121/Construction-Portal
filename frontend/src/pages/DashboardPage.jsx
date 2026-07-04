@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
-import StatCard from "../components/StatCard";
+import AnimatedStatCard from "../components/AnimatedStatCard";
+import FinanceTrendChart from "../components/charts/FinanceTrendChart";
+import DashboardHero from "../components/DashboardHero";
 
 function DashboardPage({
   payments = [],
@@ -78,6 +80,12 @@ function DashboardPage({
 
   return (
     <>
+      <DashboardHero
+        totalIncome={totalIncome}
+        totalExpense={totalExpense}
+        netProfit={netProfit}
+        runningTenders={runningTenders}
+      />
       <section className="quick-actions">
         <Link to="/payments">Add Payment</Link>
         <Link to="/invoices">Add Invoice</Link>
@@ -86,32 +94,35 @@ function DashboardPage({
       </section>
 
       <section className="cards dashboard-cards">
-        <StatCard title="Total Income" value={money(totalIncome)} />
-        <StatCard title="Total Expense" value={money(totalExpense)} />
-        <StatCard title="Net Profit" value={money(netProfit)} />
-        <StatCard title="GST Pending" value={money(gstPending)} />
+        <AnimatedStatCard title="Total Income" value={totalIncome} prefix="$" />
+        <AnimatedStatCard title="Total Expense" value={totalExpense} prefix="$" />
+        <AnimatedStatCard title="Net Profit" value={netProfit} prefix="$" />
+        <AnimatedStatCard title="GST Pending" value={gstPending} prefix="$" />
 
-        <StatCard
+        <AnimatedStatCard
           title="Company Charge Pending"
-          value={money(companyChargePending)}
+          value={companyChargePending}
+          prefix="$"
         />
-        <StatCard title="Invoice Total" value={money(invoiceTotal)} />
-        <StatCard
+
+        <AnimatedStatCard title="Invoice Total" value={invoiceTotal} prefix="$" />
+        <AnimatedStatCard
           title="Pending Invoice Amount"
-          value={money(pendingInvoiceTotal)}
+          value={pendingInvoiceTotal}
+          prefix="$"
         />
-        <StatCard title="Pending Invoices" value={pendingInvoices} />
 
-        <StatCard title="Overdue Invoices" value={overdueInvoices} />
-        <StatCard title="Running Tenders" value={runningTenders} />
-        <StatCard title="Due Soon Tenders" value={dueSoonTenders} />
-        <StatCard title="Active Sites" value={activeSites} />
-
-        <StatCard title="Active Workers" value={activeWorkers} />
-        <StatCard title="Subcontractors" value={subcontractors.length} />
-        <StatCard title="Total Sites" value={sites.length} />
-        <StatCard title="Total Tenders" value={tenders.length} />
+        <AnimatedStatCard title="Pending Invoices" value={pendingInvoices} />
+        <AnimatedStatCard title="Overdue Invoices" value={overdueInvoices} />
+        <AnimatedStatCard title="Running Tenders" value={runningTenders} />
+        <AnimatedStatCard title="Due Soon Tenders" value={dueSoonTenders} />
+        <AnimatedStatCard title="Active Sites" value={activeSites} />
+        <AnimatedStatCard title="Active Workers" value={activeWorkers} />
+        <AnimatedStatCard title="Subcontractors" value={subcontractors.length} />
+        <AnimatedStatCard title="Total Sites" value={sites.length} />
+        <AnimatedStatCard title="Total Tenders" value={tenders.length} />
       </section>
+      <FinanceTrendChart payments={payments} />
 
       <section className="dashboard-grid two-column-dashboard">
         <div className="panel">

@@ -45,3 +45,22 @@
   margin-top: 0;
   margin-bottom: 18px;
 }
+
+.card h2 {
+  word-break: break-word;
+}
+
+.card.highlight-warning {
+  background: var(--warning-light);
+  border: 2px solid var(--warning);
+}
+
+.card.highlight-danger {
+  background: var(--danger-light);
+  border: 2px solid var(--danger);
+}
+
+.card.highlight-success {
+  background: var(--success-light);
+  border: 2px solid var(--success);
+}

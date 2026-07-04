@@ -58,3 +58,33 @@ td:last-child {
 .table-wrapper th:last-child {
   min-width: 110px;
 }
+
+.table-wrapper button {
+  margin-right: 6px;
+}
+
+.table-wrapper a {
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.table-wrapper a:hover {
+  text-decoration: underline;
+}
+
+td .delete-btn {
+  margin-top: 4px;
+}
+
+.table-wrapper {
+  border-radius: var(--radius-md);
+}
+
+thead {
+  background: #f8fafc;
+}
+
+tbody tr {
+  animation: fadeUp 0.25s var(--ease-pro);
+}

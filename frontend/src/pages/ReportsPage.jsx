@@ -4,6 +4,16 @@ import FinanceSummaryCards from "../components/finance/FinanceSummaryCards";
 import FinanceRecordsTable from "../components/finance/FinanceRecordsTable";
 import { usePaymentManager } from "../hooks/usePaymentManager";
 
+import {
+  exportFinanceReport,
+  exportWorkersReport,
+  exportSitesReport,
+  exportTenderReport,
+  exportInvoicesReport,
+  exportDailyUpdatesReport,
+  exportSubcontractorReport,
+} from "../services/reportService";
+
 function ReportsPage({
   payments = [],
   workers = [],
@@ -136,9 +146,31 @@ function ReportsPage({
           <p>Reports are generated from Payments as the single source.</p>
         </div>
 
-        <button className="primary-btn" type="button" onClick={exportCSV}>
-          Export CSV
-        </button>
+        <div className="report-actions">
+          <button className="primary-btn" type="button" onClick={exportCSV}>
+            Export Current Report
+          </button>
+
+          <button type="button" onClick={() => exportFinanceReport(filteredPayments)}>
+            Export Finance
+          </button>
+
+          <button type="button" onClick={() => exportWorkersReport(workers)}>
+            Export Workers
+          </button>
+
+          <button type="button" onClick={() => exportSitesReport(sites)}>
+            Export Sites
+          </button>
+
+          <button type="button" onClick={() => exportTenderReport(tenders)}>
+            Export Tenders
+          </button>
+
+          <button type="button" onClick={() => exportInvoicesReport(invoices)}>
+            Export Invoices
+          </button>
+        </div>
       </div>
 
       <section className="panel">

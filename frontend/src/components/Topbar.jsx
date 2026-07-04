@@ -1,6 +1,8 @@
 import { useAuth } from "../contexts/AuthContext";
 
-function Topbar({ activePage }) {
+import NotificationCenter from "./NotificationCenter";
+
+function Topbar({ activePage, tenders = [], invoices = [], payments = [] }) {
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
@@ -21,10 +23,15 @@ function Topbar({ activePage }) {
           Welcome back, {user?.full_name || "User"}
         </p>
       </div>
+      <div className="topbar-actions">
+        <NotificationCenter
+          tenders={tenders}
+          invoices={invoices}
+          payments={payments}
+        />
 
-      <button onClick={handleLogout}>
-        Logout
-      </button>
+        <button onClick={handleLogout}>Logout</button>
+      </div>
     </header>
   );
 }

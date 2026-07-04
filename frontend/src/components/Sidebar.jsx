@@ -8,6 +8,7 @@ function Sidebar({ user }) {
     { label: "Invoices", path: "/invoices" },
 
     { label: "Workforce", path: "/workers" },
+    { label: "Worker Money", path: "/worker-money" },
     { label: "Subcontractors", path: "/subcontractors" },
 
     ...(user?.role === "admin"

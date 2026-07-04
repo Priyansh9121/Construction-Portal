@@ -159,7 +159,7 @@ function TenderDetailsPage() {
     let uploadedUrl = documentForm.file_url;
 
     if (selectedFile) {
-      uploadedUrl = await uploadFile(selectedFile);
+      uploadedUrl = await uploadFile(selectedFile, "tender-documents");
     }
 
     await addTenderDocument({

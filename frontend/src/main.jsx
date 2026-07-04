@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 
 import "./index.css";
 
@@ -26,15 +27,18 @@ import "./styles/pages/settings.css";
 
 import "./styles/core/responsive.css";
 
+import "./styles/core/animations.css";
+
 import App from "./App.jsx";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+    <AuthProvider>
+      <App />
+      <Toaster position="top-right" />
+    </AuthProvider>
     </BrowserRouter>
   </StrictMode>
 );

@@ -17,3 +17,21 @@ export const getSubcontractorTenderDetails = async (tenderId) => {
 
   return response.data;
 };
+
+export const createSubcontractorDailyUpdate = async (payload) => {
+  const response = await axiosClient.post(
+    "/subcontractor-portal/daily-updates",
+    payload
+  );
+
+  return response.data;
+};
+
+export const addSubcontractorTenderDocument = async (payload) => {
+  const response = await axiosClient.post(
+    "/subcontractor-portal/documents",
+    payload
+  );
+
+  return response.data;
+};

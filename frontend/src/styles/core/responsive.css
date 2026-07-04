@@ -215,6 +215,53 @@
   .section-title-row {
     align-items: flex-start;
   }
+
+  .report-actions {
+    justify-content: stretch;
+  }
+  
+  .report-actions button {
+    width: 100%;
+  }
+  
+  .table-wrapper button {
+    width: auto;
+    margin-bottom: 6px;
+  }
+  
+  .modal-actions button,
+  .action-row button {
+    width: 100%;
+  }
+  
+  .login-links {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .report-bar-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  
+  .report-bar-value {
+    text-align: left;
+  }
+
+  .card:hover,
+  .panel:hover,
+  button:hover {
+    transform: none;
+  }
+
+  .dashboard-hero {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+  
+  .dashboard-hero-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 430px) {
@@ -240,4 +287,19 @@
     padding: 9px 12px;
     font-size: 12px;
   }
+  .login-box form {
+    padding: 18px;
+  }
+  
+  .payment-form input,
+  .payment-form select,
+  .payment-form textarea,
+  .search-input {
+    font-size: 13px;
+  }
+  
+  .table-wrapper table {
+    min-width: 720px;
+  }
 }
+

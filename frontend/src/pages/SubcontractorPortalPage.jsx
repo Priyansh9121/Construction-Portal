@@ -5,7 +5,11 @@ import {
   getSubcontractorProfile,
   getSubcontractorTenders,
   getSubcontractorTenderDetails,
+  createSubcontractorDailyUpdate,
+  addSubcontractorTenderDocument,
 } from "../services/subcontractorPortalService";
+
+import { uploadFile } from "../services/uploadService";
 
 function SubcontractorPortalPage({ logout }) {
   const navigate = useNavigate();
@@ -17,8 +21,37 @@ function SubcontractorPortalPage({ logout }) {
   const [materials, setMaterials] = useState([]);
   const [banking, setBanking] = useState([]);
   const [updates, setUpdates] = useState([]);
+
+  const [dailyForm, setDailyForm] = useState({
+    log_date: new Date().toISOString().split("T")[0],
+    notes: "",
+  });
+
+  const [dailyPhoto, setDailyPhoto] = useState(null);
+
+  const [documentForm, setDocumentForm] = useState({
+    document_name: "",
+    document_type: "PDF",
+  });
+
+  const [documentFile, setDocumentFile] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const openTender = async (tenderId) => {
+    try {
+      const data = await getSubcontractorTenderDetails(tenderId);
+
+      setSelectedTender(data.tender);
+      setDocuments(data.documents || []);
+      setMaterials(data.materials || []);
+      setBanking(data.banking || []);
+      setUpdates(data.updates || []);
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Failed to load tender details");
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -29,6 +62,7 @@ function SubcontractorPortalPage({ logout }) {
 
       setSubcontractor(profileData.subcontractor);
       setTenders(tendersData.tenders || []);
+
       if (tendersData.tenders?.length === 1) {
         await openTender(tendersData.tenders[0].tender_id);
       }
@@ -41,31 +75,6 @@ function SubcontractorPortalPage({ logout }) {
     }
   };
 
-  const openTender = async (tenderId) => {
-    try {
-      const data = await getSubcontractorTenderDetails(tenderId);
-
-      setSelectedTender(data.tender);
-      setDocuments(data.documents || []);
-      setMaterials(data.materials || []);
-      setBanking(data.banking || []);
-      setUpdates(data.updates || []);
-    } catch (err) {
-      console.error(err);
-      setMessage(
-        err.response?.data?.message || "Failed to load tender details"
-      );
-    }
-  };
-
-  const closeTenderDetails = () => {
-    setSelectedTender(null);
-    setDocuments([]);
-    setMaterials([]);
-    setBanking([]);
-    setUpdates([]);
-  };
-
   useEffect(() => {
     loadData();
   }, []);
@@ -75,21 +84,94 @@ function SubcontractorPortalPage({ logout }) {
     navigate("/login");
   };
 
+  const handleDailyChange = (e) => {
+    setDailyForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleDailySubmit = async (e) => {
+    e.preventDefault();
+
+    if (!selectedTender) {
+      setMessage("Please select a tender first.");
+      return;
+    }
+
+    try {
+      let photoUrl = null;
+
+      if (dailyPhoto) {
+        photoUrl = await uploadFile(dailyPhoto, "subcontractor-updates");
+      }
+
+      const result = await createSubcontractorDailyUpdate({
+        site_id: selectedTender.site_id,
+        tender_id: selectedTender.id,
+        log_date: dailyForm.log_date,
+        notes: dailyForm.notes,
+        photo_url: photoUrl,
+      });
+
+      setMessage(result.message || "Daily update submitted.");
+      setDailyForm({
+        log_date: new Date().toISOString().split("T")[0],
+        notes: "",
+      });
+      setDailyPhoto(null);
+
+      await openTender(selectedTender.id);
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Failed to submit update.");
+    }
+  };
+
+  const handleDocumentSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!selectedTender) {
+      setMessage("Please select a tender first.");
+      return;
+    }
+
+    try {
+      let fileUrl = null;
+
+      if (documentFile) {
+        fileUrl = await uploadFile(documentFile, "subcontractor-updates");
+      }
+
+      await addSubcontractorTenderDocument({
+        tender_id: selectedTender.id,
+        document_name: documentForm.document_name,
+        document_type: documentForm.document_type,
+        file_url: fileUrl,
+      });
+
+      setMessage("Document uploaded successfully.");
+      setDocumentForm({
+        document_name: "",
+        document_type: "PDF",
+      });
+      setDocumentFile(null);
+
+      await openTender(selectedTender.id);
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Failed to upload document.");
+    }
+  };
+
   if (loading) {
     return (
-      <main className="worker-portal-page">
-        <section className="payment-grid">
-          <div className="panel">
-            <h2>Subcontractor Portal</h2>
-            <p>Loading subcontractor portal...</p>
-          </div>
-        </section>
+      <main className="subcontractor-portal-page">
+        <div className="panel">Loading subcontractor portal...</div>
       </main>
     );
   }
 
   return (
-    <main className="worker-portal-page">
+    <main className="subcontractor-portal-page">
       <section className="worker-header">
         <div>
           <h1>Subcontractor Portal</h1>
@@ -101,7 +183,7 @@ function SubcontractorPortalPage({ logout }) {
         </button>
       </section>
 
-      {message && <p>{message}</p>}
+      {message && <p className="success-message">{message}</p>}
 
       <section className="cards">
         <div className="card">
@@ -125,7 +207,48 @@ function SubcontractorPortalPage({ logout }) {
         </div>
       </section>
 
-      <section className="worker-grid">
+      <section className="payment-grid">
+        <div className="panel">
+          <h2>My Assigned Tenders</h2>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Tender</th>
+                <th>Site</th>
+                <th>Status</th>
+                <th>Assigned Amount</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {tenders.map((item) => (
+                <tr key={item.assignment_id}>
+                  <td>{item.tender_title}</td>
+                  <td>{item.site_name}</td>
+                  <td>{item.assignment_status}</td>
+                  <td>${Number(item.assigned_amount || 0).toFixed(2)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => openTender(item.tender_id)}
+                    >
+                      Open
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {tenders.length === 0 && (
+                <tr>
+                  <td colSpan="5">No assigned tenders found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
         <div className="panel">
           <h2>My Profile</h2>
 
@@ -136,12 +259,8 @@ function SubcontractorPortalPage({ logout }) {
                 <td>{subcontractor?.full_name}</td>
               </tr>
               <tr>
-                <th>Login Email</th>
-                <td>{subcontractor?.login_email}</td>
-              </tr>
-              <tr>
-                <th>Contact Email</th>
-                <td>{subcontractor?.email}</td>
+                <th>Email</th>
+                <td>{subcontractor?.email || subcontractor?.login_email}</td>
               </tr>
               <tr>
                 <th>Phone</th>
@@ -155,53 +274,6 @@ function SubcontractorPortalPage({ logout }) {
                 <th>GST</th>
                 <td>{subcontractor?.gst_number}</td>
               </tr>
-              <tr>
-                <th>Status</th>
-                <td>{subcontractor?.subcontractor_status}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <h2>My Assigned Tenders</h2>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Site</th>
-                <th>Tender</th>
-                <th>Status</th>
-                <th>Due Date</th>
-                <th>Assigned Amount</th>
-                <th>Work</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {tenders.map((item) => (
-                <tr key={item.assignment_id}>
-                  <td>{item.site_name}</td>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => openTender(item.tender_id)}
-                    >
-                      {item.tender_title}
-                    </button>
-                  </td>
-                  <td>{item.tender_status}</td>
-                  <td>{item.due_date?.slice(0, 10)}</td>
-                  <td>${Number(item.assigned_amount || 0).toFixed(2)}</td>
-                  <td>{item.work_description}</td>
-                </tr>
-              ))}
-
-              {tenders.length === 0 && (
-                <tr>
-                  <td colSpan="6">No assigned tenders found.</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -209,42 +281,86 @@ function SubcontractorPortalPage({ logout }) {
 
       {selectedTender && (
         <>
-          <section className="worker-grid">
+          <section className="panel">
+            <h2>Selected Tender: {selectedTender.title}</h2>
+            <p>
+              Site: {selectedTender.site_name} | Status: {selectedTender.status}
+            </p>
+          </section>
+
+          <section className="payment-grid">
             <div className="panel">
-              <button type="button" onClick={closeTenderDetails}>
-                Close Tender Details
-              </button>
+              <h2>Submit Daily Update</h2>
+
+              <form className="payment-form" onSubmit={handleDailySubmit}>
+                <input
+                  name="log_date"
+                  type="date"
+                  value={dailyForm.log_date}
+                  onChange={handleDailyChange}
+                  required
+                />
+
+                <textarea
+                  name="notes"
+                  placeholder="Daily update notes"
+                  value={dailyForm.notes}
+                  onChange={handleDailyChange}
+                />
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setDailyPhoto(e.target.files?.[0] || null)}
+                />
+
+                <button type="submit">Submit Update</button>
+              </form>
             </div>
 
             <div className="panel">
-              <h2>Tender Details</h2>
+              <h2>Upload Document</h2>
 
-              <table>
-                <tbody>
-                  <tr>
-                    <th>Title</th>
-                    <td>{selectedTender.title}</td>
-                  </tr>
-                  <tr>
-                    <th>Status</th>
-                    <td>{selectedTender.status}</td>
-                  </tr>
-                  <tr>
-                    <th>Due Date</th>
-                    <td>{selectedTender.due_date?.slice(0, 10)}</td>
-                  </tr>
-                  <tr>
-                    <th>Site</th>
-                    <td>{selectedTender.site_name}</td>
-                  </tr>
-                  <tr>
-                    <th>Description</th>
-                    <td>{selectedTender.description}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <form className="payment-form" onSubmit={handleDocumentSubmit}>
+                <input
+                  placeholder="Document name"
+                  value={documentForm.document_name}
+                  onChange={(e) =>
+                    setDocumentForm((prev) => ({
+                      ...prev,
+                      document_name: e.target.value,
+                    }))
+                  }
+                  required
+                />
+
+                <select
+                  value={documentForm.document_type}
+                  onChange={(e) =>
+                    setDocumentForm((prev) => ({
+                      ...prev,
+                      document_type: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="PDF">PDF</option>
+                  <option value="Word">Word</option>
+                  <option value="JPG">JPG</option>
+                  <option value="PNG">PNG</option>
+                </select>
+
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                />
+
+                <button type="submit">Upload Document</button>
+              </form>
             </div>
+          </section>
 
+          <section className="payment-grid">
             <div className="panel">
               <h2>Documents</h2>
 
@@ -253,7 +369,7 @@ function SubcontractorPortalPage({ logout }) {
                   <tr>
                     <th>Name</th>
                     <th>Type</th>
-                    <th>Open</th>
+                    <th>File</th>
                   </tr>
                 </thead>
 
@@ -263,22 +379,13 @@ function SubcontractorPortalPage({ logout }) {
                       <td>{doc.document_name}</td>
                       <td>{doc.document_type}</td>
                       <td>
-                      <a
-                        href={doc.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        >
-                        Open
-                        </a>
-
-                        {" | "}
-
-                        <a
-                        href={doc.file_url}
-                        download
-                        >
-                        Download
-                        </a>
+                        {doc.file_url ? (
+                          <a href={doc.file_url} target="_blank" rel="noreferrer">
+                            Open
+                          </a>
+                        ) : (
+                          "-"
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -293,14 +400,59 @@ function SubcontractorPortalPage({ logout }) {
             </div>
 
             <div className="panel">
+              <h2>Daily Updates</h2>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>By</th>
+                    <th>Notes</th>
+                    <th>Photo</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {updates.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.log_date?.slice(0, 10)}</td>
+                      <td>
+                        {item.subcontractor_name || item.worker_name || "N/A"}
+                      </td>
+                      <td>{item.notes}</td>
+                      <td>
+                        {item.photo_url ? (
+                          <a href={item.photo_url} target="_blank" rel="noreferrer">
+                            Open
+                          </a>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {updates.length === 0 && (
+                    <tr>
+                      <td colSpan="4">No updates found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="payment-grid">
+            <div className="panel">
               <h2>Materials</h2>
 
               <table>
                 <thead>
                   <tr>
                     <th>Material</th>
-                    <th>Quantity</th>
-                    <th>Vendor</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Total</th>
                   </tr>
                 </thead>
 
@@ -309,13 +461,14 @@ function SubcontractorPortalPage({ logout }) {
                     <tr key={item.id}>
                       <td>{item.material_name}</td>
                       <td>{item.quantity}</td>
-                      <td>{item.vendor_name}</td>
+                      <td>{item.rate}</td>
+                      <td>${Number(item.total_amount || 0).toFixed(2)}</td>
                     </tr>
                   ))}
 
                   {materials.length === 0 && (
                     <tr>
-                      <td colSpan="2">No materials found.</td>
+                      <td colSpan="4">No materials found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -323,87 +476,31 @@ function SubcontractorPortalPage({ logout }) {
             </div>
 
             <div className="panel">
-              <h2>Bank Details</h2>
+              <h2>Banking</h2>
 
               <table>
                 <thead>
                   <tr>
-                    <th>Bank</th>
-                    <th>Account Name</th>
-                    <th>Account Number</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>GST</th>
+                    <th>Date</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {banking.map((bank) => (
-                    <tr key={bank.id}>
-                      <td>{bank.bank_name}</td>
-                      <td>{bank.account_name}</td>
-                      <td>{bank.account_number}</td>
+                  {banking.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.payment_type}</td>
+                      <td>${Number(item.amount || 0).toFixed(2)}</td>
+                      <td>${Number(item.gst_amount || 0).toFixed(2)}</td>
+                      <td>{item.payment_date?.slice(0, 10)}</td>
                     </tr>
                   ))}
 
                   {banking.length === 0 && (
                     <tr>
-                      <td colSpan="2">No banking details found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="panel">
-              <h2>Daily Updates</h2>
-
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Site</th>
-                    <th>Notes</th>
-                    <th>Photo</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {updates.map((update) => (
-                    <tr key={update.id}>
-                      <td>{update.log_date?.slice(0, 10)}</td>
-                      <td>{update.site_name}</td>
-                      <td>{update.notes}</td>
-                      <td>
-                      {update.photo_url ? (
-                        <>
-                            <a
-                            href={update.photo_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            >
-                            Open
-                            </a>
-
-                            <br />
-
-                            <img
-                            src={update.photo_url}
-                            alt="Site Update"
-                            style={{
-                                width: "120px",
-                                borderRadius: "8px",
-                                marginTop: "8px",
-                            }}
-                            />
-                        </>
-                        ) : (
-                        "No photo"
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {updates.length === 0 && (
-                    <tr>
-                      <td colSpan="3">No updates found.</td>
+                      <td colSpan="4">No banking records found.</td>
                     </tr>
                   )}
                 </tbody>
