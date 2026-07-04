@@ -17,6 +17,11 @@ import TenderWorkersTab from "../components/tenderDetails/TenderWorkersTab";
 import { getWorkers } from "../services/workerService";
 
 import {
+  getPayments,
+  deletePayment as deletePaymentRecord,
+} from "../services/paymentService";
+
+import {
   getTenderWorkers,
   assignWorkerToTender,
   removeTenderWorker,
@@ -24,11 +29,9 @@ import {
 
 import {
   calculateTenderDetailsSummary,
-  calculateFinancePreview,
 } from "../utils/tenderCalculations";
 
 import {
-  emptyFinanceForm,
   emptySubcontractorForm,
   emptyDocumentForm,
   emptyMaterialForm,
@@ -50,14 +53,6 @@ import {
 
 import { uploadFile } from "../services/uploadService";
 
-import {
-  getTenderFinanceRecords,
-  getTenderFinanceSummary,
-  createFinanceRecord,
-  updateFinanceRecord,
-  deleteFinanceRecord,
-} from "../services/tenderFinanceService";
-
 import { getSubcontractors } from "../services/subcontractorService";
 
 function TenderDetailsPage() {
@@ -75,10 +70,7 @@ function TenderDetailsPage() {
   const [subcontractors, setSubcontractors] = useState([]);
   const [allSubcontractors, setAllSubcontractors] = useState([]);
 
-  const [financeRecords, setFinanceRecords] = useState([]);
-  const [financeSummary, setFinanceSummary] = useState(null);
-  const [editingFinance, setEditingFinance] = useState(null);
-  const [financeForm, setFinanceForm] = useState(emptyFinanceForm);
+  const [payments, setPayments] = useState([]);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingAssignedSub, setEditingAssignedSub] = useState(null);
@@ -146,21 +138,18 @@ function TenderDetailsPage() {
     }
   };
 
-  const loadFinanceData = async () => {
+  const loadPayments = async () => {
     try {
-      const recordsRes = await getTenderFinanceRecords(id);
-      const summaryRes = await getTenderFinanceSummary(id);
-
-      setFinanceRecords(recordsRes.records || []);
-      setFinanceSummary(summaryRes.summary || null);
+      const data = await getPayments({ tender_id: id });
+      setPayments(data || []);
     } catch (error) {
-      console.error("Load finance data error:", error);
+      console.error("Load payments error:", error);
     }
   };
 
   useEffect(() => {
     fetchTenderDetails();
-    loadFinanceData();
+    loadPayments();
     loadTenderWorkers();
   }, [id]);
 
@@ -170,8 +159,7 @@ function TenderDetailsPage() {
     let uploadedUrl = documentForm.file_url;
 
     if (selectedFile) {
-      const uploadResult = await uploadFile(selectedFile);
-      uploadedUrl = uploadResult.fileUrl;
+      uploadedUrl = await uploadFile(selectedFile);
     }
 
     await addTenderDocument({
@@ -208,99 +196,6 @@ function TenderDetailsPage() {
 
     setBankingForm(emptyBankingForm);
     await fetchTenderDetails();
-  };
-
-  const handleAddFinanceRecord = async (e) => {
-    e.preventDefault();
-
-    if (
-      financeForm.record_type === "GST_RETURN" &&
-      Number(financeForm.amount) > Number(financeSummary?.gst_left || 0)
-    ) {
-      alert("GST Return cannot be greater than remaining GST.");
-      return;
-    }
-
-    if (
-      financeForm.record_type === "COMPANY_CHARGE_PAYMENT" &&
-      Number(financeForm.amount) >
-        Number(financeSummary?.company_charge_left || 0)
-    ) {
-      alert(
-        "Company Charge Payment cannot be greater than remaining Company Charge."
-      );
-      return;
-    }
-
-    const payload = {
-      site_id: tender?.site_id || null,
-      tender_id: id,
-      ...financeForm,
-
-      amount: Number(financeForm.amount || 0),
-      interest_percent: Number(financeForm.interest_percent || 0),
-
-      gst_percent: Number(financeForm.gst_percent || 0),
-      gst_total:
-        financeForm.record_type === "GOVERNMENT_BILL"
-          ? calculatedGstTotal
-          : 0,
-      gst_done:
-        financeForm.record_type === "GST_RETURN"
-          ? Number(financeForm.amount || 0)
-          : Number(financeForm.gst_done || 0),
-
-      company_charge_percent: Number(financeForm.company_charge_percent || 0),
-      company_charge_total:
-        financeForm.record_type === "COMPANY_CHARGE"
-          ? calculatedCompanyChargeTotal
-          : 0,
-      company_charge_done:
-        financeForm.record_type === "COMPANY_CHARGE_PAYMENT"
-          ? Number(financeForm.amount || 0)
-          : Number(financeForm.company_charge_done || 0),
-
-      tds_amount: Number(financeForm.tds_amount || 0),
-    };
-
-    if (editingFinance) {
-      await updateFinanceRecord(editingFinance.id, payload);
-    } else {
-      await createFinanceRecord(payload);
-    }
-
-    setFinanceForm(emptyFinanceForm);
-    setEditingFinance(null);
-    await loadFinanceData();
-  };
-
-  const startEditFinanceRecord = (item) => {
-    setEditingFinance(item);
-
-    setFinanceForm({
-      record_type: item.record_type || "GOVERNMENT_BILL",
-      source_name: item.source_name || "",
-      payment_mode: item.payment_mode || "Bank",
-      amount: item.amount ? String(item.amount) : "",
-      interest_percent: item.interest_percent
-        ? String(item.interest_percent)
-        : "",
-      gst_percent: item.gst_percent ? String(item.gst_percent) : "",
-      gst_total: item.gst_total ? String(item.gst_total) : "",
-      gst_done: item.gst_done ? String(item.gst_done) : "",
-      company_charge_percent: item.company_charge_percent
-        ? String(item.company_charge_percent)
-        : "",
-      company_charge_total: item.company_charge_total
-        ? String(item.company_charge_total)
-        : "",
-      company_charge_done: item.company_charge_done
-        ? String(item.company_charge_done)
-        : "",
-      tds_amount: item.tds_amount ? String(item.tds_amount) : "",
-      record_date: item.record_date ? item.record_date.slice(0, 10) : "",
-      notes: item.notes || "",
-    });
   };
 
   const handleAssignWorker = async (e) => {
@@ -409,9 +304,9 @@ function TenderDetailsPage() {
       await loadTenderWorkers();
     }
 
-    if (deleteTarget.type === "finance") {
-      await deleteFinanceRecord(deleteTarget.item.id);
-      await loadFinanceData();
+    if (deleteTarget.type === "payment") {
+      await deletePaymentRecord(deleteTarget.item.id);
+      await loadPayments();
     }
 
     setDeleteTarget(null);
@@ -442,9 +337,6 @@ function TenderDetailsPage() {
     tenderProfit,
     tenderProfitPercentage,
   } = tenderSummary;
-
-  const { calculatedGstTotal, calculatedCompanyChargeTotal } =
-    calculateFinancePreview(financeForm);
 
   if (loading) {
     return <div className="panel">Loading tender details...</div>;
@@ -510,9 +402,9 @@ function TenderDetailsPage() {
             dailyUpdates={dailyUpdates}
             tenderIncome={tenderIncome}
             totalTenderCost={totalTenderCost}
+            payments={payments}
             tenderProfit={tenderProfit}
             tenderProfitPercentage={tenderProfitPercentage}
-            financeSummary={financeSummary}
             materialCost={materialCost}
             subcontractorCost={subcontractorCost}
             bankingCost={bankingCost}
@@ -556,17 +448,9 @@ function TenderDetailsPage() {
 
         {activeTab === "finance" && (
           <TenderFinanceTab
-            financeSummary={financeSummary}
-            financeRecords={financeRecords}
-            financeForm={financeForm}
-            setFinanceForm={setFinanceForm}
-            editingFinance={editingFinance}
-            setEditingFinance={setEditingFinance}
-            handleAddFinanceRecord={handleAddFinanceRecord}
-            startEditFinanceRecord={startEditFinanceRecord}
+            payments={payments}
+            tenderId={id}
             setDeleteTarget={setDeleteTarget}
-            calculatedGstTotal={calculatedGstTotal}
-            calculatedCompanyChargeTotal={calculatedCompanyChargeTotal}
           />
         )}
 

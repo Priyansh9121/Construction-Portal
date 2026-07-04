@@ -340,9 +340,26 @@ exports.getTenderFinanceSummary = async (req, res) => {
         COALESCE(SUM(CASE WHEN record_type = 'GOVERNMENT_BILL' THEN gst_total ELSE 0 END), 0) AS gst_total,
         COALESCE(SUM(CASE WHEN record_type = 'GST_RETURN' THEN amount ELSE 0 END), 0) AS gst_done,
 
-        COALESCE(SUM(CASE WHEN record_type = 'COMPANY_CHARGE' THEN company_charge_total ELSE 0 END), 0) AS company_charge_total,
-        COALESCE(SUM(CASE WHEN record_type = 'COMPANY_CHARGE_PAYMENT' THEN amount ELSE 0 END), 0) AS company_charge_done,
-
+        COALESCE(
+        SUM(
+        CASE
+        WHEN record_type IN ('COMPANY_CHARGE','GOVERNMENT_BILL')
+        THEN company_charge_total
+        ELSE 0
+        END
+        ),
+        0
+        ) AS company_charge_total,
+        COALESCE(
+        SUM(
+        CASE
+        WHEN record_type='COMPANY_CHARGE_PAYMENT'
+        THEN amount
+        ELSE 0
+        END
+        ),
+        0
+        ) AS company_charge_done,
         COALESCE(SUM(CASE 
           WHEN record_type IN ('INVESTOR', 'GOVERNMENT_BILL', 'GST_RETURN') 
           THEN amount ELSE 0 END), 0) AS total_income,

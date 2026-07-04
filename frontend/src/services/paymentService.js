@@ -1,7 +1,10 @@
 import axiosClient from "../api/axiosClient";
 
-export const getPayments = async () => {
-  const res = await axiosClient.get("/payments");
+export const getPayments = async (filters = {}) => {
+  const res = await axiosClient.get("/payments", {
+    params: filters,
+  });
+
   return res.data.payments;
 };
 

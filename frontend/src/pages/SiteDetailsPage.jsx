@@ -5,6 +5,11 @@ import { getSiteById } from "../services/siteService";
 import { createTender } from "../services/tenderService";
 import { siteTabs } from "../config/siteTabs";
 
+import { getPayments } from "../services/paymentService";
+import FinanceSummaryCards from "../components/finance/FinanceSummaryCards";
+import FinanceRecordsTable from "../components/finance/FinanceRecordsTable";
+import { usePaymentManager } from "../hooks/usePaymentManager";
+
 import {
   getRunningTenders,
   getPassedTenders,
@@ -25,6 +30,8 @@ function SiteDetailsPage() {
   const [activeTab, setActiveTab] = useState("running");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [payments, setPayments] = useState([]);
+
   const [tenderForm, setTenderForm] = useState({
     title: "",
     status: "running",
@@ -36,11 +43,13 @@ function SiteDetailsPage() {
   const fetchSiteDetails = async () => {
     try {
       setLoading(true);
-
-      const data = await getSiteById(id);
-
-      setSite(data.site);
-      setTenders(data.tenders || []);
+  
+      const siteData = await getSiteById(id);
+      const paymentData = await getPayments({ site_id: id });
+  
+      setSite(siteData.site);
+      setTenders(siteData.tenders || []);
+      setPayments(paymentData || []);
     } catch (error) {
       console.error("Failed to load site details", error);
     } finally {
@@ -114,6 +123,14 @@ function SiteDetailsPage() {
       tender.due_date?.toLowerCase().includes(search) ||
       String(tender.estimated_value || "").includes(search)
     );
+  });
+
+  const {
+    filteredPayments,
+    summary: paymentSummary,
+  } = usePaymentManager({
+    payments,
+    siteId: id,
   });
 
   if (loading) {
@@ -234,6 +251,13 @@ function SiteDetailsPage() {
           <SiteTenderTable
             tenders={filteredTenders}
             onOpenTender={(tenderId) => navigate(`/tenders/${tenderId}`)}
+          />
+
+          <FinanceSummaryCards summary={paymentSummary} />
+
+          <FinanceRecordsTable
+            title="Site Finance Records"
+            payments={filteredPayments}
           />
         </div>
       </section>

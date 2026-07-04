@@ -3,8 +3,50 @@ const asyncHandler = require("../../utils/asyncHandler");
 
 exports.getPayments = asyncHandler(async (req, res) => {
   try {
+    const {
+      tender_id,
+      site_id,
+      payment_type,
+      payment_scope,
+      payment_sub_type,
+    } = req.query;
+
+    const conditions = ["is_deleted = FALSE"];
+    const values = [];
+
+    if (tender_id) {
+      values.push(tender_id);
+      conditions.push(`tender_id = $${values.length}`);
+    }
+
+    if (site_id) {
+      values.push(site_id);
+      conditions.push(`site_id = $${values.length}`);
+    }
+
+    if (payment_type) {
+      values.push(payment_type);
+      conditions.push(`payment_type = $${values.length}`);
+    }
+
+    if (payment_scope) {
+      values.push(payment_scope);
+      conditions.push(`payment_scope = $${values.length}`);
+    }
+
+    if (payment_sub_type) {
+      values.push(payment_sub_type);
+      conditions.push(`payment_sub_type = $${values.length}`);
+    }
+
     const result = await pool.query(
-      "SELECT * FROM payments WHERE is_deleted = FALSE ORDER BY created_at DESC"
+      `
+      SELECT *
+      FROM payments
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY created_at DESC
+      `,
+      values
     );
 
     res.status(200).json({
@@ -13,6 +55,7 @@ exports.getPayments = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     console.error("Get payments error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error",
