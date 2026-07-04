@@ -1,13 +1,18 @@
 .app-layout {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
 }
 
 .sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100vh;
+  overflow-y: auto;
   background: var(--primary);
   color: white;
   padding: 28px;
+  z-index: 1000;
 }
 
 .sidebar h2 {
@@ -21,6 +26,7 @@
 }
 
 .sidebar a {
+  display: block;
   padding: 13px 14px;
   border-radius: var(--radius-md);
   color: #cbd5e1;
@@ -33,10 +39,19 @@
   color: white;
 }
 
+.sidebar a.active {
+  box-shadow: inset 4px 0 0 white;
+}
+
 .main-content {
-  width: 100%;
-  min-width: 0;
+  margin-left: 260px;
+  width: calc(100% - 260px);
+  min-height: 100vh;
   padding: 34px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .page-content {
@@ -66,14 +81,4 @@
 
 .mobile-page-nav {
   display: none;
-}
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-}
-
-.sidebar a.active {
-  box-shadow: inset 4px 0 0 white;
 }

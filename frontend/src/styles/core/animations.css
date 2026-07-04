@@ -462,11 +462,14 @@
     animation: gridMove 12s linear infinite;
   }
   
-  .sidebar,
   .main-content,
   .fab-wrapper {
     position: relative;
     z-index: 1;
+  }
+
+  .sidebar {
+    z-index: 1000;
   }
   
   .fab-wrapper {

@@ -46,6 +46,11 @@
   .settings-info-list strong {
     text-align: left;
   }
+  
+  .main-content {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 @media (max-width: 768px) {
