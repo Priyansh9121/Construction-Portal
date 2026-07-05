@@ -1,64 +1,172 @@
 import InvestorForm from "./InvestorForm";
 import GovernmentBillForm from "./GovernmentBillForm";
+import OfficeIncomeForm from "./OfficeIncomeForm";
+import CompanyChargeForm from "./CompanyChargeForm";
 import GstReturnForm from "./GstReturnForm";
 import TdsForm from "./TdsForm";
-import CompanyChargeForm from "./CompanyChargeForm";
-import SiteMaterialForm from "./SiteMaterialForm";
-import SimpleExpenseForm from "./SimpleExpenseForm";
+
+import SupervisorExpenseForm from "./SupervisorExpenseForm";
+import MaterialExpenseForm from "./MaterialExpenseForm";
+import LabourExpenseForm from "./LabourExpenseForm";
+import OfficeExpenseForm from "./OfficeExpenseForm";
 
 function PaymentFormRenderer({
-  activeSection,
-  editingPayment,
-  addForm,
-  editForm,
-  handleAddChange,
-  handleEditChange,
-  handleAddPaymentSubmit,
-  handleUpdatePayment,
-  cancelEdit,
-  tenders,
-  sites,
+  paymentType,
+  selectedSection,
+  selectedChild,
+  selectedTender,
+  formData,
+  setFormData,
+  onSubmit,
+  submitting,
 }) {
-  const commonProps = {
-    form: editingPayment ? editForm : addForm,
-    onChange: editingPayment ? handleEditChange : handleAddChange,
-    onSubmit: editingPayment ? handleUpdatePayment : handleAddPaymentSubmit,
-    submitLabel: editingPayment ? "Save Changes" : "Add Payment",
-    showCancel: !!editingPayment,
-    onCancel: cancelEdit,
-  };
+  if (!selectedSection) return null;
 
-  if (activeSection.subType === "INVESTOR") {
-    return <InvestorForm {...commonProps} />;
-  }
+  /*
+  |--------------------------------------------------------------------------
+  | Tender selector
+  |--------------------------------------------------------------------------
+  */
 
-  if (activeSection.subType === "GOVERNMENT_BILL") {
-    return <GovernmentBillForm {...commonProps} />;
-  }
-
-  if (activeSection.subType === "GST_RETURN") {
-    return <GstReturnForm {...commonProps} />;
-  }
-
-  if (activeSection.subType === "TDS") {
-    return <TdsForm {...commonProps} />;
-  }
-
-  if (activeSection.subType === "COMPANY_CHARGE") {
-    return <CompanyChargeForm {...commonProps} tenders={tenders} />;
-  }
-
-  if (activeSection.subType === "MATERIAL") {
+  if (selectedSection.requiresTender && !selectedTender) {
     return (
-      <SiteMaterialForm
-        {...commonProps}
-        tenders={tenders}
-        sites={sites}
-      />
+      <div className="empty-selection-card">
+        <h3>Select Tender</h3>
+
+        <p>
+          Please select a tender before continuing.
+        </p>
+      </div>
     );
   }
 
-  return <SimpleExpenseForm {...commonProps} />;
+  /*
+  |--------------------------------------------------------------------------
+  | INCOME
+  |--------------------------------------------------------------------------
+  */
+
+  if (paymentType === "Income") {
+    switch (selectedChild?.subType || selectedSection.subType) {
+      case "INVESTOR":
+        return (
+          <InvestorForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={onSubmit}
+            submitting={submitting}
+          />
+        );
+
+      case "GOVERNMENT_BILL":
+        return (
+          <GovernmentBillForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={onSubmit}
+            submitting={submitting}
+          />
+        );
+
+      case "OFFICE_INCOME":
+        return (
+          <OfficeIncomeForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={onSubmit}
+            submitting={submitting}
+          />
+        );
+
+      case "COMPANY_CHARGE":
+        return (
+          <CompanyChargeForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={onSubmit}
+            submitting={submitting}
+          />
+        );
+
+      case "GST_RETURN":
+        return (
+          <GstReturnForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={onSubmit}
+            submitting={submitting}
+          />
+        );
+
+      case "TDS":
+        return (
+          <TdsForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={onSubmit}
+            submitting={submitting}
+          />
+        );
+
+      default:
+        return null;
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | EXPENSE
+  |--------------------------------------------------------------------------
+  */
+
+  switch (selectedChild?.subType) {
+    case "SUPERVISOR":
+      return (
+        <SupervisorExpenseForm
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={onSubmit}
+          submitting={submitting}
+        />
+      );
+
+    case "MATERIAL":
+      return (
+        <MaterialExpenseForm
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={onSubmit}
+          submitting={submitting}
+        />
+      );
+
+    case "LABOUR":
+      return (
+        <LabourExpenseForm
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={onSubmit}
+          submitting={submitting}
+        />
+      );
+
+    case "SALARY":
+    case "PF":
+    case "TAX":
+    case "OTHER":
+      return (
+        <OfficeExpenseForm
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={onSubmit}
+          submitting={submitting}
+          expenseType={selectedChild.subType}
+        />
+      );
+
+    default:
+      return null;
+  }
 }
 
 export default PaymentFormRenderer;

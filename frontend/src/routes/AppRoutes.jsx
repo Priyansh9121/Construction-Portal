@@ -114,6 +114,7 @@ function AppRoutes(props) {
             <Layout props={props}>
               <PaymentsPage
                 payments={props.payments}
+                tenders={props.tenders}
                 addPayment={props.addPayment}
                 deletePayment={props.deletePayment}
                 fetchPayments={props.fetchPayments}

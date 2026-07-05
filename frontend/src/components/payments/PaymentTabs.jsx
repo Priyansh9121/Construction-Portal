@@ -1,44 +1,62 @@
 function PaymentTabs({
-    mainTab,
-    activeSections,
-    sectionTab,
-    onMainTabClick,
-    onSectionClick,
-  }) {
-    return (
-      <>
-        <div className="tabs">
+  mainTab,
+  activeSections = [],
+  sectionTab,
+  childTab,
+  selectedSection,
+  onMainTabClick,
+  onSectionClick,
+  onChildClick,
+}) {
+  return (
+    <>
+      <div className="tabs">
+        <button
+          type="button"
+          className={mainTab === "Income" ? "active-tab" : ""}
+          onClick={() => onMainTabClick("Income")}
+        >
+          Income
+        </button>
+
+        <button
+          type="button"
+          className={mainTab === "Expense" ? "active-tab" : ""}
+          onClick={() => onMainTabClick("Expense")}
+        >
+          Expense
+        </button>
+      </div>
+
+      <div className="tabs">
+        {activeSections.map((section) => (
           <button
+            key={section.key}
             type="button"
-            className={mainTab === "Income" ? "active-tab" : ""}
-            onClick={() => onMainTabClick("Income")}
+            className={sectionTab === section.key ? "active-tab" : ""}
+            onClick={() => onSectionClick(section)}
           >
-            Income
+            {section.label}
           </button>
-  
-          <button
-            type="button"
-            className={mainTab === "Expense" ? "active-tab" : ""}
-            onClick={() => onMainTabClick("Expense")}
-          >
-            Expense
-          </button>
-        </div>
-  
-        <div className="tabs">
-          {activeSections.map((section) => (
+        ))}
+      </div>
+
+      {selectedSection?.childOptions?.length > 0 && (
+        <div className="tabs child-tabs">
+          {selectedSection.childOptions.map((child) => (
             <button
-              key={section.key}
+              key={child.key}
               type="button"
-              className={sectionTab === section.key ? "active-tab" : ""}
-              onClick={() => onSectionClick(section)}
+              className={childTab === child.key ? "active-tab" : ""}
+              onClick={() => onChildClick(child)}
             >
-              {section.label}
+              {child.label}
             </button>
           ))}
         </div>
-      </>
-    );
-  }
-  
-  export default PaymentTabs;
+      )}
+    </>
+  );
+}
+
+export default PaymentTabs;

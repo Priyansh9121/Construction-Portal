@@ -1,78 +1,64 @@
-function InvestorForm({
-    form,
-    onChange,
-    onSubmit,
-    submitLabel,
-    showCancel,
-    onCancel,
-  }) {
-    return (
-      <form className="payment-form" onSubmit={onSubmit}>
-        <input
-          name="investor_name"
-          placeholder="Investor Name"
-          value={form.investor_name}
-          onChange={onChange}
-          required
-        />
-  
-        <input
-          name="fd_site"
-          placeholder="FD / Site"
-          value={form.fd_site}
-          onChange={onChange}
-        />
-  
-        <input
-          name="payment_date"
-          type="date"
-          value={form.payment_date}
-          onChange={onChange}
-          required
-        />
-  
-        <input
-          name="amount"
-          type="number"
-          placeholder="Amount"
-          value={form.amount}
-          onChange={onChange}
-          required
-        />
-  
-        <select
-          name="payment_mode"
-          value={form.payment_mode}
-          onChange={onChange}
-        >
-          <option value="Bank">Bank</option>
-          <option value="Cash">Cash</option>
-        </select>
-  
-        <input
-          name="interest_percent"
-          type="number"
-          placeholder="Interest %"
-          value={form.interest_percent}
-          onChange={onChange}
-        />
-  
-        <textarea
-          name="details"
-          placeholder="Details"
-          value={form.details}
-          onChange={onChange}
-        />
-  
-        <button type="submit">{submitLabel}</button>
-  
-        {showCancel && (
-          <button type="button" onClick={onCancel}>
-            Cancel
-          </button>
-        )}
-      </form>
-    );
-  }
-  
-  export default InvestorForm;
+function InvestorForm({ formData, setFormData, onSubmit, submitting }) {
+  const update = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <form className="payment-form" onSubmit={onSubmit}>
+      <input
+        placeholder="Investor Name"
+        value={formData.investor_name || ""}
+        onChange={(e) => update("investor_name", e.target.value)}
+        required
+      />
+
+      <input
+        placeholder="FD / Site"
+        value={formData.fd_site || ""}
+        onChange={(e) => update("fd_site", e.target.value)}
+      />
+
+      <input
+        type="date"
+        value={formData.payment_date || ""}
+        onChange={(e) => update("payment_date", e.target.value)}
+        required
+      />
+
+      <input
+        type="number"
+        placeholder="Amount"
+        value={formData.amount || ""}
+        onChange={(e) => update("amount", e.target.value)}
+        required
+      />
+
+      <select
+        value={formData.payment_mode || "Bank"}
+        onChange={(e) => update("payment_mode", e.target.value)}
+      >
+        <option value="Bank">Bank</option>
+        <option value="Cash">Cash</option>
+      </select>
+
+      <input
+        type="number"
+        placeholder="Interest %"
+        value={formData.interest_percent || ""}
+        onChange={(e) => update("interest_percent", e.target.value)}
+      />
+
+      <textarea
+        placeholder="Details"
+        value={formData.details || ""}
+        onChange={(e) => update("details", e.target.value)}
+      />
+
+      <button type="submit" disabled={submitting}>
+        {submitting ? "Saving..." : "Add Investor Payment"}
+      </button>
+    </form>
+  );
+}
+
+export default InvestorForm;
