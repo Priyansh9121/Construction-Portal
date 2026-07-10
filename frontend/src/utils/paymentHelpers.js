@@ -1,6 +1,6 @@
-export const money = (value) => {
-    return `$${Number(value || 0).toFixed(2)}`;
-  };
+import { formatCurrency } from "./currency";
+
+export const money = formatCurrency;
   
   export const getSiteName = (sites = [], siteId) => {
     if (!siteId) return "-";

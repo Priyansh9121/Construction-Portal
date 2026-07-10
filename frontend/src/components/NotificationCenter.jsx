@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { formatCurrency } from "../utils/currency";
 
 function NotificationCenter({
   tenders = [],
@@ -45,7 +46,7 @@ function NotificationCenter({
     if (gstTotal - gstReturned > 0) {
       items.push({
         type: "GST",
-        title: `GST pending: $${Number(gstTotal - gstReturned).toFixed(2)}`,
+        title: `GST pending: ${formatCurrency(gstTotal - gstReturned)}`,
         path: "/payments",
       });
     }

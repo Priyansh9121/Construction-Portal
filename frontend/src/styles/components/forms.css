@@ -4,34 +4,67 @@ button,
 .topbar button,
 .payment-form button,
 .action-row button {
-  padding: 12px 16px;
+  min-height: 42px;
+  padding: 10px 16px;
   border: none;
   border-radius: var(--radius-md);
   background: var(--primary);
-  color: white;
-  font-weight: 700;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
   cursor: pointer;
 }
 
-.delete-btn {
-  padding: 8px 12px;
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  min-height: 42px;
+  padding: 10px 16px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  background: #64748b;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.delete-btn {
+  min-height: 38px;
+  padding: 9px 13px;
+  border: none;
+  border-radius: var(--radius-md);
   background: var(--danger);
-  color: white;
-  font-weight: 700;
+  color: #ffffff;
+  font-weight: 800;
 }
 
 .payment-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  min-width: 0;
+}
+
+.payment-form label,
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 14px;
+  min-width: 0;
 }
 
 .login-box input,
@@ -40,42 +73,36 @@ button,
 .payment-form textarea,
 .form-grid input,
 .form-grid select,
+.form-grid textarea,
 .search-input,
-.modal-card input {
+.modal-card input,
+.modal-card textarea {
   width: 100%;
-  padding: 12px 13px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
   border: 1px solid var(--input-border);
   border-radius: 10px;
-  font-size: 14px;
+  background: #ffffff;
   color: var(--text);
-  background: white;
-}
-
-.payment-form textarea {
-  min-height: 90px;
-}
-
-.search-input {
-  margin: 10px 0 15px;
-}
-
-.form-preview-total {
-  margin-top: 12px;
-  padding: 12px;
-  background: #f1f5f9;
-  border-radius: 10px;
-  font-weight: 700;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.payment-form label {
-  font-weight: 700;
+  font: inherit;
   font-size: 14px;
-  color: var(--text);
+  box-sizing: border-box;
+}
+
+.payment-form textarea,
+.form-grid textarea,
+.modal-card textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .payment-form small {
@@ -83,9 +110,88 @@ button:disabled {
   line-height: 1.5;
 }
 
-input:focus,
-select:focus,
-textarea:focus {
-  outline: 2px solid rgba(15, 23, 42, 0.15);
-  border-color: var(--primary);
+.search-input {
+  margin: 8px 0 14px;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.form-preview-total {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 750;
+}
+
+.form-section-title {
+  padding: 14px 16px;
+  margin-bottom: 2px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eff6ff, #f8fafc);
+}
+
+.form-section-title h3 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.form-section-title p {
+  margin: 0;
+}
+
+.export-menu {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.export-menu-button {
+  min-width: 118px;
+  min-height: 42px;
+  padding: 10px 17px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0f172a, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+}
+
+.export-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  display: flex;
+  min-width: 220px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+}
+
+.export-menu-dropdown button {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  color: var(--text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.export-menu-dropdown button:hover {
+  background: #eaf2ff;
 }

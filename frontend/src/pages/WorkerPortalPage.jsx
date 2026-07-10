@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { formatCurrency } from "../utils/currency";
 
 import {
   getWorkerProfile,
@@ -313,8 +314,7 @@ function WorkerPortalPage({ logout }) {
                 .filter((item) => item.approval_status === "approved")
                 .map((item) => (
                   <option key={item.id} value={item.id}>
-                    ${Number(item.allocated_amount || 0).toFixed(2)} -{" "}
-                    {item.purpose || "No purpose"}
+                    {item.purpose} - {formatCurrency(item.allocated_amount)}
                   </option>
                 ))}
             </select>
@@ -455,7 +455,7 @@ function WorkerPortalPage({ logout }) {
             <tbody>
               {allocations.map((item) => (
                 <tr key={item.id}>
-                  <td>${Number(item.allocated_amount || 0).toFixed(2)}</td>
+                  <td className="amount-cell">{formatCurrency(item.allocated_amount)}</td>
                   <td>{item.purpose}</td>
                   <td>{item.approval_status}</td>
                   <td>{item.created_at?.slice(0, 10)}</td>
@@ -489,7 +489,9 @@ function WorkerPortalPage({ logout }) {
               {expenses.map((item) => (
                 <tr key={item.id}>
                   <td>{item.expense_date?.slice(0, 10)}</td>
-                  <td>${Number(item.expense_amount || 0).toFixed(2)}</td>
+                  <td className="amount-cell">
+                    {formatCurrency(item.expense_amount)}
+                  </td>
                   <td>{item.expense_description}</td>
                   <td>{item.approval_status}</td>
                   <td>

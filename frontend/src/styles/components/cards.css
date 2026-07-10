@@ -1,66 +1,87 @@
 .cards,
-.summary-cards {
+.summary-cards,
+.dashboard-cards {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   margin-bottom: 22px;
 }
 
-.cards {
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+.cards,
+.dashboard-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .summary-cards {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .card,
 .panel,
 .stat-card {
-  background: var(--panel-bg);
+  position: relative;
+  min-width: 0;
+  border: 1px solid rgba(203, 213, 225, 0.72);
   border-radius: var(--radius-lg);
-  padding: 22px;
+  background: var(--panel-bg);
   box-shadow: var(--shadow-panel);
 }
 
-.card {
-  min-height: 105px;
-}
-
-.card p {
-  margin: 0 0 10px;
-  color: var(--muted);
-}
-
-.card h2 {
-  margin: 0;
-  font-size: 26px;
+.card,
+.stat-card {
+  min-height: 112px;
+  padding: 18px;
 }
 
 .panel {
+  padding: 22px;
   margin-bottom: 22px;
-  min-width: 0;
 }
 
-.panel h2 {
-  margin-top: 0;
-  margin-bottom: 18px;
+.card p,
+.stat-card p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
-.card h2 {
+.card h2,
+.stat-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(22px, 2vw, 30px);
+  line-height: 1.15;
   word-break: break-word;
 }
 
-.card.highlight-warning {
-  background: var(--warning-light);
-  border: 2px solid var(--warning);
+.card small,
+.stat-card small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
-.card.highlight-danger {
-  background: var(--danger-light);
-  border: 2px solid var(--danger);
+.panel > h2 {
+  margin: 0 0 16px;
 }
 
 .card.highlight-success {
-  background: var(--success-light);
-  border: 2px solid var(--success);
+  border-color: #86efac;
+  background: linear-gradient(135deg, #ffffff, #f0fdf4);
+}
+
+.card.highlight-warning {
+  border-color: #fcd34d;
+  background: linear-gradient(135deg, #ffffff, #fffbeb);
+}
+
+.card.highlight-danger {
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, #ffffff, #fef2f2);
+}
+
+.animated-stat-card {
+  overflow: hidden;
 }

@@ -1,5 +1,6 @@
-export const money = (value) =>
-  Number(value || 0).toFixed(2);
+import { formatCurrency } from "./currency";
+
+export const money = formatCurrency;
   
 export const calculateIncome = (payments = []) => {
   return payments

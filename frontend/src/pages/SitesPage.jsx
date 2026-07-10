@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateSite } from "../services/siteService";
+import ExportButtons from "../components/export/ExportButtons";
 
-function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
+function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
   const navigate = useNavigate();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -11,16 +12,25 @@ function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
   const [activeTab, setActiveTab] = useState("Personal Site");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [editForm, setEditForm] = useState({
+  const emptyForm = {
     site_type: "",
     site_name: "",
     address: "",
     status: "active",
-  });
+  };
+
+  const [editForm, setEditForm] = useState(emptyForm);
+
+  const personalSites = sites.filter((site) => site.site_type === "Personal Site");
+  const subcontractorSites = sites.filter(
+    (site) => site.site_type === "Subcontractor Site"
+  );
+  const activeSites = sites.filter((site) => site.status === "active");
+  const inactiveSites = sites.filter((site) => site.status === "inactive");
 
   const filteredSites = sites.filter((site) => {
-    const matchesTab = site.site_type === activeTab;
     const search = searchTerm.toLowerCase();
+    const matchesTab = site.site_type === activeTab;
 
     const matchesSearch =
       site.site_name?.toLowerCase().includes(search) ||
@@ -30,6 +40,20 @@ function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
 
     return matchesTab && matchesSearch;
   });
+
+  const siteExportColumns = [
+    { key: "site_name", label: "Site Name" },
+    { key: "site_type", label: "Type" },
+    { key: "address", label: "Address" },
+    { key: "status", label: "Status" },
+  ];
+
+  const siteExportRows = filteredSites.map((site) => ({
+    site_name: site.site_name || "",
+    site_type: site.site_type || "",
+    address: site.address || "",
+    status: site.status || "",
+  }));
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
@@ -51,102 +75,185 @@ function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
 
   const cancelEdit = () => {
     setEditingSite(null);
-
-    setEditForm({
-      site_type: "",
-      site_name: "",
-      address: "",
-      status: "active",
-    });
+    setEditForm(emptyForm);
   };
 
-  const handleEditChange = (e) => {
+  const handleEditChange = (event) => {
     setEditForm((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [event.target.name]: event.target.value,
     }));
   };
 
-  const handleUpdateSite = async (e) => {
-    e.preventDefault();
+  const handleUpdateSite = async (event) => {
+    event.preventDefault();
 
     if (!editingSite) return;
 
     await updateSite(editingSite.id, editForm);
-
     await fetchSites();
-    cancelEdit()
+    cancelEdit();
   };
 
   return (
     <>
+      <section className="panel">
+        <div className="section-title-row">
+          <div>
+            <h2>Sites Management</h2>
+            <p className="muted-text">
+              Manage personal and subcontractor sites, status, addresses and linked tenders.
+            </p>
+          </div>
+
+          <ExportButtons
+            filename="sites"
+            title="Sites Report"
+            subtitle="Construction Portal sites register"
+            rows={siteExportRows}
+            columns={siteExportColumns}
+          />
+        </div>
+      </section>
+
+      <section className="summary-cards">
+        <div className="card">
+          <p>Total Sites</p>
+          <h2>{sites.length}</h2>
+        </div>
+
+        <div className="card highlight-success">
+          <p>Active Sites</p>
+          <h2>{activeSites.length}</h2>
+        </div>
+
+        <div className="card highlight-warning">
+          <p>Inactive Sites</p>
+          <h2>{inactiveSites.length}</h2>
+        </div>
+
+        <div className="card">
+          <p>Personal Sites</p>
+          <h2>{personalSites.length}</h2>
+        </div>
+
+        <div className="card">
+          <p>Subcontractor Sites</p>
+          <h2>{subcontractorSites.length}</h2>
+        </div>
+
+        <div className="card">
+          <p>Filtered Sites</p>
+          <h2>{filteredSites.length}</h2>
+        </div>
+      </section>
+
       <section className="payment-grid">
         <div className="panel">
-          <h2>{editingSite ? "Edit Site" : "Add Site"}</h2>
+          <div className="section-title-row">
+            <div>
+              <h2>{editingSite ? "Edit Site" : "Add Site"}</h2>
+              <p className="muted-text">
+                {editingSite
+                  ? "Update site type, name, address and status."
+                  : "Create a new construction site record."}
+              </p>
+            </div>
+          </div>
 
           {editingSite ? (
             <form className="payment-form" onSubmit={handleUpdateSite}>
-              <select
-                name="site_type"
-                value={editForm.site_type}
-                onChange={handleEditChange}
-                required
-              >
-                <option value="">Select Site Type</option>
-                <option value="Personal Site">Personal Site</option>
-                <option value="Subcontractor Site">Subcontractor Site</option>
-              </select>
+              <div className="form-grid">
+                <label>
+                  Site Type
+                  <select
+                    name="site_type"
+                    value={editForm.site_type}
+                    onChange={handleEditChange}
+                    required
+                  >
+                    <option value="">Select Site Type</option>
+                    <option value="Personal Site">Personal Site</option>
+                    <option value="Subcontractor Site">Subcontractor Site</option>
+                  </select>
+                </label>
 
-              <input
-                name="site_name"
-                placeholder="Site Name"
-                value={editForm.site_name}
-                onChange={handleEditChange}
-                required
-              />
+                <label>
+                  Site Name
+                  <input
+                    name="site_name"
+                    value={editForm.site_name}
+                    onChange={handleEditChange}
+                    required
+                  />
+                </label>
 
-              <input
-                name="address"
-                placeholder="Address"
-                value={editForm.address}
-                onChange={handleEditChange}
-                required
-              />
+                <label>
+                  Address
+                  <input
+                    name="address"
+                    value={editForm.address}
+                    onChange={handleEditChange}
+                    required
+                  />
+                </label>
 
-              <select
-                name="status"
-                value={editForm.status}
-                onChange={handleEditChange}
-                required
-              >
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-              </select>
+                <label>
+                  Status
+                  <select
+                    name="status"
+                    value={editForm.status}
+                    onChange={handleEditChange}
+                    required
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+              </div>
 
-              <button type="submit">Save Changes</button>
+              <div className="form-actions">
+                <button type="submit">Save Changes</button>
 
-              <button type="button" onClick={cancelEdit}>
-                Cancel
-              </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={cancelEdit}
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           ) : (
             <form className="payment-form" onSubmit={addSite}>
-              <select name="site_type" defaultValue={activeTab} required>
-                <option value="">Select Site Type</option>
-                <option value="Personal Site">Personal Site</option>
-                <option value="Subcontractor Site">Subcontractor Site</option>
-              </select>
+              <div className="form-grid">
+                <label>
+                  Site Type
+                  <select name="site_type" defaultValue="" required>
+                    <option value="">Select Site Type</option>
+                    <option value="Personal Site">Personal Site</option>
+                    <option value="Subcontractor Site">Subcontractor Site</option>
+                  </select>
+                </label>
 
-              <input name="site_name" placeholder="Site Name" required />
+                <label>
+                  Site Name
+                  <input name="site_name" required />
+                </label>
 
-              <input name="address" placeholder="Address" required />
+                <label>
+                  Address
+                  <input name="address" required />
+                </label>
 
-              <select name="status" defaultValue="active" required>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-              </select>
+                <label>
+                  Status
+                  <select name="status" defaultValue="active" required>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+              </div>
 
               <button type="submit">Add Site</button>
             </form>
@@ -154,7 +261,14 @@ function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
         </div>
 
         <div className="panel">
-          <h2>Sites List</h2>
+          <div className="section-title-row">
+            <div>
+              <h2>Site Filters</h2>
+              <p className="muted-text">
+                Switch site type and search by name, address or status.
+              </p>
+            </div>
+          </div>
 
           <div className="tabs">
             <button
@@ -162,7 +276,7 @@ function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
               className={activeTab === "Personal Site" ? "active-tab" : ""}
               onClick={() => setActiveTab("Personal Site")}
             >
-              Personal
+              Personal Sites
             </button>
 
             <button
@@ -172,23 +286,50 @@ function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
               }
               onClick={() => setActiveTab("Subcontractor Site")}
             >
-              Subcontractor
+              Subcontractor Sites
             </button>
           </div>
 
           <input
             className="search-input"
             type="text"
-            placeholder="Search sites by name, address, status or type..."
+            placeholder="Search sites..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(event) => setSearchTerm(event.target.value)}
           />
 
           <table>
+            <tbody>
+              <tr>
+                <td>Current Type</td>
+                <td>{activeTab}</td>
+              </tr>
+
+              <tr>
+                <td>Matching Sites</td>
+                <td className="number-cell">{filteredSites.length}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-title-row">
+          <div>
+            <h2>Sites Register</h2>
+            <p className="muted-text">
+              Open a site to manage tenders, finance and site-level details.
+            </p>
+          </div>
+        </div>
+
+        <div className="table-wrapper">
+          <table>
             <thead>
               <tr>
-                <th>Type</th>
                 <th>Site Name</th>
+                <th>Type</th>
                 <th>Address</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -198,23 +339,22 @@ function SitesPage({ sites, addSite, deleteSite, fetchSites, }) {
             <tbody>
               {filteredSites.map((site) => (
                 <tr key={site.id}>
-                  <td>{site.site_type}</td>
-                  <td>{site.site_name}</td>
-                  <td>{site.address}</td>
-                  <td>{site.status}</td>
-
-                  <td
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/sites/${site.id}`)}
+                  <td>{site.site_name || "-"}</td>
+                  <td>{site.site_type || "-"}</td>
+                  <td>{site.address || "-"}</td>
+                  <td>
+                    <span
+                      className={
+                        site.status === "active" ? "badge green" : "badge yellow"
+                      }
                     >
-                      Open Site
+                      {site.status || "-"}
+                    </span>
+                  </td>
+
+                  <td>
+                    <button type="button" onClick={() => navigate(`/sites/${site.id}`)}>
+                      Open
                     </button>
 
                     <button type="button" onClick={() => startEdit(site)}>

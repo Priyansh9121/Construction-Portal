@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { formatCurrency } from "../utils/currency";
 
 function DashboardHero({
   totalIncome = 0,
@@ -11,7 +12,7 @@ function DashboardHero({
   const greeting =
     hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
 
-  const money = (value) => `$${Number(value || 0).toLocaleString()}`;
+  const money = formatCurrency;
 
   return (
     <motion.section

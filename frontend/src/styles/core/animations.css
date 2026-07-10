@@ -112,8 +112,8 @@
   }
   
   .panel:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.13);
+    transform: none;
+    box-shadow: var(--shadow-panel);
   }
   
   .summary-cards .card:nth-child(3n + 1),
@@ -230,8 +230,8 @@
   input:focus,
   select:focus,
   textarea:focus {
-    transform: translateY(-2px);
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    transform: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
   
   tbody tr {
@@ -244,8 +244,8 @@
   
   tbody tr:hover {
     background: #f8fafc;
-    transform: scale(1.004);
-    box-shadow: inset 4px 0 0 var(--blue-dark);
+    transform: none;
+    box-shadow: inset 3px 0 0 var(--blue-dark);
   }
   
   .modal-backdrop {

@@ -1,3 +1,4 @@
+import { formatCurrency } from "../../utils/currency";
 function SiteTenderTable({
     tenders = [],
     onOpenTender,
@@ -26,11 +27,8 @@ function SiteTenderTable({
                   {tender.due_date?.slice(0, 10)}
                 </td>
   
-                <td>
-                  $
-                  {Number(
-                    tender.estimated_value || 0
-                  ).toFixed(2)}
+                <td className="amount-cell">
+                  {formatCurrency(tender.estimated_value)}
                 </td>
   
                 <td>

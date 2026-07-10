@@ -15,6 +15,7 @@ import TenderSubcontractorsTab from "../components/tenderDetails/TenderSubcontra
 import TenderWorkersTab from "../components/tenderDetails/TenderWorkersTab";
 
 import { getWorkers } from "../services/workerService";
+import ExportButtons from "../components/export/ExportButtons";
 
 import {
   getPayments,
@@ -451,6 +452,8 @@ function TenderDetailsPage() {
             payments={payments}
             tenderId={id}
             setDeleteTarget={setDeleteTarget}
+            tender={tender}
+            subcontractors={subcontractors}
           />
         )}
 

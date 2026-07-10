@@ -1,71 +1,85 @@
+.table-wrapper {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
 }
 
+.table-wrapper table {
+  min-width: 720px;
+}
+
+thead {
+  background: #f8fafc;
+}
+
 th,
 td {
-  padding: 13px 12px;
-  text-align: left;
+  padding: 13px 14px;
   border-bottom: 1px solid var(--border);
+  text-align: left;
   vertical-align: middle;
 }
 
 th {
-  color: #6b7280;
-  font-size: 13px;
-  font-weight: 700;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
-td:last-child {
-  text-align: left;
+td {
+  color: #1e293b;
+  font-size: 14px;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: #f8fafc;
 }
 
 .amount-cell,
 .number-cell,
-.action-cell,
 .align-right {
   text-align: right;
-  font-weight: 600;
-}
-
-.empty-table-message {
-  text-align: center !important;
-  padding: 28px 12px;
-  color: var(--muted);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
-.table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.table-wrapper table {
-  width: 100%;
-  min-width: 650px;
-  table-layout: auto;
-}
-
-.table-wrapper th,
-.table-wrapper td {
+.action-cell {
   white-space: nowrap;
-  width: auto;
 }
 
 .table-wrapper td:last-child,
 .table-wrapper th:last-child {
-  min-width: 110px;
+  min-width: 150px;
 }
 
-.table-wrapper button {
-  margin-right: 6px;
+.table-wrapper td:last-child button {
+  margin: 3px 5px 3px 0;
+}
+
+.empty-table-message {
+  padding: 30px 14px !important;
+  color: var(--muted);
+  text-align: center !important;
+  font-weight: 700;
 }
 
 .table-wrapper a {
   color: var(--blue-dark);
-  font-weight: 700;
+  font-weight: 750;
   text-decoration: none;
 }
 
@@ -73,18 +87,25 @@ td:last-child {
   text-decoration: underline;
 }
 
-td .delete-btn {
-  margin-top: 4px;
+.table-link-button {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #2563eb;
+  font-weight: 750;
+  text-align: left;
+  box-shadow: none;
 }
 
-.table-wrapper {
-  border-radius: var(--radius-md);
+.table-link-button:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+  transform: none;
+  box-shadow: none;
 }
 
-thead {
-  background: #f8fafc;
-}
-
-tbody tr {
-  animation: fadeUp 0.25s var(--ease-pro);
+.table-link-button::after {
+  display: none;
 }

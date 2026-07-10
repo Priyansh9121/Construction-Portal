@@ -1,80 +1,41 @@
-.payment-grid {
-    display: grid;
-    grid-template-columns: 420px minmax(0, 1fr);
-    gap: 22px;
-    margin-bottom: 22px;
-  }
+.payment-step-box {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #f8fafc;
+}
 
-  .payment-step-box {
-    margin-top: 18px;
-    padding: 18px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: #f8fafc;
-  }
-  
-  .payment-step-box label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 800;
-  }
-  
-  .payment-step-box select {
-    width: 100%;
-    padding: 12px 13px;
-    border: 1px solid var(--input-border);
-    border-radius: 10px;
-    background: white;
-  }
-  
-  .payment-step-box small {
-    display: block;
-    margin-top: 8px;
-    color: var(--muted);
-    font-weight: 700;
-  }
-  
-  .child-tabs {
-    margin-top: -8px;
-  }
+.payment-step-box label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 800;
+}
 
-  .finance-wizard-panel {
-    overflow: visible;
-  }
-  
-  .payment-step-box {
-    margin-top: 18px;
-    padding: 18px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: #f8fafc;
-  }
-  
-  .payment-step-box label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 800;
-  }
-  
-  .payment-step-box select {
-    width: 100%;
-    padding: 12px 13px;
-    border: 1px solid var(--input-border);
-    border-radius: 10px;
-    background: white;
-  }
-  
-  .payment-step-box small {
-    display: block;
-    margin-top: 8px;
-    color: var(--muted);
-    font-weight: 700;
-  }
-  
-  .payment-tender-summary {
-    margin-top: 18px;
-  }
-  
-  .child-tabs {
-    margin-top: -8px;
-  }
+.payment-step-box select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.payment-step-box small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.finance-wizard-panel {
+  overflow: visible;
+}
+
+.payment-tender-summary {
+  margin-top: 18px;
+}
+
+.child-tabs {
+  margin-top: -8px;
+}

@@ -1,55 +1,86 @@
-@media (max-width: 1100px) {
+@media (max-width: 1250px) {
   .cards,
-  .dashboard-cards,
-  .two-column-dashboard {
-    grid-template-columns: repeat(2, 1fr);
+  .dashboard-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1050px) {
   .payment-grid,
+  .two-column-dashboard,
+  .settings-grid,
   .worker-grid {
     grid-template-columns: 1fr;
   }
 
-  .worker-grid .panel:nth-child(n + 3) {
-    grid-column: auto;
+  .dashboard-hero {
+    grid-template-columns: 1fr;
   }
 
-  .form-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .dashboard-hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .payment-grid .panel:first-child {
-    width: 100%;
+  .cards,
+  .dashboard-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 900px) {
-  .login-shell,
-  .app-layout {
-    grid-template-columns: 1fr;
-  }
-
   .sidebar {
     display: none;
   }
 
-  .summary-cards,
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-info-list div {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .settings-info-list strong {
-    text-align: left;
-  }
-  
   .main-content {
     width: 100%;
     margin-left: 0;
+  }
+
+  .mobile-page-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 0 14px;
+    margin-bottom: 10px;
+    background: var(--mobile-bg);
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+
+  .mobile-page-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-page-nav a {
+    flex: 0 0 auto;
+    padding: 9px 13px;
+    border-radius: var(--radius-pill);
+    background: #e5e7eb;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .mobile-page-nav a.mobile-page-active {
+    background: var(--primary);
+    color: #ffffff;
   }
 }
 
@@ -62,47 +93,23 @@
     padding: 14px;
   }
 
-  .login-brand {
-    padding: 32px 22px;
-  }
-
-  .login-brand h1 {
-    font-size: 34px;
-    line-height: 1.1;
-  }
-
-  .login-brand p {
-    font-size: 15px;
-  }
-
-  .login-box {
-    padding: 22px;
-    align-items: flex-start;
-  }
-
-  .login-box form {
-    width: 100%;
-    padding: 24px;
-    border-radius: 16px;
-  }
-
   .topbar,
   .page-header,
+  .section-title-row,
   .worker-header {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .topbar h1 {
-    font-size: 24px;
-  }
-
   .cards,
   .summary-cards,
+  .dashboard-cards,
   .form-grid,
   .payment-grid,
-  .dashboard-cards,
-  .two-column-dashboard {
+  .two-column-dashboard,
+  .settings-grid,
+  .quick-actions,
+  .dashboard-hero-stats {
     grid-template-columns: 1fr !important;
   }
 
@@ -113,159 +120,51 @@
     border-radius: 14px;
   }
 
-  button,
-  .topbar button,
+  .dashboard-hero {
+    padding: 22px;
+  }
+
+  .dashboard-hero h1 {
+    font-size: 36px;
+  }
+
   .payment-form button,
-  .login-box button {
+  .form-actions button,
+  .modal-actions button,
+  .action-row button {
     width: 100%;
   }
 
-  th,
-  td {
-    padding: 11px;
-    font-size: 13px;
+  .form-actions,
+  .modal-actions,
+  .action-row {
+    flex-direction: column;
   }
 
   .tabs,
   .tender-tabs {
-    overflow-x: auto;
     flex-wrap: nowrap;
-    padding-bottom: 6px;
+    overflow-x: auto;
+    padding-bottom: 5px;
   }
 
   .tabs button,
   .tender-tabs button {
     flex: 0 0 auto;
-    font-size: 13px;
   }
 
-  .mobile-page-nav {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    background: var(--mobile-bg);
-    display: flex !important;
-    gap: 8px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 8px 0 16px;
-    margin-bottom: 12px;
+  .table-wrapper table {
+    min-width: 720px;
   }
 
-  .mobile-page-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .mobile-page-nav a {
-    flex: 0 0 auto;
-    text-decoration: none;
-    background: #e5e7eb;
-    color: var(--text);
-    padding: 10px 14px;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .mobile-page-nav a.mobile-page-active {
-    background: var(--primary);
-    color: white;
-  }
-
-  .modal-card {
-    width: calc(100% - 32px);
-    max-width: 360px;
-  }
-
-  .worker-portal-page {
-    padding: 20px 14px 32px;
-  }
-
-  .report-bar-row {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
-  .report-bar-value {
-    text-align: left;
-  }
-
-  .quick-actions a {
-    width: 100%;
-    text-align: center;
-  }
-
-  .quick-actions {
-    gap: 8px;
-  }
-
-  .dashboard-cards {
-    gap: 10px;
-  }
-
-  .dashboard-cards .card,
-  .dashboard-cards .stat-card {
-    min-height: auto;
-    padding: 14px;
-  }
-
-  .dashboard-cards h2,
-  .dashboard-cards .stat-value {
-    font-size: 21px;
-  }
-
-  .section-title-row {
-    align-items: flex-start;
-  }
-
-  .report-actions {
-    justify-content: stretch;
-  }
-  
-  .report-actions button {
-    width: 100%;
-  }
-  
   .table-wrapper button {
     width: auto;
-    margin-bottom: 6px;
-  }
-  
-  .modal-actions button,
-  .action-row button {
-    width: 100%;
-  }
-  
-  .login-links {
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .report-bar-row {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-  
-  .report-bar-value {
-    text-align: left;
   }
 
-  .card:hover,
-  .panel:hover,
-  button:hover {
-    transform: none;
-  }
-
-  .dashboard-hero {
-    grid-template-columns: 1fr;
-    padding: 24px;
-  }
-  
-  .dashboard-hero-stats {
-    grid-template-columns: 1fr;
+  .notification-panel {
+    right: auto;
+    left: 0;
+    width: calc(100vw - 28px);
   }
 }
 
@@ -274,37 +173,18 @@
     padding: 10px;
   }
 
-  .panel,
   .card,
+  .panel,
   .stat-card {
     padding: 14px;
   }
 
-  .topbar h1 {
-    font-size: 22px;
+  .dashboard-hero h1 {
+    font-size: 31px;
   }
 
-  .card h2 {
+  .card h2,
+  .stat-card h2 {
     font-size: 22px;
-  }
-
-  .mobile-page-nav a {
-    padding: 9px 12px;
-    font-size: 12px;
-  }
-  .login-box form {
-    padding: 18px;
-  }
-  
-  .payment-form input,
-  .payment-form select,
-  .payment-form textarea,
-  .search-input {
-    font-size: 13px;
-  }
-  
-  .table-wrapper table {
-    min-width: 720px;
   }
 }
-

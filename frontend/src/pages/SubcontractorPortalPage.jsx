@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { formatCurrency } from "../utils/currency";
 
 import {
   getSubcontractorProfile,
@@ -228,7 +229,9 @@ function SubcontractorPortalPage({ logout }) {
                   <td>{item.tender_title}</td>
                   <td>{item.site_name}</td>
                   <td>{item.assignment_status}</td>
-                  <td>${Number(item.assigned_amount || 0).toFixed(2)}</td>
+                  <td className="amount-cell">
+                    {formatCurrency(item.assigned_amount)}
+                  </td>
                   <td>
                     <button
                       type="button"
@@ -462,7 +465,9 @@ function SubcontractorPortalPage({ logout }) {
                       <td>{item.material_name}</td>
                       <td>{item.quantity}</td>
                       <td>{item.rate}</td>
-                      <td>${Number(item.total_amount || 0).toFixed(2)}</td>
+                      <td className="amount-cell">
+                        {formatCurrency(item.total_amount)}
+                      </td>
                     </tr>
                   ))}
 
@@ -492,8 +497,12 @@ function SubcontractorPortalPage({ logout }) {
                   {banking.map((item) => (
                     <tr key={item.id}>
                       <td>{item.payment_type}</td>
-                      <td>${Number(item.amount || 0).toFixed(2)}</td>
-                      <td>${Number(item.gst_amount || 0).toFixed(2)}</td>
+                      <td className="amount-cell">
+                        {formatCurrency(item.amount)}
+                      </td>
+                      <td className="amount-cell">
+                        {formatCurrency(item.gst_amount)}
+                      </td>
                       <td>{item.payment_date?.slice(0, 10)}</td>
                     </tr>
                   ))}

@@ -1,3 +1,4 @@
+import { formatCurrency } from "../../utils/currency";
 function SiteSummaryCards({
     totalTenders,
     runningTenders,
@@ -29,7 +30,7 @@ function SiteSummaryCards({
   
         <div className="card">
           <p>Total Value</p>
-          <h2>${totalValue}</h2>
+          <h2>{formatCurrency(totalValue)}</h2>
         </div>
       </div>
     );

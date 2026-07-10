@@ -2,340 +2,467 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import AppLayout from "../layouts/AppLayout";
 
+import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
+import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
+
 import DashboardPage from "../pages/DashboardPage";
 import PaymentsPage from "../pages/PaymentsPage";
 import WorkersPage from "../pages/WorkersPage";
 import WorkerMoneyPage from "../pages/WorkerMoneyPage";
 import SitesPage from "../pages/SitesPage";
 import TendersPage from "../pages/TendersPage";
+import TenderDetailsPage from "../pages/TenderDetailsPage";
+import SiteDetailsPage from "../pages/SiteDetailsPage";
 import InvoicesPage from "../pages/InvoicesPage";
 import DailySiteUpdatesPage from "../pages/DailySiteUpdatesPage";
-import ReportsPage from "../pages/ReportsPage";
-import SettingsPage from "../pages/SettingsPage";
-import TenderDetailsPage from "../pages/TenderDetailsPage";
+import DailyUpdateApprovalsPage from "../pages/DailyUpdateApprovalsPage";
 import SubcontractorsPage from "../pages/SubcontractorsPage";
 import UsersPage from "../pages/UsersPage";
-import ForgotPasswordPage from "../pages/ForgotPasswordPage";
-import ResetPasswordPage from "../pages/ResetPasswordPage";
-import LoginPage from "../pages/LoginPage";
-import RegisterPage from "../pages/RegisterPage";
-import SiteDetailsPage from "../pages/SiteDetailsPage";
+import ReportsPage from "../pages/ReportsPage";
+import SettingsPage from "../pages/SettingsPage";
 import WorkerPortalPage from "../pages/WorkerPortalPage";
 import SubcontractorPortalPage from "../pages/SubcontractorPortalPage";
-import DailyUpdateApprovalsPage from "../pages/DailyUpdateApprovalsPage";
 
-function ProtectedRoute({ user, children }) {
-  if (!user) return <Navigate to="/login" />;
-  return children;
-}
+function ProtectedLayout({
+  children,
+  activePage,
+  user,
+  payments,
+  tenders,
+  invoices,
+}) {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-function RoleRoute({ user, allowedRoles, children }) {
-  if (!user) return <Navigate to="/login" />;
-  if (!allowedRoles.includes(user.role)) return <Navigate to="/dashboard" />;
-  return children;
-}
-
-function Layout({ props, children }) {
   return (
     <AppLayout
-      user={props.user}
-      payments={props.payments}
-      tenders={props.tenders}
-      invoices={props.invoices}
+      activePage={activePage}
+      user={user}
+      payments={payments}
+      tenders={tenders}
+      invoices={invoices}
     >
       {children}
     </AppLayout>
   );
 }
 
-function AppRoutes(props) {
-  const defaultRedirect =
-    props.user?.role === "worker"
-      ? "/worker-portal"
-      : props.user?.role === "subcontractor"
-      ? "/subcontractor-portal"
-      : "/dashboard";
+function AppRoutes({
+  user,
+  logout,
+  email,
+  setEmail,
+  password,
+  setPassword,
+  message,
+  handleLogin,
 
+  payments = [],
+  addPayment,
+  deletePayment,
+  fetchPayments,
+
+  workers = [],
+  addWorker,
+  deleteWorker,
+  fetchWorkers,
+
+  sites = [],
+  addSite,
+  deleteSite,
+  fetchSites,
+
+  tenders = [],
+  addTender,
+  deleteTender,
+  fetchTenders,
+
+  invoices = [],
+  addInvoice,
+  deleteInvoice,
+  fetchInvoices,
+
+  siteLogs = [],
+  addSiteLog,
+  deleteSiteLog,
+
+  allocations = [],
+  expenses = [],
+  addAllocation,
+  addExpense,
+  fetchAllocations,
+  fetchExpenses,
+  updateAllocation,
+  deleteAllocation,
+  updateExpense,
+  deleteExpense,
+  approveExpense,
+  rejectExpense,
+
+  subcontractors = [],
+}) {
   return (
     <Routes>
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-      <Route
-        path="/register"
-        element={props.user ? <Navigate to={defaultRedirect} /> : <RegisterPage />}
-      />
-
       <Route
         path="/login"
         element={
-          props.user ? (
-            <Navigate to={defaultRedirect} />
+          user ? (
+            <Navigate to="/dashboard" replace />
           ) : (
             <LoginPage
-              email={props.email}
-              setEmail={props.setEmail}
-              password={props.password}
-              setPassword={props.setPassword}
-              message={props.message}
-              handleLogin={props.handleLogin}
+              email={email}
+              setEmail={setEmail}
+              password={password}
+              setPassword={setPassword}
+              message={message}
+              handleLogin={handleLogin}
             />
           )
         }
       />
 
-      <Route
-        path="/"
-        element={props.user ? <Navigate to={defaultRedirect} /> : <Navigate to="/login" />}
-      />
-
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <DashboardPage
-                payments={props.payments}
-                workers={props.workers}
-                sites={props.sites}
-                tenders={props.tenders}
-                invoices={props.invoices}
-                subcontractors={props.subcontractors || []}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/payments"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <PaymentsPage
-                payments={props.payments}
-                tenders={props.tenders}
-                addPayment={props.addPayment}
-                deletePayment={props.deletePayment}
-                fetchPayments={props.fetchPayments}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/workers"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <WorkersPage
-                workers={props.workers}
-                addWorker={props.addWorker}
-                deleteWorker={props.deleteWorker}
-                fetchWorkers={props.fetchWorkers}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/worker-money"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <WorkerMoneyPage
-                workers={props.workers}
-                allocations={props.allocations}
-                expenses={props.expenses}
-                addAllocation={props.addAllocation}
-                addExpense={props.addExpense}
-                fetchAllocations={props.fetchAllocations}
-                fetchExpenses={props.fetchExpenses}
-                updateAllocation={props.updateAllocation}
-                deleteAllocation={props.deleteAllocation}
-                updateExpense={props.updateExpense}
-                deleteExpense={props.deleteExpense}
-                approveExpense={props.approveExpense}
-                rejectExpense={props.rejectExpense}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/subcontractors"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <SubcontractorsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/sites"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <SitesPage
-                sites={props.sites}
-                addSite={props.addSite}
-                deleteSite={props.deleteSite}
-                fetchSites={props.fetchSites}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/sites/:id"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <SiteDetailsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tenders"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <TendersPage
-                tenders={props.tenders}
-                sites={props.sites}
-                addTender={props.addTender}
-                deleteTender={props.deleteTender}
-                fetchTenders={props.fetchTenders}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/tenders/:id"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <TenderDetailsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/invoices"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <InvoicesPage
-                invoices={props.invoices}
-                addInvoice={props.addInvoice}
-                deleteInvoice={props.deleteInvoice}
-                fetchInvoices={props.fetchInvoices}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/daily-site-updates"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <DailySiteUpdatesPage
-                sites={props.sites}
-                tenders={props.tenders}
-                workers={props.workers}
-                siteLogs={props.siteLogs}
-                addSiteLog={props.addSiteLog}
-                deleteSiteLog={props.deleteSiteLog}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/daily-update-approvals"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <DailyUpdateApprovalsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/reports"
-        element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <ReportsPage
-                payments={props.payments}
-                workers={props.workers}
-                sites={props.sites}
-                tenders={props.tenders}
-                invoices={props.invoices}
-              />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/users"
-        element={
-          <ProtectedRoute user={props.user}>
-            {props.user?.role === "admin" ? (
-              <Layout props={props}>
-                <UsersPage />
-              </Layout>
-            ) : (
-              <Navigate to="/dashboard" />
-            )}
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
         path="/worker-portal"
         element={
-          <RoleRoute user={props.user} allowedRoles={["admin", "worker"]}>
-            <WorkerPortalPage logout={props.logout} />
-          </RoleRoute>
+          <ProtectedLayout
+            activePage="Worker Portal"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <WorkerPortalPage />
+          </ProtectedLayout>
         }
       />
 
       <Route
         path="/subcontractor-portal"
         element={
-          <RoleRoute user={props.user} allowedRoles={["admin", "subcontractor"]}>
-            <SubcontractorPortalPage logout={props.logout} />
-          </RoleRoute>
+          <ProtectedLayout
+            activePage="Subcontractor Portal"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <SubcontractorPortalPage />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedLayout
+            activePage="Dashboard"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <DashboardPage
+              payments={payments}
+              workers={workers}
+              sites={sites}
+              tenders={tenders}
+              invoices={invoices}
+              subcontractors={subcontractors}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/payments"
+        element={
+          <ProtectedLayout
+            activePage="Finance"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <PaymentsPage
+              payments={payments}
+              addPayment={addPayment}
+              deletePayment={deletePayment}
+              fetchPayments={fetchPayments}
+              tenders={tenders}
+              sites={sites}
+              workers={workers}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/workers"
+        element={
+          <ProtectedLayout
+            activePage="Workers"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <WorkersPage
+              workers={workers}
+              addWorker={addWorker}
+              deleteWorker={deleteWorker}
+              fetchWorkers={fetchWorkers}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/worker-money"
+        element={
+          <ProtectedLayout
+            activePage="Worker Money"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <WorkerMoneyPage
+              workers={workers}
+              allocations={allocations}
+              expenses={expenses}
+              addAllocation={addAllocation}
+              addExpense={addExpense}
+              fetchAllocations={fetchAllocations}
+              fetchExpenses={fetchExpenses}
+              updateAllocation={updateAllocation}
+              deleteAllocation={deleteAllocation}
+              updateExpense={updateExpense}
+              deleteExpense={deleteExpense}
+              approveExpense={approveExpense}
+              rejectExpense={rejectExpense}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/sites"
+        element={
+          <ProtectedLayout
+            activePage="Sites"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <SitesPage
+              sites={sites}
+              addSite={addSite}
+              deleteSite={deleteSite}
+              fetchSites={fetchSites}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/sites/:id"
+        element={
+          <ProtectedLayout
+            activePage="Site Details"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <SiteDetailsPage
+              sites={sites}
+              tenders={tenders}
+              payments={payments}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/tenders"
+        element={
+          <ProtectedLayout
+            activePage="Tenders"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <TendersPage
+              tenders={tenders}
+              sites={sites}
+              addTender={addTender}
+              deleteTender={deleteTender}
+              fetchTenders={fetchTenders}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/tenders/:id"
+        element={
+          <ProtectedLayout
+            activePage="Tender Details"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <TenderDetailsPage
+              payments={payments}
+              tenders={tenders}
+              sites={sites}
+              workers={workers}
+              subcontractors={subcontractors}
+              fetchPayments={fetchPayments}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/invoices"
+        element={
+          <ProtectedLayout
+            activePage="Invoices"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <InvoicesPage
+              invoices={invoices}
+              addInvoice={addInvoice}
+              deleteInvoice={deleteInvoice}
+              fetchInvoices={fetchInvoices}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/daily-site-updates"
+        element={
+          <ProtectedLayout
+            activePage="Daily Site Updates"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <DailySiteUpdatesPage
+              sites={sites}
+              tenders={tenders}
+              workers={workers}
+              siteLogs={siteLogs}
+              addSiteLog={addSiteLog}
+              deleteSiteLog={deleteSiteLog}
+            />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/daily-update-approvals"
+        element={
+          <ProtectedLayout
+            activePage="Update Approvals"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <DailyUpdateApprovalsPage />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/subcontractors"
+        element={
+          <ProtectedLayout
+            activePage="Subcontractors"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <SubcontractorsPage />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/users"
+        element={
+          <ProtectedLayout
+            activePage="Users"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <UsersPage />
+          </ProtectedLayout>
+        }
+      />
+
+      <Route
+        path="/reports"
+        element={
+          <ProtectedLayout
+            activePage="Reports"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <ReportsPage
+              payments={payments}
+              workers={workers}
+              sites={sites}
+              tenders={tenders}
+              invoices={invoices}
+              subcontractors={subcontractors}
+              siteLogs={siteLogs}
+              allocations={allocations}
+              expenses={expenses}
+            />
+          </ProtectedLayout>
         }
       />
 
       <Route
         path="/settings"
         element={
-          <ProtectedRoute user={props.user}>
-            <Layout props={props}>
-              <SettingsPage />
-            </Layout>
-          </ProtectedRoute>
+          <ProtectedLayout
+            activePage="Settings"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <SettingsPage user={user} logout={logout} />
+          </ProtectedLayout>
         }
       />
+
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
