@@ -79,3 +79,56 @@
     border-radius: 10px;
     font-weight: 700;
   }
+
+  .login-feature-list {
+    display: grid;
+    gap: 12px;
+    max-width: 580px;
+    margin-top: 24px;
+  }
+  
+  .login-feature-list div {
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  
+  .login-feature-list strong,
+  .login-feature-list span {
+    display: block;
+  }
+  
+  .login-feature-list span {
+    margin-top: 5px;
+    color: #cbd5e1;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .password-input-row {
+    position: relative;
+  }
+  
+  .password-input-row input {
+    padding-right: 72px;
+  }
+  
+  .password-toggle-button {
+    position: absolute;
+    top: 50%;
+    right: 7px;
+    width: auto;
+    min-height: 34px;
+    padding: 7px 10px;
+    transform: translateY(-50%);
+    border-radius: 8px;
+    background: #e2e8f0;
+    color: #334155;
+    box-shadow: none;
+  }
+  
+  .password-toggle-button:hover {
+    transform: translateY(-50%);
+    background: #cbd5e1;
+  }

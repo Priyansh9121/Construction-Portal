@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import AppLayout from "../layouts/AppLayout";
+import RoleRoute from "./RoleRoute";
 
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
@@ -22,31 +23,55 @@ import SubcontractorsPage from "../pages/SubcontractorsPage";
 import UsersPage from "../pages/UsersPage";
 import ReportsPage from "../pages/ReportsPage";
 import SettingsPage from "../pages/SettingsPage";
+
 import WorkerPortalPage from "../pages/WorkerPortalPage";
 import SubcontractorPortalPage from "../pages/SubcontractorPortalPage";
 
-function ProtectedLayout({
+function getRole(user) {
+  return String(user?.role || "")
+    .trim()
+    .toLowerCase();
+}
+
+function getHomePath(user) {
+  const role = getRole(user);
+
+  if (role === "worker") {
+    return "/worker-portal";
+  }
+
+  if (role === "subcontractor") {
+    return "/subcontractor-portal";
+  }
+
+  return "/dashboard";
+}
+
+function AdminManagerLayout({
   children,
   activePage,
   user,
+  logout,
   payments,
   tenders,
   invoices,
 }) {
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   return (
-    <AppLayout
-      activePage={activePage}
+    <RoleRoute
       user={user}
-      payments={payments}
-      tenders={tenders}
-      invoices={invoices}
+      allowedRoles={["admin", "manager"]}
     >
-      {children}
-    </AppLayout>
+      <AppLayout
+        activePage={activePage}
+        user={user}
+        logout={logout}
+        payments={payments}
+        tenders={tenders}
+        invoices={invoices}
+      >
+        {children}
+      </AppLayout>
+    </RoleRoute>
   );
 }
 
@@ -110,7 +135,7 @@ function AppRoutes({
         path="/login"
         element={
           user ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={getHomePath(user)} replace />
           ) : (
             <LoginPage
               email={email}
@@ -125,45 +150,50 @@ function AppRoutes({
       />
 
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
-        path="/worker-portal"
-        element={
-          <ProtectedLayout
-            activePage="Worker Portal"
-            user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
-          >
-            <WorkerPortalPage />
-          </ProtectedLayout>
-        }
+        path="/forgot-password"
+        element={<ForgotPasswordPage />}
       />
 
       <Route
+        path="/reset-password"
+        element={<ResetPasswordPage />}
+      />
+
+      {/* Worker-only portal: no AppLayout, no admin sidebar */}
+      <Route
+        path="/worker-portal"
+        element={
+          <RoleRoute
+            user={user}
+            allowedRoles={["worker"]}
+          >
+            <WorkerPortalPage logout={logout} />
+          </RoleRoute>
+        }
+      />
+
+      {/* Subcontractor-only portal: no AppLayout, no admin sidebar */}
+      <Route
         path="/subcontractor-portal"
         element={
-          <ProtectedLayout
-            activePage="Subcontractor Portal"
+          <RoleRoute
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
+            allowedRoles={["subcontractor"]}
           >
-            <SubcontractorPortalPage />
-          </ProtectedLayout>
+            <SubcontractorPortalPage logout={logout} />
+          </RoleRoute>
         }
       />
 
       <Route
         path="/dashboard"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Dashboard"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -176,16 +206,17 @@ function AppRoutes({
               invoices={invoices}
               subcontractors={subcontractors}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/payments"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Finance"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -199,16 +230,17 @@ function AppRoutes({
               sites={sites}
               workers={workers}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/workers"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Workers"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -219,16 +251,17 @@ function AppRoutes({
               deleteWorker={deleteWorker}
               fetchWorkers={fetchWorkers}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/worker-money"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Worker Money"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -248,16 +281,17 @@ function AppRoutes({
               approveExpense={approveExpense}
               rejectExpense={rejectExpense}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/sites"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Sites"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -268,16 +302,17 @@ function AppRoutes({
               deleteSite={deleteSite}
               fetchSites={fetchSites}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/sites/:id"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Site Details"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -287,16 +322,17 @@ function AppRoutes({
               tenders={tenders}
               payments={payments}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/tenders"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Tenders"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -308,16 +344,17 @@ function AppRoutes({
               deleteTender={deleteTender}
               fetchTenders={fetchTenders}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/tenders/:id"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Tender Details"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -330,16 +367,17 @@ function AppRoutes({
               subcontractors={subcontractors}
               fetchPayments={fetchPayments}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/invoices"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Invoices"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -350,16 +388,17 @@ function AppRoutes({
               deleteInvoice={deleteInvoice}
               fetchInvoices={fetchInvoices}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/daily-site-updates"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Daily Site Updates"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -372,61 +411,71 @@ function AppRoutes({
               addSiteLog={addSiteLog}
               deleteSiteLog={deleteSiteLog}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/daily-update-approvals"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Update Approvals"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
           >
             <DailyUpdateApprovalsPage />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/subcontractors"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Subcontractors"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
           >
             <SubcontractorsPage />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
+      {/* Admin only */}
       <Route
         path="/users"
         element={
-          <ProtectedLayout
-            activePage="Users"
+          <RoleRoute
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
+            allowedRoles={["admin"]}
           >
-            <UsersPage />
-          </ProtectedLayout>
+            <AppLayout
+              activePage="Users"
+              user={user}
+              logout={logout}
+              payments={payments}
+              tenders={tenders}
+              invoices={invoices}
+            >
+              <UsersPage />
+            </AppLayout>
+          </RoleRoute>
         }
       />
 
       <Route
         path="/reports"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Reports"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -442,27 +491,47 @@ function AppRoutes({
               allocations={allocations}
               expenses={expenses}
             />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
       <Route
         path="/settings"
         element={
-          <ProtectedLayout
+          <AdminManagerLayout
             activePage="Settings"
             user={user}
+            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
           >
             <SettingsPage user={user} logout={logout} />
-          </ProtectedLayout>
+          </AdminManagerLayout>
         }
       />
 
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/"
+        element={
+          user ? (
+            <Navigate to={getHomePath(user)} replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      <Route
+        path="*"
+        element={
+          user ? (
+            <Navigate to={getHomePath(user)} replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
     </Routes>
   );
 }
