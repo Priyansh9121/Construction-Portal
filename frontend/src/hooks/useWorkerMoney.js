@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { canLoadAdminData } from "../utils/roleAccess";
 
 import {
   getAllocations,
@@ -18,6 +19,10 @@ export default function useWorkerMoney(user) {
   const [expenses, setExpenses] = useState([]);
 
   const fetchAllocations = async () => {
+    if (!canLoadAdminData(user)) {
+      setAllocations([]);
+      return [];
+    }
     try {
       const data = await getAllocations();
       setAllocations(data || []);
@@ -28,6 +33,10 @@ export default function useWorkerMoney(user) {
   };
 
   const fetchExpenses = async () => {
+    if (!canLoadAdminData(user)) {
+      setExpenses([]);
+      return [];
+    }
     try {
       const data = await getExpenses();
       setExpenses(data || []);
@@ -38,14 +47,14 @@ export default function useWorkerMoney(user) {
   };
 
   useEffect(() => {
-    if (user) {
+    if (canLoadAdminData(user)) {
       fetchAllocations();
       fetchExpenses();
     } else {
       setAllocations([]);
       setExpenses([]);
     }
-  }, [user]);
+  }, [user?.id, user?.role]);
 
   const addAllocation = async (allocation) => {
     await createAllocation(allocation);

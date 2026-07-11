@@ -26,8 +26,20 @@ exports.getAllocations = async (req, res) => {
       allocations: result.rows,
     });
   } catch (error) {
-    console.error("Get allocations error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Get allocations error:", {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack,
+    });
+  
+    res.status(500).json({
+      success: false,
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Failed to load worker allocations."
+          : error.message,
+    });
   }
 };
 

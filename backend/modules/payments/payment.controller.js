@@ -378,19 +378,19 @@ exports.updatePayment = async (req, res) => {
 exports.deletePayment = async (req, res) => {
   try {
     const { id } = req.params;
-
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
       `
       UPDATE payments
-      SET is_deleted = TRUE,
-          deleted_at = NOW(),
-          deleted_by = $2,
-          updated_at = NOW()
+      SET
+        is_deleted = TRUE,
+        deleted_at = NOW(),
+        deleted_by = $2,
+        updated_at = NOW()
       WHERE id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
-      RETURNING *
+        AND COALESCE(is_deleted, FALSE) = FALSE
+      RETURNING id
       `,
       [id, deletedBy]
     );
@@ -398,20 +398,29 @@ exports.deletePayment = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Payment not found",
+        message: "Payment not found or already deleted.",
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Payment deleted successfully",
+      message: "Payment deleted successfully.",
+      deletedPaymentId: result.rows[0].id,
     });
   } catch (error) {
-    console.error("Delete payment error:", error);
+    console.error("Delete payment error:", {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+    });
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Server error",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Failed to delete payment."
+          : error.message,
     });
   }
 };

@@ -38,6 +38,7 @@
     const [formData, setFormData] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deletingPaymentId, setDeletingPaymentId] = useState(null);
     const [editingPayment, setEditingPayment] = useState(null);
 
     const totals = useFinanceStatistics(payments);
@@ -161,18 +162,29 @@
     };
 
     const confirmDelete = async () => {
-      if (!deleteTarget) return;
-
+      if (!deleteTarget || deletingPaymentId !== null) {
+        return;
+      }
+    
+      const paymentId = deleteTarget.id;
+    
       try {
-        await deletePayment(deleteTarget.id);
+        setDeletingPaymentId(paymentId);
+    
+        await deletePayment(paymentId);
+    
         toast.success("Record deleted.");
         setDeleteTarget(null);
-
-        if (fetchPayments) {
-          await fetchPayments();
-        }
+    
+        // removePayment already updates local state.
+        // A second fetch is unnecessary and can create extra requests.
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to delete record.");
+        toast.error(
+          error.response?.data?.message ||
+            "Failed to delete record."
+        );
+      } finally {
+        setDeletingPaymentId(null);
       }
     };
 
@@ -213,8 +225,13 @@
         <DeleteVerificationModal
           open={!!deleteTarget}
           itemName={deleteTarget?.category || "finance record"}
-          onCancel={() => setDeleteTarget(null)}
+          onCancel={() => {
+            if (deletingPaymentId === null) {
+              setDeleteTarget(null);
+            }
+          }}
           onConfirm={confirmDelete}
+          loading={deletingPaymentId !== null}
         />
       </>
     );

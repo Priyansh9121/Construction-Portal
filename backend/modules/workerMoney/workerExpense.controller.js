@@ -30,8 +30,20 @@ exports.getExpenses = async (req, res) => {
       expenses: result.rows,
     });
   } catch (error) {
-    console.error("Get expenses error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Get expenses error:", {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack,
+    });
+  
+    res.status(500).json({
+      success: false,
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Failed to load worker expenses."
+          : error.message,
+    });
   }
 };
 

@@ -1,50 +1,85 @@
 import { useEffect, useState } from "react";
+
 import {
   getPayments,
   createPayment,
   deletePayment,
 } from "../services/paymentService";
 
+import { canLoadAdminData } from "../utils/roleAccess";
+
 function usePayments(user) {
   const [payments, setPayments] = useState([]);
 
   const fetchPayments = async () => {
-    if (!user) return;
+    if (!canLoadAdminData(user)) {
+      setPayments([]);
+      return [];
+    }
 
     try {
       const data = await getPayments();
-      console.log("Fetched payments:", data);
 
-      setPayments(Array.isArray(data) ? data : data.payments || []);
-    } catch (err) {
-      console.error("Failed to fetch payments", err);
+      const rows = Array.isArray(data)
+        ? data
+        : data.payments || [];
+
+      setPayments(rows);
+      return rows;
+    } catch (error) {
+      console.error(
+        "Failed to fetch payments",
+        error.response?.data || error
+      );
+
       setPayments([]);
+      throw error;
     }
   };
 
   useEffect(() => {
-    fetchPayments();
-  }, [user]);
+    if (canLoadAdminData(user)) {
+      fetchPayments();
+    } else {
+      setPayments([]);
+    }
+  }, [user?.id, user?.role]);
 
   const addPayment = async (paymentData) => {
+    if (!canLoadAdminData(user)) {
+      throw new Error("You are not allowed to create payments.");
+    }
+
     const data = await createPayment(paymentData);
-  
-    setPayments((prev) => [
-      data.payment,
-      ...prev,
-    ]);
-  
-    await fetchPayments();
-  
+
+    if (data.payment) {
+      setPayments((previous) => [
+        data.payment,
+        ...previous.filter(
+          (item) => item.id !== data.payment.id
+        ),
+      ]);
+    } else {
+      await fetchPayments();
+    }
+
     return data;
   };
 
   const removePayment = async (id) => {
-    await deletePayment(id);
+    if (!canLoadAdminData(user)) {
+      throw new Error("You are not allowed to delete payments.");
+    }
 
-    setPayments((prev) =>
-      prev.filter((payment) => payment.id !== id)
+    const data = await deletePayment(id);
+
+    setPayments((previous) =>
+      previous.filter(
+        (payment) => Number(payment.id) !== Number(id)
+      )
     );
+
+    return data;
   };
 
   return {

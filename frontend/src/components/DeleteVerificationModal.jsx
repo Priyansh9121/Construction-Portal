@@ -10,6 +10,7 @@ function DeleteVerificationModal({
   itemName,
   onCancel,
   onConfirm,
+  loading = false,
 }) {
   const [answer, setAnswer] = useState("");
 
@@ -43,17 +44,21 @@ function DeleteVerificationModal({
         />
 
         <div className="modal-actions">
-          <button type="button" onClick={onCancel}>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+          >
             Cancel
           </button>
 
           <button
             type="button"
             className="delete-btn"
-            disabled={!isValid}
             onClick={onConfirm}
+            disabled={loading}
           >
-            Confirm Delete
+            {loading ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>

@@ -31,8 +31,20 @@ exports.getSiteLogs = async (req, res) => {
       siteLogs: result.rows,
     });
   } catch (error) {
-    console.error("Get site logs error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Get site logs error:", {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack,
+    });
+  
+    res.status(500).json({
+      success: false,
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Failed to load site logs."
+          : error.message,
+    });
   }
 };
 
@@ -154,7 +166,20 @@ exports.deleteSiteLog = async (req, res) => {
       message: "Site log deleted successfully",
     });
   } catch (error) {
-    console.error("Delete site log error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Delete payment error:", {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      stack: error.stack,
+    });
+  
+    res.status(500).json({
+      success: false,
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Failed to delete payment."
+          : error.message,
+    });
   }
 };

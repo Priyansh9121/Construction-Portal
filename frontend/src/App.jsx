@@ -1,7 +1,6 @@
 import { useState } from "react";
 
-
-import LoginPage from "./pages/LoginPage";
+import LoginPage from "./pages/LoginPage";  
 
 import { useAuth } from "./contexts/AuthContext";
 
