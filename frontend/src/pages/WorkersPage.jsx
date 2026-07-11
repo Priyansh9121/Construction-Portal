@@ -3,8 +3,18 @@ import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateWorker } from "../services/workerService";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
+import { useAuth } from "../contexts/AuthContext";
+import useWorkers from "../hooks/useWorkers";
 
-function WorkersPage({ workers = [], addWorker, deleteWorker, fetchWorkers }) {
+function WorkersPage() {
+  const { user } = useAuth();
+
+  const {
+    workers,
+    addWorker,
+    removeWorker,
+    fetchWorkers,
+  } = useWorkers(user);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingWorker, setEditingWorker] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,8 +85,8 @@ function WorkersPage({ workers = [], addWorker, deleteWorker, fetchWorkers }) {
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-
-    await deleteWorker(deleteTarget.id);
+  
+    await removeWorker(deleteTarget.id);
     setDeleteTarget(null);
   };
 

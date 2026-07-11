@@ -24,29 +24,52 @@ function RegisterPage() {
     }));
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-
+  const handleRegister = async (event) => {
+    event.preventDefault();
+  
+    if (loading) return;
+  
     try {
       setLoading(true);
       setMessage("");
-
-      const data = await registerUser(form);
-
+  
+      const payload = {
+        full_name: form.full_name.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        role: form.role,
+      };
+  
+      const data = await registerUser(payload);
+  
       localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
+      localStorage.setItem(
+        "user",
+        JSON.stringify(data.user)
+      );
+  
       setUser(data.user);
-
+  
       if (data.user.role === "worker") {
-        navigate("/worker-portal");
-      } else if (data.user.role === "subcontractor") {
-        navigate("/subcontractor-portal");
+        navigate("/worker-portal", {
+          replace: true,
+        });
+      } else if (
+        data.user.role === "subcontractor"
+      ) {
+        navigate("/subcontractor-portal", {
+          replace: true,
+        });
       } else {
-        navigate("/dashboard");
+        navigate("/dashboard", {
+          replace: true,
+        });
       }
-    } catch (err) {
-      setMessage(err.response?.data?.message || "Registration failed.");
+    } catch (error) {
+      setMessage(
+        error.response?.data?.message ||
+          "Registration failed."
+      );
     } finally {
       setLoading(false);
     }
@@ -96,14 +119,15 @@ function RegisterPage() {
           />
 
           <label>Role</label>
+
           <select
-            name="role"
-            value={form.role}
-            onChange={handleChange}
+          name="role"
+          value={form.role}
+          onChange={handleChange}
+          required
           >
-            <option value="worker">Worker</option>
-            <option value="subcontractor">Subcontractor</option>
-            <option value="manager">Manager</option>
+          <option value="worker">Worker</option>
+          <option value="subcontractor">Subcontractor</option>
           </select>
 
           <button type="submit" disabled={loading}>

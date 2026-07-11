@@ -1,45 +1,99 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
-import { updateSite } from "../services/siteService";
 import ExportButtons from "../components/export/ExportButtons";
 
-function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
+import { useAuth } from "../contexts/AuthContext";
+import useSites from "../hooks/useSites";
+
+import { updateSite } from "../services/siteService";
+
+const EMPTY_EDIT_FORM = {
+  site_type: "",
+  site_name: "",
+  address: "",
+  status: "active",
+};
+
+function SitesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const {
+    sites = [],
+    addSite,
+    removeSite,
+    fetchSites,
+  } = useSites(user);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingSite, setEditingSite] = useState(null);
   const [activeTab, setActiveTab] = useState("Personal Site");
   const [searchTerm, setSearchTerm] = useState("");
+  const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
 
-  const emptyForm = {
-    site_type: "",
-    site_name: "",
-    address: "",
-    status: "active",
-  };
+  const [adding, setAdding] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const [editForm, setEditForm] = useState(emptyForm);
-
-  const personalSites = sites.filter((site) => site.site_type === "Personal Site");
-  const subcontractorSites = sites.filter(
-    (site) => site.site_type === "Subcontractor Site"
+  const personalSites = useMemo(
+    () =>
+      sites.filter(
+        (site) => site.site_type === "Personal Site"
+      ),
+    [sites]
   );
-  const activeSites = sites.filter((site) => site.status === "active");
-  const inactiveSites = sites.filter((site) => site.status === "inactive");
 
-  const filteredSites = sites.filter((site) => {
-    const search = searchTerm.toLowerCase();
-    const matchesTab = site.site_type === activeTab;
+  const subcontractorSites = useMemo(
+    () =>
+      sites.filter(
+        (site) => site.site_type === "Subcontractor Site"
+      ),
+    [sites]
+  );
 
-    const matchesSearch =
-      site.site_name?.toLowerCase().includes(search) ||
-      site.address?.toLowerCase().includes(search) ||
-      site.status?.toLowerCase().includes(search) ||
-      site.site_type?.toLowerCase().includes(search);
+  const activeSites = useMemo(
+    () =>
+      sites.filter(
+        (site) =>
+          String(site.status || "").toLowerCase() === "active"
+      ),
+    [sites]
+  );
 
-    return matchesTab && matchesSearch;
-  });
+  const inactiveSites = useMemo(
+    () =>
+      sites.filter(
+        (site) =>
+          String(site.status || "").toLowerCase() === "inactive"
+      ),
+    [sites]
+  );
+
+  const filteredSites = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+
+    return sites.filter((site) => {
+      const matchesTab = site.site_type === activeTab;
+
+      const searchableText = [
+        site.site_name,
+        site.address,
+        site.status,
+        site.site_type,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch =
+        !search || searchableText.includes(search);
+
+      return matchesTab && matchesSearch;
+    });
+  }, [sites, activeTab, searchTerm]);
 
   const siteExportColumns = [
     { key: "site_name", label: "Site Name" },
@@ -55,15 +109,87 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
     status: site.status || "",
   }));
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+  const siteExportSummary = {
+    "Total Sites": sites.length,
+    "Active Sites": activeSites.length,
+    "Inactive Sites": inactiveSites.length,
+    "Personal Sites": personalSites.length,
+    "Subcontractor Sites": subcontractorSites.length,
+    "Filtered Sites": filteredSites.length,
+  };
 
-    await deleteSite(deleteTarget.id);
-    setDeleteTarget(null);
+  const handleAddSite = async (event) => {
+    event.preventDefault();
+
+    if (adding) return;
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    const newSite = {
+      company_id: user?.company_id || null,
+      site_type: String(formData.get("site_type") || "").trim(),
+      site_name: String(formData.get("site_name") || "").trim(),
+      address: String(formData.get("address") || "").trim(),
+      status: String(formData.get("status") || "active"),
+    };
+
+    try {
+      setAdding(true);
+      setMessage("");
+
+      await addSite(newSite);
+
+      form.reset();
+      setMessage("Site added successfully.");
+    } catch (error) {
+      console.error(
+        "Failed to add site:",
+        error.response?.data || error
+      );
+
+      setMessage(
+        error.response?.data?.message ||
+          "Failed to add site."
+      );
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+
+    try {
+      setDeleting(true);
+      setMessage("");
+
+      await removeSite(deleteTarget.id);
+
+      if (editingSite?.id === deleteTarget.id) {
+        cancelEdit();
+      }
+
+      setDeleteTarget(null);
+      setMessage("Site deleted successfully.");
+    } catch (error) {
+      console.error(
+        "Failed to delete site:",
+        error.response?.data || error
+      );
+
+      setMessage(
+        error.response?.data?.message ||
+          "Failed to delete site."
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const startEdit = (site) => {
     setEditingSite(site);
+    setMessage("");
 
     setEditForm({
       site_type: site.site_type || "",
@@ -71,28 +197,65 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
       address: site.address || "",
       status: site.status || "active",
     });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   const cancelEdit = () => {
     setEditingSite(null);
-    setEditForm(emptyForm);
+    setEditForm(EMPTY_EDIT_FORM);
   };
 
   const handleEditChange = (event) => {
-    setEditForm((prev) => ({
-      ...prev,
-      [event.target.name]: event.target.value,
+    const { name, value } = event.target;
+
+    setEditForm((previousForm) => ({
+      ...previousForm,
+      [name]: value,
     }));
   };
 
   const handleUpdateSite = async (event) => {
     event.preventDefault();
 
-    if (!editingSite) return;
+    if (!editingSite || updating) return;
 
-    await updateSite(editingSite.id, editForm);
-    await fetchSites();
-    cancelEdit();
+    const updatePayload = {
+      company_id:
+        editingSite.company_id ||
+        user?.company_id ||
+        null,
+      site_type: editForm.site_type.trim(),
+      site_name: editForm.site_name.trim(),
+      address: editForm.address.trim(),
+      status: editForm.status,
+    };
+
+    try {
+      setUpdating(true);
+      setMessage("");
+
+      await updateSite(editingSite.id, updatePayload);
+      await fetchSites();
+
+      cancelEdit();
+      setMessage("Site updated successfully.");
+    } catch (error) {
+      console.error(
+        "Failed to update site:",
+        error.response?.data || error
+      );
+
+      setMessage(
+        error.response?.data?.message ||
+          "Failed to update site."
+      );
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
@@ -101,8 +264,10 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
         <div className="section-title-row">
           <div>
             <h2>Sites Management</h2>
+
             <p className="muted-text">
-              Manage personal and subcontractor sites, status, addresses and linked tenders.
+              Manage personal and subcontractor sites,
+              statuses, addresses and linked tenders.
             </p>
           </div>
 
@@ -112,8 +277,15 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
             subtitle="Construction Portal sites register"
             rows={siteExportRows}
             columns={siteExportColumns}
+            summary={siteExportSummary}
           />
         </div>
+
+        {message && (
+          <p className="form-message" role="status">
+            {message}
+          </p>
+        )}
       </section>
 
       <section className="summary-cards">
@@ -152,17 +324,23 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
         <div className="panel">
           <div className="section-title-row">
             <div>
-              <h2>{editingSite ? "Edit Site" : "Add Site"}</h2>
+              <h2>
+                {editingSite ? "Edit Site" : "Add Site"}
+              </h2>
+
               <p className="muted-text">
                 {editingSite
-                  ? "Update site type, name, address and status."
+                  ? "Update the site type, name, address and status."
                   : "Create a new construction site record."}
               </p>
             </div>
           </div>
 
           {editingSite ? (
-            <form className="payment-form" onSubmit={handleUpdateSite}>
+            <form
+              className="payment-form"
+              onSubmit={handleUpdateSite}
+            >
               <div className="form-grid">
                 <label>
                   Site Type
@@ -172,9 +350,17 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
                     onChange={handleEditChange}
                     required
                   >
-                    <option value="">Select Site Type</option>
-                    <option value="Personal Site">Personal Site</option>
-                    <option value="Subcontractor Site">Subcontractor Site</option>
+                    <option value="">
+                      Select Site Type
+                    </option>
+
+                    <option value="Personal Site">
+                      Personal Site
+                    </option>
+
+                    <option value="Subcontractor Site">
+                      Subcontractor Site
+                    </option>
                   </select>
                 </label>
 
@@ -206,56 +392,104 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
                     onChange={handleEditChange}
                     required
                   >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="active">
+                      Active
+                    </option>
+
+                    <option value="inactive">
+                      Inactive
+                    </option>
                   </select>
                 </label>
               </div>
 
               <div className="form-actions">
-                <button type="submit">Save Changes</button>
+                <button
+                  type="submit"
+                  disabled={updating}
+                >
+                  {updating
+                    ? "Saving..."
+                    : "Save Changes"}
+                </button>
 
                 <button
                   type="button"
                   className="secondary-btn"
                   onClick={cancelEdit}
+                  disabled={updating}
                 >
                   Cancel
                 </button>
               </div>
             </form>
           ) : (
-            <form className="payment-form" onSubmit={addSite}>
+            <form
+              className="payment-form"
+              onSubmit={handleAddSite}
+            >
               <div className="form-grid">
                 <label>
                   Site Type
-                  <select name="site_type" defaultValue="" required>
-                    <option value="">Select Site Type</option>
-                    <option value="Personal Site">Personal Site</option>
-                    <option value="Subcontractor Site">Subcontractor Site</option>
+                  <select
+                    name="site_type"
+                    defaultValue=""
+                    required
+                  >
+                    <option value="">
+                      Select Site Type
+                    </option>
+
+                    <option value="Personal Site">
+                      Personal Site
+                    </option>
+
+                    <option value="Subcontractor Site">
+                      Subcontractor Site
+                    </option>
                   </select>
                 </label>
 
                 <label>
                   Site Name
-                  <input name="site_name" required />
+                  <input
+                    name="site_name"
+                    required
+                  />
                 </label>
 
                 <label>
                   Address
-                  <input name="address" required />
+                  <input
+                    name="address"
+                    required
+                  />
                 </label>
 
                 <label>
                   Status
-                  <select name="status" defaultValue="active" required>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                  <select
+                    name="status"
+                    defaultValue="active"
+                    required
+                  >
+                    <option value="active">
+                      Active
+                    </option>
+
+                    <option value="inactive">
+                      Inactive
+                    </option>
                   </select>
                 </label>
               </div>
 
-              <button type="submit">Add Site</button>
+              <button
+                type="submit"
+                disabled={adding}
+              >
+                {adding ? "Adding..." : "Add Site"}
+              </button>
             </form>
           )}
         </div>
@@ -264,8 +498,10 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
           <div className="section-title-row">
             <div>
               <h2>Site Filters</h2>
+
               <p className="muted-text">
-                Switch site type and search by name, address or status.
+                Switch site type and search by name,
+                address or status.
               </p>
             </div>
           </div>
@@ -273,8 +509,14 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
           <div className="tabs">
             <button
               type="button"
-              className={activeTab === "Personal Site" ? "active-tab" : ""}
-              onClick={() => setActiveTab("Personal Site")}
+              className={
+                activeTab === "Personal Site"
+                  ? "active-tab"
+                  : ""
+              }
+              onClick={() =>
+                setActiveTab("Personal Site")
+              }
             >
               Personal Sites
             </button>
@@ -282,9 +524,13 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
             <button
               type="button"
               className={
-                activeTab === "Subcontractor Site" ? "active-tab" : ""
+                activeTab === "Subcontractor Site"
+                  ? "active-tab"
+                  : ""
               }
-              onClick={() => setActiveTab("Subcontractor Site")}
+              onClick={() =>
+                setActiveTab("Subcontractor Site")
+              }
             >
               Subcontractor Sites
             </button>
@@ -292,10 +538,12 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
 
           <input
             className="search-input"
-            type="text"
+            type="search"
             placeholder="Search sites..."
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) =>
+              setSearchTerm(event.target.value)
+            }
           />
 
           <table>
@@ -307,7 +555,9 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
 
               <tr>
                 <td>Matching Sites</td>
-                <td className="number-cell">{filteredSites.length}</td>
+                <td className="number-cell">
+                  {filteredSites.length}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -318,8 +568,10 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
         <div className="section-title-row">
           <div>
             <h2>Sites Register</h2>
+
             <p className="muted-text">
-              Open a site to manage tenders, finance and site-level details.
+              Open a site to manage tenders, finance and
+              site-level details.
             </p>
           </div>
         </div>
@@ -342,10 +594,15 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
                   <td>{site.site_name || "-"}</td>
                   <td>{site.site_type || "-"}</td>
                   <td>{site.address || "-"}</td>
+
                   <td>
                     <span
                       className={
-                        site.status === "active" ? "badge green" : "badge yellow"
+                        String(
+                          site.status || ""
+                        ).toLowerCase() === "active"
+                          ? "badge green"
+                          : "badge yellow"
                       }
                     >
                       {site.status || "-"}
@@ -353,28 +610,43 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
                   </td>
 
                   <td>
-                    <button type="button" onClick={() => navigate(`/sites/${site.id}`)}>
-                      Open
-                    </button>
+                    <div className="table-actions">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/sites/${site.id}`)
+                        }
+                      >
+                        Open
+                      </button>
 
-                    <button type="button" onClick={() => startEdit(site)}>
-                      Edit
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(site)}
+                      >
+                        Edit
+                      </button>
 
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={() => setDeleteTarget(site)}
-                    >
-                      Delete
-                    </button>
+                      <button
+                        type="button"
+                        className="delete-btn"
+                        onClick={() =>
+                          setDeleteTarget(site)
+                        }
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
 
               {filteredSites.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="empty-table-message">
+                  <td
+                    colSpan="5"
+                    className="empty-table-message"
+                  >
                     No sites found.
                   </td>
                 </tr>
@@ -385,9 +657,15 @@ function SitesPage({ sites = [], addSite, deleteSite, fetchSites }) {
       </section>
 
       <DeleteVerificationModal
-        open={!!deleteTarget}
-        itemName={deleteTarget?.site_name || "site"}
-        onCancel={() => setDeleteTarget(null)}
+        open={Boolean(deleteTarget)}
+        itemName={
+          deleteTarget?.site_name || "site"
+        }
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
         onConfirm={handleConfirmDelete}
       />
     </>

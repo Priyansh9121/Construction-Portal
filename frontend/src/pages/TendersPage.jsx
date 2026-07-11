@@ -4,14 +4,22 @@ import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateTender } from "../services/tenderService";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
+import { useAuth } from "../contexts/AuthContext";
+import useTenders from "../hooks/useTenders";
+import useSites from "../hooks/useSites";
 
-function TendersPage({
-  tenders = [],
-  sites = [],
-  addTender,
-  deleteTender,
-  fetchTenders,
-}) {
+
+function TendersPage() {
+  const { user } = useAuth();
+
+  const {
+    tenders = [],
+    addTender,
+    removeTender,
+    fetchTenders,
+  } = useTenders(user);
+
+  const { sites = [] } = useSites(user);
   const navigate = useNavigate();
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -111,10 +119,40 @@ function TendersPage({
     description: tender.description || "",
   }));
 
+  const handleAddTender = async (event) => {
+    event.preventDefault();
+  
+    const form = event.currentTarget;
+  
+    const newTender = {
+      company_id: user?.company_id || null,
+      site_id: form.site_id.value
+        ? Number(form.site_id.value)
+        : null,
+      title: form.title.value.trim(),
+      status: form.status.value,
+      due_date: form.due_date.value || null,
+      description: form.description.value.trim(),
+      estimated_value: Number(
+        form.estimated_value.value || 0
+      ),
+    };
+  
+    try {
+      await addTender(newTender);
+      form.reset();
+    } catch (error) {
+      console.error(
+        "Failed to add tender:",
+        error.response?.data || error
+      );
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
 
-    await deleteTender(deleteTarget.id);
+    await removeTender(deleteTarget.id);
     setDeleteTarget(null);
   };
 
@@ -150,10 +188,14 @@ function TendersPage({
 
     await updateTender(editingTender.id, {
       ...editForm,
-      site_id: editForm.site_id ? Number(editForm.site_id) : null,
-      estimated_value: Number(editForm.estimated_value || 0),
+      site_id: editForm.site_id
+        ? Number(editForm.site_id)
+        : null,
+      estimated_value: Number(
+        editForm.estimated_value || 0
+      ),
     });
-
+    
     await fetchTenders();
     cancelEdit();
   };
@@ -321,7 +363,10 @@ function TendersPage({
               </div>
             </form>
           ) : (
-            <form className="payment-form" onSubmit={addTender}>
+            <form
+              className="payment-form"
+              onSubmit={handleAddTender}
+            >
               <div className="form-grid">
                 <label>
                   Site

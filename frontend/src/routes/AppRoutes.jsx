@@ -76,6 +76,7 @@ function AdminManagerLayout({
 }
 
 function AppRoutes({
+  // Authentication
   user,
   logout,
   email,
@@ -85,35 +86,30 @@ function AppRoutes({
   message,
   handleLogin,
 
+  // Finance
   payments = [],
   addPayment,
   deletePayment,
   fetchPayments,
 
+  // Shared worker data
   workers = [],
-  addWorker,
-  deleteWorker,
-  fetchWorkers,
 
+  // Shared site data
   sites = [],
-  addSite,
-  deleteSite,
-  fetchSites,
 
+  // Tenders
   tenders = [],
-  addTender,
-  deleteTender,
-  fetchTenders,
 
+  // Invoices
   invoices = [],
-  addInvoice,
-  deleteInvoice,
-  fetchInvoices,
 
+  // Daily site updates
   siteLogs = [],
   addSiteLog,
   deleteSiteLog,
 
+  // Worker money
   allocations = [],
   expenses = [],
   addAllocation,
@@ -127,15 +123,20 @@ function AppRoutes({
   approveExpense,
   rejectExpense,
 
+  // Shared subcontractor data
   subcontractors = [],
 }) {
   return (
     <Routes>
+      {/* Public authentication routes */}
       <Route
         path="/login"
         element={
           user ? (
-            <Navigate to={getHomePath(user)} replace />
+            <Navigate
+              to={getHomePath(user)}
+              replace
+            />
           ) : (
             <LoginPage
               email={email}
@@ -149,7 +150,10 @@ function AppRoutes({
         }
       />
 
-      <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/register"
+        element={<RegisterPage />}
+      />
 
       <Route
         path="/forgot-password"
@@ -161,7 +165,7 @@ function AppRoutes({
         element={<ResetPasswordPage />}
       />
 
-      {/* Worker-only portal: no AppLayout, no admin sidebar */}
+      {/* Worker-only portal */}
       <Route
         path="/worker-portal"
         element={
@@ -174,7 +178,7 @@ function AppRoutes({
         }
       />
 
-      {/* Subcontractor-only portal: no AppLayout, no admin sidebar */}
+      {/* Subcontractor-only portal */}
       <Route
         path="/subcontractor-portal"
         element={
@@ -187,6 +191,7 @@ function AppRoutes({
         }
       />
 
+      {/* Dashboard */}
       <Route
         path="/dashboard"
         element={
@@ -210,6 +215,7 @@ function AppRoutes({
         }
       />
 
+      {/* Finance */}
       <Route
         path="/payments"
         element={
@@ -234,6 +240,7 @@ function AppRoutes({
         }
       />
 
+      {/* Workers now load their own hook data */}
       <Route
         path="/workers"
         element={
@@ -245,16 +252,12 @@ function AppRoutes({
             tenders={tenders}
             invoices={invoices}
           >
-            <WorkersPage
-              workers={workers}
-              addWorker={addWorker}
-              deleteWorker={deleteWorker}
-              fetchWorkers={fetchWorkers}
-            />
+            <WorkersPage />
           </AdminManagerLayout>
         }
       />
 
+      {/* Worker money still uses shared data */}
       <Route
         path="/worker-money"
         element={
@@ -285,6 +288,7 @@ function AppRoutes({
         }
       />
 
+      {/* Sites now load their own hook data */}
       <Route
         path="/sites"
         element={
@@ -296,16 +300,12 @@ function AppRoutes({
             tenders={tenders}
             invoices={invoices}
           >
-            <SitesPage
-              sites={sites}
-              addSite={addSite}
-              deleteSite={deleteSite}
-              fetchSites={fetchSites}
-            />
+            <SitesPage />
           </AdminManagerLayout>
         }
       />
 
+      {/* Site details still use shared lists */}
       <Route
         path="/sites/:id"
         element={
@@ -326,6 +326,7 @@ function AppRoutes({
         }
       />
 
+      {/* Tenders */}
       <Route
         path="/tenders"
         element={
@@ -337,17 +338,12 @@ function AppRoutes({
             tenders={tenders}
             invoices={invoices}
           >
-            <TendersPage
-              tenders={tenders}
-              sites={sites}
-              addTender={addTender}
-              deleteTender={deleteTender}
-              fetchTenders={fetchTenders}
-            />
+            <TendersPage />
           </AdminManagerLayout>
         }
       />
 
+      {/* Tender details */}
       <Route
         path="/tenders/:id"
         element={
@@ -371,6 +367,7 @@ function AppRoutes({
         }
       />
 
+      {/* Invoices */}
       <Route
         path="/invoices"
         element={
@@ -382,16 +379,12 @@ function AppRoutes({
             tenders={tenders}
             invoices={invoices}
           >
-            <InvoicesPage
-              invoices={invoices}
-              addInvoice={addInvoice}
-              deleteInvoice={deleteInvoice}
-              fetchInvoices={fetchInvoices}
-            />
+            <InvoicesPage />
           </AdminManagerLayout>
         }
       />
 
+      {/* Daily site updates */}
       <Route
         path="/daily-site-updates"
         element={
@@ -415,6 +408,7 @@ function AppRoutes({
         }
       />
 
+      {/* Daily update approvals */}
       <Route
         path="/daily-update-approvals"
         element={
@@ -431,6 +425,7 @@ function AppRoutes({
         }
       />
 
+      {/* Subcontractors */}
       <Route
         path="/subcontractors"
         element={
@@ -447,7 +442,7 @@ function AppRoutes({
         }
       />
 
-      {/* Admin only */}
+      {/* Admin-only user management */}
       <Route
         path="/users"
         element={
@@ -469,6 +464,7 @@ function AppRoutes({
         }
       />
 
+      {/* Reports */}
       <Route
         path="/reports"
         element={
@@ -495,6 +491,7 @@ function AppRoutes({
         }
       />
 
+      {/* Settings */}
       <Route
         path="/settings"
         element={
@@ -506,29 +503,46 @@ function AppRoutes({
             tenders={tenders}
             invoices={invoices}
           >
-            <SettingsPage user={user} logout={logout} />
+            <SettingsPage
+              user={user}
+              logout={logout}
+            />
           </AdminManagerLayout>
         }
       />
 
+      {/* Default route */}
       <Route
         path="/"
         element={
           user ? (
-            <Navigate to={getHomePath(user)} replace />
+            <Navigate
+              to={getHomePath(user)}
+              replace
+            />
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate
+              to="/login"
+              replace
+            />
           )
         }
       />
 
+      {/* Unknown route */}
       <Route
         path="*"
         element={
           user ? (
-            <Navigate to={getHomePath(user)} replace />
+            <Navigate
+              to={getHomePath(user)}
+              replace
+            />
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate
+              to="/login"
+              replace
+            />
           )
         }
       />

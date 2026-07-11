@@ -3,13 +3,20 @@ import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import { updateInvoice } from "../services/invoiceService";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
+import { useAuth } from "../contexts/AuthContext";
+import useInvoices from "../hooks/useInvoices";
 
-function InvoicesPage({
-  invoices = [],
-  addInvoice,
-  deleteInvoice,
-  fetchInvoices,
-}) {
+
+function InvoicesPage() {
+  const { user } = useAuth();
+
+  const {
+    invoices = [],
+    addInvoice,
+    removeInvoice,
+    fetchInvoices,
+  } = useInvoices(user);
+  
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -137,15 +144,26 @@ function InvoicesPage({
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-
-    await deleteInvoice(deleteTarget.id);
-
-    if (selectedInvoice?.id === deleteTarget.id) {
-      setSelectedInvoice(null);
+    if (!deleteTarget || submitting) return;
+  
+    try {
+      setSubmitting(true);
+  
+      await removeInvoice(deleteTarget.id);
+  
+      if (selectedInvoice?.id === deleteTarget.id) {
+        setSelectedInvoice(null);
+      }
+  
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error(
+        "Failed to delete invoice:",
+        error.response?.data || error
+      );
+    } finally {
+      setSubmitting(false);
     }
-
-    setDeleteTarget(null);
   };
 
   const startEdit = (invoice) => {
@@ -193,14 +211,33 @@ function InvoicesPage({
   };
 
   const handleAddInvoice = async (event) => {
-    if (submitting) {
-      event.preventDefault();
-      return;
-    }
-
+    event.preventDefault();
+  
+    if (submitting) return;
+  
+    const form = event.currentTarget;
+  
+    const newInvoice = {
+      company_id: user?.company_id || null,
+      tender_id: form.tender_id?.value
+        ? Number(form.tender_id.value)
+        : null,
+      invoice_number: form.invoice_number.value.trim(),
+      amount: Number(form.amount.value || 0),
+      status: form.status.value,
+    };
+  
     try {
       setSubmitting(true);
-      await addInvoice(event);
+  
+      await addInvoice(newInvoice);
+  
+      form.reset();
+    } catch (error) {
+      console.error(
+        "Failed to add invoice:",
+        error.response?.data || error
+      );
     } finally {
       setSubmitting(false);
     }
