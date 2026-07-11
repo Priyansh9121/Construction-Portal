@@ -1,254 +1,622 @@
-import { useState } from "react";
+import {
+  useMemo,
+  useState,
+} from "react";
+
+import toast from "react-hot-toast";
+
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
-import { updateWorker } from "../services/workerService";
 import ExportButtons from "../components/export/ExportButtons";
+
+import { updateWorker } from "../services/workerService";
 import { formatCurrency } from "../utils/currency";
+
 import { useAuth } from "../contexts/AuthContext";
 import useWorkers from "../hooks/useWorkers";
-import toast from "react-hot-toast";
+
+const EMPTY_EDIT_FORM = {
+  full_name: "",
+  phone: "",
+  salary: "",
+  role: "",
+  status: "active",
+};
 
 function WorkersPage() {
   const { user } = useAuth();
 
   const {
-    workers,
+    workers = [],
     addWorker,
     removeWorker,
     fetchWorkers,
   } = useWorkers(user);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editingWorker, setEditingWorker] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
 
-  const [adding, setAdding] =
-    useState(false);
+  const [
+    deleteTarget,
+    setDeleteTarget,
+  ] = useState(null);
 
-  const [updating, setUpdating] =
-    useState(false);
+  const [
+    editingWorker,
+    setEditingWorker,
+  ] = useState(null);
 
-  const [deleting, setDeleting] =
-    useState(false);
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
 
-  const [editForm, setEditForm] = useState({
-    full_name: "",
-    phone: "",
-    salary: "",
-    role: "",
-    status: "active",
-  });
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState("all");
+
+  const [
+    editForm,
+    setEditForm,
+  ] = useState(EMPTY_EDIT_FORM);
+
+  const [
+    adding,
+    setAdding,
+  ] = useState(false);
+
+  const [
+    updating,
+    setUpdating,
+  ] = useState(false);
+
+  const [
+    deleting,
+    setDeleting,
+  ] = useState(false);
 
   const money = formatCurrency;
 
-  const filteredWorkers = workers.filter((worker) => {
-    const search = searchTerm.toLowerCase();
+  const normaliseStatus = (value) =>
+    String(value || "active")
+      .trim()
+      .toLowerCase();
 
-    return (
-      worker.full_name?.toLowerCase().includes(search) ||
-      worker.phone?.toLowerCase().includes(search) ||
-      worker.role?.toLowerCase().includes(search) ||
-      worker.status?.toLowerCase().includes(search) ||
-      String(worker.salary || "").includes(search)
-    );
-  });
+  const normaliseText = (value) =>
+    String(value || "").trim();
 
-  const activeWorkers = workers.filter((worker) => worker.status === "active");
-  const inactiveWorkers = workers.filter(
-    (worker) => worker.status === "inactive"
+  const getStatusClass = (status) =>
+    normaliseStatus(status) === "active"
+      ? "badge green"
+      : "badge yellow";
+
+  const filteredWorkers = useMemo(() => {
+    const search = searchTerm
+      .trim()
+      .toLowerCase();
+
+    return workers.filter((worker) => {
+      const status =
+        normaliseStatus(worker.status);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        status === statusFilter;
+
+      const searchableText = [
+        worker.full_name,
+        worker.phone,
+        worker.role,
+        worker.salary,
+        status,
+      ]
+        .filter(
+          (value) =>
+            value !== null &&
+            value !== undefined
+        )
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch =
+        !search ||
+        searchableText.includes(search);
+
+      return (
+        matchesStatus &&
+        matchesSearch
+      );
+    });
+  }, [
+    workers,
+    searchTerm,
+    statusFilter,
+  ]);
+
+  const activeWorkers = useMemo(
+    () =>
+      workers.filter(
+        (worker) =>
+          normaliseStatus(
+            worker.status
+          ) === "active"
+      ),
+    [workers]
   );
 
-  const totalSalary = workers.reduce(
-    (sum, worker) => sum + Number(worker.salary || 0),
-    0
+  const inactiveWorkers = useMemo(
+    () =>
+      workers.filter(
+        (worker) =>
+          normaliseStatus(
+            worker.status
+          ) === "inactive"
+      ),
+    [workers]
   );
 
-  const filteredSalary = filteredWorkers.reduce(
-    (sum, worker) => sum + Number(worker.salary || 0),
-    0
+  const totalSalary = useMemo(
+    () =>
+      workers.reduce(
+        (sum, worker) =>
+          sum +
+          Number(
+            worker.salary || 0
+          ),
+        0
+      ),
+    [workers]
+  );
+
+  const filteredSalary = useMemo(
+    () =>
+      filteredWorkers.reduce(
+        (sum, worker) =>
+          sum +
+          Number(
+            worker.salary || 0
+          ),
+        0
+      ),
+    [filteredWorkers]
   );
 
   const averageSalary =
-    workers.length > 0 ? totalSalary / workers.length : 0;
-
-  const workerExportRows = filteredWorkers.map((worker) => ({
-    full_name: worker.full_name || "",
-    phone: worker.phone || "",
-    role: worker.role || "",
-    salary: money(worker.salary),
-    status: worker.status || "",
-  }));
+    workers.length > 0
+      ? totalSalary /
+        workers.length
+      : 0;
 
   const workerExportColumns = [
-    { key: "full_name", label: "Worker Name" },
-    { key: "phone", label: "Phone" },
-    { key: "role", label: "Role" },
-    { key: "salary", label: "Salary" },
-    { key: "status", label: "Status" },
+    {
+      key: "full_name",
+      label: "Worker Name",
+    },
+    {
+      key: "phone",
+      label: "Phone",
+    },
+    {
+      key: "role",
+      label: "Role",
+    },
+    {
+      key: "salary",
+      label: "Salary",
+    },
+    {
+      key: "status",
+      label: "Status",
+    },
   ];
 
-  const emptyEditForm = {
-    full_name: "",
-    phone: "",
-    salary: "",
-    role: "",
-    status: "active",
+  const workerExportRows =
+    filteredWorkers.map(
+      (worker) => ({
+        full_name:
+          worker.full_name || "",
+        phone:
+          worker.phone || "",
+        role:
+          worker.role || "",
+        salary:
+          money(worker.salary),
+        status:
+          normaliseStatus(
+            worker.status
+          ),
+      })
+    );
+
+  const workerExportSummary = {
+    "Total Workers":
+      workers.length,
+
+    "Active Workers":
+      activeWorkers.length,
+
+    "Inactive Workers":
+      inactiveWorkers.length,
+
+    "Total Salary":
+      money(totalSalary),
+
+    "Average Salary":
+      money(averageSalary),
+
+    "Filtered Workers":
+      filteredWorkers.length,
+
+    "Filtered Salary":
+      money(filteredSalary),
   };
 
-  const handleAddWorker = async (
-    event
-  ) => {
-    event.preventDefault();
-  
-    if (adding) return;
-  
-    const form =
-      event.currentTarget;
-  
-    const payload = {
-      company_id:
-        user?.company_id || null,
-      full_name:
-        form.full_name.value.trim(),
-      phone:
-        form.phone.value.trim(),
-      salary: Number(
-        form.salary.value || 0
-      ),
-      role:
-        form.role.value.trim(),
-      status:
-        form.status.value,
-    };
-  
-    try {
-      setAdding(true);
-  
-      await addWorker(payload);
-  
-      form.reset();
-  
-      toast.success(
-        "Worker added successfully."
-      );
-    } catch (error) {
+  const validateWorker = ({
+    full_name,
+    phone,
+    salary,
+    role,
+    status,
+  }) => {
+    if (!full_name) {
       toast.error(
-        error.response?.data?.message ||
-          "Failed to add worker."
+        "Worker name is required."
       );
-    } finally {
-      setAdding(false);
+      return false;
     }
+
+    if (!phone) {
+      toast.error(
+        "Phone number is required."
+      );
+      return false;
+    }
+
+    if (!role) {
+      toast.error(
+        "Worker role is required."
+      );
+      return false;
+    }
+
+    if (
+      Number.isNaN(salary) ||
+      salary < 0
+    ) {
+      toast.error(
+        "Salary must be zero or greater."
+      );
+      return false;
+    }
+
+    if (
+      ![
+        "active",
+        "inactive",
+      ].includes(status)
+    ) {
+      toast.error(
+        "Select a valid worker status."
+      );
+      return false;
+    }
+
+    return true;
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget || deleting) {
-      return;
-    }
-  
-    try {
-      setDeleting(true);
-  
-      await removeWorker(
-        deleteTarget.id
-      );
-  
-      if (
-        editingWorker?.id ===
-        deleteTarget.id
-      ) {
-        cancelEdit();
+  const handleAddWorker =
+    async (event) => {
+      event.preventDefault();
+
+      if (adding) {
+        return;
       }
-  
-      setDeleteTarget(null);
-  
-      toast.success(
-        "Worker deleted successfully."
-      );
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to delete worker."
-      );
-    } finally {
-      setDeleting(false);
-    }
-  };
+
+      if (
+        typeof addWorker !==
+        "function"
+      ) {
+        toast.error(
+          "Add worker function is unavailable."
+        );
+        return;
+      }
+
+      const form =
+        event.currentTarget;
+
+      const payload = {
+        company_id:
+          user?.company_id ||
+          null,
+
+        full_name:
+          normaliseText(
+            form.full_name.value
+          ),
+
+        phone:
+          normaliseText(
+            form.phone.value
+          ),
+
+        salary:
+          Number(
+            form.salary.value ||
+              0
+          ),
+
+        role:
+          normaliseText(
+            form.role.value
+          ),
+
+        status:
+          normaliseStatus(
+            form.status.value
+          ),
+      };
+
+      if (
+        !validateWorker(payload)
+      ) {
+        return;
+      }
+
+      try {
+        setAdding(true);
+
+        await addWorker(payload);
+
+        form.reset();
+
+        toast.success(
+          "Worker added successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to add worker:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to add worker."
+        );
+      } finally {
+        setAdding(false);
+      }
+    };
 
   const startEdit = (worker) => {
+    if (
+      adding ||
+      updating ||
+      deleting
+    ) {
+      return;
+    }
+
     setEditingWorker(worker);
 
     setEditForm({
-      full_name: worker.full_name || "",
-      phone: worker.phone || "",
-      salary: worker.salary || "",
-      role: worker.role || "",
-      status: worker.status || "active",
+      full_name:
+        worker.full_name || "",
+      phone:
+        worker.phone || "",
+      salary:
+        worker.salary ?? "",
+      role:
+        worker.role || "",
+      status:
+        normaliseStatus(
+          worker.status
+        ),
+    });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
     });
   };
 
   const cancelEdit = () => {
-    setEditingWorker(null);
-    setEditForm(emptyEditForm);
-  };
-
-  const handleEditChange = (event) => {
-    setEditForm((prev) => ({
-      ...prev,
-      [event.target.name]: event.target.value,
-    }));
-  };
-
-  const handleUpdateWorker = async (
-    event
-  ) => {
-    event.preventDefault();
-  
-    if (!editingWorker || updating) {
+    if (updating) {
       return;
     }
-  
-    try {
-      setUpdating(true);
-  
-      await updateWorker(
-        editingWorker.id,
-        {
-          ...editForm,
-          full_name:
-            editForm.full_name.trim(),
-          phone:
-            editForm.phone.trim(),
-          salary: Number(
+
+    setEditingWorker(null);
+
+    setEditForm(
+      EMPTY_EDIT_FORM
+    );
+  };
+
+  const handleEditChange = (
+    event
+  ) => {
+    const { name, value } =
+      event.target;
+
+    setEditForm(
+      (previousForm) => ({
+        ...previousForm,
+        [name]: value,
+      })
+    );
+  };
+
+  const handleUpdateWorker =
+    async (event) => {
+      event.preventDefault();
+
+      if (
+        !editingWorker ||
+        updating
+      ) {
+        return;
+      }
+
+      const payload = {
+        company_id:
+          editingWorker.company_id ||
+          user?.company_id ||
+          null,
+
+        full_name:
+          normaliseText(
+            editForm.full_name
+          ),
+
+        phone:
+          normaliseText(
+            editForm.phone
+          ),
+
+        salary:
+          Number(
             editForm.salary || 0
           ),
-          role:
-            editForm.role.trim(),
+
+        role:
+          normaliseText(
+            editForm.role
+          ),
+
+        status:
+          normaliseStatus(
+            editForm.status
+          ),
+      };
+
+      if (
+        !validateWorker(payload)
+      ) {
+        return;
+      }
+
+      try {
+        setUpdating(true);
+
+        await updateWorker(
+          editingWorker.id,
+          payload
+        );
+
+        if (
+          typeof fetchWorkers ===
+          "function"
+        ) {
+          await fetchWorkers();
         }
-      );
-  
-      await fetchWorkers();
-      cancelEdit();
-  
-      toast.success(
-        "Worker updated successfully."
-      );
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to update worker."
-      );
-    } finally {
-      setUpdating(false);
-    }
+
+        setEditingWorker(null);
+
+        setEditForm(
+          EMPTY_EDIT_FORM
+        );
+
+        toast.success(
+          "Worker updated successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to update worker:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to update worker."
+        );
+      } finally {
+        setUpdating(false);
+      }
+    };
+
+  const handleConfirmDelete =
+    async () => {
+      if (
+        !deleteTarget ||
+        deleting
+      ) {
+        return;
+      }
+
+      if (
+        typeof removeWorker !==
+        "function"
+      ) {
+        toast.error(
+          "Delete worker function is unavailable."
+        );
+        return;
+      }
+
+      try {
+        setDeleting(true);
+
+        await removeWorker(
+          deleteTarget.id
+        );
+
+        if (
+          editingWorker?.id ===
+          deleteTarget.id
+        ) {
+          setEditingWorker(null);
+
+          setEditForm(
+            EMPTY_EDIT_FORM
+          );
+        }
+
+        setDeleteTarget(null);
+
+        toast.success(
+          "Worker deleted successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to delete worker:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to delete worker."
+        );
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
   };
+
+  const isBusy =
+    adding ||
+    updating ||
+    deleting;
 
   return (
     <>
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Workers Management</h2>
+            <h2>
+              Workers Management
+            </h2>
+
             <p className="muted-text">
-              Manage labour records, salary details, roles and worker status.
+              Manage labour records,
+              salary details, roles and
+              worker status.
             </p>
           </div>
 
@@ -257,7 +625,12 @@ function WorkersPage() {
             title="Workers Report"
             subtitle="Construction Portal worker register"
             rows={workerExportRows}
-            columns={workerExportColumns}
+            columns={
+              workerExportColumns
+            }
+            summary={
+              workerExportSummary
+            }
           />
         </div>
       </section>
@@ -265,40 +638,61 @@ function WorkersPage() {
       <section className="summary-cards">
         <div className="card">
           <p>Total Workers</p>
-          <h2>{workers.length}</h2>
+          <h2>
+            {workers.length}
+          </h2>
         </div>
 
         <div className="card highlight-success">
           <p>Active Workers</p>
-          <h2>{activeWorkers.length}</h2>
+          <h2>
+            {
+              activeWorkers.length
+            }
+          </h2>
         </div>
 
         <div className="card highlight-warning">
           <p>Inactive Workers</p>
-          <h2>{inactiveWorkers.length}</h2>
+          <h2>
+            {
+              inactiveWorkers.length
+            }
+          </h2>
         </div>
 
         <div className="card">
           <p>Total Salary</p>
-          <h2>{money(totalSalary)}</h2>
+          <h2>
+            {money(totalSalary)}
+          </h2>
         </div>
 
         <div className="card">
           <p>Average Salary</p>
-          <h2>{money(averageSalary)}</h2>
+          <h2>
+            {money(averageSalary)}
+          </h2>
         </div>
 
         <div className="card">
           <p>Filtered Salary</p>
-          <h2>{money(filteredSalary)}</h2>
+          <h2>
+            {money(filteredSalary)}
+          </h2>
         </div>
       </section>
 
       <section className="payment-grid">
-        <div className="panel">
+        <section className="panel">
           <div className="section-title-row">
             <div>
-              <h2>{editingWorker ? "Edit Worker" : "Add Worker"}</h2>
+              <h2>
+                {editingWorker
+                  ? "Edit Worker"
+                  : "Add Worker"}
+              </h2>
+
               <p className="muted-text">
                 {editingWorker
                   ? "Update worker details and employment status."
@@ -308,14 +702,26 @@ function WorkersPage() {
           </div>
 
           {editingWorker ? (
-            <form className="payment-form" onSubmit={handleUpdateWorker}>
+            <form
+              className="payment-form"
+              onSubmit={
+                handleUpdateWorker
+              }
+            >
               <div className="form-grid">
                 <label>
                   Worker Name
                   <input
                     name="full_name"
-                    value={editForm.full_name}
-                    onChange={handleEditChange}
+                    value={
+                      editForm.full_name
+                    }
+                    onChange={
+                      handleEditChange
+                    }
+                    disabled={
+                      updating
+                    }
                     required
                   />
                 </label>
@@ -324,8 +730,16 @@ function WorkersPage() {
                   Phone Number
                   <input
                     name="phone"
-                    value={editForm.phone}
-                    onChange={handleEditChange}
+                    type="tel"
+                    value={
+                      editForm.phone
+                    }
+                    onChange={
+                      handleEditChange
+                    }
+                    disabled={
+                      updating
+                    }
                     required
                   />
                 </label>
@@ -335,8 +749,17 @@ function WorkersPage() {
                   <input
                     name="salary"
                     type="number"
-                    value={editForm.salary}
-                    onChange={handleEditChange}
+                    min="0"
+                    step="0.01"
+                    value={
+                      editForm.salary
+                    }
+                    onChange={
+                      handleEditChange
+                    }
+                    disabled={
+                      updating
+                    }
                     required
                   />
                 </label>
@@ -345,8 +768,15 @@ function WorkersPage() {
                   Role
                   <input
                     name="role"
-                    value={editForm.role}
-                    onChange={handleEditChange}
+                    value={
+                      editForm.role
+                    }
+                    onChange={
+                      handleEditChange
+                    }
+                    disabled={
+                      updating
+                    }
                     required
                   />
                 </label>
@@ -355,109 +785,262 @@ function WorkersPage() {
                   Status
                   <select
                     name="status"
-                    value={editForm.status}
-                    onChange={handleEditChange}
+                    value={
+                      editForm.status
+                    }
+                    onChange={
+                      handleEditChange
+                    }
+                    disabled={
+                      updating
+                    }
                     required
                   >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="active">
+                      Active
+                    </option>
+
+                    <option value="inactive">
+                      Inactive
+                    </option>
                   </select>
                 </label>
               </div>
 
               <div className="form-preview-total">
-                Salary Preview: {money(editForm.salary)}
+                Salary Preview:{" "}
+                {money(
+                  editForm.salary
+                )}
               </div>
 
               <div className="form-actions">
-                <button type="submit">Save Changes</button>
+                <button
+                  type="submit"
+                  disabled={
+                    updating
+                  }
+                >
+                  {updating
+                    ? "Saving..."
+                    : "Save Changes"}
+                </button>
 
                 <button
                   type="button"
                   className="secondary-btn"
-                  onClick={cancelEdit}
+                  onClick={
+                    cancelEdit
+                  }
+                  disabled={
+                    updating
+                  }
                 >
                   Cancel
                 </button>
               </div>
             </form>
           ) : (
-            <form className="payment-form" onSubmit={handleAddWorker}>
+            <form
+              className="payment-form"
+              onSubmit={
+                handleAddWorker
+              }
+            >
               <div className="form-grid">
                 <label>
                   Worker Name
-                  <input name="full_name" required />
+                  <input
+                    name="full_name"
+                    placeholder="Worker name"
+                    disabled={adding}
+                    required
+                  />
                 </label>
 
                 <label>
                   Phone Number
-                  <input name="phone" required />
+                  <input
+                    name="phone"
+                    type="tel"
+                    placeholder="Phone number"
+                    disabled={adding}
+                    required
+                  />
                 </label>
 
                 <label>
                   Salary
-                  <input name="salary" type="number" required />
+                  <input
+                    name="salary"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    disabled={adding}
+                    required
+                  />
                 </label>
 
                 <label>
                   Role
-                  <input name="role" required />
+                  <input
+                    name="role"
+                    placeholder="Example: Labourer"
+                    disabled={adding}
+                    required
+                  />
                 </label>
 
                 <label>
                   Status
-                  <select name="status" defaultValue="active" required>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                  <select
+                    name="status"
+                    defaultValue="active"
+                    disabled={adding}
+                    required
+                  >
+                    <option value="active">
+                      Active
+                    </option>
+
+                    <option value="inactive">
+                      Inactive
+                    </option>
                   </select>
                 </label>
               </div>
 
-              <button type="submit">Add Worker</button>
+              <button
+                type="submit"
+                disabled={adding}
+              >
+                {adding
+                  ? "Adding..."
+                  : "Add Worker"}
+              </button>
             </form>
           )}
-        </div>
+        </section>
 
-        <div className="panel">
+        <section className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Worker Search</h2>
+              <h2>
+                Worker Search
+              </h2>
+
               <p className="muted-text">
-                Search by name, phone, role, salary or status.
+                Search by name, phone,
+                role, salary or status.
               </p>
             </div>
+
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={resetFilters}
+              disabled={isBusy}
+            >
+              Reset
+            </button>
           </div>
 
-          <input
-            className="search-input"
-            type="text"
-            placeholder="Search workers..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
+          <label>
+            Search
+            <input
+              className="search-input"
+              type="search"
+              placeholder="Search workers..."
+              value={searchTerm}
+              onChange={(event) =>
+                setSearchTerm(
+                  event.target.value
+                )
+              }
+              disabled={isBusy}
+            />
+          </label>
+
+          <label>
+            Status
+            <select
+              value={
+                statusFilter
+              }
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value
+                )
+              }
+              disabled={isBusy}
+            >
+              <option value="all">
+                All Statuses
+              </option>
+
+              <option value="active">
+                Active
+              </option>
+
+              <option value="inactive">
+                Inactive
+              </option>
+            </select>
+          </label>
 
           <table>
             <tbody>
               <tr>
-                <td>Total Matching Workers</td>
-                <td className="number-cell">{filteredWorkers.length}</td>
+                <td>
+                  Status Filter
+                </td>
+                <td>
+                  {statusFilter}
+                </td>
               </tr>
 
               <tr>
-                <td>Matching Salary Total</td>
-                <td className="amount-cell">{money(filteredSalary)}</td>
+                <td>
+                  Matching Workers
+                </td>
+                <td className="number-cell">
+                  {
+                    filteredWorkers.length
+                  }
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  Matching Salary
+                </td>
+                <td className="amount-cell">
+                  {money(
+                    filteredSalary
+                  )}
+                </td>
               </tr>
             </tbody>
           </table>
-        </div>
+        </section>
       </section>
 
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Workers Register</h2>
+            <h2>
+              Workers Register
+            </h2>
+
             <p className="muted-text">
-              Complete worker list with role, salary, status and actions.
+              {filteredWorkers.length}{" "}
+              matching worker
+              {filteredWorkers.length ===
+              1
+                ? ""
+                : "s"}
+              .
             </p>
           </div>
         </div>
@@ -476,57 +1059,109 @@ function WorkersPage() {
             </thead>
 
             <tbody>
-              {filteredWorkers.map((worker) => (
-                <tr key={worker.id}>
-                  <td>{worker.full_name || "-"}</td>
-                  <td>{worker.phone || "-"}</td>
-                  <td className="amount-cell">{money(worker.salary)}</td>
-                  <td>{worker.role || "-"}</td>
-                  <td>
-                    <span
-                      className={
-                        worker.status === "active"
-                          ? "badge green"
-                          : "badge yellow"
-                      }
-                    >
-                      {worker.status || "-"}
-                    </span>
-                  </td>
-                  <td>
-                    <button type="button" onClick={() => startEdit(worker)}>
-                      Edit
-                    </button>
+              {filteredWorkers.map(
+                (worker) => (
+                  <tr key={worker.id}>
+                    <td>
+                      {worker.full_name ||
+                        "-"}
+                    </td>
 
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={() => setDeleteTarget(worker)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td>
+                      {worker.phone ||
+                        "-"}
+                    </td>
 
-              {filteredWorkers.length === 0 && (
+                    <td className="amount-cell">
+                      {money(
+                        worker.salary
+                      )}
+                    </td>
+
+                    <td>
+                      {worker.role ||
+                        "-"}
+                    </td>
+
+                    <td>
+                      <span
+                        className={getStatusClass(
+                          worker.status
+                        )}
+                      >
+                        {normaliseStatus(
+                          worker.status
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            startEdit(
+                              worker
+                            )
+                          }
+                          disabled={
+                            isBusy
+                          }
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          className="delete-btn"
+                          onClick={() =>
+                            setDeleteTarget(
+                              worker
+                            )
+                          }
+                          disabled={
+                            isBusy
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
+
+              {filteredWorkers.length ===
+                0 && (
                 <tr>
-                  <td colSpan="6" className="empty-table-message">
+                  <td
+                    colSpan="6"
+                    className="empty-table-message"
+                  >
                     No workers found.
                   </td>
                 </tr>
               )}
             </tbody>
 
-            {filteredWorkers.length > 0 && (
+            {filteredWorkers.length >
+              0 && (
               <tfoot>
                 <tr>
                   <td colSpan="2">
-                    <strong>Total</strong>
+                    <strong>
+                      Total
+                    </strong>
                   </td>
+
                   <td className="amount-cell">
-                    <strong>{money(filteredSalary)}</strong>
+                    <strong>
+                      {money(
+                        filteredSalary
+                      )}
+                    </strong>
                   </td>
+
                   <td colSpan="3" />
                 </tr>
               </tfoot>
@@ -536,10 +1171,22 @@ function WorkersPage() {
       </section>
 
       <DeleteVerificationModal
-        open={!!deleteTarget}
-        itemName={deleteTarget?.full_name || "worker"}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleConfirmDelete}
+        open={Boolean(
+          deleteTarget
+        )}
+        itemName={
+          deleteTarget?.full_name ||
+          "worker"
+        }
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        onConfirm={
+          handleConfirmDelete
+        }
+        loading={deleting}
       />
     </>
   );

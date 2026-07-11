@@ -1,5 +1,16 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+
+import toast from "react-hot-toast";
 
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 
@@ -15,7 +26,6 @@ import TenderSubcontractorsTab from "../components/tenderDetails/TenderSubcontra
 import TenderWorkersTab from "../components/tenderDetails/TenderWorkersTab";
 
 import { getWorkers } from "../services/workerService";
-import ExportButtons from "../components/export/ExportButtons";
 
 import {
   getPayments,
@@ -56,270 +66,987 @@ import { uploadFile } from "../services/uploadService";
 
 import { getSubcontractors } from "../services/subcontractorService";
 
+const EMPTY_WORKER_FORM = {
+  worker_id: "",
+  notes: "",
+  status: "active",
+};
+
 function TenderDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState("overview");
-  const [loading, setLoading] = useState(true);
+  const numericTenderId = Number(id);
 
-  const [tender, setTender] = useState(null);
-  const [documents, setDocuments] = useState([]);
-  const [materials, setMaterials] = useState([]);
-  const [banking, setBanking] = useState([]);
-  const [dailyUpdates, setDailyUpdates] = useState([]);
-  const [subcontractors, setSubcontractors] = useState([]);
-  const [allSubcontractors, setAllSubcontractors] = useState([]);
+  const [activeTab, setActiveTab] =
+    useState("overview");
 
-  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editingAssignedSub, setEditingAssignedSub] = useState(null);
+  const [loadError, setLoadError] =
+    useState("");
 
-  const [subcontractorForm, setSubcontractorForm] = useState(
+  const [tender, setTender] =
+    useState(null);
+
+  const [documents, setDocuments] =
+    useState([]);
+
+  const [materials, setMaterials] =
+    useState([]);
+
+  const [banking, setBanking] =
+    useState([]);
+
+  const [dailyUpdates, setDailyUpdates] =
+    useState([]);
+
+  const [
+    subcontractors,
+    setSubcontractors,
+  ] = useState([]);
+
+  const [
+    allSubcontractors,
+    setAllSubcontractors,
+  ] = useState([]);
+
+  const [payments, setPayments] =
+    useState([]);
+
+  const [workers, setWorkers] =
+    useState([]);
+
+  const [
+    assignedWorkers,
+    setAssignedWorkers,
+  ] = useState([]);
+
+  const [
+    deleteTarget,
+    setDeleteTarget,
+  ] = useState(null);
+
+  const [
+    editingAssignedSub,
+    setEditingAssignedSub,
+  ] = useState(null);
+
+  const [
+    subcontractorForm,
+    setSubcontractorForm,
+  ] = useState(
     emptySubcontractorForm
   );
 
-  const [documentForm, setDocumentForm] = useState(emptyDocumentForm);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [
+    documentForm,
+    setDocumentForm,
+  ] = useState(
+    emptyDocumentForm
+  );
 
-  const [materialForm, setMaterialForm] = useState(emptyMaterialForm);
-  const [bankingForm, setBankingForm] = useState(emptyBankingForm);
+  const [
+    selectedFile,
+    setSelectedFile,
+  ] = useState(null);
 
-  const [workers, setWorkers] = useState([]);
-  const [assignedWorkers, setAssignedWorkers] = useState([]);
+  const [
+    materialForm,
+    setMaterialForm,
+  ] = useState(
+    emptyMaterialForm
+  );
 
-  const [workerForm, setWorkerForm] = useState({
-    worker_id: "",
-    notes: "",
-    status: "active",
-  });
+  const [
+    bankingForm,
+    setBankingForm,
+  ] = useState(
+    emptyBankingForm
+  );
 
-  const loadTenderWorkers = async () => {
-    try {
-      const data = await getTenderWorkers(id);
-      setAssignedWorkers(data.workers || []);
-    } catch (error) {
-      console.error("Load tender workers error:", error);
-    }
-  };
+  const [
+    workerForm,
+    setWorkerForm,
+  ] = useState(
+    EMPTY_WORKER_FORM
+  );
 
-  const fetchTenderDetails = async () => {
-    try {
-      setLoading(true);
+  const [
+    addingDocument,
+    setAddingDocument,
+  ] = useState(false);
 
-      const data = await getTenderDetails(id);
+  const [
+    addingMaterial,
+    setAddingMaterial,
+  ] = useState(false);
 
-      setTender(data.tender);
-      setDocuments(data.documents || []);
-      setMaterials(data.materials || []);
-      setBanking(data.banking || []);
-      setDailyUpdates(data.dailyUpdates || []);
-      setSubcontractors(data.subcontractors || []);
+  const [
+    addingBanking,
+    setAddingBanking,
+  ] = useState(false);
 
-      try {
-        const subData = await getSubcontractors();
-        setAllSubcontractors(subData.subcontractors || []);
-      } catch (subError) {
-        console.error("Subcontractors fetch error:", subError);
-        setAllSubcontractors([]);
-      }
+  const [
+    assigningWorker,
+    setAssigningWorker,
+  ] = useState(false);
 
-      try {
-        const workerData = await getWorkers();
-        setWorkers(workerData || []);
-      } catch (workerError) {
-        console.error("Workers fetch error:", workerError);
-        setWorkers([]);
-      }
-    } catch (error) {
-      console.error("Tender details fetch error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [
+    savingSubcontractor,
+    setSavingSubcontractor,
+  ] = useState(false);
 
-  const loadPayments = async () => {
-    try {
-      const data = await getPayments({ tender_id: id });
-      setPayments(data || []);
-    } catch (error) {
-      console.error("Load payments error:", error);
-    }
-  };
+  const [deleting, setDeleting] =
+    useState(false);
 
-  useEffect(() => {
-    fetchTenderDetails();
-    loadPayments();
-    loadTenderWorkers();
-  }, [id]);
+  const isBusy =
+    addingDocument ||
+    addingMaterial ||
+    addingBanking ||
+    assigningWorker ||
+    savingSubcontractor ||
+    deleting;
 
-  const handleAddDocument = async (e) => {
-    e.preventDefault();
-
-    let uploadedUrl = documentForm.file_url;
-
-    if (selectedFile) {
-      uploadedUrl = await uploadFile(selectedFile, "tender-documents");
-    }
-
-    await addTenderDocument({
-      tender_id: id,
-      document_name: documentForm.document_name,
-      document_type: documentForm.document_type,
-      file_url: uploadedUrl || null,
-    });
-
-    setDocumentForm(emptyDocumentForm);
-    setSelectedFile(null);
-    await fetchTenderDetails();
-  };
-
-  const handleAddMaterial = async (e) => {
-    e.preventDefault();
-
-    await addTenderMaterial({
-      tender_id: id,
-      ...materialForm,
-    });
-
-    setMaterialForm(emptyMaterialForm);
-    await fetchTenderDetails();
-  };
-
-  const handleAddBanking = async (e) => {
-    e.preventDefault();
-
-    await addTenderBanking({
-      tender_id: id,
-      ...bankingForm,
-    });
-
-    setBankingForm(emptyBankingForm);
-    await fetchTenderDetails();
-  };
-
-  const handleAssignWorker = async (e) => {
-    e.preventDefault();
-
-    if (!workerForm.worker_id) {
-      alert("Please select a worker");
-      return;
-    }
-
-    try {
-      await assignWorkerToTender({
-        tender_id: Number(id),
-        worker_id: Number(workerForm.worker_id),
-        notes: workerForm.notes,
-        status: workerForm.status,
-      });
-
-      setWorkerForm({
-        worker_id: "",
-        notes: "",
-        status: "active",
-      });
-
-      await loadTenderWorkers();
-    } catch (error) {
-      console.error("Assign worker error:", error);
-      alert(error.response?.data?.message || "Failed to assign worker.");
-    }
-  };
-
-  const handleAssignSubcontractor = async (e) => {
-    e.preventDefault();
-
-    if (!subcontractorForm.subcontractor_id) {
-      alert("Please select a subcontractor");
-      return;
-    }
-
-    if (!subcontractorForm.work_description.trim()) {
-      alert("Please enter work description");
-      return;
+  const normaliseArrayResponse = (
+    response,
+    key
+  ) => {
+    if (Array.isArray(response)) {
+      return response;
     }
 
     if (
-      !subcontractorForm.assigned_amount ||
-      Number(subcontractorForm.assigned_amount) <= 0
+      Array.isArray(response?.[key])
     ) {
-      alert("Please enter assigned amount greater than 0");
-      return;
+      return response[key];
     }
 
-    if (editingAssignedSub) {
-      await updateTenderSubcontractor(editingAssignedSub.id, {
-        work_description: subcontractorForm.work_description,
-        assigned_amount: Number(subcontractorForm.assigned_amount),
-        status: subcontractorForm.status,
+    if (
+      Array.isArray(
+        response?.data?.[key]
+      )
+    ) {
+      return response.data[key];
+    }
+
+    if (
+      Array.isArray(response?.data)
+    ) {
+      return response.data;
+    }
+
+    return [];
+  };
+
+  const loadTenderWorkers =
+    useCallback(async () => {
+      try {
+        const response =
+          await getTenderWorkers(id);
+
+        setAssignedWorkers(
+          normaliseArrayResponse(
+            response,
+            "workers"
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load tender workers:",
+          error.response?.data ||
+            error
+        );
+
+        setAssignedWorkers([]);
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to load assigned workers."
+        );
+      }
+    }, [id]);
+
+  const loadPayments =
+    useCallback(async () => {
+      try {
+        const response =
+          await getPayments({
+            tender_id: id,
+          });
+
+        setPayments(
+          normaliseArrayResponse(
+            response,
+            "payments"
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load tender payments:",
+          error.response?.data ||
+            error
+        );
+
+        setPayments([]);
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to load tender finance records."
+        );
+      }
+    }, [id]);
+
+  const fetchTenderDetails =
+    useCallback(
+      async ({
+        showLoader = true,
+      } = {}) => {
+        if (
+          !id ||
+          Number.isNaN(
+            numericTenderId
+          )
+        ) {
+          setTender(null);
+
+          setLoadError(
+            "The selected tender ID is invalid."
+          );
+
+          setLoading(false);
+          return;
+        }
+
+        try {
+          if (showLoader) {
+            setLoading(true);
+          }
+
+          setLoadError("");
+
+          const [
+            tenderResponse,
+            subcontractorResponse,
+            workerResponse,
+          ] = await Promise.all([
+            getTenderDetails(id),
+
+            getSubcontractors().catch(
+              (error) => {
+                console.error(
+                  "Failed to load subcontractor list:",
+                  error.response?.data ||
+                    error
+                );
+
+                return {
+                  subcontractors: [],
+                };
+              }
+            ),
+
+            getWorkers().catch(
+              (error) => {
+                console.error(
+                  "Failed to load workers:",
+                  error.response?.data ||
+                    error
+                );
+
+                return [];
+              }
+            ),
+          ]);
+
+          const responseData =
+            tenderResponse?.data ||
+            tenderResponse ||
+            {};
+
+          setTender(
+            responseData.tender ||
+              null
+          );
+
+          setDocuments(
+            Array.isArray(
+              responseData.documents
+            )
+              ? responseData.documents
+              : []
+          );
+
+          setMaterials(
+            Array.isArray(
+              responseData.materials
+            )
+              ? responseData.materials
+              : []
+          );
+
+          setBanking(
+            Array.isArray(
+              responseData.banking
+            )
+              ? responseData.banking
+              : []
+          );
+
+          setDailyUpdates(
+            Array.isArray(
+              responseData.dailyUpdates
+            )
+              ? responseData.dailyUpdates
+              : Array.isArray(
+                    responseData.daily_updates
+                  )
+                ? responseData.daily_updates
+                : []
+          );
+
+          setSubcontractors(
+            Array.isArray(
+              responseData.subcontractors
+            )
+              ? responseData.subcontractors
+              : []
+          );
+
+          setAllSubcontractors(
+            normaliseArrayResponse(
+              subcontractorResponse,
+              "subcontractors"
+            )
+          );
+
+          setWorkers(
+            normaliseArrayResponse(
+              workerResponse,
+              "workers"
+            )
+          );
+
+          if (
+            !responseData.tender
+          ) {
+            setLoadError(
+              "Tender details were not found."
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Failed to load tender details:",
+            error.response?.data ||
+              error
+          );
+
+          const message =
+            error.response?.data
+              ?.message ||
+            "Failed to load tender details.";
+
+          setLoadError(message);
+          setTender(null);
+
+          if (!showLoader) {
+            toast.error(message);
+          }
+        } finally {
+          if (showLoader) {
+            setLoading(false);
+          }
+        }
+      },
+      [id, numericTenderId]
+    );
+
+  const loadPageData =
+    useCallback(async () => {
+      await Promise.all([
+        fetchTenderDetails(),
+        loadPayments(),
+        loadTenderWorkers(),
+      ]);
+    }, [
+      fetchTenderDetails,
+      loadPayments,
+      loadTenderWorkers,
+    ]);
+
+  useEffect(() => {
+    loadPageData();
+  }, [loadPageData]);
+
+  const refreshTenderDetails =
+    async () => {
+      await fetchTenderDetails({
+        showLoader: false,
       });
-    } else {
-      await assignTenderSubcontractor({
-        tender_id: id,
-        subcontractor_id: Number(subcontractorForm.subcontractor_id),
-        work_description: subcontractorForm.work_description,
-        assigned_amount: Number(subcontractorForm.assigned_amount),
-        status: subcontractorForm.status,
+    };
+
+  const handleAddDocument =
+    async (event) => {
+      event.preventDefault();
+
+      if (addingDocument) {
+        return;
+      }
+
+      const documentName =
+        String(
+          documentForm.document_name ||
+            ""
+        ).trim();
+
+      if (!documentName) {
+        toast.error(
+          "Document name is required."
+        );
+        return;
+      }
+
+      try {
+        setAddingDocument(true);
+
+        let uploadedUrl =
+          String(
+            documentForm.file_url ||
+              ""
+          ).trim();
+
+        if (selectedFile) {
+          uploadedUrl =
+            await uploadFile(
+              selectedFile,
+              "tender-documents"
+            );
+        }
+
+        await addTenderDocument({
+          tender_id:
+            numericTenderId,
+          document_name:
+            documentName,
+          document_type:
+            documentForm.document_type ||
+            null,
+          file_url:
+            uploadedUrl || null,
+        });
+
+        setDocumentForm(
+          emptyDocumentForm
+        );
+
+        setSelectedFile(null);
+
+        await refreshTenderDetails();
+
+        toast.success(
+          "Tender document added successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to add tender document:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to add tender document."
+        );
+      } finally {
+        setAddingDocument(false);
+      }
+    };
+
+  const handleAddMaterial =
+    async (event) => {
+      event.preventDefault();
+
+      if (addingMaterial) {
+        return;
+      }
+
+      const materialName =
+        String(
+          materialForm.material_name ||
+            ""
+        ).trim();
+
+      if (!materialName) {
+        toast.error(
+          "Material name is required."
+        );
+        return;
+      }
+
+      try {
+        setAddingMaterial(true);
+
+        await addTenderMaterial({
+          tender_id:
+            numericTenderId,
+          ...materialForm,
+          material_name:
+            materialName,
+          quantity: Number(
+            materialForm.quantity ||
+              0
+          ),
+          amount: Number(
+            materialForm.amount ||
+              materialForm.cost ||
+              0
+          ),
+        });
+
+        setMaterialForm(
+          emptyMaterialForm
+        );
+
+        await refreshTenderDetails();
+
+        toast.success(
+          "Tender material added successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to add tender material:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to add tender material."
+        );
+      } finally {
+        setAddingMaterial(false);
+      }
+    };
+
+  const handleAddBanking =
+    async (event) => {
+      event.preventDefault();
+
+      if (addingBanking) {
+        return;
+      }
+
+      try {
+        setAddingBanking(true);
+
+        await addTenderBanking({
+          tender_id:
+            numericTenderId,
+          ...bankingForm,
+        });
+
+        setBankingForm(
+          emptyBankingForm
+        );
+
+        await refreshTenderDetails();
+
+        toast.success(
+          "Banking record added successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to add banking record:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to add banking record."
+        );
+      } finally {
+        setAddingBanking(false);
+      }
+    };
+
+  const handleAssignWorker =
+    async (event) => {
+      event.preventDefault();
+
+      if (assigningWorker) {
+        return;
+      }
+
+      if (!workerForm.worker_id) {
+        toast.error(
+          "Please select a worker."
+        );
+        return;
+      }
+
+      try {
+        setAssigningWorker(true);
+
+        await assignWorkerToTender({
+          tender_id:
+            numericTenderId,
+          worker_id: Number(
+            workerForm.worker_id
+          ),
+          notes:
+            workerForm.notes.trim(),
+          status:
+            workerForm.status,
+        });
+
+        setWorkerForm(
+          EMPTY_WORKER_FORM
+        );
+
+        await loadTenderWorkers();
+
+        toast.success(
+          "Worker assigned successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to assign worker:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to assign worker."
+        );
+      } finally {
+        setAssigningWorker(false);
+      }
+    };
+
+  const handleAssignSubcontractor =
+    async (event) => {
+      event.preventDefault();
+
+      if (savingSubcontractor) {
+        return;
+      }
+
+      const workDescription =
+        String(
+          subcontractorForm.work_description ||
+            ""
+        ).trim();
+
+      const assignedAmount =
+        Number(
+          subcontractorForm.assigned_amount ||
+            0
+        );
+
+      if (
+        !editingAssignedSub &&
+        !subcontractorForm.subcontractor_id
+      ) {
+        toast.error(
+          "Please select a subcontractor."
+        );
+        return;
+      }
+
+      if (!workDescription) {
+        toast.error(
+          "Please enter a work description."
+        );
+        return;
+      }
+
+      if (
+        assignedAmount <= 0 ||
+        Number.isNaN(
+          assignedAmount
+        )
+      ) {
+        toast.error(
+          "Assigned amount must be greater than zero."
+        );
+        return;
+      }
+
+      try {
+        setSavingSubcontractor(
+          true
+        );
+
+        if (
+          editingAssignedSub
+        ) {
+          await updateTenderSubcontractor(
+            editingAssignedSub.id,
+            {
+              work_description:
+                workDescription,
+              assigned_amount:
+                assignedAmount,
+              status:
+                subcontractorForm.status,
+            }
+          );
+
+          toast.success(
+            "Subcontractor assignment updated successfully."
+          );
+        } else {
+          await assignTenderSubcontractor({
+            tender_id:
+              numericTenderId,
+            subcontractor_id:
+              Number(
+                subcontractorForm.subcontractor_id
+              ),
+            work_description:
+              workDescription,
+            assigned_amount:
+              assignedAmount,
+            status:
+              subcontractorForm.status,
+          });
+
+          toast.success(
+            "Subcontractor assigned successfully."
+          );
+        }
+
+        setSubcontractorForm(
+          emptySubcontractorForm
+        );
+
+        setEditingAssignedSub(
+          null
+        );
+
+        await refreshTenderDetails();
+      } catch (error) {
+        console.error(
+          "Failed to save subcontractor assignment:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to save subcontractor assignment."
+        );
+      } finally {
+        setSavingSubcontractor(
+          false
+        );
+      }
+    };
+
+  const startEditAssignedSubcontractor =
+    (subcontractor) => {
+      if (isBusy) {
+        return;
+      }
+
+      setEditingAssignedSub(
+        subcontractor
+      );
+
+      setSubcontractorForm({
+        subcontractor_id:
+          subcontractor.subcontractor_id ||
+          "",
+        work_description:
+          subcontractor.work_description ||
+          "",
+        assigned_amount:
+          subcontractor.assigned_amount ||
+          "",
+        status:
+          subcontractor.status ||
+          "active",
       });
-    }
 
-    setSubcontractorForm(emptySubcontractorForm);
-    setEditingAssignedSub(null);
-    await fetchTenderDetails();
-  };
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    };
 
-  const startEditAssignedSubcontractor = (sub) => {
-    setEditingAssignedSub(sub);
+  const cancelAssignedSubcontractorEdit =
+    () => {
+      if (
+        savingSubcontractor
+      ) {
+        return;
+      }
 
-    setSubcontractorForm({
-      subcontractor_id: sub.subcontractor_id,
-      work_description: sub.work_description || "",
-      assigned_amount: sub.assigned_amount || "",
-      status: sub.status || "active",
-    });
-  };
+      setEditingAssignedSub(
+        null
+      );
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+      setSubcontractorForm(
+        emptySubcontractorForm
+      );
+    };
 
-    if (deleteTarget.type === "document") {
-      await deleteTenderDocument(deleteTarget.item.id);
-    }
+  const handleConfirmDelete =
+    async () => {
+      if (
+        !deleteTarget ||
+        deleting
+      ) {
+        return;
+      }
 
-    if (deleteTarget.type === "material") {
-      await deleteTenderMaterial(deleteTarget.item.id);
-    }
+      const {
+        type,
+        item,
+      } = deleteTarget;
 
-    if (deleteTarget.type === "banking") {
-      await deleteTenderBanking(deleteTarget.item.id);
-    }
+      if (!item?.id) {
+        toast.error(
+          "The selected record cannot be deleted."
+        );
+        return;
+      }
 
-    if (deleteTarget.type === "subcontractor") {
-      await removeTenderSubcontractor(deleteTarget.item.id);
-    }
+      try {
+        setDeleting(true);
 
-    if (deleteTarget.type === "worker") {
-      await removeTenderWorker(deleteTarget.item.id);
-      await loadTenderWorkers();
-    }
+        switch (type) {
+          case "document":
+            await deleteTenderDocument(
+              item.id
+            );
 
-    if (deleteTarget.type === "payment") {
-      await deletePaymentRecord(deleteTarget.item.id);
-      await loadPayments();
-    }
+            toast.success(
+              "Document deleted successfully."
+            );
+            break;
 
-    setDeleteTarget(null);
-    await fetchTenderDetails();
-  };
+          case "material":
+            await deleteTenderMaterial(
+              item.id
+            );
 
-  const tenderSummary = calculateTenderDetailsSummary({
-    tender,
-    materials,
-    banking,
-    subcontractors,
-  });
+            toast.success(
+              "Material deleted successfully."
+            );
+            break;
+
+          case "banking":
+            await deleteTenderBanking(
+              item.id
+            );
+
+            toast.success(
+              "Banking record deleted successfully."
+            );
+            break;
+
+          case "subcontractor":
+            await removeTenderSubcontractor(
+              item.id
+            );
+
+            if (
+              editingAssignedSub?.id ===
+              item.id
+            ) {
+              cancelAssignedSubcontractorEdit();
+            }
+
+            toast.success(
+              "Subcontractor assignment removed successfully."
+            );
+            break;
+
+          case "worker":
+            await removeTenderWorker(
+              item.id
+            );
+
+            await loadTenderWorkers();
+
+            toast.success(
+              "Worker assignment removed successfully."
+            );
+            break;
+
+          case "payment":
+            await deletePaymentRecord(
+              item.id
+            );
+
+            await loadPayments();
+
+            toast.success(
+              "Finance record deleted successfully."
+            );
+            break;
+
+          default:
+            throw new Error(
+              "Unsupported delete action."
+            );
+        }
+
+        setDeleteTarget(null);
+
+        if (
+          ![
+            "worker",
+            "payment",
+          ].includes(type)
+        ) {
+          await refreshTenderDetails();
+        }
+      } catch (error) {
+        console.error(
+          "Failed to delete tender record:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            error.message ||
+            "Failed to delete record."
+        );
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+  const tenderSummary =
+    useMemo(
+      () =>
+        calculateTenderDetailsSummary({
+          tender,
+          materials,
+          banking,
+          subcontractors,
+        }),
+      [
+        tender,
+        materials,
+        banking,
+        subcontractors,
+      ]
+    );
 
   const {
     materialTotal,
@@ -340,166 +1067,414 @@ function TenderDetailsPage() {
   } = tenderSummary;
 
   if (loading) {
-    return <div className="panel">Loading tender details...</div>;
+    return (
+      <section className="panel">
+        <h2>
+          Loading tender details...
+        </h2>
+
+        <p className="muted-text">
+          Loading documents,
+          materials, finance,
+          workers and
+          subcontractors.
+        </p>
+      </section>
+    );
   }
 
-  if (!tender) {
-    return <div className="panel">Tender not found</div>;
+  if (
+    loadError ||
+    !tender
+  ) {
+    return (
+      <section className="panel">
+        <h2>
+          Tender could not be loaded
+        </h2>
+
+        <p
+          className="error"
+          role="alert"
+        >
+          {loadError ||
+            "Tender not found."}
+        </p>
+
+        <div className="form-actions">
+          <button
+            type="button"
+            onClick={
+              loadPageData
+            }
+          >
+            Retry
+          </button>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() =>
+              navigate("/tenders")
+            }
+          >
+            Back to Tenders
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
     <>
       <section className="tender-details-page">
-        <div className="panel tender-header">
+        <section className="panel tender-header">
           <div>
-            <h2>{tender.title}</h2>
-            <p>Status: {tender.status}</p>
+            <p className="dashboard-hero-eyebrow">
+              Tender Details
+            </p>
+
+            <h2>
+              {tender.title ||
+                tender.tender_name ||
+                "Unnamed Tender"}
+            </h2>
+
+            <p>
+              Status:{" "}
+              <span
+                className={
+                  String(
+                    tender.status || ""
+                  )
+                    .toLowerCase() ===
+                  "running"
+                    ? "badge green"
+                    : "badge yellow"
+                }
+              >
+                {tender.status ||
+                  "unknown"}
+              </span>
+            </p>
+
             <p>
               Due Date:{" "}
-              {tender.due_date ? tender.due_date.slice(0, 10) : "N/A"}
+              {tender.due_date
+                ? String(
+                    tender.due_date
+                  ).slice(0, 10)
+                : "N/A"}
             </p>
+
             <p>
-              Site: {tender.site_name || "N/A"}{" "}
-              {tender.address ? `| ${tender.address}` : ""}
+              Site:{" "}
+              {tender.site_name ||
+                "N/A"}
+
+              {tender.address
+                ? ` · ${tender.address}`
+                : ""}
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div className="report-actions">
             {tender.site_id && (
               <button
                 type="button"
-                onClick={() => navigate(`/sites/${tender.site_id}`)}
+                onClick={() =>
+                  navigate(
+                    `/sites/${tender.site_id}`
+                  )
+                }
+                disabled={isBusy}
               >
-                Back to Tender's Site
+                Back to Tender Site
               </button>
             )}
 
-            <button type="button" onClick={() => navigate("/sites")}>
-              Back to Sites
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() =>
+                navigate("/tenders")
+              }
+              disabled={isBusy}
+            >
+              Back to Tenders
             </button>
           </div>
-        </div>
+        </section>
 
-        <div className="tender-tabs">
-          {tenderDetailsTabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={activeTab === tab.key ? "active-tab" : ""}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <section className="panel">
+          <div className="tender-tabs">
+            {tenderDetailsTabs.map(
+              (tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={
+                    activeTab ===
+                    tab.key
+                      ? "active-tab"
+                      : ""
+                  }
+                  onClick={() =>
+                    setActiveTab(
+                      tab.key
+                    )
+                  }
+                  disabled={isBusy}
+                >
+                  {tab.label}
+                </button>
+              )
+            )}
+          </div>
+        </section>
 
-        {activeTab === "overview" && (
+        {activeTab ===
+          "overview" && (
           <TenderOverviewTab
-            tenderValue={tenderValue}
-            remainingBudget={remainingBudget}
+            tenderValue={
+              tenderValue
+            }
+            remainingBudget={
+              remainingBudget
+            }
             documents={documents}
-            materialTotal={materialTotal}
-            bankingTotal={bankingTotal}
-            dailyUpdates={dailyUpdates}
-            tenderIncome={tenderIncome}
-            totalTenderCost={totalTenderCost}
+            materialTotal={
+              materialTotal
+            }
+            bankingTotal={
+              bankingTotal
+            }
+            dailyUpdates={
+              dailyUpdates
+            }
+            tenderIncome={
+              tenderIncome
+            }
+            totalTenderCost={
+              totalTenderCost
+            }
             payments={payments}
-            tenderProfit={tenderProfit}
-            tenderProfitPercentage={tenderProfitPercentage}
-            materialCost={materialCost}
-            subcontractorCost={subcontractorCost}
-            bankingCost={bankingCost}
+            tenderProfit={
+              tenderProfit
+            }
+            tenderProfitPercentage={
+              tenderProfitPercentage
+            }
+            materialCost={
+              materialCost
+            }
+            subcontractorCost={
+              subcontractorCost
+            }
+            bankingCost={
+              bankingCost
+            }
           />
         )}
 
-        {activeTab === "documents" && (
+        {activeTab ===
+          "documents" && (
           <TenderDocumentsTab
             documents={documents}
-            documentForm={documentForm}
-            setDocumentForm={setDocumentForm}
-            setSelectedFile={setSelectedFile}
-            handleAddDocument={handleAddDocument}
-            setDeleteTarget={setDeleteTarget}
+            documentForm={
+              documentForm
+            }
+            setDocumentForm={
+              setDocumentForm
+            }
+            setSelectedFile={
+              setSelectedFile
+            }
+            handleAddDocument={
+              handleAddDocument
+            }
+            setDeleteTarget={
+              setDeleteTarget
+            }
+            submitting={
+              addingDocument
+            }
           />
         )}
 
-        {activeTab === "materials" && (
+        {activeTab ===
+          "materials" && (
           <TenderMaterialsTab
             materials={materials}
-            materialForm={materialForm}
-            setMaterialForm={setMaterialForm}
-            handleAddMaterial={handleAddMaterial}
-            setDeleteTarget={setDeleteTarget}
+            materialForm={
+              materialForm
+            }
+            setMaterialForm={
+              setMaterialForm
+            }
+            handleAddMaterial={
+              handleAddMaterial
+            }
+            setDeleteTarget={
+              setDeleteTarget
+            }
+            submitting={
+              addingMaterial
+            }
           />
         )}
 
-        {activeTab === "banking" && (
+        {activeTab ===
+          "banking" && (
           <TenderBankingTab
             banking={banking}
-            bankingForm={bankingForm}
-            setBankingForm={setBankingForm}
-            handleAddBanking={handleAddBanking}
-            setDeleteTarget={setDeleteTarget}
-            bankingTotal={bankingTotal}
+            bankingForm={
+              bankingForm
+            }
+            setBankingForm={
+              setBankingForm
+            }
+            handleAddBanking={
+              handleAddBanking
+            }
+            setDeleteTarget={
+              setDeleteTarget
+            }
+            bankingTotal={
+              bankingTotal
+            }
             gstTotal={gstTotal}
-            loanedTotal={loanedTotal}
-            returnedTotal={returnedTotal}
+            loanedTotal={
+              loanedTotal
+            }
+            returnedTotal={
+              returnedTotal
+            }
+            submitting={
+              addingBanking
+            }
           />
         )}
 
-        {activeTab === "finance" && (
+        {activeTab ===
+          "finance" && (
           <TenderFinanceTab
             payments={payments}
             tenderId={id}
-            setDeleteTarget={setDeleteTarget}
+            setDeleteTarget={
+              setDeleteTarget
+            }
             tender={tender}
-            subcontractors={subcontractors}
+            subcontractors={
+              subcontractors
+            }
           />
         )}
 
-        {activeTab === "daily" && (
-          <TenderDailyProgressTab dailyUpdates={dailyUpdates} />
+        {activeTab ===
+          "daily" && (
+          <TenderDailyProgressTab
+            dailyUpdates={
+              dailyUpdates
+            }
+          />
         )}
 
-        {activeTab === "workers" && (
+        {activeTab ===
+          "workers" && (
           <TenderWorkersTab
             workers={workers}
-            assignedWorkers={assignedWorkers}
-            workerForm={workerForm}
-            setWorkerForm={setWorkerForm}
-            handleAssignWorker={handleAssignWorker}
-            setDeleteTarget={setDeleteTarget}
+            assignedWorkers={
+              assignedWorkers
+            }
+            workerForm={
+              workerForm
+            }
+            setWorkerForm={
+              setWorkerForm
+            }
+            handleAssignWorker={
+              handleAssignWorker
+            }
+            setDeleteTarget={
+              setDeleteTarget
+            }
+            submitting={
+              assigningWorker
+            }
           />
         )}
 
-        {activeTab === "subcontractors" && (
+        {activeTab ===
+          "subcontractors" && (
           <TenderSubcontractorsTab
-            subcontractors={subcontractors}
-            subcontractorAssignedTotal={subcontractorAssignedTotal}
-            editingAssignedSub={editingAssignedSub}
-            subcontractorForm={subcontractorForm}
-            setSubcontractorForm={setSubcontractorForm}
-            allSubcontractors={allSubcontractors}
-            handleAssignSubcontractor={handleAssignSubcontractor}
-            startEditAssignedSubcontractor={startEditAssignedSubcontractor}
-            setEditingAssignedSub={setEditingAssignedSub}
-            setDeleteTarget={setDeleteTarget}
+            subcontractors={
+              subcontractors
+            }
+            subcontractorAssignedTotal={
+              subcontractorAssignedTotal
+            }
+            editingAssignedSub={
+              editingAssignedSub
+            }
+            subcontractorForm={
+              subcontractorForm
+            }
+            setSubcontractorForm={
+              setSubcontractorForm
+            }
+            allSubcontractors={
+              allSubcontractors
+            }
+            handleAssignSubcontractor={
+              handleAssignSubcontractor
+            }
+            startEditAssignedSubcontractor={
+              startEditAssignedSubcontractor
+            }
+            setEditingAssignedSub={
+              setEditingAssignedSub
+            }
+            setDeleteTarget={
+              setDeleteTarget
+            }
+            submitting={
+              savingSubcontractor
+            }
           />
         )}
       </section>
 
       <DeleteVerificationModal
-        open={!!deleteTarget}
+        open={Boolean(
+          deleteTarget
+        )}
         itemName={
-          deleteTarget?.item?.document_name ||
-          deleteTarget?.item?.material_name ||
-          deleteTarget?.item?.payment_type ||
-          deleteTarget?.item?.record_type ||
-          deleteTarget?.item?.full_name ||
+          deleteTarget?.item
+            ?.document_name ||
+          deleteTarget?.item
+            ?.material_name ||
+          deleteTarget?.item
+            ?.payment_type ||
+          deleteTarget?.item
+            ?.record_type ||
+          deleteTarget?.item
+            ?.full_name ||
+          deleteTarget?.item
+            ?.worker_name ||
+          deleteTarget?.item
+            ?.subcontractor_name ||
           "record"
         }
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        onConfirm={
+          handleConfirmDelete
+        }
+        loading={deleting}
       />
     </>
   );

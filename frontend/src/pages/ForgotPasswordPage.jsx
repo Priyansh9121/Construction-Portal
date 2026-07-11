@@ -4,35 +4,21 @@ import { Link } from "react-router-dom";
 import { forgotPassword } from "../services/userService";
 
 function ForgotPasswordPage() {
-  const [email, setEmail] =
-    useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const [message, setMessage] =
-    useState("");
-
-  const [error, setError] =
-    useState("");
-
-  const [resetToken, setResetToken] =
-    useState("");
-
-  const [submitting, setSubmitting] =
-    useState(false);
-
-  const handleSubmit = async (
-    event
-  ) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (submitting) return;
 
-    const cleanEmail =
-      email.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
-      setError(
-        "Enter your registered email address."
-      );
+      setError("Enter your registered email address.");
       return;
     }
 
@@ -42,25 +28,27 @@ function ForgotPasswordPage() {
       setError("");
       setResetToken("");
 
-      const data =
-        await forgotPassword({
-          email: cleanEmail,
-        });
+      const data = await forgotPassword({
+        email: cleanEmail,
+      });
 
       setMessage(
         data.message ||
           "If the account exists, password reset instructions have been generated."
       );
 
+      // Only expose reset tokens during local development.
       if (import.meta.env.DEV) {
-        setResetToken(
-          data.resetToken || ""
-        );
+        setResetToken(data.resetToken || "");
       }
     } catch (requestError) {
+      console.error(
+        "Forgot password request failed:",
+        requestError.response?.data || requestError
+      );
+
       setError(
-        requestError.response?.data
-          ?.message ||
+        requestError.response?.data?.message ||
           "Failed to start password reset."
       );
     } finally {
@@ -71,41 +59,44 @@ function ForgotPasswordPage() {
   return (
     <div className="login-shell">
       <section className="login-brand">
+        <p className="dashboard-hero-eyebrow">
+          Account Recovery
+        </p>
+
         <h1>Forgot Password</h1>
 
         <p>
-          Enter your registered email
-          address to reset access to
-          your account.
+          Enter your registered email address to begin resetting access to
+          your construction portal account.
         </p>
       </section>
 
       <section className="login-box">
-        <form
-          onSubmit={handleSubmit}
-        >
+        <form onSubmit={handleSubmit}>
           <h2>Reset Access</h2>
 
-          <p>
-            Enter your registered email.
+          <p className="muted-text">
+            Enter the email address linked to your account.
           </p>
 
-          <label htmlFor="reset-email">
+          <label htmlFor="forgot-password-email">
             Email
           </label>
 
           <input
-            id="reset-email"
+            id="forgot-password-email"
             name="email"
             type="email"
             autoComplete="email"
             value={email}
             placeholder="email@example.com"
-            onChange={(event) =>
-              setEmail(
-                event.target.value
-              )
-            }
+            onChange={(event) => {
+              setEmail(event.target.value);
+
+              if (error) {
+                setError("");
+              }
+            }}
             disabled={submitting}
             required
           />
@@ -137,28 +128,25 @@ function ForgotPasswordPage() {
             </p>
           )}
 
-          {import.meta.env.DEV &&
-            resetToken && (
-              <div className="reset-token-box">
-                <p>
-                  Development Reset
-                  Token:
-                </p>
+          {import.meta.env.DEV && resetToken && (
+            <div className="reset-token-box">
+              <p>
+                Development Reset Token:
+              </p>
 
-                <code>
-                  {resetToken}
-                </code>
+              <code>{resetToken}</code>
 
+              <div className="login-links">
                 <Link
                   to={`/reset-password?token=${encodeURIComponent(
                     resetToken
                   )}`}
                 >
-                  Continue to Reset
-                  Password
+                  Continue to Reset Password
                 </Link>
               </div>
-            )}
+            </div>
+          )}
 
           <div className="login-links">
             <Link to="/login">

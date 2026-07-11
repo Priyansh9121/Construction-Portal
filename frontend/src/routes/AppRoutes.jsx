@@ -1,4 +1,8 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
 
 import AppLayout from "../layouts/AppLayout";
 import RoleRoute from "./RoleRoute";
@@ -13,9 +17,9 @@ import PaymentsPage from "../pages/PaymentsPage";
 import WorkersPage from "../pages/WorkersPage";
 import WorkerMoneyPage from "../pages/WorkerMoneyPage";
 import SitesPage from "../pages/SitesPage";
+import SiteDetailsPage from "../pages/SiteDetailsPage";
 import TendersPage from "../pages/TendersPage";
 import TenderDetailsPage from "../pages/TenderDetailsPage";
-import SiteDetailsPage from "../pages/SiteDetailsPage";
 import InvoicesPage from "../pages/InvoicesPage";
 import DailySiteUpdatesPage from "../pages/DailySiteUpdatesPage";
 import DailyUpdateApprovalsPage from "../pages/DailyUpdateApprovalsPage";
@@ -47,24 +51,57 @@ function getHomePath(user) {
   return "/dashboard";
 }
 
+/**
+ * Shared protected layout for administrators and managers.
+ */
 function AdminManagerLayout({
   children,
   activePage,
   user,
-  logout,
-  payments,
-  tenders,
-  invoices,
+  payments = [],
+  tenders = [],
+  invoices = [],
 }) {
   return (
     <RoleRoute
       user={user}
-      allowedRoles={["admin", "manager"]}
+      allowedRoles={[
+        "admin",
+        "manager",
+      ]}
     >
       <AppLayout
         activePage={activePage}
         user={user}
-        logout={logout}
+        payments={payments}
+        tenders={tenders}
+        invoices={invoices}
+      >
+        {children}
+      </AppLayout>
+    </RoleRoute>
+  );
+}
+
+/**
+ * Shared protected layout for administrator-only pages.
+ */
+function AdminLayout({
+  children,
+  activePage,
+  user,
+  payments = [],
+  tenders = [],
+  invoices = [],
+}) {
+  return (
+    <RoleRoute
+      user={user}
+      allowedRoles={["admin"]}
+    >
+      <AppLayout
+        activePage={activePage}
+        user={user}
         payments={payments}
         tenders={tenders}
         invoices={invoices}
@@ -76,7 +113,9 @@ function AdminManagerLayout({
 }
 
 function AppRoutes({
-  // Authentication
+  /*
+   * Authentication
+   */
   user,
   logout,
   email,
@@ -86,30 +125,32 @@ function AppRoutes({
   message,
   handleLogin,
 
-  // Finance
+  /*
+   * Finance
+   */
   payments = [],
   addPayment,
   deletePayment,
   fetchPayments,
 
-  // Shared worker data
+  /*
+   * Shared dashboard/report data
+   */
   workers = [],
-
-  // Shared site data
   sites = [],
-
-  // Tenders
   tenders = [],
-
-  // Invoices
   invoices = [],
 
-  // Daily site updates
+  /*
+   * Daily site updates
+   */
   siteLogs = [],
   addSiteLog,
   deleteSiteLog,
 
-  // Worker money
+  /*
+   * Worker money
+   */
   allocations = [],
   expenses = [],
   addAllocation,
@@ -122,19 +163,20 @@ function AppRoutes({
   deleteExpense,
   approveExpense,
   rejectExpense,
-
-  // Shared subcontractor data
-  subcontractors = [],
 }) {
+  const homePath =
+    getHomePath(user);
+
   return (
     <Routes>
       {/* Public authentication routes */}
+
       <Route
         path="/login"
         element={
           user ? (
             <Navigate
-              to={getHomePath(user)}
+              to={homePath}
               replace
             />
           ) : (
@@ -152,20 +194,48 @@ function AppRoutes({
 
       <Route
         path="/register"
-        element={<RegisterPage />}
+        element={
+          user ? (
+            <Navigate
+              to={homePath}
+              replace
+            />
+          ) : (
+            <RegisterPage />
+          )
+        }
       />
 
       <Route
         path="/forgot-password"
-        element={<ForgotPasswordPage />}
+        element={
+          user ? (
+            <Navigate
+              to={homePath}
+              replace
+            />
+          ) : (
+            <ForgotPasswordPage />
+          )
+        }
       />
 
       <Route
         path="/reset-password"
-        element={<ResetPasswordPage />}
+        element={
+          user ? (
+            <Navigate
+              to={homePath}
+              replace
+            />
+          ) : (
+            <ResetPasswordPage />
+          )
+        }
       />
 
       {/* Worker-only portal */}
+
       <Route
         path="/worker-portal"
         element={
@@ -173,32 +243,39 @@ function AppRoutes({
             user={user}
             allowedRoles={["worker"]}
           >
-            <WorkerPortalPage logout={logout} />
+            <WorkerPortalPage
+              logout={logout}
+            />
           </RoleRoute>
         }
       />
 
       {/* Subcontractor-only portal */}
+
       <Route
         path="/subcontractor-portal"
         element={
           <RoleRoute
             user={user}
-            allowedRoles={["subcontractor"]}
+            allowedRoles={[
+              "subcontractor",
+            ]}
           >
-            <SubcontractorPortalPage logout={logout} />
+            <SubcontractorPortalPage
+              logout={logout}
+            />
           </RoleRoute>
         }
       />
 
       {/* Dashboard */}
+
       <Route
         path="/dashboard"
         element={
           <AdminManagerLayout
             activePage="Dashboard"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -209,45 +286,46 @@ function AppRoutes({
               sites={sites}
               tenders={tenders}
               invoices={invoices}
-              subcontractors={subcontractors}
             />
           </AdminManagerLayout>
         }
       />
 
       {/* Finance */}
+
       <Route
         path="/payments"
         element={
           <AdminManagerLayout
             activePage="Finance"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
           >
             <PaymentsPage
               payments={payments}
-              addPayment={addPayment}
-              deletePayment={deletePayment}
-              fetchPayments={fetchPayments}
               tenders={tenders}
-              sites={sites}
-              workers={workers}
+              addPayment={addPayment}
+              deletePayment={
+                deletePayment
+              }
+              fetchPayments={
+                fetchPayments
+              }
             />
           </AdminManagerLayout>
         }
       />
 
-      {/* Workers now load their own hook data */}
+      {/* Workers - page owns useWorkers */}
+
       <Route
         path="/workers"
         element={
           <AdminManagerLayout
             activePage="Workers"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -257,14 +335,14 @@ function AppRoutes({
         }
       />
 
-      {/* Worker money still uses shared data */}
+      {/* Worker money still uses shared App data */}
+
       <Route
         path="/worker-money"
         element={
           <AdminManagerLayout
             activePage="Worker Money"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -273,29 +351,47 @@ function AppRoutes({
               workers={workers}
               allocations={allocations}
               expenses={expenses}
-              addAllocation={addAllocation}
+              addAllocation={
+                addAllocation
+              }
               addExpense={addExpense}
-              fetchAllocations={fetchAllocations}
-              fetchExpenses={fetchExpenses}
-              updateAllocation={updateAllocation}
-              deleteAllocation={deleteAllocation}
-              updateExpense={updateExpense}
-              deleteExpense={deleteExpense}
-              approveExpense={approveExpense}
-              rejectExpense={rejectExpense}
+              fetchAllocations={
+                fetchAllocations
+              }
+              fetchExpenses={
+                fetchExpenses
+              }
+              updateAllocation={
+                updateAllocation
+              }
+              deleteAllocation={
+                deleteAllocation
+              }
+              updateExpense={
+                updateExpense
+              }
+              deleteExpense={
+                deleteExpense
+              }
+              approveExpense={
+                approveExpense
+              }
+              rejectExpense={
+                rejectExpense
+              }
             />
           </AdminManagerLayout>
         }
       />
 
-      {/* Sites now load their own hook data */}
+      {/* Sites - page owns useSites */}
+
       <Route
         path="/sites"
         element={
           <AdminManagerLayout
             activePage="Sites"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -305,14 +401,14 @@ function AppRoutes({
         }
       />
 
-      {/* Site details still use shared lists */}
+      {/* Site details loads its own site and finance data */}
+
       <Route
         path="/sites/:id"
         element={
           <AdminManagerLayout
             activePage="Site Details"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -322,14 +418,14 @@ function AppRoutes({
         }
       />
 
-      {/* Tenders */}
+      {/* Tenders - page owns useTenders and useSites */}
+
       <Route
         path="/tenders"
         element={
           <AdminManagerLayout
             activePage="Tenders"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -339,14 +435,14 @@ function AppRoutes({
         }
       />
 
-      {/* Tender details */}
+      {/* Tender details loads its own records */}
+
       <Route
         path="/tenders/:id"
         element={
           <AdminManagerLayout
             activePage="Tender Details"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -356,14 +452,14 @@ function AppRoutes({
         }
       />
 
-      {/* Invoices */}
+      {/* Invoices - page owns useInvoices */}
+
       <Route
         path="/invoices"
         element={
           <AdminManagerLayout
             activePage="Invoices"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -374,13 +470,13 @@ function AppRoutes({
       />
 
       {/* Daily site updates */}
+
       <Route
         path="/daily-site-updates"
         element={
           <AdminManagerLayout
             activePage="Daily Site Updates"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -390,38 +486,42 @@ function AppRoutes({
               tenders={tenders}
               workers={workers}
               siteLogs={siteLogs}
-              addSiteLog={addSiteLog}
-              deleteSiteLog={deleteSiteLog}
+              addSiteLog={
+                addSiteLog
+              }
+              deleteSiteLog={
+                deleteSiteLog
+              }
             />
           </AdminManagerLayout>
         }
       />
 
-      {/* Daily update approvals */}
+      {/* Daily approvals are admin-only */}
+
       <Route
         path="/daily-update-approvals"
         element={
-          <AdminManagerLayout
+          <AdminLayout
             activePage="Update Approvals"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
           >
             <DailyUpdateApprovalsPage />
-          </AdminManagerLayout>
+          </AdminLayout>
         }
       />
 
-      {/* Subcontractors */}
+      {/* Subcontractors page loads its own records */}
+
       <Route
         path="/subcontractors"
         element={
           <AdminManagerLayout
             activePage="Subcontractors"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -431,36 +531,31 @@ function AppRoutes({
         }
       />
 
-      {/* Admin-only user management */}
+      {/* User management is admin-only */}
+
       <Route
         path="/users"
         element={
-          <RoleRoute
+          <AdminLayout
+            activePage="Users"
             user={user}
-            allowedRoles={["admin"]}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
           >
-            <AppLayout
-              activePage="Users"
-              user={user}
-              logout={logout}
-              payments={payments}
-              tenders={tenders}
-              invoices={invoices}
-            >
-              <UsersPage />
-            </AppLayout>
-          </RoleRoute>
+            <UsersPage />
+          </AdminLayout>
         }
       />
 
       {/* Reports */}
+
       <Route
         path="/reports"
         element={
           <AdminManagerLayout
             activePage="Reports"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
@@ -471,7 +566,7 @@ function AppRoutes({
               sites={sites}
               tenders={tenders}
               invoices={invoices}
-              subcontractors={subcontractors}
+              
               siteLogs={siteLogs}
               allocations={allocations}
               expenses={expenses}
@@ -481,32 +576,30 @@ function AppRoutes({
       />
 
       {/* Settings */}
+
       <Route
         path="/settings"
         element={
           <AdminManagerLayout
             activePage="Settings"
             user={user}
-            logout={logout}
             payments={payments}
             tenders={tenders}
             invoices={invoices}
           >
-            <SettingsPage
-              user={user}
-              logout={logout}
-            />
+            <SettingsPage />
           </AdminManagerLayout>
         }
       />
 
-      {/* Default route */}
+      {/* Root */}
+
       <Route
         path="/"
         element={
           user ? (
             <Navigate
-              to={getHomePath(user)}
+              to={homePath}
               replace
             />
           ) : (
@@ -518,13 +611,14 @@ function AppRoutes({
         }
       />
 
-      {/* Unknown route */}
+      {/* Unknown routes */}
+
       <Route
         path="*"
         element={
           user ? (
             <Navigate
-              to={getHomePath(user)}
+              to={homePath}
               replace
             />
           ) : (

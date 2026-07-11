@@ -4,6 +4,8 @@ import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import DashboardHero from "../components/DashboardHero";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
+import { useEffect, useState } from "react";
+import { getSubcontractors } from "../services/subcontractorService";
 
 function DashboardPage({
   payments = [],
@@ -76,6 +78,21 @@ function DashboardPage({
 
     return date.getTime() === today.getTime();
   };
+
+  const [subcontractors, setSubcontractors] = useState([]);
+
+  useEffect(() => {
+    const loadSubcontractors = async () => {
+      try {
+        const data = await getSubcontractors();
+        setSubcontractors(data || []);
+      } catch (error) {
+        console.error("Failed to load subcontractors", error);
+      }
+    };
+  
+    loadSubcontractors();
+  }, []);
 
   const incomePayments = payments.filter(
     (payment) => payment.payment_type === "Income"

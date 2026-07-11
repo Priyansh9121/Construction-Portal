@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import toast from "react-hot-toast";
 
 import {
   getDailyUpdateApprovals,
@@ -10,54 +16,126 @@ import ExportButtons from "../components/export/ExportButtons";
 import ApprovalActionModal from "../components/ApprovalActionModal";
 
 function DailyUpdateApprovalsPage() {
-  const [approvals, setApprovals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [approvals, setApprovals] =
+    useState([]);
 
-  const [approveTarget, setApproveTarget] = useState(null);
-  const [rejectTarget, setRejectTarget] = useState(null);
-  const [selectedApproval, setSelectedApproval] = useState(null);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [adminComment, setAdminComment] = useState("");
-  const [confirmCode, setConfirmCode] = useState("");
+  const [processing, setProcessing] =
+    useState(false);
 
-  const [statusFilter, setStatusFilter] = useState("pending");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [photoFilter, setPhotoFilter] = useState("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [loadError, setLoadError] =
+    useState("");
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [
+    approveTarget,
+    setApproveTarget,
+  ] = useState(null);
 
-  const dateOnly = (value) => (value ? String(value).slice(0, 10) : "-");
+  const [
+    rejectTarget,
+    setRejectTarget,
+  ] = useState(null);
+
+  const [
+    selectedApproval,
+    setSelectedApproval,
+  ] = useState(null);
+
+  const [
+    adminComment,
+    setAdminComment,
+  ] = useState("");
+
+  const [
+    confirmCode,
+    setConfirmCode,
+  ] = useState("");
+
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState("pending");
+
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
+
+  const [
+    photoFilter,
+    setPhotoFilter,
+  ] = useState("all");
+
+  const [fromDate, setFromDate] =
+    useState("");
+
+  const [toDate, setToDate] =
+    useState("");
+
+  const dateOnly = (value) =>
+    value
+      ? String(value).slice(0, 10)
+      : "-";
 
   const normaliseStatus = (value) =>
-    String(value || "pending").trim().toLowerCase();
+    String(value || "pending")
+      .trim()
+      .toLowerCase();
 
   const getStatusClass = (status) => {
-    const value = normaliseStatus(status);
+    const value =
+      normaliseStatus(status);
 
-    if (value === "approved") return "badge green";
-    if (value === "rejected") return "badge red";
+    if (value === "approved") {
+      return "badge green";
+    }
+
+    if (value === "rejected") {
+      return "badge red";
+    }
 
     return "badge yellow";
   };
 
-  const loadApprovals = async () => {
+  const loadApprovals = async ({
+    showLoader = true,
+  } = {}) => {
     try {
-      setLoading(true);
-      setError("");
+      if (showLoader) {
+        setLoading(true);
+      }
 
-      const data = await getDailyUpdateApprovals("all");
-      setApprovals(data.approvals || []);
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to load daily update approvals."
+      setLoadError("");
+
+      const data =
+        await getDailyUpdateApprovals(
+          "all"
+        );
+
+      setApprovals(
+        data.approvals || []
       );
+    } catch (error) {
+      console.error(
+        "Failed to load daily update approvals:",
+        error.response?.data || error
+      );
+
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to load daily update approvals.";
+
+      setLoadError(errorMessage);
+
+      if (!showLoader) {
+        toast.error(errorMessage);
+      }
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
   };
 
@@ -66,224 +144,443 @@ function DailyUpdateApprovalsPage() {
   }, []);
 
   const totals = useMemo(() => {
-    const pending = approvals.filter(
-      (item) => normaliseStatus(item.status) === "pending"
-    );
+    const pending =
+      approvals.filter(
+        (item) =>
+          normaliseStatus(
+            item.status
+          ) === "pending"
+      );
 
-    const approved = approvals.filter(
-      (item) => normaliseStatus(item.status) === "approved"
-    );
+    const approved =
+      approvals.filter(
+        (item) =>
+          normaliseStatus(
+            item.status
+          ) === "approved"
+      );
 
-    const rejected = approvals.filter(
-      (item) => normaliseStatus(item.status) === "rejected"
-    );
+    const rejected =
+      approvals.filter(
+        (item) =>
+          normaliseStatus(
+            item.status
+          ) === "rejected"
+      );
 
-    const withPhotos = approvals.filter((item) => item.photo_url);
+    const withPhotos =
+      approvals.filter(
+        (item) =>
+          Boolean(item.photo_url)
+      );
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date()
+      .toISOString()
+      .slice(0, 10);
 
-    const todayRequests = approvals.filter(
-      (item) => dateOnly(item.log_date || item.created_at) === today
-    );
+    const todayRequests =
+      approvals.filter(
+        (item) =>
+          dateOnly(
+            item.log_date ||
+              item.created_at
+          ) === today
+      );
 
     return {
       pending: pending.length,
       approved: approved.length,
       rejected: rejected.length,
-      withPhotos: withPhotos.length,
-      withoutPhotos: approvals.length - withPhotos.length,
-      today: todayRequests.length,
+      withPhotos:
+        withPhotos.length,
+      withoutPhotos:
+        approvals.length -
+        withPhotos.length,
+      today:
+        todayRequests.length,
     };
   }, [approvals]);
 
-  const filteredApprovals = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
+  const filteredApprovals =
+    useMemo(() => {
+      const search =
+        searchTerm
+          .trim()
+          .toLowerCase();
 
-    return approvals
-      .filter((approval) => {
-        const status = normaliseStatus(approval.status);
-        const approvalDate = dateOnly(
-          approval.log_date || approval.created_at
+      return [...approvals]
+        .filter((approval) => {
+          const status =
+            normaliseStatus(
+              approval.status
+            );
+
+          const approvalDate =
+            dateOnly(
+              approval.log_date ||
+                approval.created_at
+            );
+
+          const searchableText = [
+            approval.worker_name,
+            approval.site_name,
+            approval.tender_title,
+            approval.tender_name,
+            approval.notes,
+            approval.reason,
+            approval.admin_comment,
+            status,
+            approvalDate,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          const matchesStatus =
+            statusFilter === "all" ||
+            status === statusFilter;
+
+          const matchesSearch =
+            !search ||
+            searchableText.includes(
+              search
+            );
+
+          const matchesPhoto =
+            photoFilter === "all" ||
+            (photoFilter ===
+              "with-photo" &&
+              Boolean(
+                approval.photo_url
+              )) ||
+            (photoFilter ===
+              "without-photo" &&
+              !approval.photo_url);
+
+          const matchesFromDate =
+            !fromDate ||
+            approvalDate >=
+              fromDate;
+
+          const matchesToDate =
+            !toDate ||
+            approvalDate <= toDate;
+
+          return (
+            matchesStatus &&
+            matchesSearch &&
+            matchesPhoto &&
+            matchesFromDate &&
+            matchesToDate
+          );
+        })
+        .sort(
+          (first, second) =>
+            new Date(
+              second.log_date ||
+                second.created_at ||
+                0
+            ) -
+            new Date(
+              first.log_date ||
+                first.created_at ||
+                0
+            )
         );
+    }, [
+      approvals,
+      statusFilter,
+      searchTerm,
+      photoFilter,
+      fromDate,
+      toDate,
+    ]);
 
-        const matchesStatus =
-          statusFilter === "all" || status === statusFilter;
-
-        const matchesSearch =
-          !search ||
-          approval.worker_name?.toLowerCase().includes(search) ||
-          approval.site_name?.toLowerCase().includes(search) ||
-          approval.tender_title?.toLowerCase().includes(search) ||
-          approval.tender_name?.toLowerCase().includes(search) ||
-          approval.notes?.toLowerCase().includes(search) ||
-          approval.reason?.toLowerCase().includes(search) ||
-          approval.admin_comment?.toLowerCase().includes(search) ||
-          status.includes(search) ||
-          approvalDate.includes(search);
-
-        const matchesPhoto =
-          photoFilter === "all" ||
-          (photoFilter === "with-photo" && Boolean(approval.photo_url)) ||
-          (photoFilter === "without-photo" && !approval.photo_url);
-
-        const matchesFromDate =
-          !fromDate || approvalDate >= fromDate;
-
-        const matchesToDate =
-          !toDate || approvalDate <= toDate;
-
-        return (
-          matchesStatus &&
-          matchesSearch &&
-          matchesPhoto &&
-          matchesFromDate &&
-          matchesToDate
-        );
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.log_date || b.created_at || 0) -
-          new Date(a.log_date || a.created_at || 0)
-      );
-  }, [
-    approvals,
-    statusFilter,
-    searchTerm,
-    photoFilter,
-    fromDate,
-    toDate,
-  ]);
+  const filteredPhotoCount =
+    useMemo(
+      () =>
+        filteredApprovals.filter(
+          (approval) =>
+            Boolean(
+              approval.photo_url
+            )
+        ).length,
+      [filteredApprovals]
+    );
 
   const approvalExportColumns = [
-    { key: "worker_name", label: "Worker" },
-    { key: "site_name", label: "Site" },
-    { key: "tender_title", label: "Tender" },
-    { key: "log_date", label: "Date" },
-    { key: "notes", label: "Notes" },
-    { key: "reason", label: "Reason" },
-    { key: "status", label: "Status" },
-    { key: "photo_status", label: "Photo" },
-    { key: "photo_url", label: "Photo URL" },
-    { key: "admin_comment", label: "Admin Comment" },
+    {
+      key: "worker_name",
+      label: "Worker",
+    },
+    {
+      key: "site_name",
+      label: "Site",
+    },
+    {
+      key: "tender_title",
+      label: "Tender",
+    },
+    {
+      key: "log_date",
+      label: "Date",
+    },
+    {
+      key: "notes",
+      label: "Notes",
+    },
+    {
+      key: "reason",
+      label: "Reason",
+    },
+    {
+      key: "status",
+      label: "Status",
+    },
+    {
+      key: "photo_status",
+      label: "Photo",
+    },
+    {
+      key: "photo_url",
+      label: "Photo URL",
+    },
+    {
+      key: "admin_comment",
+      label: "Admin Comment",
+    },
   ];
 
-  const approvalExportRows = filteredApprovals.map((approval) => ({
-    worker_name: approval.worker_name || "",
-    site_name: approval.site_name || "",
-    tender_title:
-      approval.tender_title || approval.tender_name || "",
-    log_date: dateOnly(approval.log_date || approval.created_at),
-    notes: approval.notes || "",
-    reason: approval.reason || "",
-    status: normaliseStatus(approval.status),
-    photo_status: approval.photo_url ? "Available" : "Not available",
-    photo_url: approval.photo_url || "",
-    admin_comment: approval.admin_comment || "",
-  }));
+  const approvalExportRows =
+    filteredApprovals.map(
+      (approval) => ({
+        worker_name:
+          approval.worker_name ||
+          "",
+        site_name:
+          approval.site_name || "",
+        tender_title:
+          approval.tender_title ||
+          approval.tender_name ||
+          "",
+        log_date: dateOnly(
+          approval.log_date ||
+            approval.created_at
+        ),
+        notes:
+          approval.notes || "",
+        reason:
+          approval.reason || "",
+        status:
+          normaliseStatus(
+            approval.status
+          ),
+        photo_status:
+          approval.photo_url
+            ? "Available"
+            : "Not available",
+        photo_url:
+          approval.photo_url || "",
+        admin_comment:
+          approval.admin_comment ||
+          "",
+      })
+    );
 
   const approvalExportSummary = {
-    "Total Approval Requests": approvals.length,
+    "Total Approval Requests":
+      approvals.length,
     Pending: totals.pending,
     Approved: totals.approved,
     Rejected: totals.rejected,
-    "Requests With Photos": totals.withPhotos,
-    "Requests Without Photos": totals.withoutPhotos,
-    "Today's Requests": totals.today,
-    "Filtered Records": filteredApprovals.length,
+    "Requests With Photos":
+      totals.withPhotos,
+    "Requests Without Photos":
+      totals.withoutPhotos,
+    "Today's Requests":
+      totals.today,
+    "Filtered Records":
+      filteredApprovals.length,
   };
 
   const closeModal = () => {
+    if (processing) return;
+
     setApproveTarget(null);
     setRejectTarget(null);
     setAdminComment("");
     setConfirmCode("");
   };
 
-  const openApproveModal = (approval) => {
+  const openApproveModal = (
+    approval
+  ) => {
+    if (processing) return;
+
     setRejectTarget(null);
     setAdminComment("");
     setConfirmCode("");
     setApproveTarget(approval);
   };
 
-  const openRejectModal = (approval) => {
+  const openRejectModal = (
+    approval
+  ) => {
+    if (processing) return;
+
     setApproveTarget(null);
     setAdminComment("");
     setConfirmCode("");
     setRejectTarget(approval);
   };
 
-  const handleApprove = async () => {
-    if (!approveTarget || processing) return;
-
-    try {
-      setProcessing(true);
-      setMessage("");
-      setError("");
-
-      await approveDailyUpdate(approveTarget.id, adminComment);
-
-      setMessage("Daily update approved successfully.");
-
-      if (selectedApproval?.id === approveTarget.id) {
-        setSelectedApproval((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: "approved",
-                admin_comment: adminComment,
-              }
-            : null
-        );
-      }
-
-      closeModal();
-      await loadApprovals();
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to approve daily update."
-      );
-    } finally {
-      setProcessing(false);
+  const updateSelectedApproval = (
+    id,
+    status,
+    comment
+  ) => {
+    if (
+      selectedApproval?.id !== id
+    ) {
+      return;
     }
+
+    setSelectedApproval(
+      (previous) =>
+        previous
+          ? {
+              ...previous,
+              status,
+              admin_comment:
+                comment || "",
+            }
+          : null
+    );
   };
 
-  const handleReject = async () => {
-    if (!rejectTarget || processing) return;
-
-    try {
-      setProcessing(true);
-      setMessage("");
-      setError("");
-
-      await rejectDailyUpdate(rejectTarget.id, adminComment);
-
-      setMessage("Daily update rejected successfully.");
-
-      if (selectedApproval?.id === rejectTarget.id) {
-        setSelectedApproval((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: "rejected",
-                admin_comment: adminComment,
-              }
-            : null
-        );
+  const handleApprove =
+    async () => {
+      if (
+        !approveTarget ||
+        processing
+      ) {
+        return;
       }
 
-      closeModal();
-      await loadApprovals();
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to reject daily update."
-      );
-    } finally {
-      setProcessing(false);
-    }
-  };
+      const targetId =
+        approveTarget.id;
+
+      const comment =
+        adminComment.trim();
+
+      try {
+        setProcessing(true);
+
+        await approveDailyUpdate(
+          targetId,
+          comment
+        );
+
+        updateSelectedApproval(
+          targetId,
+          "approved",
+          comment
+        );
+
+        setApproveTarget(null);
+        setRejectTarget(null);
+        setAdminComment("");
+        setConfirmCode("");
+
+        toast.success(
+          "Daily update approved successfully."
+        );
+
+        await loadApprovals({
+          showLoader: false,
+        });
+      } catch (error) {
+        console.error(
+          "Failed to approve daily update:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to approve daily update."
+        );
+      } finally {
+        setProcessing(false);
+      }
+    };
+
+  const handleReject =
+    async () => {
+      if (
+        !rejectTarget ||
+        processing
+      ) {
+        return;
+      }
+
+      const targetId =
+        rejectTarget.id;
+
+      const comment =
+        adminComment.trim();
+
+      if (!comment) {
+        toast.error(
+          "Please enter a reason or administrator comment before rejecting."
+        );
+
+        return;
+      }
+
+      try {
+        setProcessing(true);
+
+        await rejectDailyUpdate(
+          targetId,
+          comment
+        );
+
+        updateSelectedApproval(
+          targetId,
+          "rejected",
+          comment
+        );
+
+        setApproveTarget(null);
+        setRejectTarget(null);
+        setAdminComment("");
+        setConfirmCode("");
+
+        toast.success(
+          "Daily update rejected successfully."
+        );
+
+        await loadApprovals({
+          showLoader: false,
+        });
+      } catch (error) {
+        console.error(
+          "Failed to reject daily update:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to reject daily update."
+        );
+      } finally {
+        setProcessing(false);
+      }
+    };
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -316,22 +613,47 @@ function DailyUpdateApprovalsPage() {
   ];
 
   if (loading) {
-    return <div className="panel">Loading approvals...</div>;
+    return (
+      <div className="panel">
+        Loading approvals...
+      </div>
+    );
   }
 
   return (
-    <>  
-      {message && <p className="success-message">{message}</p>}
-      {error && <p className="error">{error}</p>}
+    <>
+      {loadError && (
+        <section className="panel">
+          <p
+            className="error"
+            role="alert"
+          >
+            {loadError}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              loadApprovals()
+            }
+          >
+            Retry
+          </button>
+        </section>
+      )}
 
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Daily Update Approvals</h2>
+            <h2>
+              Daily Update Approvals
+            </h2>
 
             <p className="muted-text">
-              Review worker site updates, inspect progress photos and
-              approve or reject submitted records.
+              Review worker site
+              updates, inspect progress
+              photos and approve or
+              reject submitted records.
             </p>
           </div>
 
@@ -339,9 +661,15 @@ function DailyUpdateApprovalsPage() {
             filename="daily-update-approvals"
             title="Daily Update Approvals Report"
             subtitle="Construction Portal approval register"
-            rows={approvalExportRows}
-            columns={approvalExportColumns}
-            summary={approvalExportSummary}
+            rows={
+              approvalExportRows
+            }
+            columns={
+              approvalExportColumns
+            }
+            summary={
+              approvalExportSummary
+            }
           />
         </div>
       </section>
@@ -349,53 +677,75 @@ function DailyUpdateApprovalsPage() {
       <section className="summary-cards">
         <div className="card">
           <p>Total Requests</p>
-          <h2>{approvals.length}</h2>
+          <h2>
+            {approvals.length}
+          </h2>
         </div>
 
         <div className="card highlight-warning">
           <p>Pending</p>
-          <h2>{totals.pending}</h2>
+          <h2>
+            {totals.pending}
+          </h2>
         </div>
 
         <div className="card highlight-success">
           <p>Approved</p>
-          <h2>{totals.approved}</h2>
+          <h2>
+            {totals.approved}
+          </h2>
         </div>
 
         <div className="card highlight-danger">
           <p>Rejected</p>
-          <h2>{totals.rejected}</h2>
+          <h2>
+            {totals.rejected}
+          </h2>
         </div>
 
         <div className="card">
           <p>With Photos</p>
-          <h2>{totals.withPhotos}</h2>
+          <h2>
+            {totals.withPhotos}
+          </h2>
         </div>
 
         <div className="card">
           <p>Without Photos</p>
-          <h2>{totals.withoutPhotos}</h2>
+          <h2>
+            {totals.withoutPhotos}
+          </h2>
         </div>
 
         <div className="card">
           <p>Today's Requests</p>
-          <h2>{totals.today}</h2>
+          <h2>
+            {totals.today}
+          </h2>
         </div>
 
         <div className="card">
           <p>Filtered Records</p>
-          <h2>{filteredApprovals.length}</h2>
+          <h2>
+            {
+              filteredApprovals.length
+            }
+          </h2>
         </div>
       </section>
 
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Approval Filters</h2>
+            <h2>
+              Approval Filters
+            </h2>
 
             <p className="muted-text">
-              Filter by approval status, worker, site, tender, photo
-              availability or date.
+              Filter by approval
+              status, worker, site,
+              tender, photo availability
+              or date.
             </p>
           </div>
 
@@ -403,24 +753,38 @@ function DailyUpdateApprovalsPage() {
             type="button"
             className="secondary-btn"
             onClick={resetFilters}
+            disabled={processing}
           >
             Reset Filters
           </button>
         </div>
 
         <div className="tabs">
-          {statusTabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={
-                statusFilter === tab.key ? "active-tab" : ""
-              }
-              onClick={() => setStatusFilter(tab.key)}
-            >
-              {tab.label} ({tab.count})
-            </button>
-          ))}
+          {statusTabs.map(
+            (tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={
+                  statusFilter ===
+                  tab.key
+                    ? "active-tab"
+                    : ""
+                }
+                onClick={() =>
+                  setStatusFilter(
+                    tab.key
+                  )
+                }
+                disabled={
+                  processing
+                }
+              >
+                {tab.label} (
+                {tab.count})
+              </button>
+            )
+          )}
         </div>
 
         <div className="form-grid">
@@ -428,11 +792,13 @@ function DailyUpdateApprovalsPage() {
             Search
             <input
               className="search-input"
-              type="text"
+              type="search"
               placeholder="Search worker, site, tender, notes, reason..."
               value={searchTerm}
               onChange={(event) =>
-                setSearchTerm(event.target.value)
+                setSearchTerm(
+                  event.target.value
+                )
               }
             />
           </label>
@@ -442,12 +808,22 @@ function DailyUpdateApprovalsPage() {
             <select
               value={photoFilter}
               onChange={(event) =>
-                setPhotoFilter(event.target.value)
+                setPhotoFilter(
+                  event.target.value
+                )
               }
             >
-              <option value="all">All Updates</option>
-              <option value="with-photo">With Photo</option>
-              <option value="without-photo">Without Photo</option>
+              <option value="all">
+                All Updates
+              </option>
+
+              <option value="with-photo">
+                With Photo
+              </option>
+
+              <option value="without-photo">
+                Without Photo
+              </option>
             </select>
           </label>
 
@@ -456,7 +832,11 @@ function DailyUpdateApprovalsPage() {
             <input
               type="date"
               value={fromDate}
-              onChange={(event) => setFromDate(event.target.value)}
+              onChange={(event) =>
+                setFromDate(
+                  event.target.value
+                )
+              }
             />
           </label>
 
@@ -465,7 +845,11 @@ function DailyUpdateApprovalsPage() {
             <input
               type="date"
               value={toDate}
-              onChange={(event) => setToDate(event.target.value)}
+              onChange={(event) =>
+                setToDate(
+                  event.target.value
+                )
+              }
             />
           </label>
         </div>
@@ -473,25 +857,34 @@ function DailyUpdateApprovalsPage() {
         <table>
           <tbody>
             <tr>
-              <td>Current Status Filter</td>
-              <td>{statusFilter}</td>
-            </tr>
+              <td>
+                Current Status Filter
+              </td>
 
-            <tr>
-              <td>Matching Records</td>
-              <td className="number-cell">
-                {filteredApprovals.length}
+              <td>
+                {statusFilter}
               </td>
             </tr>
 
             <tr>
-              <td>Matching Photos</td>
+              <td>
+                Matching Records
+              </td>
+
               <td className="number-cell">
                 {
-                  filteredApprovals.filter(
-                    (approval) => approval.photo_url
-                  ).length
+                  filteredApprovals.length
                 }
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                Matching Photos
+              </td>
+
+              <td className="number-cell">
+                {filteredPhotoCount}
               </td>
             </tr>
           </tbody>
@@ -502,22 +895,32 @@ function DailyUpdateApprovalsPage() {
         <section className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Approval Request Preview</h2>
+              <h2>
+                Approval Request Preview
+              </h2>
 
               <p className="muted-text">
-                Review the complete daily update before making an
-                approval decision.
+                Review the complete
+                daily update before
+                making an approval
+                decision.
               </p>
             </div>
 
             <div className="report-actions">
-              {normaliseStatus(selectedApproval.status) ===
-                "pending" && (
+              {normaliseStatus(
+                selectedApproval.status
+              ) === "pending" && (
                 <>
                   <button
                     type="button"
                     onClick={() =>
-                      openApproveModal(selectedApproval)
+                      openApproveModal(
+                        selectedApproval
+                      )
+                    }
+                    disabled={
+                      processing
                     }
                   >
                     Approve
@@ -527,7 +930,12 @@ function DailyUpdateApprovalsPage() {
                     type="button"
                     className="delete-btn"
                     onClick={() =>
-                      openRejectModal(selectedApproval)
+                      openRejectModal(
+                        selectedApproval
+                      )
+                    }
+                    disabled={
+                      processing
                     }
                   >
                     Reject
@@ -538,7 +946,12 @@ function DailyUpdateApprovalsPage() {
               <button
                 type="button"
                 className="secondary-btn"
-                onClick={() => setSelectedApproval(null)}
+                onClick={() =>
+                  setSelectedApproval(
+                    null
+                  )
+                }
+                disabled={processing}
               >
                 Close Preview
               </button>
@@ -548,12 +961,18 @@ function DailyUpdateApprovalsPage() {
           <section className="summary-cards">
             <div className="card">
               <p>Worker</p>
-              <h2>{selectedApproval.worker_name || "-"}</h2>
+              <h2>
+                {selectedApproval.worker_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
               <p>Site</p>
-              <h2>{selectedApproval.site_name || "-"}</h2>
+              <h2>
+                {selectedApproval.site_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
@@ -577,13 +996,16 @@ function DailyUpdateApprovalsPage() {
 
             <div className="card">
               <p>Status</p>
+
               <h2>
                 <span
                   className={getStatusClass(
                     selectedApproval.status
                   )}
                 >
-                  {normaliseStatus(selectedApproval.status)}
+                  {normaliseStatus(
+                    selectedApproval.status
+                  )}
                 </span>
               </h2>
             </div>
@@ -599,13 +1021,17 @@ function DailyUpdateApprovalsPage() {
                     <tr>
                       <th>Worker</th>
                       <td>
-                        {selectedApproval.worker_name || "-"}
+                        {selectedApproval.worker_name ||
+                          "-"}
                       </td>
                     </tr>
 
                     <tr>
                       <th>Site</th>
-                      <td>{selectedApproval.site_name || "-"}</td>
+                      <td>
+                        {selectedApproval.site_name ||
+                          "-"}
+                      </td>
                     </tr>
 
                     <tr>
@@ -619,18 +1045,29 @@ function DailyUpdateApprovalsPage() {
 
                     <tr>
                       <th>Reason</th>
-                      <td>{selectedApproval.reason || "-"}</td>
-                    </tr>
-
-                    <tr>
-                      <th>Progress Notes</th>
-                      <td>{selectedApproval.notes || "-"}</td>
-                    </tr>
-
-                    <tr>
-                      <th>Admin Comment</th>
                       <td>
-                        {selectedApproval.admin_comment || "-"}
+                        {selectedApproval.reason ||
+                          "-"}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <th>
+                        Progress Notes
+                      </th>
+                      <td>
+                        {selectedApproval.notes ||
+                          "-"}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <th>
+                        Admin Comment
+                      </th>
+                      <td>
+                        {selectedApproval.admin_comment ||
+                          "-"}
                       </td>
                     </tr>
                   </tbody>
@@ -644,19 +1081,24 @@ function DailyUpdateApprovalsPage() {
               {selectedApproval.photo_url ? (
                 <>
                   <img
-                    src={selectedApproval.photo_url}
+                    src={
+                      selectedApproval.photo_url
+                    }
                     alt="Daily update evidence"
                     style={{
                       width: "100%",
                       maxHeight: 420,
-                      objectFit: "cover",
+                      objectFit:
+                        "cover",
                       borderRadius: 12,
                     }}
                   />
 
                   <div className="form-actions">
                     <a
-                      href={selectedApproval.photo_url}
+                      href={
+                        selectedApproval.photo_url
+                      }
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -666,21 +1108,27 @@ function DailyUpdateApprovalsPage() {
                 </>
               ) : (
                 <p className="muted-text">
-                  No progress photo was submitted.
+                  No progress photo was
+                  submitted.
                 </p>
               )}
             </div>
           </div>
 
-          {normaliseStatus(selectedApproval.status) !==
-            "pending" && (
+          {normaliseStatus(
+            selectedApproval.status
+          ) !== "pending" && (
             <section className="panel">
               <div className="section-title-row">
                 <div>
-                  <h3>Approval History</h3>
+                  <h3>
+                    Approval History
+                  </h3>
 
                   <p className="muted-text">
-                    Final decision and administrator comment.
+                    Final decision and
+                    administrator
+                    comment.
                   </p>
                 </div>
 
@@ -689,7 +1137,9 @@ function DailyUpdateApprovalsPage() {
                     selectedApproval.status
                   )}
                 >
-                  {normaliseStatus(selectedApproval.status)}
+                  {normaliseStatus(
+                    selectedApproval.status
+                  )}
                 </span>
               </div>
 
@@ -705,11 +1155,18 @@ function DailyUpdateApprovalsPage() {
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Approval Requests Register</h2>
+            <h2>
+              Approval Requests Register
+            </h2>
 
             <p className="muted-text">
-              {filteredApprovals.length} matching approval request
-              {filteredApprovals.length === 1 ? "" : "s"}.
+              {filteredApprovals.length}{" "}
+              matching approval request
+              {filteredApprovals.length ===
+              1
+                ? ""
+                : "s"}
+              .
             </p>
           </div>
         </div>
@@ -726,116 +1183,174 @@ function DailyUpdateApprovalsPage() {
                 <th>Photo</th>
                 <th>Reason</th>
                 <th>Status</th>
-                <th>Admin Comment</th>
+                <th>
+                  Admin Comment
+                </th>
                 <th>Action</th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredApprovals.map((approval) => (
-                <tr key={approval.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className="table-link-button"
-                      onClick={() =>
-                        setSelectedApproval(approval)
-                      }
-                    >
-                      {approval.worker_name || "-"}
-                    </button>
-                  </td>
-
-                  <td>{approval.site_name || "-"}</td>
-
-                  <td>
-                    {approval.tender_title ||
-                      approval.tender_name ||
-                      "-"}
-                  </td>
-
-                  <td>
-                    {dateOnly(
-                      approval.log_date || approval.created_at
-                    )}
-                  </td>
-
-                  <td>{approval.notes || "-"}</td>
-
-                  <td>
-                    {approval.photo_url ? (
+              {filteredApprovals.map(
+                (approval) => (
+                  <tr key={approval.id}>
+                    <td>
                       <button
                         type="button"
                         className="table-link-button"
                         onClick={() =>
-                          setSelectedApproval(approval)
+                          setSelectedApproval(
+                            approval
+                          )
+                        }
+                        disabled={
+                          processing
                         }
                       >
-                        <img
-                          src={approval.photo_url}
-                          alt="Approval"
-                          className="worker-photo-thumb"
-                        />
+                        {approval.worker_name ||
+                          "-"}
                       </button>
-                    ) : (
-                      "No photo"
-                    )}
-                  </td>
+                    </td>
 
-                  <td>{approval.reason || "-"}</td>
+                    <td>
+                      {approval.site_name ||
+                        "-"}
+                    </td>
 
-                  <td>
-                    <span
-                      className={getStatusClass(approval.status)}
-                    >
-                      {normaliseStatus(approval.status)}
-                    </span>
-                  </td>
+                    <td>
+                      {approval.tender_title ||
+                        approval.tender_name ||
+                        "-"}
+                    </td>
 
-                  <td>{approval.admin_comment || "-"}</td>
+                    <td>
+                      {dateOnly(
+                        approval.log_date ||
+                          approval.created_at
+                      )}
+                    </td>
 
-                  <td>
-                    <button
-                      type="button"
-                      className="secondary-btn"
-                      onClick={() =>
-                        setSelectedApproval(approval)
-                      }
-                    >
-                      Preview
-                    </button>
+                    <td>
+                      {approval.notes ||
+                        "-"}
+                    </td>
 
-                    {normaliseStatus(approval.status) ===
-                      "pending" && (
-                      <>
+                    <td>
+                      {approval.photo_url ? (
                         <button
                           type="button"
+                          className="table-link-button"
                           onClick={() =>
-                            openApproveModal(approval)
+                            setSelectedApproval(
+                              approval
+                            )
+                          }
+                          disabled={
+                            processing
                           }
                         >
-                          Approve
+                          <img
+                            src={
+                              approval.photo_url
+                            }
+                            alt="Approval"
+                            className="worker-photo-thumb"
+                          />
                         </button>
+                      ) : (
+                        "No photo"
+                      )}
+                    </td>
 
+                    <td>
+                      {approval.reason ||
+                        "-"}
+                    </td>
+
+                    <td>
+                      <span
+                        className={getStatusClass(
+                          approval.status
+                        )}
+                      >
+                        {normaliseStatus(
+                          approval.status
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      {approval.admin_comment ||
+                        "-"}
+                    </td>
+
+                    <td>
+                      <div className="table-actions">
                         <button
                           type="button"
-                          className="delete-btn"
+                          className="secondary-btn"
                           onClick={() =>
-                            openRejectModal(approval)
+                            setSelectedApproval(
+                              approval
+                            )
+                          }
+                          disabled={
+                            processing
                           }
                         >
-                          Reject
+                          Preview
                         </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
 
-              {filteredApprovals.length === 0 && (
+                        {normaliseStatus(
+                          approval.status
+                        ) ===
+                          "pending" && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openApproveModal(
+                                  approval
+                                )
+                              }
+                              disabled={
+                                processing
+                              }
+                            >
+                              Approve
+                            </button>
+
+                            <button
+                              type="button"
+                              className="delete-btn"
+                              onClick={() =>
+                                openRejectModal(
+                                  approval
+                                )
+                              }
+                              disabled={
+                                processing
+                              }
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
+
+              {filteredApprovals.length ===
+                0 && (
                 <tr>
-                  <td colSpan="10" className="empty-table-message">
-                    No approval requests found.
+                  <td
+                    colSpan="10"
+                    className="empty-table-message"
+                  >
+                    No approval requests
+                    found.
                   </td>
                 </tr>
               )}
@@ -845,34 +1360,50 @@ function DailyUpdateApprovalsPage() {
       </section>
 
       <ApprovalActionModal
-        open={!!approveTarget}
+        open={Boolean(
+          approveTarget
+        )}
         title="Approve Daily Update"
         actionLabel={
-          processing ? "Processing..." : "Approve"
+          processing
+            ? "Processing..."
+            : "Approve"
         }
         actionType={confirmCode}
         comment={adminComment}
-        setComment={setAdminComment}
+        setComment={
+          setAdminComment
+        }
         onCancel={closeModal}
         onConfirm={{
-          setCode: setConfirmCode,
-          submit: handleApprove,
+          setCode:
+            setConfirmCode,
+          submit:
+            handleApprove,
         }}
       />
 
       <ApprovalActionModal
-        open={!!rejectTarget}
+        open={Boolean(
+          rejectTarget
+        )}
         title="Reject Daily Update"
         actionLabel={
-          processing ? "Processing..." : "Reject"
+          processing
+            ? "Processing..."
+            : "Reject"
         }
         actionType={confirmCode}
         comment={adminComment}
-        setComment={setAdminComment}
+        setComment={
+          setAdminComment
+        }
         onCancel={closeModal}
         onConfirm={{
-          setCode: setConfirmCode,
-          submit: handleReject,
+          setCode:
+            setConfirmCode,
+          submit:
+            handleReject,
         }}
       />
     </>

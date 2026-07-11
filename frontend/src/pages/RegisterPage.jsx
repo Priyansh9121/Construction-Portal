@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
 import { registerUser } from "../services/authService";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -11,61 +15,162 @@ function RegisterPage() {
     full_name: "",
     email: "",
     password: "",
+    confirm_password: "",
     role: "worker",
   });
 
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
 
-  const handleChange = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
+  const [message, setMessage] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const handleChange = (event) => {
+    const { name, value } =
+      event.target;
+
+    setForm((previousForm) => ({
+      ...previousForm,
+      [name]: value,
     }));
+
+    if (message) {
+      setMessage("");
+    }
   };
 
-  const handleRegister = async (event) => {
+  const handleRegister = async (
+    event
+  ) => {
     event.preventDefault();
-  
-    if (loading) return;
-  
+
+    if (loading) {
+      return;
+    }
+
+    const fullName =
+      form.full_name.trim();
+
+    const email =
+      form.email
+        .trim()
+        .toLowerCase();
+
+    const role =
+      String(form.role || "")
+        .trim()
+        .toLowerCase();
+
+    if (!fullName) {
+      setMessage(
+        "Full name is required."
+      );
+      return;
+    }
+
+    if (!email) {
+      setMessage(
+        "Email address is required."
+      );
+      return;
+    }
+
+    if (form.password.length < 8) {
+      setMessage(
+        "Password must contain at least 8 characters."
+      );
+      return;
+    }
+
+    if (
+      form.password !==
+      form.confirm_password
+    ) {
+      setMessage(
+        "Passwords do not match."
+      );
+      return;
+    }
+
+    if (
+      ![
+        "worker",
+        "subcontractor",
+      ].includes(role)
+    ) {
+      setMessage(
+        "Select a valid account role."
+      );
+      return;
+    }
+
     try {
       setLoading(true);
       setMessage("");
-  
+
       const payload = {
-        full_name: form.full_name.trim(),
-        email: form.email.trim().toLowerCase(),
+        full_name: fullName,
+        email,
         password: form.password,
-        role: form.role,
+        role,
       };
-      
-      const data = await registerUser(payload);
-  
-      localStorage.setItem("token", data.token);
+
+      const data =
+        await registerUser(payload);
+
+      localStorage.setItem(
+        "token",
+        data.token
+      );
+
       localStorage.setItem(
         "user",
         JSON.stringify(data.user)
       );
-  
+
       setUser(data.user);
-  
-      if (data.user.role === "worker") {
-        navigate("/worker-portal", {
-          replace: true,
-        });
+
+      const userRole =
+        String(
+          data.user?.role || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      if (userRole === "worker") {
+        navigate(
+          "/worker-portal",
+          {
+            replace: true,
+          }
+        );
       } else if (
-        data.user.role === "subcontractor"
+        userRole ===
+        "subcontractor"
       ) {
-        navigate("/subcontractor-portal", {
-          replace: true,
-        });
+        navigate(
+          "/subcontractor-portal",
+          {
+            replace: true,
+          }
+        );
       } else {
-        navigate("/dashboard", {
-          replace: true,
-        });
+        navigate(
+          "/dashboard",
+          {
+            replace: true,
+          }
+        );
       }
     } catch (error) {
+      console.error(
+        "Registration failed:",
+        error.response?.data || error
+      );
+
       setMessage(
         error.response?.data?.message ||
           "Registration failed."
@@ -78,66 +183,173 @@ function RegisterPage() {
   return (
     <div className="login-shell">
       <section className="login-brand">
+        <p className="dashboard-hero-eyebrow">
+          Construction Portal Access
+        </p>
+
         <h1>Create Account</h1>
 
         <p>
-          Register a new account for the construction portal.
+          Register as a worker or
+          subcontractor to access
+          assignments, site updates and
+          project information.
         </p>
       </section>
 
       <section className="login-box">
-        <form onSubmit={handleRegister}>
+        <form
+          onSubmit={handleRegister}
+        >
           <h2>Register</h2>
 
-          <label>Full Name</label>
+          <p className="muted-text">
+            Enter your account details.
+          </p>
+
+          <label htmlFor="register-full-name">
+            Full Name
+          </label>
+
           <input
+            id="register-full-name"
             name="full_name"
+            type="text"
+            autoComplete="name"
             value={form.full_name}
             placeholder="Full name"
             onChange={handleChange}
+            disabled={loading}
             required
           />
 
-          <label>Email</label>
+          <label htmlFor="register-email">
+            Email
+          </label>
+
           <input
+            id="register-email"
             name="email"
             type="email"
+            autoComplete="email"
             value={form.email}
             placeholder="email@example.com"
             onChange={handleChange}
+            disabled={loading}
             required
           />
 
-          <label>Password</label>
+          <label htmlFor="register-password">
+            Password
+          </label>
+
+          <div className="password-input-wrapper">
+            <input
+              id="register-password"
+              name="password"
+              type={
+                showPassword
+                  ? "text"
+                  : "password"
+              }
+              autoComplete="new-password"
+              value={form.password}
+              placeholder="Create password"
+              onChange={handleChange}
+              disabled={loading}
+              minLength={8}
+              required
+            />
+
+            <button
+              type="button"
+              className="password-toggle-btn"
+              aria-label={
+                showPassword
+                  ? "Hide passwords"
+                  : "Show passwords"
+              }
+              aria-pressed={showPassword}
+              onClick={() =>
+                setShowPassword(
+                  (previous) =>
+                    !previous
+                )
+              }
+              disabled={loading}
+            >
+              {showPassword
+                ? "Hide"
+                : "Show"}
+            </button>
+          </div>
+
+          <label htmlFor="register-confirm-password">
+            Confirm Password
+          </label>
+
           <input
-            name="password"
-            type="password"
-            value={form.password}
-            placeholder="Create password"
+            id="register-confirm-password"
+            name="confirm_password"
+            type={
+              showPassword
+                ? "text"
+                : "password"
+            }
+            autoComplete="new-password"
+            value={
+              form.confirm_password
+            }
+            placeholder="Confirm password"
             onChange={handleChange}
+            disabled={loading}
+            minLength={8}
             required
           />
 
-          <label>Role</label>
+          <label htmlFor="register-role">
+            Role
+          </label>
 
           <select
+            id="register-role"
             name="role"
             value={form.role}
             onChange={handleChange}
+            disabled={loading}
             required
-            >
-            <option value="worker">Worker</option>
-            <option value="subcontractor">Subcontractor</option>
+          >
+            <option value="worker">
+              Worker
+            </option>
+
+            <option value="subcontractor">
+              Subcontractor
+            </option>
           </select>
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Creating..." : "Create Account"}
+          <button
+            type="submit"
+            disabled={loading}
+          >
+            {loading
+              ? "Creating..."
+              : "Create Account"}
           </button>
 
-          {message && <p className="error">{message}</p>}
+          {message && (
+            <p
+              className="error"
+              role="alert"
+            >
+              {message}
+            </p>
+          )}
 
           <div className="login-links">
-            <Link to="/login">Back to Login</Link>
+            <Link to="/login">
+              Back to Login
+            </Link>
           </div>
         </form>
       </section>

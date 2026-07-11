@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import toast from "react-hot-toast";
+
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import ExportButtons from "../components/export/ExportButtons";
+
 import { useAuth } from "../contexts/AuthContext";
-import toast from "react-hot-toast";
 
 import {
   getSubcontractors,
@@ -11,296 +18,693 @@ import {
   updateSubcontractor,
 } from "../services/subcontractorService";
 
+const EMPTY_FORM = {
+  full_name: "",
+  phone: "",
+  email: "",
+  business_name: "",
+  gst_number: "",
+  bank_name: "",
+  account_name: "",
+  account_number: "",
+  ifsc_code: "",
+  status: "active",
+};
+
 function SubcontractorsPage() {
-  const emptyForm = {
-    full_name: "",
-    phone: "",
-    email: "",
-    business_name: "",
-    gst_number: "",
-    bank_name: "",
-    account_name: "",
-    account_number: "",
-    ifsc_code: "",
-    status: "active",
-  };
   const { user } = useAuth();
 
-  const [subcontractors, setSubcontractors] = useState([]);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editingSubcontractor, setEditingSubcontractor] = useState(null);
-  const [selectedSubcontractor, setSelectedSubcontractor] = useState(null);
+  const [
+    subcontractors,
+    setSubcontractors,
+  ] = useState([]);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [
+    deleteTarget,
+    setDeleteTarget,
+  ] = useState(null);
 
-  const [formData, setFormData] = useState(emptyForm);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [
+    editingSubcontractor,
+    setEditingSubcontractor,
+  ] = useState(null);
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [
+    selectedSubcontractor,
+    setSelectedSubcontractor,
+  ] = useState(null);
+
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
+
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState("all");
+
+  const [formData, setFormData] =
+    useState(EMPTY_FORM);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [loadError, setLoadError] =
+    useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [deleting, setDeleting] =
+    useState(false);
 
   const normaliseStatus = (value) =>
-    String(value || "active").trim().toLowerCase();
+    String(value || "active")
+      .trim()
+      .toLowerCase();
 
   const getStatusClass = (status) =>
-    normaliseStatus(status) === "active"
+    normaliseStatus(status) ===
+    "active"
       ? "badge green"
       : "badge yellow";
 
-  const fetchSubcontractors = async () => {
-    try {
-      setLoading(true);
-      setError("");
+  const fetchSubcontractors =
+    async ({
+      showLoader = true,
+    } = {}) => {
+      try {
+        if (showLoader) {
+          setLoading(true);
+        }
 
-      const data = await getSubcontractors();
-      setSubcontractors(data.subcontractors || []);
-    } catch (err) {
-      console.error("Failed to load subcontractors", err);
-      setError(
-        err.response?.data?.message || "Failed to load subcontractors."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        setLoadError("");
+
+        const data =
+          await getSubcontractors();
+
+        const records =
+          data?.subcontractors ||
+          data?.data?.subcontractors ||
+          data?.data ||
+          [];
+
+        setSubcontractors(
+          Array.isArray(records)
+            ? records
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load subcontractors:",
+          error.response?.data ||
+            error
+        );
+
+        const message =
+          error.response?.data
+            ?.message ||
+          "Failed to load subcontractors.";
+
+        setLoadError(message);
+
+        if (!showLoader) {
+          toast.error(message);
+        }
+      } finally {
+        if (showLoader) {
+          setLoading(false);
+        }
+      }
+    };
 
   useEffect(() => {
     fetchSubcontractors();
   }, []);
 
   const totals = useMemo(() => {
-    const active = subcontractors.filter(
-      (sub) => normaliseStatus(sub.status) === "active"
-    );
+    const active =
+      subcontractors.filter(
+        (subcontractor) =>
+          normaliseStatus(
+            subcontractor.status
+          ) === "active"
+      );
 
-    const inactive = subcontractors.filter(
-      (sub) => normaliseStatus(sub.status) === "inactive"
-    );
+    const inactive =
+      subcontractors.filter(
+        (subcontractor) =>
+          normaliseStatus(
+            subcontractor.status
+          ) === "inactive"
+      );
 
-    const withGST = subcontractors.filter((sub) =>
-      String(sub.gst_number || "").trim()
-    );
+    const withGST =
+      subcontractors.filter(
+        (subcontractor) =>
+          Boolean(
+            String(
+              subcontractor.gst_number ||
+                ""
+            ).trim()
+          )
+      );
 
-    const withBankDetails = subcontractors.filter(
-      (sub) =>
-        String(sub.bank_name || "").trim() &&
-        String(sub.account_number || "").trim()
-    );
+    const withBankDetails =
+      subcontractors.filter(
+        (subcontractor) =>
+          Boolean(
+            String(
+              subcontractor.bank_name ||
+                ""
+            ).trim()
+          ) &&
+          Boolean(
+            String(
+              subcontractor.account_number ||
+                ""
+            ).trim()
+          )
+      );
 
-    const withEmail = subcontractors.filter((sub) =>
-      String(sub.email || "").trim()
-    );
+    const withEmail =
+      subcontractors.filter(
+        (subcontractor) =>
+          Boolean(
+            String(
+              subcontractor.email ||
+                ""
+            ).trim()
+          )
+      );
 
     return {
       active: active.length,
       inactive: inactive.length,
       withGST: withGST.length,
-      withBankDetails: withBankDetails.length,
+      withBankDetails:
+        withBankDetails.length,
       withEmail: withEmail.length,
     };
   }, [subcontractors]);
 
-  const filteredSubcontractors = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
+  const filteredSubcontractors =
+    useMemo(() => {
+      const search =
+        searchTerm
+          .trim()
+          .toLowerCase();
 
-    return subcontractors.filter((sub) => {
-      const status = normaliseStatus(sub.status);
+      return subcontractors.filter(
+        (subcontractor) => {
+          const status =
+            normaliseStatus(
+              subcontractor.status
+            );
 
-      const matchesStatus =
-        statusFilter === "all" || status === statusFilter;
+          const matchesStatus =
+            statusFilter === "all" ||
+            status === statusFilter;
 
-      const matchesSearch =
-        !search ||
-        sub.full_name?.toLowerCase().includes(search) ||
-        sub.phone?.toLowerCase().includes(search) ||
-        sub.email?.toLowerCase().includes(search) ||
-        sub.business_name?.toLowerCase().includes(search) ||
-        sub.gst_number?.toLowerCase().includes(search) ||
-        sub.bank_name?.toLowerCase().includes(search) ||
-        sub.account_name?.toLowerCase().includes(search) ||
-        sub.account_number?.toLowerCase().includes(search) ||
-        sub.ifsc_code?.toLowerCase().includes(search) ||
-        status.includes(search);
+          const searchableText = [
+            subcontractor.full_name,
+            subcontractor.phone,
+            subcontractor.email,
+            subcontractor.business_name,
+            subcontractor.gst_number,
+            subcontractor.bank_name,
+            subcontractor.account_name,
+            subcontractor.account_number,
+            subcontractor.ifsc_code,
+            status,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
 
-      return matchesStatus && matchesSearch;
-    });
-  }, [subcontractors, searchTerm, statusFilter]);
+          const matchesSearch =
+            !search ||
+            searchableText.includes(
+              search
+            );
+
+          return (
+            matchesStatus &&
+            matchesSearch
+          );
+        }
+      );
+    }, [
+      subcontractors,
+      searchTerm,
+      statusFilter,
+    ]);
 
   const subcontractorExportColumns = [
-    { key: "full_name", label: "Name" },
-    { key: "business_name", label: "Business" },
-    { key: "phone", label: "Phone" },
-    { key: "email", label: "Email" },
-    { key: "gst_number", label: "GST Number" },
-    { key: "bank_name", label: "Bank" },
-    { key: "account_name", label: "Account Name" },
-    { key: "account_number", label: "Account Number" },
-    { key: "ifsc_code", label: "IFSC / BSB" },
-    { key: "status", label: "Status" },
+    {
+      key: "full_name",
+      label: "Name",
+    },
+    {
+      key: "business_name",
+      label: "Business",
+    },
+    {
+      key: "phone",
+      label: "Phone",
+    },
+    {
+      key: "email",
+      label: "Email",
+    },
+    {
+      key: "gst_number",
+      label: "GST Number",
+    },
+    {
+      key: "bank_name",
+      label: "Bank",
+    },
+    {
+      key: "account_name",
+      label: "Account Name",
+    },
+    {
+      key: "account_number",
+      label: "Account Number",
+    },
+    {
+      key: "ifsc_code",
+      label: "IFSC / BSB",
+    },
+    {
+      key: "status",
+      label: "Status",
+    },
   ];
 
-  const subcontractorExportRows = filteredSubcontractors.map((sub) => ({
-    full_name: sub.full_name || "",
-    business_name: sub.business_name || "",
-    phone: sub.phone || "",
-    email: sub.email || "",
-    gst_number: sub.gst_number || "",
-    bank_name: sub.bank_name || "",
-    account_name: sub.account_name || "",
-    account_number: sub.account_number || "",
-    ifsc_code: sub.ifsc_code || "",
-    status: normaliseStatus(sub.status),
-  }));
+  const subcontractorExportRows =
+    filteredSubcontractors.map(
+      (subcontractor) => ({
+        full_name:
+          subcontractor.full_name ||
+          "",
+        business_name:
+          subcontractor.business_name ||
+          "",
+        phone:
+          subcontractor.phone || "",
+        email:
+          subcontractor.email || "",
+        gst_number:
+          subcontractor.gst_number ||
+          "",
+        bank_name:
+          subcontractor.bank_name ||
+          "",
+        account_name:
+          subcontractor.account_name ||
+          "",
+        account_number:
+          subcontractor.account_number ||
+          "",
+        ifsc_code:
+          subcontractor.ifsc_code ||
+          "",
+        status:
+          normaliseStatus(
+            subcontractor.status
+          ),
+      })
+    );
 
   const subcontractorExportSummary = {
-    "Total Subcontractors": subcontractors.length,
-    "Active Subcontractors": totals.active,
-    "Inactive Subcontractors": totals.inactive,
-    "GST Registered": totals.withGST,
-    "Bank Details Available": totals.withBankDetails,
-    "Email Available": totals.withEmail,
-    "Filtered Records": filteredSubcontractors.length,
+    "Total Subcontractors":
+      subcontractors.length,
+    "Active Subcontractors":
+      totals.active,
+    "Inactive Subcontractors":
+      totals.inactive,
+    "GST Registered":
+      totals.withGST,
+    "Bank Details Available":
+      totals.withBankDetails,
+    "Email Available":
+      totals.withEmail,
+    "Filtered Records":
+      filteredSubcontractors.length,
   };
 
   const handleChange = (event) => {
-    setFormData((prev) => ({
-      ...prev,
-      [event.target.name]: event.target.value,
-    }));
+    const { name, value } =
+      event.target;
+
+    setFormData(
+      (previousForm) => ({
+        ...previousForm,
+        [name]: value,
+      })
+    );
   };
 
   const resetForm = () => {
-    setFormData(emptyForm);
-    setEditingSubcontractor(null);
+    setFormData(EMPTY_FORM);
+    setEditingSubcontractor(
+      null
+    );
   };
 
-  const startEdit = (sub) => {
-    setEditingSubcontractor(sub);
-    setSelectedSubcontractor(sub);
+  const startEdit = (
+    subcontractor
+  ) => {
+    if (
+      submitting ||
+      deleting
+    ) {
+      return;
+    }
+
+    setEditingSubcontractor(
+      subcontractor
+    );
+
+    setSelectedSubcontractor(
+      subcontractor
+    );
 
     setFormData({
-      full_name: sub.full_name || "",
-      phone: sub.phone || "",
-      email: sub.email || "",
-      business_name: sub.business_name || "",
-      gst_number: sub.gst_number || "",
-      bank_name: sub.bank_name || "",
-      account_name: sub.account_name || "",
-      account_number: sub.account_number || "",
-      ifsc_code: sub.ifsc_code || "",
-      status: normaliseStatus(sub.status),
+      full_name:
+        subcontractor.full_name ||
+        "",
+      phone:
+        subcontractor.phone || "",
+      email:
+        subcontractor.email || "",
+      business_name:
+        subcontractor.business_name ||
+        "",
+      gst_number:
+        subcontractor.gst_number ||
+        "",
+      bank_name:
+        subcontractor.bank_name ||
+        "",
+      account_name:
+        subcontractor.account_name ||
+        "",
+      account_number:
+        subcontractor.account_number ||
+        "",
+      ifsc_code:
+        subcontractor.ifsc_code ||
+        "",
+      status:
+        normaliseStatus(
+          subcontractor.status
+        ),
+    });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
     });
   };
 
-  const handleSubmit = async (event) => {
+  const validatePayload = (
+    payload
+  ) => {
+    if (!payload.full_name) {
+      toast.error(
+        "Subcontractor name is required."
+      );
+      return false;
+    }
+
+    if (
+      payload.email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        payload.email
+      )
+    ) {
+      toast.error(
+        "Enter a valid email address."
+      );
+      return false;
+    }
+
+    if (
+      ![
+        "active",
+        "inactive",
+      ].includes(payload.status)
+    ) {
+      toast.error(
+        "Select a valid subcontractor status."
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (
+    event
+  ) => {
     event.preventDefault();
 
-    if (submitting) return;
+    if (submitting) {
+      return;
+    }
+
+    const payload = {
+      full_name:
+        formData.full_name.trim(),
+      phone:
+        formData.phone.trim(),
+      email:
+        formData.email
+          .trim()
+          .toLowerCase(),
+      business_name:
+        formData.business_name.trim(),
+      gst_number:
+        formData.gst_number.trim(),
+      bank_name:
+        formData.bank_name.trim(),
+      account_name:
+        formData.account_name.trim(),
+      account_number:
+        formData.account_number.trim(),
+      ifsc_code:
+        formData.ifsc_code.trim(),
+      status:
+        normaliseStatus(
+          formData.status
+        ),
+    };
+
+    if (
+      !validatePayload(payload)
+    ) {
+      return;
+    }
 
     try {
       setSubmitting(true);
-      setMessage("");
-      setError("");
 
-      const payload = {
-        ...formData,
-        full_name: formData.full_name.trim(),
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        business_name: formData.business_name.trim(),
-        gst_number: formData.gst_number.trim(),
-        bank_name: formData.bank_name.trim(),
-        account_name: formData.account_name.trim(),
-        account_number: formData.account_number.trim(),
-        ifsc_code: formData.ifsc_code.trim(),
-      };
+      if (
+        editingSubcontractor
+      ) {
+        await updateSubcontractor(
+          editingSubcontractor.id,
+          payload
+        );
 
-      if (editingSubcontractor) {
-        await updateSubcontractor(editingSubcontractor.id, payload);
-        setMessage("Subcontractor updated successfully.");
+        toast.success(
+          "Subcontractor updated successfully."
+        );
       } else {
         await createSubcontractor({
-          company_id: user?.company_id || null,
+          company_id:
+            user?.company_id ||
+            null,
           ...payload,
         });
 
-        setMessage("Subcontractor added successfully.");
+        toast.success(
+          "Subcontractor added successfully."
+        );
       }
 
       resetForm();
-      await fetchSubcontractors();
-    } catch (err) {
+
+      await fetchSubcontractors({
+        showLoader: false,
+      });
+    } catch (error) {
       console.error(
         "Failed to save subcontractor:",
-        err.response?.data || err
+        error.response?.data ||
+          error
       );
 
-      setError(
-        err.response?.data?.message || "Failed to save subcontractor."
+      toast.error(
+        error.response?.data
+          ?.message ||
+          "Failed to save subcontractor."
       );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-
-    try {
-      setError("");
-      setMessage("");
-
-      await deleteSubcontractor(deleteTarget.id);
-
-      if (selectedSubcontractor?.id === deleteTarget.id) {
-        setSelectedSubcontractor(null);
+  const handleConfirmDelete =
+    async () => {
+      if (
+        !deleteTarget ||
+        deleting
+      ) {
+        return;
       }
 
-      if (editingSubcontractor?.id === deleteTarget.id) {
-        resetForm();
+      try {
+        setDeleting(true);
+
+        await deleteSubcontractor(
+          deleteTarget.id
+        );
+
+        if (
+          selectedSubcontractor?.id ===
+          deleteTarget.id
+        ) {
+          setSelectedSubcontractor(
+            null
+          );
+        }
+
+        if (
+          editingSubcontractor?.id ===
+          deleteTarget.id
+        ) {
+          resetForm();
+        }
+
+        setDeleteTarget(null);
+
+        await fetchSubcontractors({
+          showLoader: false,
+        });
+
+        toast.success(
+          "Subcontractor deleted successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to delete subcontractor:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to delete subcontractor."
+        );
+      } finally {
+        setDeleting(false);
       }
-
-      setDeleteTarget(null);
-      setMessage("Subcontractor deleted successfully.");
-
-      await fetchSubcontractors();
-    } catch (err) {
-      console.error(
-        "Failed to delete subcontractor:",
-        err.response?.data || err
-      );
-    
-      setError(
-        err.response?.data?.message ||
-          "Failed to delete subcontractor."
-      );
-    }
-  };
+    };
 
   const resetFilters = () => {
     setSearchTerm("");
     setStatusFilter("all");
   };
 
+  const isBusy =
+    submitting || deleting;
+
   if (loading) {
-    return <div className="panel">Loading subcontractors...</div>;
+    return (
+      <section className="panel">
+        <h2>
+          Loading subcontractors...
+        </h2>
+
+        <p className="muted-text">
+          Loading contact, business
+          and settlement records.
+        </p>
+      </section>
+    );
+  }
+
+  if (
+    loadError &&
+    subcontractors.length === 0
+  ) {
+    return (
+      <section className="panel">
+        <h2>
+          Subcontractors could not
+          be loaded
+        </h2>
+
+        <p
+          className="error"
+          role="alert"
+        >
+          {loadError}
+        </p>
+
+        <button
+          type="button"
+          onClick={() =>
+            fetchSubcontractors()
+          }
+        >
+          Retry
+        </button>
+      </section>
+    );
   }
 
   return (
     <>
-      {message && <p className="success-message">{message}</p>}
-      {error && <p className="error">{error}</p>}
+      {loadError && (
+        <section className="panel">
+          <p
+            className="error"
+            role="alert"
+          >
+            {loadError}
+          </p>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() =>
+              fetchSubcontractors()
+            }
+          >
+            Retry Loading
+          </button>
+        </section>
+      )}
 
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Subcontractors Management</h2>
+            <h2>
+              Subcontractors
+              Management
+            </h2>
 
             <p className="muted-text">
-              Manage subcontractor contact, business, GST and banking
-              information.
+              Manage subcontractor
+              contact, business, GST
+              and banking information.
             </p>
           </div>
 
@@ -308,47 +712,75 @@ function SubcontractorsPage() {
             filename="subcontractors"
             title="Subcontractors Report"
             subtitle="Construction Portal subcontractor register"
-            rows={subcontractorExportRows}
-            columns={subcontractorExportColumns}
-            summary={subcontractorExportSummary}
+            rows={
+              subcontractorExportRows
+            }
+            columns={
+              subcontractorExportColumns
+            }
+            summary={
+              subcontractorExportSummary
+            }
           />
         </div>
       </section>
 
       <section className="summary-cards">
         <div className="card">
-          <p>Total Subcontractors</p>
-          <h2>{subcontractors.length}</h2>
+          <p>
+            Total Subcontractors
+          </p>
+          <h2>
+            {
+              subcontractors.length
+            }
+          </h2>
         </div>
 
         <div className="card highlight-success">
           <p>Active</p>
-          <h2>{totals.active}</h2>
+          <h2>
+            {totals.active}
+          </h2>
         </div>
 
         <div className="card highlight-warning">
           <p>Inactive</p>
-          <h2>{totals.inactive}</h2>
+          <h2>
+            {totals.inactive}
+          </h2>
         </div>
 
         <div className="card">
           <p>GST Registered</p>
-          <h2>{totals.withGST}</h2>
+          <h2>
+            {totals.withGST}
+          </h2>
         </div>
 
         <div className="card">
-          <p>Bank Details Available</p>
-          <h2>{totals.withBankDetails}</h2>
+          <p>
+            Bank Details Available
+          </p>
+          <h2>
+            {
+              totals.withBankDetails
+            }
+          </h2>
         </div>
 
         <div className="card">
           <p>Filtered Records</p>
-          <h2>{filteredSubcontractors.length}</h2>
+          <h2>
+            {
+              filteredSubcontractors.length
+            }
+          </h2>
         </div>
       </section>
 
       <section className="payment-grid">
-        <div className="panel">
+        <section className="panel">
           <div className="section-title-row">
             <div>
               <h2>
@@ -365,11 +797,20 @@ function SubcontractorsPage() {
             </div>
           </div>
 
-          <form className="payment-form" onSubmit={handleSubmit}>
+          <form
+            className="payment-form"
+            onSubmit={handleSubmit}
+          >
             <div className="form-section-title">
-              <h3>Contact and Business Details</h3>
+              <h3>
+                Contact and Business
+                Details
+              </h3>
+
               <p className="muted-text">
-                Primary identity and communication information.
+                Primary identity and
+                communication
+                information.
               </p>
             </div>
 
@@ -378,8 +819,15 @@ function SubcontractorsPage() {
                 Full Name
                 <input
                   name="full_name"
-                  value={formData.full_name}
-                  onChange={handleChange}
+                  value={
+                    formData.full_name
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                   required
                 />
               </label>
@@ -388,8 +836,15 @@ function SubcontractorsPage() {
                 Business Name
                 <input
                   name="business_name"
-                  value={formData.business_name}
-                  onChange={handleChange}
+                  value={
+                    formData.business_name
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
 
@@ -398,8 +853,15 @@ function SubcontractorsPage() {
                 <input
                   name="phone"
                   type="tel"
-                  value={formData.phone}
-                  onChange={handleChange}
+                  value={
+                    formData.phone
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
 
@@ -408,8 +870,15 @@ function SubcontractorsPage() {
                 <input
                   name="email"
                   type="email"
-                  value={formData.email}
-                  onChange={handleChange}
+                  value={
+                    formData.email
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
 
@@ -417,8 +886,15 @@ function SubcontractorsPage() {
                 GST Number
                 <input
                   name="gst_number"
-                  value={formData.gst_number}
-                  onChange={handleChange}
+                  value={
+                    formData.gst_number
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
 
@@ -426,19 +902,37 @@ function SubcontractorsPage() {
                 Status
                 <select
                   name="status"
-                  value={formData.status}
-                  onChange={handleChange}
+                  value={
+                    formData.status
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
+                  required
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">
+                    Active
+                  </option>
+
+                  <option value="inactive">
+                    Inactive
+                  </option>
                 </select>
               </label>
             </div>
 
             <div className="form-section-title">
-              <h3>Banking Details</h3>
+              <h3>
+                Banking Details
+              </h3>
+
               <p className="muted-text">
-                Payment account details used for subcontractor settlements.
+                Payment account details
+                used for subcontractor
+                settlements.
               </p>
             </div>
 
@@ -447,8 +941,15 @@ function SubcontractorsPage() {
                 Bank Name
                 <input
                   name="bank_name"
-                  value={formData.bank_name}
-                  onChange={handleChange}
+                  value={
+                    formData.bank_name
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
 
@@ -456,8 +957,15 @@ function SubcontractorsPage() {
                 Account Name
                 <input
                   name="account_name"
-                  value={formData.account_name}
-                  onChange={handleChange}
+                  value={
+                    formData.account_name
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
 
@@ -465,8 +973,15 @@ function SubcontractorsPage() {
                 Account Number
                 <input
                   name="account_number"
-                  value={formData.account_number}
-                  onChange={handleChange}
+                  value={
+                    formData.account_number
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
 
@@ -474,59 +989,86 @@ function SubcontractorsPage() {
                 IFSC / BSB Code
                 <input
                   name="ifsc_code"
-                  value={formData.ifsc_code}
-                  onChange={handleChange}
+                  value={
+                    formData.ifsc_code
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
             </div>
 
             <div className="form-preview-total">
-              Record Preview: {formData.full_name || "Subcontractor"}
+              Record Preview:{" "}
+              {formData.full_name ||
+                "Subcontractor"}
+
               {formData.business_name
                 ? ` · ${formData.business_name}`
                 : ""}
+
               {formData.gst_number
                 ? ` · GST ${formData.gst_number}`
                 : ""}
             </div>
 
             <div className="form-actions">
-              <button type="submit" disabled={submitting}>
+              <button
+                type="submit"
+                disabled={
+                  submitting
+                }
+              >
                 {submitting
                   ? "Saving..."
                   : editingSubcontractor
-                  ? "Save Changes"
-                  : "Add Subcontractor"}
+                    ? "Save Changes"
+                    : "Add Subcontractor"}
               </button>
 
               {editingSubcontractor && (
                 <button
                   type="button"
                   className="secondary-btn"
-                  onClick={resetForm}
-                  disabled={submitting}
+                  onClick={
+                    resetForm
+                  }
+                  disabled={
+                    submitting
+                  }
                 >
                   Cancel
                 </button>
               )}
             </div>
           </form>
-        </div>
+        </section>
 
-        <div className="panel">
+        <section className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Subcontractor Filters</h2>
+              <h2>
+                Subcontractor Filters
+              </h2>
 
               <p className="muted-text">
-                Search by name, business, contact, GST, bank account or status.
+                Search by name,
+                business, contact, GST,
+                bank account or status.
               </p>
             </div>
 
             <button
               type="button"
               className="secondary-btn"
-              onClick={resetFilters}
+              onClick={
+                resetFilters
+              }
+              disabled={isBusy}
             >
               Reset
             </button>
@@ -535,24 +1077,52 @@ function SubcontractorsPage() {
           <div className="tabs">
             <button
               type="button"
-              className={statusFilter === "all" ? "active-tab" : ""}
-              onClick={() => setStatusFilter("all")}
+              className={
+                statusFilter ===
+                "all"
+                  ? "active-tab"
+                  : ""
+              }
+              onClick={() =>
+                setStatusFilter("all")
+              }
+              disabled={isBusy}
             >
               All
             </button>
 
             <button
               type="button"
-              className={statusFilter === "active" ? "active-tab" : ""}
-              onClick={() => setStatusFilter("active")}
+              className={
+                statusFilter ===
+                "active"
+                  ? "active-tab"
+                  : ""
+              }
+              onClick={() =>
+                setStatusFilter(
+                  "active"
+                )
+              }
+              disabled={isBusy}
             >
               Active
             </button>
 
             <button
               type="button"
-              className={statusFilter === "inactive" ? "active-tab" : ""}
-              onClick={() => setStatusFilter("inactive")}
+              className={
+                statusFilter ===
+                "inactive"
+                  ? "active-tab"
+                  : ""
+              }
+              onClick={() =>
+                setStatusFilter(
+                  "inactive"
+                )
+              }
+              disabled={isBusy}
             >
               Inactive
             </button>
@@ -562,58 +1132,88 @@ function SubcontractorsPage() {
             Search
             <input
               className="search-input"
-              type="text"
+              type="search"
               placeholder="Search subcontractors..."
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) =>
+                setSearchTerm(
+                  event.target.value
+                )
+              }
+              disabled={isBusy}
             />
           </label>
 
           <table>
             <tbody>
               <tr>
-                <td>Status Filter</td>
-                <td>{statusFilter}</td>
-              </tr>
-
-              <tr>
-                <td>Matching Records</td>
-                <td className="number-cell">
-                  {filteredSubcontractors.length}
+                <td>
+                  Status Filter
+                </td>
+                <td>
+                  {statusFilter}
                 </td>
               </tr>
 
               <tr>
-                <td>GST Registered</td>
-                <td className="number-cell">{totals.withGST}</td>
+                <td>
+                  Matching Records
+                </td>
+                <td className="number-cell">
+                  {
+                    filteredSubcontractors.length
+                  }
+                </td>
               </tr>
 
               <tr>
-                <td>Bank Details Available</td>
+                <td>
+                  GST Registered
+                </td>
                 <td className="number-cell">
-                  {totals.withBankDetails}
+                  {totals.withGST}
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  Bank Details
+                  Available
+                </td>
+                <td className="number-cell">
+                  {
+                    totals.withBankDetails
+                  }
                 </td>
               </tr>
             </tbody>
           </table>
-        </div>
+        </section>
       </section>
 
       {selectedSubcontractor && (
         <section className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Subcontractor Preview</h2>
+              <h2>
+                Subcontractor Preview
+              </h2>
 
               <p className="muted-text">
-                Contact, business and settlement information.
+                Contact, business and
+                settlement information.
               </p>
             </div>
 
             <button
               type="button"
               className="secondary-btn"
-              onClick={() => setSelectedSubcontractor(null)}
+              onClick={() =>
+                setSelectedSubcontractor(
+                  null
+                )
+              }
+              disabled={deleting}
             >
               Close Preview
             </button>
@@ -622,27 +1222,42 @@ function SubcontractorsPage() {
           <section className="summary-cards">
             <div className="card">
               <p>Name</p>
-              <h2>{selectedSubcontractor.full_name || "-"}</h2>
+              <h2>
+                {selectedSubcontractor.full_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
               <p>Business</p>
-              <h2>{selectedSubcontractor.business_name || "-"}</h2>
+              <h2>
+                {selectedSubcontractor.business_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
               <p>GST Number</p>
-              <h2>{selectedSubcontractor.gst_number || "-"}</h2>
+              <h2>
+                {selectedSubcontractor.gst_number ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
               <p>Bank</p>
-              <h2>{selectedSubcontractor.bank_name || "-"}</h2>
+              <h2>
+                {selectedSubcontractor.bank_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
               <p>Account Name</p>
-              <h2>{selectedSubcontractor.account_name || "-"}</h2>
+              <h2>
+                {selectedSubcontractor.account_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
@@ -653,7 +1268,9 @@ function SubcontractorsPage() {
                     selectedSubcontractor.status
                   )}
                 >
-                  {normaliseStatus(selectedSubcontractor.status)}
+                  {normaliseStatus(
+                    selectedSubcontractor.status
+                  )}
                 </span>
               </h2>
             </div>
@@ -664,22 +1281,36 @@ function SubcontractorsPage() {
               <tbody>
                 <tr>
                   <th>Phone</th>
-                  <td>{selectedSubcontractor.phone || "-"}</td>
+                  <td>
+                    {selectedSubcontractor.phone ||
+                      "-"}
+                  </td>
                 </tr>
 
                 <tr>
                   <th>Email</th>
-                  <td>{selectedSubcontractor.email || "-"}</td>
+                  <td>
+                    {selectedSubcontractor.email ||
+                      "-"}
+                  </td>
                 </tr>
 
                 <tr>
-                  <th>Account Number</th>
-                  <td>{selectedSubcontractor.account_number || "-"}</td>
+                  <th>
+                    Account Number
+                  </th>
+                  <td>
+                    {selectedSubcontractor.account_number ||
+                      "-"}
+                  </td>
                 </tr>
 
                 <tr>
                   <th>IFSC / BSB</th>
-                  <td>{selectedSubcontractor.ifsc_code || "-"}</td>
+                  <td>
+                    {selectedSubcontractor.ifsc_code ||
+                      "-"}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -690,11 +1321,20 @@ function SubcontractorsPage() {
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Subcontractors Register</h2>
+            <h2>
+              Subcontractors Register
+            </h2>
 
             <p className="muted-text">
-              {filteredSubcontractors.length} matching subcontractor
-              {filteredSubcontractors.length === 1 ? "" : "s"}.
+              {
+                filteredSubcontractors.length
+              }{" "}
+              matching subcontractor
+              {filteredSubcontractors.length ===
+              1
+                ? ""
+                : "s"}
+              .
             </p>
           </div>
         </div>
@@ -715,61 +1355,128 @@ function SubcontractorsPage() {
             </thead>
 
             <tbody>
-              {filteredSubcontractors.map((sub) => (
-                <tr key={sub.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className="table-link-button"
-                      onClick={() => setSelectedSubcontractor(sub)}
-                    >
-                      {sub.full_name || "-"}
-                    </button>
-                  </td>
+              {filteredSubcontractors.map(
+                (subcontractor) => (
+                  <tr
+                    key={
+                      subcontractor.id
+                    }
+                  >
+                    <td>
+                      <button
+                        type="button"
+                        className="table-link-button"
+                        onClick={() =>
+                          setSelectedSubcontractor(
+                            subcontractor
+                          )
+                        }
+                        disabled={
+                          isBusy
+                        }
+                      >
+                        {subcontractor.full_name ||
+                          "-"}
+                      </button>
+                    </td>
 
-                  <td>{sub.business_name || "-"}</td>
-                  <td>{sub.phone || "-"}</td>
-                  <td>{sub.email || "-"}</td>
-                  <td>{sub.gst_number || "-"}</td>
-                  <td>{sub.bank_name || "-"}</td>
+                    <td>
+                      {subcontractor.business_name ||
+                        "-"}
+                    </td>
 
-                  <td>
-                    <span className={getStatusClass(sub.status)}>
-                      {normaliseStatus(sub.status)}
-                    </span>
-                  </td>
+                    <td>
+                      {subcontractor.phone ||
+                        "-"}
+                    </td>
 
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(sub)}
-                    >
-                      Edit
-                    </button>
+                    <td>
+                      {subcontractor.email ||
+                        "-"}
+                    </td>
 
-                    <button
-                      type="button"
-                      className="secondary-btn"
-                      onClick={() => setSelectedSubcontractor(sub)}
-                    >
-                      Preview
-                    </button>
+                    <td>
+                      {subcontractor.gst_number ||
+                        "-"}
+                    </td>
 
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={() => setDeleteTarget(sub)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td>
+                      {subcontractor.bank_name ||
+                        "-"}
+                    </td>
 
-              {filteredSubcontractors.length === 0 && (
+                    <td>
+                      <span
+                        className={getStatusClass(
+                          subcontractor.status
+                        )}
+                      >
+                        {normaliseStatus(
+                          subcontractor.status
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            startEdit(
+                              subcontractor
+                            )
+                          }
+                          disabled={
+                            isBusy
+                          }
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() =>
+                            setSelectedSubcontractor(
+                              subcontractor
+                            )
+                          }
+                          disabled={
+                            isBusy
+                          }
+                        >
+                          Preview
+                        </button>
+
+                        <button
+                          type="button"
+                          className="delete-btn"
+                          onClick={() =>
+                            setDeleteTarget(
+                              subcontractor
+                            )
+                          }
+                          disabled={
+                            isBusy
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
+
+              {filteredSubcontractors.length ===
+                0 && (
                 <tr>
-                  <td colSpan="8" className="empty-table-message">
-                    No subcontractors found.
+                  <td
+                    colSpan="8"
+                    className="empty-table-message"
+                  >
+                    No subcontractors
+                    found.
                   </td>
                 </tr>
               )}
@@ -779,10 +1486,22 @@ function SubcontractorsPage() {
       </section>
 
       <DeleteVerificationModal
-        open={!!deleteTarget}
-        itemName={deleteTarget?.full_name || "subcontractor"}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleConfirmDelete}
+        open={Boolean(
+          deleteTarget
+        )}
+        itemName={
+          deleteTarget?.full_name ||
+          "subcontractor"
+        }
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        onConfirm={
+          handleConfirmDelete
+        }
+        loading={deleting}
       />
     </>
   );

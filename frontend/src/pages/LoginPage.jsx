@@ -16,9 +16,13 @@ function LoginPage({
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (submitting) return;
+    if (submitting) {
+      return;
+    }
 
-    const cleanEmail = String(email || "").trim();
+    const cleanEmail = String(email || "")
+      .trim()
+      .toLowerCase();
 
     if (!cleanEmail) {
       setLocalError("Enter your email address.");
@@ -34,17 +38,28 @@ function LoginPage({
       setSubmitting(true);
       setLocalError("");
 
+      // Keep the controlled email normalised.
+      setEmail(cleanEmail);
+
       await handleLogin(event);
     } catch (error) {
+      console.error(
+        "Login failed:",
+        error.response?.data || error
+      );
+
       setLocalError(
-        error?.response?.data?.message ||
-          error?.message ||
+        error.response?.data?.message ||
+          error.message ||
           "Unable to log in."
       );
     } finally {
       setSubmitting(false);
     }
   };
+
+  const displayedError =
+    localError || message || "";
 
   return (
     <div className="login-shell">
@@ -56,30 +71,35 @@ function LoginPage({
         <h1>Construction Portal</h1>
 
         <p>
-          Access the tools and projects assigned to your account.
-          Administrators manage company operations, while workers and
-          subcontractors see only their own work.
+          Access the projects, finance, workforce and
+          progress tools assigned to your account.
         </p>
 
         <div className="login-feature-list">
           <div>
             <strong>Administrators</strong>
+
             <span>
-              Finance, projects, workforce, reports and approvals.
+              Manage finance, projects, workers, reports
+              and approvals.
             </span>
           </div>
 
           <div>
             <strong>Workers</strong>
+
             <span>
-              Assigned projects, daily updates and expenses.
+              View assigned projects, submit daily
+              updates and record expenses.
             </span>
           </div>
 
           <div>
             <strong>Subcontractors</strong>
+
             <span>
-              Assigned tenders, documents and site progress.
+              Access assigned tenders, documents and
+              project progress.
             </span>
           </div>
         </div>
@@ -87,29 +107,31 @@ function LoginPage({
 
       <section className="login-box">
         <form onSubmit={handleSubmit}>
-          <div>
-            <p className="muted-text">Welcome back</p>
-            <h2>Log in</h2>
+          <h2>Sign In</h2>
 
-            <p>
-              Enter your account details to continue to your portal.
-            </p>
-          </div>
+          <p className="muted-text">
+            Enter your registered account details.
+          </p>
 
           <label htmlFor="login-email">
-            Email Address
+            Email
           </label>
 
           <input
             id="login-email"
+            name="email"
             type="email"
             autoComplete="email"
             value={email}
-            placeholder="name@example.com"
+            placeholder="email@example.com"
             onChange={(event) => {
               setEmail(event.target.value);
-              setLocalError("");
+
+              if (localError) {
+                setLocalError("");
+              }
             }}
+            disabled={submitting}
             required
           />
 
@@ -117,45 +139,66 @@ function LoginPage({
             Password
           </label>
 
-          <div className="password-input-row">
+          <div className="password-input-wrapper">
             <input
               id="login-password"
-              type={showPassword ? "text" : "password"}
+              name="password"
+              type={
+                showPassword
+                  ? "text"
+                  : "password"
+              }
               autoComplete="current-password"
               value={password}
               placeholder="Enter your password"
               onChange={(event) => {
                 setPassword(event.target.value);
-                setLocalError("");
+
+                if (localError) {
+                  setLocalError("");
+                }
               }}
+              disabled={submitting}
               required
             />
 
             <button
               type="button"
-              className="password-toggle-button"
-              onClick={() =>
-                setShowPassword((current) => !current)
-              }
+              className="password-toggle-btn"
               aria-label={
                 showPassword
                   ? "Hide password"
                   : "Show password"
               }
+              aria-pressed={showPassword}
+              onClick={() =>
+                setShowPassword(
+                  (previous) => !previous
+                )
+              }
+              disabled={submitting}
             >
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
 
-          {(localError || message) && (
-            <p className="error">
-              {localError || message}
+          <button
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting
+              ? "Signing In..."
+              : "Sign In"}
+          </button>
+
+          {displayedError && (
+            <p
+              className="error"
+              role="alert"
+            >
+              {displayedError}
             </p>
           )}
-
-          <button type="submit" disabled={submitting}>
-            {submitting ? "Logging in..." : "Login to Portal"}
-          </button>
 
           <div className="login-links">
             <Link to="/forgot-password">
@@ -166,11 +209,6 @@ function LoginPage({
               Create Account
             </Link>
           </div>
-
-          <small className="muted-text">
-            You will automatically be taken to the portal permitted
-            for your account role.
-          </small>
         </form>
       </section>
     </div>

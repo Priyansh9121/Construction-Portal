@@ -1,4 +1,10 @@
-import { NavLink } from "react-router-dom";
+import {
+  useMemo,
+} from "react";
+
+import {
+  NavLink,
+} from "react-router-dom";
 
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -6,6 +12,12 @@ import PageTransition from "../components/PageTransition";
 import AppBackground from "../components/AppBackground";
 import FloatingActionButton from "../components/FloatingActionButton";
 import CommandPalette from "../components/CommandPalette";
+
+function getRole(user) {
+  return String(user?.role || "")
+    .trim()
+    .toLowerCase();
+}
 
 function AppLayout({
   children,
@@ -15,28 +27,102 @@ function AppLayout({
   invoices = [],
   payments = [],
 }) {
-  const mobileLinks = [
-    { label: "Dashboard", path: "/dashboard" },
-    { label: "Finance", path: "/payments" },
-    { label: "Invoices", path: "/invoices" },
-    { label: "Workforce", path: "/workers" },
-    { label: "Money", path: "/worker-money" },
-    { label: "Subs", path: "/subcontractors" },
+  const role = getRole(user);
 
-    ...(user?.role === "admin"
-      ? [{ label: "Users", path: "/users" }]
-      : []),
+  const mobileLinks = useMemo(() => {
+    const commonLinks = [
+      {
+        label: "Dashboard",
+        path: "/dashboard",
+      },
+      {
+        label: "Finance",
+        path: "/payments",
+      },
+      {
+        label: "Invoices",
+        path: "/invoices",
+      },
+      {
+        label: "Workers",
+        path: "/workers",
+      },
+      {
+        label: "Worker Money",
+        shortLabel: "Money",
+        path: "/worker-money",
+      },
+      {
+        label: "Subcontractors",
+        shortLabel: "Subs",
+        path: "/subcontractors",
+      },
+      {
+        label: "Sites",
+        path: "/sites",
+      },
+      {
+        label: "Tenders",
+        path: "/tenders",
+      },
+      {
+        label: "Daily Updates",
+        shortLabel: "Updates",
+        path: "/daily-site-updates",
+      },
+      {
+        label: "Reports",
+        path: "/reports",
+      },
+      {
+        label: "Settings",
+        path: "/settings",
+      },
+    ];
 
-    { label: "Sites", path: "/sites" },
-    { label: "Updates", path: "/daily-site-updates" },
+    if (role !== "admin") {
+      return commonLinks;
+    }
 
-    ...(user?.role === "admin"
-      ? [{ label: "Approvals", path: "/daily-update-approvals" }]
-      : []),
+    const dailyUpdateIndex =
+      commonLinks.findIndex(
+        (link) =>
+          link.path ===
+          "/daily-site-updates"
+      );
 
-    { label: "Reports", path: "/reports" },
-    { label: "Settings", path: "/settings" },
-  ];
+    const adminLinks = [
+      ...commonLinks,
+    ];
+
+    /*
+     * Insert approvals directly after Daily Updates.
+     */
+    adminLinks.splice(
+      dailyUpdateIndex + 1,
+      0,
+      {
+        label: "Update Approvals",
+        shortLabel: "Approvals",
+        path:
+          "/daily-update-approvals",
+      }
+    );
+
+    /*
+     * User management remains available only to administrators.
+     */
+    adminLinks.splice(
+      6,
+      0,
+      {
+        label: "Users",
+        path: "/users",
+      }
+    );
+
+    return adminLinks;
+  }, [role]);
 
   return (
     <div className="app-layout">
@@ -52,22 +138,38 @@ function AppLayout({
           payments={payments}
         />
 
-        <div className="mobile-page-nav">
-          {mobileLinks.map((link) => (
-            <NavLink
-              key={link.path}
-              to={link.path}
-              className={({ isActive }) =>
-                isActive ? "mobile-page-active" : ""
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
-        </div>
+        <nav
+          className="mobile-page-nav"
+          aria-label="Mobile page navigation"
+        >
+          {mobileLinks.map(
+            (link) => (
+              <NavLink
+                key={link.path}
+                to={link.path}
+                end={
+                  link.path ===
+                  "/dashboard"
+                }
+                className={({
+                  isActive,
+                }) =>
+                  isActive
+                    ? "mobile-page-active"
+                    : ""
+                }
+              >
+                {link.shortLabel ||
+                  link.label}
+              </NavLink>
+            )
+          )}
+        </nav>
 
         <div className="page-content">
-          <PageTransition>{children}</PageTransition>
+          <PageTransition>
+            {children}
+          </PageTransition>
         </div>
       </main>
 

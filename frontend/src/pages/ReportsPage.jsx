@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
+import { useEffect, useState } from "react";
+import { getSubcontractors } from "../services/subcontractorService";
 
 function ReportsPage({
   payments = [],
@@ -68,6 +70,21 @@ function ReportsPage({
       .toLowerCase()
       .includes(search);
   };
+
+  const [subcontractors, setSubcontractors] = useState([]);
+
+  useEffect(() => {
+    const loadSubcontractors = async () => {
+      try {
+        const data = await getSubcontractors();
+        setSubcontractors(data || []);
+      } catch (error) {
+        console.error("Failed to load subcontractors", error);
+      }
+    };
+  
+    loadSubcontractors();
+  }, []);
 
   const filteredPayments = useMemo(() => {
     return payments.filter(
