@@ -16,14 +16,14 @@ export default function useSiteLogs(user) {
       setSiteLogs([]);
       return [];
     }
-
+  
     try {
       const data = await getSiteLogs();
-
+  
       const rows = Array.isArray(data)
         ? data
         : data.siteLogs || data.logs || [];
-
+  
       setSiteLogs(rows);
       return rows;
     } catch (error) {
@@ -31,9 +31,11 @@ export default function useSiteLogs(user) {
         "Failed to load site logs",
         error.response?.data || error
       );
-
+  
       setSiteLogs([]);
-      throw error;
+  
+      // Do not throw here for automatic page loading.
+      return [];
     }
   };
 

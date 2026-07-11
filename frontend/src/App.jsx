@@ -18,10 +18,16 @@ import { uploadFile } from "./services/uploadService";
 import AppRoutes from "./routes/AppRoutes";
 
 function App() {
-  const [email, setEmail] = useState("admin@test.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { user, setUser, logout } = useAuth();
   const [message, setMessage] = useState("");
+  const handleLogout = () => {
+    logout();
+    setEmail("");
+    setPassword("");
+    setMessage("");
+  };
 
   const {
     payments,
@@ -113,7 +119,7 @@ function App() {
       console.log("Payment payload from App:", paymentData);
   
       await savePayment({
-        company_id: null,
+        company_id: user?.company_id || null,
         payment_type: paymentData.payment_type,
         category: paymentData.category || paymentData.payment_sub_type,
         amount: Number(paymentData.amount || 0),
@@ -150,7 +156,7 @@ function App() {
     const form = e.target;
 
     const newWorker = {
-      company_id: null,
+      company_id: user?.company_id || null,
       full_name: form.full_name.value,
       phone: form.phone.value,
       salary: Number(form.salary.value),
@@ -180,7 +186,7 @@ function App() {
     const form = e.target;
 
     const newSite = {
-      company_id: null,
+      company_id: user?.company_id || null,
       site_type: form.site_type.value,
       site_name: form.site_name.value,
       address: form.address.value,
@@ -209,7 +215,7 @@ function App() {
     const form = e.target;
 
     const newTender = {
-      company_id: null,
+      company_id: user?.company_id || null,
       site_id: form.site_id.value ? Number(form.site_id.value) : null,
       title: form.title.value,
       status: form.status.value,
@@ -242,7 +248,7 @@ function App() {
     const form = e.target;
 
     const newInvoice = {
-      company_id: null,
+      company_id: user?.company_id || null,
       tender_id: null,
       invoice_number: form.invoice_number.value,
       amount: Number(form.amount.value),
@@ -364,7 +370,7 @@ function App() {
     <AppRoutes
       // AUTH
       user={user}
-      logout={logout}
+      logout={handleLogout}
       email={email}
       setEmail={setEmail}
       password={password}
