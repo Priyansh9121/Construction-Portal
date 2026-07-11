@@ -13,7 +13,6 @@ function DashboardPage({
   sites = [],
   tenders = [],
   invoices = [],
-  subcontractors = [],
 }) {
   const money = formatCurrency;
 

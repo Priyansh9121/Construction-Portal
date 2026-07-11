@@ -1,7 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
-import { useEffect, useState } from "react";
 import { getSubcontractors } from "../services/subcontractorService";
 
 function ReportsPage({
@@ -10,7 +9,6 @@ function ReportsPage({
   sites = [],
   tenders = [],
   invoices = [],
-  subcontractors = [],
   siteLogs = [],
   allocations = [],
   expenses = [],
