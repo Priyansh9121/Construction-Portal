@@ -78,19 +78,54 @@ function DashboardPage({
     return date.getTime() === today.getTime();
   };
 
-  const [subcontractors, setSubcontractors] = useState([]);
-
+  const [
+    subcontractors,
+    setSubcontractors,
+  ] = useState([]);
+  
   useEffect(() => {
-    const loadSubcontractors = async () => {
-      try {
-        const data = await getSubcontractors();
-        setSubcontractors(data || []);
-      } catch (error) {
-        console.error("Failed to load subcontractors", error);
-      }
-    };
+    let cancelled = false;
+  
+    const loadSubcontractors =
+      async () => {
+        try {
+          const data =
+            await getSubcontractors();
+  
+          const records =
+            Array.isArray(data)
+              ? data
+              : data?.subcontractors ||
+                data?.data
+                  ?.subcontractors ||
+                data?.data ||
+                [];
+  
+          if (!cancelled) {
+            setSubcontractors(
+              Array.isArray(records)
+                ? records
+                : []
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Failed to load subcontractors:",
+            error.response?.data ||
+              error
+          );
+  
+          if (!cancelled) {
+            setSubcontractors([]);
+          }
+        }
+      };
   
     loadSubcontractors();
+  
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const incomePayments = payments.filter(
@@ -342,7 +377,11 @@ function DashboardPage({
     0
   );
 
-  const activeSubcontractors = subcontractors.filter(
+  const activeSubcontractors = (
+    Array.isArray(subcontractors)
+      ? subcontractors
+      : []
+  ).filter(
     (subcontractor) =>
       normaliseStatus(subcontractor.status) === "active"
   ).length;
