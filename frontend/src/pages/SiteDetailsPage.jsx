@@ -9,6 +9,7 @@ import { getPayments } from "../services/paymentService";
 import FinanceSummaryCards from "../components/finance/FinanceSummaryCards";
 import FinanceRecordsTable from "../components/finance/FinanceRecordsTable";
 import { usePaymentManager } from "../hooks/usePaymentManager";
+import { useAuth } from "../contexts/AuthContext";
 
 import {
   getRunningTenders,
@@ -25,6 +26,7 @@ import ExportButtons from "../components/export/ExportButtons";
 function SiteDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [site, setSite] = useState(null);
   const [tenders, setTenders] = useState([]);
@@ -77,7 +79,7 @@ function SiteDetailsPage() {
 
     try {
       await createTender({
-        company_id: null,
+        company_id: user?.company_id || null,
         site_id: Number(id),
         title: tenderForm.title,
         status: tenderForm.status,

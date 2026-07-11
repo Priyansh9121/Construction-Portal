@@ -1,4 +1,11 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import toast from "react-hot-toast";
+
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import ExportButtons from "../components/export/ExportButtons";
 
@@ -10,29 +17,60 @@ function DailySiteUpdatesPage({
   addSiteLog,
   deleteSiteLog,
 }) {
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] =
+    useState(null);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [siteFilter, setSiteFilter] = useState("all");
-  const [workerFilter, setWorkerFilter] = useState("all");
-  const [photoFilter, setPhotoFilter] = useState("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [selectedUpdate, setSelectedUpdate] =
+    useState(null);
 
-  const [cameraPreview, setCameraPreview] = useState("");
-  const [galleryPreview, setGalleryPreview] = useState("");
-  const [selectedUpdate, setSelectedUpdate] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] =
+    useState("");
 
-  const dateOnly = (value) => (value ? String(value).slice(0, 10) : "-");
+  const [siteFilter, setSiteFilter] =
+    useState("all");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const [workerFilter, setWorkerFilter] =
+    useState("all");
+
+  const [photoFilter, setPhotoFilter] =
+    useState("all");
+
+  const [fromDate, setFromDate] =
+    useState("");
+
+  const [toDate, setToDate] =
+    useState("");
+
+  const [cameraPreview, setCameraPreview] =
+    useState("");
+
+  const [galleryPreview, setGalleryPreview] =
+    useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [deleting, setDeleting] =
+    useState(false);
+
+  const dateOnly = (value) =>
+    value
+      ? String(value).slice(0, 10)
+      : "-";
+
+  const today = new Date()
+    .toISOString()
+    .slice(0, 10);
 
   const uniqueSitesReported = useMemo(
     () =>
       new Set(
         siteLogs
-          .map((log) => log.site_id || log.site_name)
+          .map(
+            (log) =>
+              log.site_id ||
+              log.site_name
+          )
           .filter(Boolean)
       ).size,
     [siteLogs]
@@ -42,68 +80,118 @@ function DailySiteUpdatesPage({
     () =>
       new Set(
         siteLogs
-          .map((log) => log.worker_id || log.worker_name)
+          .map(
+            (log) =>
+              log.worker_id ||
+              log.worker_name
+          )
           .filter(Boolean)
       ).size,
     [siteLogs]
   );
 
   const photoUpdates = useMemo(
-    () => siteLogs.filter((log) => Boolean(log.photo_url)),
+    () =>
+      siteLogs.filter(
+        (log) =>
+          Boolean(log.photo_url)
+      ),
     [siteLogs]
   );
 
   const todayUpdates = useMemo(
     () =>
       siteLogs.filter(
-        (log) => dateOnly(log.log_date || log.created_at) === today
+        (log) =>
+          dateOnly(
+            log.log_date ||
+              log.created_at
+          ) === today
       ),
     [siteLogs, today]
   );
 
   const latestUpdateDate = useMemo(() => {
-    if (!siteLogs.length) return "-";
+    if (!siteLogs.length) {
+      return "-";
+    }
 
     const sorted = [...siteLogs].sort(
-      (a, b) =>
-        new Date(b.log_date || b.created_at || 0) -
-        new Date(a.log_date || a.created_at || 0)
+      (first, second) =>
+        new Date(
+          second.log_date ||
+            second.created_at ||
+            0
+        ) -
+        new Date(
+          first.log_date ||
+            first.created_at ||
+            0
+        )
     );
 
-    return dateOnly(sorted[0]?.log_date || sorted[0]?.created_at);
+    return dateOnly(
+      sorted[0]?.log_date ||
+        sorted[0]?.created_at
+    );
   }, [siteLogs]);
 
   const filteredLogs = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
+    const search = searchTerm
+      .trim()
+      .toLowerCase();
 
     return [...siteLogs]
       .filter((log) => {
-        const logDate = dateOnly(log.log_date || log.created_at);
+        const logDate = dateOnly(
+          log.log_date ||
+            log.created_at
+        );
+
+        const searchableText = [
+          log.site_name,
+          log.tender_title,
+          log.tender_name,
+          log.worker_name,
+          log.notes,
+          logDate,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
         const matchesSearch =
           !search ||
-          log.site_name?.toLowerCase().includes(search) ||
-          log.tender_title?.toLowerCase().includes(search) ||
-          log.tender_name?.toLowerCase().includes(search) ||
-          log.worker_name?.toLowerCase().includes(search) ||
-          log.notes?.toLowerCase().includes(search) ||
-          logDate.includes(search);
+          searchableText.includes(
+            search
+          );
 
         const matchesSite =
           siteFilter === "all" ||
-          String(log.site_id) === String(siteFilter);
+          String(log.site_id) ===
+            String(siteFilter);
 
         const matchesWorker =
           workerFilter === "all" ||
-          String(log.worker_id) === String(workerFilter);
+          String(log.worker_id) ===
+            String(workerFilter);
 
         const matchesPhoto =
           photoFilter === "all" ||
-          (photoFilter === "with-photo" && Boolean(log.photo_url)) ||
-          (photoFilter === "without-photo" && !log.photo_url);
+          (photoFilter ===
+            "with-photo" &&
+            Boolean(log.photo_url)) ||
+          (photoFilter ===
+            "without-photo" &&
+            !log.photo_url);
 
-        const matchesFromDate = !fromDate || logDate >= fromDate;
-        const matchesToDate = !toDate || logDate <= toDate;
+        const matchesFromDate =
+          !fromDate ||
+          logDate >= fromDate;
+
+        const matchesToDate =
+          !toDate ||
+          logDate <= toDate;
 
         return (
           matchesSearch &&
@@ -115,9 +203,17 @@ function DailySiteUpdatesPage({
         );
       })
       .sort(
-        (a, b) =>
-          new Date(b.log_date || b.created_at || 0) -
-          new Date(a.log_date || a.created_at || 0)
+        (first, second) =>
+          new Date(
+            second.log_date ||
+              second.created_at ||
+              0
+          ) -
+          new Date(
+            first.log_date ||
+              first.created_at ||
+              0
+          )
       );
   }, [
     siteLogs,
@@ -129,87 +225,269 @@ function DailySiteUpdatesPage({
     toDate,
   ]);
 
+  const filteredPhotoCount = useMemo(
+    () =>
+      filteredLogs.filter(
+        (log) =>
+          Boolean(log.photo_url)
+      ).length,
+    [filteredLogs]
+  );
+
   const dailyUpdateExportColumns = [
-    { key: "site_name", label: "Site" },
-    { key: "tender_title", label: "Tender" },
-    { key: "worker_name", label: "Worker" },
-    { key: "log_date", label: "Date" },
-    { key: "notes", label: "Notes" },
-    { key: "photo_status", label: "Photo" },
-    { key: "photo_url", label: "Photo URL" },
+    {
+      key: "site_name",
+      label: "Site",
+    },
+    {
+      key: "tender_title",
+      label: "Tender",
+    },
+    {
+      key: "worker_name",
+      label: "Worker",
+    },
+    {
+      key: "log_date",
+      label: "Date",
+    },
+    {
+      key: "notes",
+      label: "Notes",
+    },
+    {
+      key: "photo_status",
+      label: "Photo",
+    },
+    {
+      key: "photo_url",
+      label: "Photo URL",
+    },
   ];
 
-  const dailyUpdateExportRows = filteredLogs.map((log) => ({
-    site_name: log.site_name || "",
-    tender_title: log.tender_title || log.tender_name || "",
-    worker_name: log.worker_name || "",
-    log_date: dateOnly(log.log_date || log.created_at),
-    notes: log.notes || "",
-    photo_status: log.photo_url ? "Available" : "Not available",
-    photo_url: log.photo_url || "",
-  }));
+  const dailyUpdateExportRows =
+    filteredLogs.map((log) => ({
+      site_name:
+        log.site_name || "",
+      tender_title:
+        log.tender_title ||
+        log.tender_name ||
+        "",
+      worker_name:
+        log.worker_name || "",
+      log_date: dateOnly(
+        log.log_date ||
+          log.created_at
+      ),
+      notes:
+        log.notes || "",
+      photo_status:
+        log.photo_url
+          ? "Available"
+          : "Not available",
+      photo_url:
+        log.photo_url || "",
+    }));
 
   const dailyUpdateExportSummary = {
-    "Total Updates": siteLogs.length,
-    "Today's Updates": todayUpdates.length,
-    "Updates With Photos": photoUpdates.length,
-    "Updates Without Photos": siteLogs.length - photoUpdates.length,
-    "Sites Reported": uniqueSitesReported,
-    "Workers Reported": uniqueWorkersReported,
-    "Latest Update": latestUpdateDate,
-    "Filtered Records": filteredLogs.length,
+    "Total Updates":
+      siteLogs.length,
+    "Today's Updates":
+      todayUpdates.length,
+    "Updates With Photos":
+      photoUpdates.length,
+    "Updates Without Photos":
+      siteLogs.length -
+      photoUpdates.length,
+    "Sites Reported":
+      uniqueSitesReported,
+    "Workers Reported":
+      uniqueWorkersReported,
+    "Latest Update":
+      latestUpdateDate,
+    "Filtered Records":
+      filteredLogs.length,
   };
 
-  const handleFilePreview = (event, setPreview) => {
-    const file = event.target.files?.[0];
+  const revokePreview = (previewUrl) => {
+    if (
+      previewUrl?.startsWith("blob:")
+    ) {
+      URL.revokeObjectURL(
+        previewUrl
+      );
+    }
+  };
+
+  const clearPreviews = () => {
+    revokePreview(cameraPreview);
+    revokePreview(galleryPreview);
+
+    setCameraPreview("");
+    setGalleryPreview("");
+  };
+
+  useEffect(() => {
+    return () => {
+      revokePreview(cameraPreview);
+      revokePreview(galleryPreview);
+    };
+  }, [
+    cameraPreview,
+    galleryPreview,
+  ]);
+
+  const handleFilePreview = (
+    event,
+    preview,
+    setPreview
+  ) => {
+    const file =
+      event.target.files?.[0];
+
+    revokePreview(preview);
 
     if (!file) {
       setPreview("");
       return;
     }
 
-    setPreview(URL.createObjectURL(file));
+    if (
+      !file.type.startsWith(
+        "image/"
+      )
+    ) {
+      event.target.value = "";
+
+      setPreview("");
+
+      toast.error(
+        "Please select a valid image file."
+      );
+
+      return;
+    }
+
+    const maxFileSize =
+      10 * 1024 * 1024;
+
+    if (file.size > maxFileSize) {
+      event.target.value = "";
+
+      setPreview("");
+
+      toast.error(
+        "The image must be smaller than 10 MB."
+      );
+
+      return;
+    }
+
+    setPreview(
+      URL.createObjectURL(file)
+    );
   };
 
-  const clearPreviews = () => {
-    if (cameraPreview) URL.revokeObjectURL(cameraPreview);
-    if (galleryPreview) URL.revokeObjectURL(galleryPreview);
+  const handleSubmit = async (
+    event
+  ) => {
+    event.preventDefault();
 
-    setCameraPreview("");
-    setGalleryPreview("");
-  };
-
-  const handleSubmit = async (event) => {
     if (submitting) {
-      event.preventDefault();
+      return;
+    }
+
+    if (
+      typeof addSiteLog !==
+      "function"
+    ) {
+      toast.error(
+        "Daily update submission is unavailable."
+      );
+
       return;
     }
 
     try {
       setSubmitting(true);
+
       await addSiteLog(event);
+
       clearPreviews();
+
+      toast.success(
+        "Daily site update added successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Failed to add daily update:",
+        error.response?.data || error
+      );
+
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to add daily site update."
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+  const handleConfirmDelete =
+    async () => {
+      if (
+        !deleteTarget ||
+        deleting
+      ) {
+        return;
+      }
 
-    if (!deleteSiteLog) {
-      window.alert("Delete function is missing.");
-      return;
-    }
+      if (
+        typeof deleteSiteLog !==
+        "function"
+      ) {
+        toast.error(
+          "Delete function is unavailable."
+        );
 
-    await deleteSiteLog(deleteTarget.id);
+        return;
+      }
 
-    if (selectedUpdate?.id === deleteTarget.id) {
-      setSelectedUpdate(null);
-    }
+      try {
+        setDeleting(true);
 
-    setDeleteTarget(null);
-  };
+        await deleteSiteLog(
+          deleteTarget.id
+        );
+
+        if (
+          selectedUpdate?.id ===
+          deleteTarget.id
+        ) {
+          setSelectedUpdate(null);
+        }
+
+        setDeleteTarget(null);
+
+        toast.success(
+          "Daily update deleted successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to delete daily update:",
+          error.response?.data ||
+            error
+        );
+
+        toast.error(
+          error.response?.data
+            ?.message ||
+            "Failed to delete daily update."
+        );
+      } finally {
+        setDeleting(false);
+      }
+    };
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -222,15 +500,17 @@ function DailySiteUpdatesPage({
 
   return (
     <>
-
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Daily Site Updates</h2>
+            <h2>
+              Daily Site Updates
+            </h2>
 
             <p className="muted-text">
-              Capture site activity, worker progress, notes and construction
-              photos.
+              Capture site activity,
+              worker progress, notes and
+              construction photos.
             </p>
           </div>
 
@@ -238,9 +518,15 @@ function DailySiteUpdatesPage({
             filename="daily-site-updates"
             title="Daily Site Updates Report"
             subtitle="Construction Portal daily progress register"
-            rows={dailyUpdateExportRows}
-            columns={dailyUpdateExportColumns}
-            summary={dailyUpdateExportSummary}
+            rows={
+              dailyUpdateExportRows
+            }
+            columns={
+              dailyUpdateExportColumns
+            }
+            summary={
+              dailyUpdateExportSummary
+            }
           />
         </div>
       </section>
@@ -253,37 +539,52 @@ function DailySiteUpdatesPage({
 
         <div className="card highlight-success">
           <p>Today's Updates</p>
-          <h2>{todayUpdates.length}</h2>
+          <h2>
+            {todayUpdates.length}
+          </h2>
         </div>
 
         <div className="card">
           <p>Photo Updates</p>
-          <h2>{photoUpdates.length}</h2>
+          <h2>
+            {photoUpdates.length}
+          </h2>
         </div>
 
         <div className="card">
           <p>Text-Only Updates</p>
-          <h2>{siteLogs.length - photoUpdates.length}</h2>
+          <h2>
+            {siteLogs.length -
+              photoUpdates.length}
+          </h2>
         </div>
 
         <div className="card">
           <p>Sites Reported</p>
-          <h2>{uniqueSitesReported}</h2>
+          <h2>
+            {uniqueSitesReported}
+          </h2>
         </div>
 
         <div className="card">
           <p>Workers Reported</p>
-          <h2>{uniqueWorkersReported}</h2>
+          <h2>
+            {uniqueWorkersReported}
+          </h2>
         </div>
 
         <div className="card">
           <p>Latest Update</p>
-          <h2>{latestUpdateDate}</h2>
+          <h2>
+            {latestUpdateDate}
+          </h2>
         </div>
 
         <div className="card">
           <p>Filtered Records</p>
-          <h2>{filteredLogs.length}</h2>
+          <h2>
+            {filteredLogs.length}
+          </h2>
         </div>
       </section>
 
@@ -291,64 +592,126 @@ function DailySiteUpdatesPage({
         <div className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Add Daily Site Update</h2>
+              <h2>
+                Add Daily Site Update
+              </h2>
 
               <p className="muted-text">
-                Record work completed, responsible worker and visual site
-                evidence.
+                Record work completed,
+                responsible worker and
+                visual site evidence.
               </p>
             </div>
           </div>
 
-          <form className="payment-form" onSubmit={handleSubmit}>
+          <form
+            className="payment-form"
+            onSubmit={handleSubmit}
+          >
             <div className="form-section-title">
-              <h3>Site and Work Details</h3>
+              <h3>
+                Site and Work Details
+              </h3>
 
               <p className="muted-text">
-                Select the relevant site, tender, worker and reporting date.
+                Select the relevant site,
+                tender, worker and
+                reporting date.
               </p>
             </div>
 
             <div className="form-grid">
               <label>
                 Site
-                <select name="site_id" required defaultValue="">
-                  <option value="">Select Site</option>
+                <select
+                  name="site_id"
+                  required
+                  defaultValue=""
+                  disabled={
+                    submitting
+                  }
+                >
+                  <option value="">
+                    Select Site
+                  </option>
 
-                  {sites.map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {site.site_name}
-                    </option>
-                  ))}
+                  {sites.map(
+                    (site) => (
+                      <option
+                        key={site.id}
+                        value={site.id}
+                      >
+                        {
+                          site.site_name
+                        }
+                      </option>
+                    )
+                  )}
                 </select>
               </label>
 
               <label>
                 Tender
-                <select name="tender_id" defaultValue="">
-                  <option value="">Select Tender</option>
+                <select
+                  name="tender_id"
+                  defaultValue=""
+                  disabled={
+                    submitting
+                  }
+                >
+                  <option value="">
+                    Select Tender
+                  </option>
 
-                  {tenders.map((tender) => (
-                    <option key={tender.id} value={tender.id}>
-                      {tender.title ||
-                        tender.tender_name ||
-                        `Tender ${tender.id}`}
-                    </option>
-                  ))}
+                  {tenders.map(
+                    (tender) => (
+                      <option
+                        key={tender.id}
+                        value={
+                          tender.id
+                        }
+                      >
+                        {tender.title ||
+                          tender.tender_name ||
+                          `Tender ${tender.id}`}
+                      </option>
+                    )
+                  )}
                 </select>
               </label>
 
               <label>
                 Worker
-                <select name="worker_id" required defaultValue="">
-                  <option value="">Select Worker</option>
+                <select
+                  name="worker_id"
+                  required
+                  defaultValue=""
+                  disabled={
+                    submitting
+                  }
+                >
+                  <option value="">
+                    Select Worker
+                  </option>
 
-                  {workers.map((worker) => (
-                    <option key={worker.id} value={worker.id}>
-                      {worker.full_name}
-                      {worker.role ? ` — ${worker.role}` : ""}
-                    </option>
-                  ))}
+                  {workers.map(
+                    (worker) => (
+                      <option
+                        key={worker.id}
+                        value={
+                          worker.id
+                        }
+                      >
+                        {
+                          worker.full_name
+                        }
+
+                        {worker.role
+                          ? ` — ${worker.role}`
+                          : ""}
+                      </option>
+                    )
+                  )}
                 </select>
               </label>
 
@@ -357,30 +720,44 @@ function DailySiteUpdatesPage({
                 <input
                   name="log_date"
                   type="date"
-                  defaultValue={today}
+                  defaultValue={
+                    today
+                  }
+                  max={today}
                   required
+                  disabled={
+                    submitting
+                  }
                 />
               </label>
             </div>
 
             <small className="muted-text">
-              Normal users can only add updates and photos for the last three
-              days. Older entries require administrator permission.
+              Normal users can only add
+              updates and photos for the
+              last three days. Older
+              entries require
+              administrator permission.
             </small>
 
             <label>
-              Work Completed / Daily Notes
+              Work Completed / Daily
+              Notes
               <textarea
                 name="notes"
                 placeholder="Describe completed work, delays, materials used, safety matters or next actions..."
+                disabled={submitting}
               />
             </label>
 
             <div className="form-section-title">
-              <h3>Progress Photos</h3>
+              <h3>
+                Progress Photos
+              </h3>
 
               <p className="muted-text">
-                Take a new site photo or upload an existing image.
+                Take a new site photo or
+                upload an existing image.
               </p>
             </div>
 
@@ -392,8 +769,17 @@ function DailySiteUpdatesPage({
                   type="file"
                   accept="image/*"
                   capture="environment"
-                  onChange={(event) =>
-                    handleFilePreview(event, setCameraPreview)
+                  disabled={
+                    submitting
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    handleFilePreview(
+                      event,
+                      cameraPreview,
+                      setCameraPreview
+                    )
                   }
                 />
               </label>
@@ -404,26 +790,41 @@ function DailySiteUpdatesPage({
                   name="gallery_photo"
                   type="file"
                   accept="image/*"
-                  onChange={(event) =>
-                    handleFilePreview(event, setGalleryPreview)
+                  disabled={
+                    submitting
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    handleFilePreview(
+                      event,
+                      galleryPreview,
+                      setGalleryPreview
+                    )
                   }
                 />
               </label>
             </div>
 
-            {(cameraPreview || galleryPreview) && (
+            {(cameraPreview ||
+              galleryPreview) && (
               <div className="dashboard-grid two-column-dashboard">
                 {cameraPreview && (
                   <div className="card">
-                    <p>Camera Photo Preview</p>
+                    <p>
+                      Camera Photo Preview
+                    </p>
 
                     <img
-                      src={cameraPreview}
+                      src={
+                        cameraPreview
+                      }
                       alt="Camera preview"
                       style={{
                         width: "100%",
                         maxHeight: 240,
-                        objectFit: "cover",
+                        objectFit:
+                          "cover",
                         borderRadius: 12,
                         marginTop: 10,
                       }}
@@ -433,15 +834,21 @@ function DailySiteUpdatesPage({
 
                 {galleryPreview && (
                   <div className="card">
-                    <p>Uploaded Photo Preview</p>
+                    <p>
+                      Uploaded Photo
+                      Preview
+                    </p>
 
                     <img
-                      src={galleryPreview}
+                      src={
+                        galleryPreview
+                      }
                       alt="Gallery preview"
                       style={{
                         width: "100%",
                         maxHeight: 240,
-                        objectFit: "cover",
+                        objectFit:
+                          "cover",
                         borderRadius: 12,
                         marginTop: 10,
                       }}
@@ -452,16 +859,26 @@ function DailySiteUpdatesPage({
             )}
 
             <div className="form-actions">
-              <button type="submit" disabled={submitting}>
-                {submitting ? "Submitting..." : "Add Daily Update"}
+              <button
+                type="submit"
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Submitting..."
+                  : "Add Daily Update"}
               </button>
 
-              {(cameraPreview || galleryPreview) && (
+              {(cameraPreview ||
+                galleryPreview) && (
                 <button
                   type="button"
                   className="secondary-btn"
-                  onClick={clearPreviews}
-                  disabled={submitting}
+                  onClick={
+                    clearPreviews
+                  }
+                  disabled={
+                    submitting
+                  }
                 >
                   Clear Photo Preview
                 </button>
@@ -473,11 +890,14 @@ function DailySiteUpdatesPage({
         <div className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Update Filters</h2>
+              <h2>
+                Update Filters
+              </h2>
 
               <p className="muted-text">
-                Search progress records and filter by site, worker, photo or
-                date.
+                Search progress records
+                and filter by site,
+                worker, photo or date.
               </p>
             </div>
 
@@ -485,6 +905,7 @@ function DailySiteUpdatesPage({
               type="button"
               className="secondary-btn"
               onClick={resetFilters}
+              disabled={deleting}
             >
               Reset
             </button>
@@ -494,10 +915,14 @@ function DailySiteUpdatesPage({
             Search
             <input
               className="search-input"
-              type="text"
+              type="search"
               placeholder="Search site, tender, worker, notes or date..."
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) =>
+                setSearchTerm(
+                  event.target.value
+                )
+              }
             />
           </label>
 
@@ -506,12 +931,21 @@ function DailySiteUpdatesPage({
               Site
               <select
                 value={siteFilter}
-                onChange={(event) => setSiteFilter(event.target.value)}
+                onChange={(event) =>
+                  setSiteFilter(
+                    event.target.value
+                  )
+                }
               >
-                <option value="all">All Sites</option>
+                <option value="all">
+                  All Sites
+                </option>
 
                 {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
+                  <option
+                    key={site.id}
+                    value={site.id}
+                  >
                     {site.site_name}
                   </option>
                 ))}
@@ -522,15 +956,30 @@ function DailySiteUpdatesPage({
               Worker
               <select
                 value={workerFilter}
-                onChange={(event) => setWorkerFilter(event.target.value)}
+                onChange={(event) =>
+                  setWorkerFilter(
+                    event.target.value
+                  )
+                }
               >
-                <option value="all">All Workers</option>
+                <option value="all">
+                  All Workers
+                </option>
 
-                {workers.map((worker) => (
-                  <option key={worker.id} value={worker.id}>
-                    {worker.full_name}
-                  </option>
-                ))}
+                {workers.map(
+                  (worker) => (
+                    <option
+                      key={worker.id}
+                      value={
+                        worker.id
+                      }
+                    >
+                      {
+                        worker.full_name
+                      }
+                    </option>
+                  )
+                )}
               </select>
             </label>
 
@@ -538,11 +987,23 @@ function DailySiteUpdatesPage({
               Photo Status
               <select
                 value={photoFilter}
-                onChange={(event) => setPhotoFilter(event.target.value)}
+                onChange={(event) =>
+                  setPhotoFilter(
+                    event.target.value
+                  )
+                }
               >
-                <option value="all">All Updates</option>
-                <option value="with-photo">With Photo</option>
-                <option value="without-photo">Without Photo</option>
+                <option value="all">
+                  All Updates
+                </option>
+
+                <option value="with-photo">
+                  With Photo
+                </option>
+
+                <option value="without-photo">
+                  Without Photo
+                </option>
               </select>
             </label>
 
@@ -551,7 +1012,11 @@ function DailySiteUpdatesPage({
               <input
                 type="date"
                 value={fromDate}
-                onChange={(event) => setFromDate(event.target.value)}
+                onChange={(event) =>
+                  setFromDate(
+                    event.target.value
+                  )
+                }
               />
             </label>
 
@@ -560,7 +1025,11 @@ function DailySiteUpdatesPage({
               <input
                 type="date"
                 value={toDate}
-                onChange={(event) => setToDate(event.target.value)}
+                onChange={(event) =>
+                  setToDate(
+                    event.target.value
+                  )
+                }
               />
             </label>
           </div>
@@ -568,21 +1037,37 @@ function DailySiteUpdatesPage({
           <table>
             <tbody>
               <tr>
-                <td>Matching Updates</td>
-                <td className="number-cell">{filteredLogs.length}</td>
-              </tr>
+                <td>
+                  Matching Updates
+                </td>
 
-              <tr>
-                <td>With Photos</td>
                 <td className="number-cell">
-                  {filteredLogs.filter((log) => log.photo_url).length}
+                  {
+                    filteredLogs.length
+                  }
                 </td>
               </tr>
 
               <tr>
-                <td>Without Photos</td>
+                <td>
+                  With Photos
+                </td>
+
                 <td className="number-cell">
-                  {filteredLogs.filter((log) => !log.photo_url).length}
+                  {
+                    filteredPhotoCount
+                  }
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  Without Photos
+                </td>
+
+                <td className="number-cell">
+                  {filteredLogs.length -
+                    filteredPhotoCount}
                 </td>
               </tr>
             </tbody>
@@ -594,17 +1079,23 @@ function DailySiteUpdatesPage({
         <section className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Daily Update Preview</h2>
+              <h2>
+                Daily Update Preview
+              </h2>
 
               <p className="muted-text">
-                Detailed progress entry and attached construction photo.
+                Detailed progress entry
+                and attached construction
+                photo.
               </p>
             </div>
 
             <button
               type="button"
               className="secondary-btn"
-              onClick={() => setSelectedUpdate(null)}
+              onClick={() =>
+                setSelectedUpdate(null)
+              }
             >
               Close Preview
             </button>
@@ -613,11 +1104,15 @@ function DailySiteUpdatesPage({
           <section className="summary-cards">
             <div className="card">
               <p>Site</p>
-              <h2>{selectedUpdate.site_name || "-"}</h2>
+              <h2>
+                {selectedUpdate.site_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
               <p>Tender</p>
+
               <h2>
                 {selectedUpdate.tender_title ||
                   selectedUpdate.tender_name ||
@@ -627,14 +1122,20 @@ function DailySiteUpdatesPage({
 
             <div className="card">
               <p>Worker</p>
-              <h2>{selectedUpdate.worker_name || "-"}</h2>
+
+              <h2>
+                {selectedUpdate.worker_name ||
+                  "-"}
+              </h2>
             </div>
 
             <div className="card">
               <p>Date</p>
+
               <h2>
                 {dateOnly(
-                  selectedUpdate.log_date || selectedUpdate.created_at
+                  selectedUpdate.log_date ||
+                    selectedUpdate.created_at
                 )}
               </h2>
             </div>
@@ -642,30 +1143,42 @@ function DailySiteUpdatesPage({
 
           <div className="payment-grid">
             <div className="panel">
-              <h3>Progress Notes</h3>
+              <h3>
+                Progress Notes
+              </h3>
 
-              <p>{selectedUpdate.notes || "No notes provided."}</p>
+              <p>
+                {selectedUpdate.notes ||
+                  "No notes provided."}
+              </p>
             </div>
 
             <div className="panel">
-              <h3>Progress Photo</h3>
+              <h3>
+                Progress Photo
+              </h3>
 
               {selectedUpdate.photo_url ? (
                 <>
                   <img
-                    src={selectedUpdate.photo_url}
+                    src={
+                      selectedUpdate.photo_url
+                    }
                     alt="Site progress"
                     style={{
                       width: "100%",
                       maxHeight: 360,
-                      objectFit: "cover",
+                      objectFit:
+                        "cover",
                       borderRadius: 12,
                     }}
                   />
 
                   <div className="form-actions">
                     <a
-                      href={selectedUpdate.photo_url}
+                      href={
+                        selectedUpdate.photo_url
+                      }
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -675,7 +1188,8 @@ function DailySiteUpdatesPage({
                 </>
               ) : (
                 <p className="muted-text">
-                  No photo is attached to this update.
+                  No photo is attached
+                  to this update.
                 </p>
               )}
             </div>
@@ -686,11 +1200,17 @@ function DailySiteUpdatesPage({
       <section className="panel">
         <div className="section-title-row">
           <div>
-            <h2>Daily Progress Register</h2>
+            <h2>
+              Daily Progress Register
+            </h2>
 
             <p className="muted-text">
-              {filteredLogs.length} matching update
-              {filteredLogs.length === 1 ? "" : "s"}.
+              {filteredLogs.length}{" "}
+              matching update
+              {filteredLogs.length === 1
+                ? ""
+                : "s"}
+              .
             </p>
           </div>
         </div>
@@ -710,61 +1230,105 @@ function DailySiteUpdatesPage({
             </thead>
 
             <tbody>
-              {filteredLogs.map((log) => (
-                <tr key={log.id}>
-                  <td>
-                    <button
-                      type="button"
-                      className="table-link-button"
-                      onClick={() => setSelectedUpdate(log)}
-                    >
-                      {log.site_name || "-"}
-                    </button>
-                  </td>
-
-                  <td>{log.tender_title || log.tender_name || "-"}</td>
-                  <td>{log.worker_name || "-"}</td>
-                  <td>{dateOnly(log.log_date || log.created_at)}</td>
-                  <td>{log.notes || "-"}</td>
-
-                  <td>
-                    {log.photo_url ? (
-                      <a
-                        href={log.photo_url}
-                        target="_blank"
-                        rel="noreferrer"
+              {filteredLogs.map(
+                (log) => (
+                  <tr key={log.id}>
+                    <td>
+                      <button
+                        type="button"
+                        className="table-link-button"
+                        onClick={() =>
+                          setSelectedUpdate(
+                            log
+                          )
+                        }
                       >
-                        View Photo
-                      </a>
-                    ) : (
-                      "No photo"
-                    )}
-                  </td>
+                        {log.site_name ||
+                          "-"}
+                      </button>
+                    </td>
 
-                  <td>
-                    <button
-                      type="button"
-                      className="secondary-btn"
-                      onClick={() => setSelectedUpdate(log)}
-                    >
-                      Preview
-                    </button>
+                    <td>
+                      {log.tender_title ||
+                        log.tender_name ||
+                        "-"}
+                    </td>
 
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={() => setDeleteTarget(log)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td>
+                      {log.worker_name ||
+                        "-"}
+                    </td>
 
-              {filteredLogs.length === 0 && (
+                    <td>
+                      {dateOnly(
+                        log.log_date ||
+                          log.created_at
+                      )}
+                    </td>
+
+                    <td>
+                      {log.notes || "-"}
+                    </td>
+
+                    <td>
+                      {log.photo_url ? (
+                        <a
+                          href={
+                            log.photo_url
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View Photo
+                        </a>
+                      ) : (
+                        "No photo"
+                      )}
+                    </td>
+
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() =>
+                            setSelectedUpdate(
+                              log
+                            )
+                          }
+                        >
+                          Preview
+                        </button>
+
+                        <button
+                          type="button"
+                          className="delete-btn"
+                          onClick={() =>
+                            setDeleteTarget(
+                              log
+                            )
+                          }
+                          disabled={
+                            deleting
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
+
+              {filteredLogs.length ===
+                0 && (
                 <tr>
-                  <td colSpan="7" className="empty-table-message">
-                    No daily updates found.
+                  <td
+                    colSpan="7"
+                    className="empty-table-message"
+                  >
+                    No daily updates
+                    found.
                   </td>
                 </tr>
               )}
@@ -774,14 +1338,21 @@ function DailySiteUpdatesPage({
       </section>
 
       <DeleteVerificationModal
-        open={!!deleteTarget}
+        open={Boolean(deleteTarget)}
         itemName={
           deleteTarget?.site_name ||
           deleteTarget?.worker_name ||
           "daily update"
         }
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        onConfirm={
+          handleConfirmDelete
+        }
+        loading={deleting}
       />
     </>
   );

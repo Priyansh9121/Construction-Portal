@@ -317,11 +317,7 @@ function AppRoutes({
             tenders={tenders}
             invoices={invoices}
           >
-            <SiteDetailsPage
-              sites={sites}
-              tenders={tenders}
-              payments={payments}
-            />
+            <SiteDetailsPage />
           </AdminManagerLayout>
         }
       />
@@ -355,14 +351,7 @@ function AppRoutes({
             tenders={tenders}
             invoices={invoices}
           >
-            <TenderDetailsPage
-              payments={payments}
-              tenders={tenders}
-              sites={sites}
-              workers={workers}
-              subcontractors={subcontractors}
-              fetchPayments={fetchPayments}
-            />
+            <TenderDetailsPage />
           </AdminManagerLayout>
         }
       />

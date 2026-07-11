@@ -5,6 +5,7 @@ import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useAuth } from "../contexts/AuthContext";
 import useWorkers from "../hooks/useWorkers";
+import toast from "react-hot-toast";
 
 function WorkersPage() {
   const { user } = useAuth();
@@ -18,6 +19,15 @@ function WorkersPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingWorker, setEditingWorker] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [adding, setAdding] =
+    useState(false);
+
+  const [updating, setUpdating] =
+    useState(false);
+
+  const [deleting, setDeleting] =
+    useState(false);
 
   const [editForm, setEditForm] = useState({
     full_name: "",
@@ -83,11 +93,84 @@ function WorkersPage() {
     status: "active",
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+  const handleAddWorker = async (
+    event
+  ) => {
+    event.preventDefault();
   
-    await removeWorker(deleteTarget.id);
-    setDeleteTarget(null);
+    if (adding) return;
+  
+    const form =
+      event.currentTarget;
+  
+    const payload = {
+      company_id:
+        user?.company_id || null,
+      full_name:
+        form.full_name.value.trim(),
+      phone:
+        form.phone.value.trim(),
+      salary: Number(
+        form.salary.value || 0
+      ),
+      role:
+        form.role.value.trim(),
+      status:
+        form.status.value,
+    };
+  
+    try {
+      setAdding(true);
+  
+      await addWorker(payload);
+  
+      form.reset();
+  
+      toast.success(
+        "Worker added successfully."
+      );
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to add worker."
+      );
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || deleting) {
+      return;
+    }
+  
+    try {
+      setDeleting(true);
+  
+      await removeWorker(
+        deleteTarget.id
+      );
+  
+      if (
+        editingWorker?.id ===
+        deleteTarget.id
+      ) {
+        cancelEdit();
+      }
+  
+      setDeleteTarget(null);
+  
+      toast.success(
+        "Worker deleted successfully."
+      );
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to delete worker."
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const startEdit = (worker) => {
@@ -114,14 +197,48 @@ function WorkersPage() {
     }));
   };
 
-  const handleUpdateWorker = async (event) => {
+  const handleUpdateWorker = async (
+    event
+  ) => {
     event.preventDefault();
-
-    if (!editingWorker) return;
-
-    await updateWorker(editingWorker.id, editForm);
-    await fetchWorkers();
-    cancelEdit();
+  
+    if (!editingWorker || updating) {
+      return;
+    }
+  
+    try {
+      setUpdating(true);
+  
+      await updateWorker(
+        editingWorker.id,
+        {
+          ...editForm,
+          full_name:
+            editForm.full_name.trim(),
+          phone:
+            editForm.phone.trim(),
+          salary: Number(
+            editForm.salary || 0
+          ),
+          role:
+            editForm.role.trim(),
+        }
+      );
+  
+      await fetchWorkers();
+      cancelEdit();
+  
+      toast.success(
+        "Worker updated successfully."
+      );
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to update worker."
+      );
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
@@ -265,7 +382,7 @@ function WorkersPage() {
               </div>
             </form>
           ) : (
-            <form className="payment-form" onSubmit={addWorker}>
+            <form className="payment-form" onSubmit={handleAddWorker}>
               <div className="form-grid">
                 <label>
                   Worker Name

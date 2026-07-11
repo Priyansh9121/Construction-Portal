@@ -39,7 +39,7 @@ function RegisterPage() {
         password: form.password,
         role: form.role,
       };
-  
+      
       const data = await registerUser(payload);
   
       localStorage.setItem("token", data.token);
@@ -121,13 +121,13 @@ function RegisterPage() {
           <label>Role</label>
 
           <select
-          name="role"
-          value={form.role}
-          onChange={handleChange}
-          required
-          >
-          <option value="worker">Worker</option>
-          <option value="subcontractor">Subcontractor</option>
+            name="role"
+            value={form.role}
+            onChange={handleChange}
+            required
+            >
+            <option value="worker">Worker</option>
+            <option value="subcontractor">Subcontractor</option>
           </select>
 
           <button type="submit" disabled={loading}>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import ExportButtons from "../components/export/ExportButtons";
@@ -36,7 +37,6 @@ function SitesPage() {
   const [adding, setAdding] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [message, setMessage] = useState("");
 
   const personalSites = useMemo(
     () =>
@@ -141,14 +141,16 @@ function SitesPage() {
       await addSite(newSite);
 
       form.reset();
-      setMessage("Site added successfully.");
+      toast.success(
+        "Site added successfully."
+      );
     } catch (error) {
       console.error(
         "Failed to add site:",
         error.response?.data || error
       );
 
-      setMessage(
+      toast.error(
         error.response?.data?.message ||
           "Failed to add site."
       );
@@ -171,7 +173,9 @@ function SitesPage() {
       }
 
       setDeleteTarget(null);
-      setMessage("Site deleted successfully.");
+      toast.success(
+        "Site deleted successfully."
+      );
     } catch (error) {
       console.error(
         "Failed to delete site:",
@@ -242,7 +246,9 @@ function SitesPage() {
       await fetchSites();
 
       cancelEdit();
-      setMessage("Site updated successfully.");
+      toast.success(
+        "Site updated successfully."
+      );
     } catch (error) {
       console.error(
         "Failed to update site:",
@@ -659,14 +665,18 @@ function SitesPage() {
       <DeleteVerificationModal
         open={Boolean(deleteTarget)}
         itemName={
-          deleteTarget?.site_name || "site"
+          deleteTarget?.site_name ||
+          "site"
         }
         onCancel={() => {
           if (!deleting) {
             setDeleteTarget(null);
           }
         }}
-        onConfirm={handleConfirmDelete}
+        onConfirm={
+          handleConfirmDelete
+        }
+        loading={deleting}
       />
     </>
   );

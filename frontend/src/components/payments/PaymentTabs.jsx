@@ -10,7 +10,8 @@ function PaymentTabs({
 }) {
   const showChildOptions =
     mainTab === "Income" &&
-    selectedSection?.childOptions?.length > 0;
+    Array.isArray(selectedSection?.childOptions) &&
+    selectedSection.childOptions.length > 0;
 
   return (
     <>

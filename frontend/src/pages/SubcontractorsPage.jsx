@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import ExportButtons from "../components/export/ExportButtons";
+import { useAuth } from "../contexts/AuthContext";
+import toast from "react-hot-toast";
 
 import {
   getSubcontractors,
@@ -22,6 +24,7 @@ function SubcontractorsPage() {
     ifsc_code: "",
     status: "active",
   };
+  const { user } = useAuth();
 
   const [subcontractors, setSubcontractors] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -219,7 +222,7 @@ function SubcontractorsPage() {
         setMessage("Subcontractor updated successfully.");
       } else {
         await createSubcontractor({
-          company_id: null,
+          company_id: user?.company_id || null,
           ...payload,
         });
 

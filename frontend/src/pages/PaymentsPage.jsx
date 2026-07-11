@@ -6,6 +6,7 @@
   import FinanceWizard from "../components/finance/FinanceWizard";
   import FinanceTable from "../components/finance/FinanceTable";
   import FinanceTrendChart from "../components/charts/FinanceTrendChart";
+  import { useAuth } from "../contexts/AuthContext";
 
   import {
     getActiveSections,
@@ -26,6 +27,7 @@
     deletePayment,
     fetchPayments,
   }) {
+    const { user } = useAuth();
     const [mainTab, setMainTab] = useState("Income");
     const activeSections = getActiveSections(mainTab);
 
@@ -123,6 +125,7 @@
         selectedTender,
         selectedTenderId,
         activeSubType,
+        companyId: user?.company_id,
       });
 
     const handleSubmit = async (event) => {

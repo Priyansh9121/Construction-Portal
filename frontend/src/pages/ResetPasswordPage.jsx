@@ -1,26 +1,124 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+
 import { resetPassword } from "../services/userService";
 
 function ResetPasswordPage() {
-  const [token, setToken] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const [searchParams] =
+    useSearchParams();
+
+  const [token, setToken] =
+    useState("");
+
+  const [
+    newPassword,
+    setNewPassword,
+  ] = useState("");
+
+  const [
+    confirmPassword,
+    setConfirmPassword,
+  ] = useState("");
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  useEffect(() => {
+    const queryToken =
+      searchParams.get("token");
+
+    if (queryToken) {
+      setToken(queryToken);
+    }
+  }, [searchParams]);
+
+  const handleSubmit = async (
+    event
+  ) => {
+    event.preventDefault();
+
+    if (submitting) return;
+
+    if (!token.trim()) {
+      setError(
+        "Enter a valid reset token."
+      );
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError(
+        "Password must contain at least 8 characters."
+      );
+      return;
+    }
+
+    if (
+      newPassword !==
+      confirmPassword
+    ) {
+      setError(
+        "Passwords do not match."
+      );
+      return;
+    }
 
     try {
-      const data = await resetPassword({
-        token,
-        new_password: newPassword,
-      });
+      setSubmitting(true);
+      setMessage("");
+      setError("");
 
-      setMessage(data.message || "Password reset successfully.");
+      const data =
+        await resetPassword({
+          token: token.trim(),
+          new_password:
+            newPassword,
+        });
+
+      setMessage(
+        data.message ||
+          "Password reset successfully."
+      );
+
       setToken("");
       setNewPassword("");
-    } catch (error) {
-      setMessage(error.response?.data?.message || "Failed to reset password.");
+      setConfirmPassword("");
+
+      window.setTimeout(() => {
+        navigate(
+          "/login",
+          {
+            replace: true,
+          }
+        );
+      }, 1500);
+    } catch (requestError) {
+      setError(
+        requestError.response?.data
+          ?.message ||
+          "Failed to reset password."
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -29,39 +127,130 @@ function ResetPasswordPage() {
       <section className="login-brand">
         <h1>Reset Password</h1>
 
-        <p>Paste your reset token and set a new password.</p>
+        <p>
+          Enter your reset token and
+          create a new password.
+        </p>
       </section>
 
       <section className="login-box">
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+        >
           <h2>Create New Password</h2>
 
-          <label>Reset Token</label>
+          <label htmlFor="reset-token">
+            Reset Token
+          </label>
 
           <input
+            id="reset-token"
             type="text"
             value={token}
             placeholder="Paste reset token"
-            onChange={(e) => setToken(e.target.value)}
+            onChange={(event) =>
+              setToken(
+                event.target.value
+              )
+            }
+            disabled={submitting}
             required
           />
 
-          <label>New Password</label>
+          <label htmlFor="new-password">
+            New Password
+          </label>
 
           <input
-            type="password"
+            id="new-password"
+            type={
+              showPassword
+                ? "text"
+                : "password"
+            }
+            autoComplete="new-password"
             value={newPassword}
             placeholder="Enter new password"
-            onChange={(e) => setNewPassword(e.target.value)}
+            onChange={(event) =>
+              setNewPassword(
+                event.target.value
+              )
+            }
+            disabled={submitting}
+            minLength={8}
             required
           />
 
-          <button type="submit">Reset Password</button>
+          <label htmlFor="confirm-password">
+            Confirm Password
+          </label>
 
-          {message && <p className="error">{message}</p>}
+          <input
+            id="confirm-password"
+            type={
+              showPassword
+                ? "text"
+                : "password"
+            }
+            autoComplete="new-password"
+            value={confirmPassword}
+            placeholder="Confirm new password"
+            onChange={(event) =>
+              setConfirmPassword(
+                event.target.value
+              )
+            }
+            disabled={submitting}
+            minLength={8}
+            required
+          />
+
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={showPassword}
+              onChange={(event) =>
+                setShowPassword(
+                  event.target.checked
+                )
+              }
+              disabled={submitting}
+            />
+
+            Show passwords
+          </label>
+
+          <button
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting
+              ? "Resetting..."
+              : "Reset Password"}
+          </button>
+
+          {message && (
+            <p
+              className="success-message"
+              role="status"
+            >
+              {message}
+            </p>
+          )}
+
+          {error && (
+            <p
+              className="error"
+              role="alert"
+            >
+              {error}
+            </p>
+          )}
 
           <div className="login-links">
-            <Link to="/">Back to Login</Link>
+            <Link to="/login">
+              Back to Login
+            </Link>
           </div>
         </form>
       </section>

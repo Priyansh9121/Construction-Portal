@@ -5,6 +5,7 @@ import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useAuth } from "../contexts/AuthContext";
 import useInvoices from "../hooks/useInvoices";
+import toast from "react-hot-toast";
 
 
 function InvoicesPage() {
@@ -22,7 +23,14 @@ function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [adding, setAdding] =
+    useState(false);
+
+  const [updating, setUpdating] =
+    useState(false);
+
+  const [deleting, setDeleting] =
+    useState(false);
 
   const emptyEditForm = {
     invoice_number: "",
@@ -144,25 +152,43 @@ function InvoicesPage() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget || submitting) return;
+    if (!deleteTarget || deleting) {
+      return;
+    }
   
     try {
-      setSubmitting(true);
+      setDeleting(true);
   
-      await removeInvoice(deleteTarget.id);
+      await removeInvoice(
+        deleteTarget.id
+      );
   
-      if (selectedInvoice?.id === deleteTarget.id) {
+      if (
+        selectedInvoice?.id ===
+        deleteTarget.id
+      ) {
         setSelectedInvoice(null);
       }
   
+      if (
+        editingInvoice?.id ===
+        deleteTarget.id
+      ) {
+        cancelEdit();
+      }
+  
       setDeleteTarget(null);
+  
+      toast.success(
+        "Invoice deleted successfully."
+      );
     } catch (error) {
-      console.error(
-        "Failed to delete invoice:",
-        error.response?.data || error
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to delete invoice."
       );
     } finally {
-      setSubmitting(false);
+      setDeleting(false);
     }
   };
 
@@ -189,57 +215,92 @@ function InvoicesPage() {
     }));
   };
 
-  const handleUpdateInvoice = async (event) => {
+  const handleUpdateInvoice = async (
+    event
+  ) => {
     event.preventDefault();
-
-    if (!editingInvoice || submitting) return;
-
+  
+    if (!editingInvoice || updating) {
+      return;
+    }
+  
     try {
-      setSubmitting(true);
-
-      await updateInvoice(editingInvoice.id, {
-        invoice_number: editForm.invoice_number.trim(),
-        amount: Number(editForm.amount || 0),
-        status: editForm.status,
-      });
-
+      setUpdating(true);
+  
+      await updateInvoice(
+        editingInvoice.id,
+        {
+          invoice_number:
+            editForm.invoice_number.trim(),
+          amount: Number(
+            editForm.amount || 0
+          ),
+          status:
+            editForm.status,
+        }
+      );
+  
       await fetchInvoices();
       cancelEdit();
+  
+      toast.success(
+        "Invoice updated successfully."
+      );
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to update invoice."
+      );
     } finally {
-      setSubmitting(false);
+      setUpdating(false);
     }
   };
 
-  const handleAddInvoice = async (event) => {
+  const handleAddInvoice = async (
+    event
+  ) => {
     event.preventDefault();
   
-    if (submitting) return;
+    if (adding) return;
   
-    const form = event.currentTarget;
+    const form =
+      event.currentTarget;
   
     const newInvoice = {
-      company_id: user?.company_id || null,
-      tender_id: form.tender_id?.value
-        ? Number(form.tender_id.value)
-        : null,
-      invoice_number: form.invoice_number.value.trim(),
-      amount: Number(form.amount.value || 0),
-      status: form.status.value,
+      company_id:
+        user?.company_id || null,
+      tender_id:
+        form.tender_id?.value
+          ? Number(
+              form.tender_id.value
+            )
+          : null,
+      invoice_number:
+        form.invoice_number.value.trim(),
+      amount: Number(
+        form.amount.value || 0
+      ),
+      status:
+        form.status.value,
     };
   
     try {
-      setSubmitting(true);
+      setAdding(true);
   
       await addInvoice(newInvoice);
   
       form.reset();
+  
+      toast.success(
+        "Invoice added successfully."
+      );
     } catch (error) {
-      console.error(
-        "Failed to add invoice:",
-        error.response?.data || error
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to add invoice."
       );
     } finally {
-      setSubmitting(false);
+      setAdding(false);
     }
   };
 
