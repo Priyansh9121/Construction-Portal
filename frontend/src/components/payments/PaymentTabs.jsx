@@ -8,8 +8,13 @@ function PaymentTabs({
   onSectionClick,
   onChildClick,
 }) {
+  const showChildOptions =
+    mainTab === "Income" &&
+    selectedSection?.childOptions?.length > 0;
+
   return (
     <>
+      {/* Income / Expense */}
       <div className="tabs">
         <button
           type="button"
@@ -28,12 +33,17 @@ function PaymentTabs({
         </button>
       </div>
 
+      {/* Finance Sections */}
       <div className="tabs">
         {activeSections.map((section) => (
           <button
             key={section.key}
             type="button"
-            className={sectionTab === section.key ? "active-tab" : ""}
+            className={
+              sectionTab === section.key
+                ? "active-tab"
+                : ""
+            }
             onClick={() => onSectionClick(section)}
           >
             {section.label}
@@ -41,13 +51,18 @@ function PaymentTabs({
         ))}
       </div>
 
-      {selectedSection?.childOptions?.length > 0 && (
+      {/* Investor / Government Bill */}
+      {showChildOptions && (
         <div className="tabs child-tabs">
           {selectedSection.childOptions.map((child) => (
             <button
               key={child.key}
               type="button"
-              className={childTab === child.key ? "active-tab" : ""}
+              className={
+                childTab === child.key
+                  ? "active-tab"
+                  : ""
+              }
               onClick={() => onChildClick(child)}
             >
               {child.label}

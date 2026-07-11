@@ -29,10 +29,8 @@
     const [mainTab, setMainTab] = useState("Income");
     const activeSections = getActiveSections(mainTab);
 
-    const [selectedSection, setSelectedSection] = useState(activeSections[0]);
-    const [selectedChild, setSelectedChild] = useState(
-      getDefaultChildOption(activeSections[0])
-    );
+    const [selectedSection, setSelectedSection] = useState(null);
+    const [selectedChild, setSelectedChild] = useState(null);
 
     const [selectedTenderId, setSelectedTenderId] = useState("");
     const [formData, setFormData] = useState({});
@@ -58,35 +56,43 @@
 
     const resetForm = () => {
       setFormData({});
+      setSelectedTenderId("");
     };
 
     const handleMainTabClick = (tab) => {
-      const sections = getActiveSections(tab);
-      const firstSection = sections[0];
-
       setMainTab(tab);
-      setSelectedSection(firstSection);
-      setSelectedChild(getDefaultChildOption(firstSection));
-      setSelectedTenderId("");
+    
+      setSelectedSection(null);
+      setSelectedChild(null);
+    
       resetForm();
+    
+      setEditingPayment(null);
     };
 
     const handleSectionClick = (section) => {
       setSelectedSection(section);
-      setSelectedChild(getDefaultChildOption(section));
-      setSelectedTenderId("");
+    
+      setSelectedChild(null);
+    
       resetForm();
+    
+      setEditingPayment(null);
     };
 
     const handleChildClick = (child) => {
       setSelectedChild(child);
+    
       resetForm();
     };
 
     const cancelEdit = () => {
       setEditingPayment(null);
-      setFormData({});
-      setSelectedTenderId("");
+    
+      setSelectedSection(null);
+      setSelectedChild(null);
+    
+      resetForm();
     };
 
     const startEdit = (payment) => {
@@ -121,6 +127,20 @@
 
     const handleSubmit = async (event) => {
       event.preventDefault();
+      if (!selectedSection) {
+        toast.error("Please select a finance section.");
+        return;
+      }
+      
+      if (
+        selectedSection.childOptions?.length > 0 &&
+        !selectedChild
+      ) {
+        toast.error(
+          "Please select Investor or Government Bill."
+        );
+        return;
+      }
 
       if (selectedSection.requiresTender && !selectedTenderId) {
         toast.error("Please select tender first.");
@@ -143,13 +163,16 @@
         if (editingPayment) {
           await updatePayment(editingPayment.id, buildPayload());
           toast.success("Finance record updated.");
-          setEditingPayment(null);
         } else {
           await addPayment(buildPayload());
           toast.success("Finance record added.");
         }
 
         resetForm();
+
+        setSelectedSection(null);
+        setSelectedChild(null);
+        setEditingPayment(null);
 
         if (fetchPayments) {
           await fetchPayments();
