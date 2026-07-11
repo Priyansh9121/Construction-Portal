@@ -173,18 +173,18 @@ exports.updateSubcontractor = async (req, res) => {
 exports.deleteSubcontractor = async (req, res) => {
   try {
     const { id } = req.params;
-
     const deletedBy = req.user?.id || null;
 
     const result = await pool.query(
       `
       UPDATE subcontractors
-      SET is_deleted = TRUE,
-          deleted_at = NOW(),
-          deleted_by = $2,
-          updated_at = NOW()
+      SET
+        is_deleted = TRUE,
+        deleted_at = NOW(),
+        deleted_by = $2,
+        updated_at = NOW()
       WHERE id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
+        AND COALESCE(is_deleted, FALSE) = FALSE
       RETURNING *
       `,
       [id, deletedBy]
@@ -193,16 +193,29 @@ exports.deleteSubcontractor = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Subcontractor not found",
+        message: "Subcontractor not found or already deleted",
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Subcontractor deleted successfully",
+      subcontractor: result.rows[0],
     });
   } catch (error) {
-    console.error("Delete subcontractor error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Delete subcontractor error:", {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+    });
+
+    return res.status(500).json({
+      success: false,
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Failed to delete subcontractor"
+          : error.message,
+    });
   }
 };

@@ -264,8 +264,14 @@ function SubcontractorsPage() {
 
       await fetchSubcontractors();
     } catch (err) {
+      console.error(
+        "Failed to delete subcontractor:",
+        err.response?.data || err
+      );
+    
       setError(
-        err.response?.data?.message || "Failed to delete subcontractor."
+        err.response?.data?.message ||
+          "Failed to delete subcontractor."
       );
     }
   };
