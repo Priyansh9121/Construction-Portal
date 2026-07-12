@@ -557,44 +557,9 @@ function DashboardPage({
 
   const quickActions = [
     {
-      label: "Add Finance Entry",
-      description: "Record income or expense",
-      path: "/payments",
-    },
-    {
-      label: "Add Worker",
-      description: "Manage labour records",
-      path: "/workers",
-    },
-    {
-      label: "Add Site",
-      description: "Create construction site",
-      path: "/sites",
-    },
-    {
       label: "Add Tender",
-      description: "Create project tender",
+      description: "Create a tender for a personal or subcontractor site",
       path: "/tenders",
-    },
-    {
-      label: "Add Invoice",
-      description: "Record a new invoice",
-      path: "/invoices",
-    },
-    {
-      label: "Daily Update",
-      description: "Submit progress update",
-      path: "/daily-site-updates",
-    },
-    {
-      label: "Worker Money",
-      description: "Review worker allocations",
-      path: "/worker-money",
-    },
-    {
-      label: "Reports Centre",
-      description: "Export executive reports",
-      path: "/reports",
     },
   ];
 

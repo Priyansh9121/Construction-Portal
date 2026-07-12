@@ -93,6 +93,9 @@ function TendersPage() {
     setDeleting,
   ] = useState(false);
 
+  const [addSiteType, setAddSiteType] = useState("");
+  const [editSiteType, setEditSiteType] = useState("");
+
   const money = formatCurrency;
 
   const dateOnly = (value) =>
@@ -141,6 +144,25 @@ function TendersPage() {
       "N/A"
     );
   };
+  const addFormSites = useMemo(() => {
+    if (!addSiteType) {
+      return [];
+    }
+  
+    return sites.filter(
+      (site) => site.site_type === addSiteType
+    );
+  }, [sites, addSiteType]);
+  
+  const editFormSites = useMemo(() => {
+    if (!editSiteType) {
+      return [];
+    }
+  
+    return sites.filter(
+      (site) => site.site_type === editSiteType
+    );
+  }, [sites, editSiteType]);
 
   const runningTenders = useMemo(
     () =>
@@ -400,6 +422,13 @@ function TendersPage() {
   const validateTender = (
     payload
   ) => {
+    if (!payload.site_id) {
+      toast.error(
+        "Please select a site type and site."
+      );
+  
+      return false;
+    }
     if (!payload.title) {
       toast.error(
         "Tender title is required."
@@ -513,6 +542,7 @@ function TendersPage() {
         );
 
         form.reset();
+        setAddSiteType("");
 
         toast.success(
           "Tender added successfully."
@@ -566,7 +596,8 @@ function TendersPage() {
           deleteTarget.id
         ) {
           setEditingTender(null);
-
+          setEditSiteType("");
+        
           setEditForm(
             EMPTY_EDIT_FORM
           );
@@ -595,57 +626,53 @@ function TendersPage() {
     };
 
   const startEdit = (tender) => {
-    if (
-      adding ||
-      updating ||
-      deleting
-    ) {
-      return;
-    }
-
-    setEditingTender(
-      tender
-    );
-
-    setEditForm({
-      title:
-        tender.title ||
-        tender.tender_name ||
-        "",
-      status:
-        normaliseStatus(
-          tender.status
-        ) || "running",
-      due_date:
-        dateOnly(
-          tender.due_date
-        ),
-      description:
-        tender.description ||
-        "",
-      site_id:
-        tender.site_id || "",
-      estimated_value:
-        tender.estimated_value ||
-        "",
-    });
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+      if (adding || updating || deleting) {
+        return;
+      }
+    
+      const linkedSite = sites.find(
+        (site) =>
+          Number(site.id) === Number(tender.site_id)
+      );
+    
+      setEditingTender(tender);
+    
+      setEditSiteType(
+        linkedSite?.site_type || ""
+      );
+    
+      setEditForm({
+        title:
+          tender.title ||
+          tender.tender_name ||
+          "",
+        status:
+          normaliseStatus(tender.status) ||
+          "running",
+        due_date:
+          dateOnly(tender.due_date),
+        description:
+          tender.description || "",
+        site_id:
+          tender.site_id || "",
+        estimated_value:
+          tender.estimated_value || "",
+      });
+    
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
   };
 
   const cancelEdit = () => {
     if (updating) {
       return;
     }
-
+  
     setEditingTender(null);
-
-    setEditForm(
-      EMPTY_EDIT_FORM
-    );
+    setEditSiteType("");
+    setEditForm(EMPTY_EDIT_FORM);
   };
 
   const handleEditChange = (
@@ -732,7 +759,7 @@ function TendersPage() {
         }
 
         setEditingTender(null);
-
+        setEditSiteType("");
         setEditForm(
           EMPTY_EDIT_FORM
         );
@@ -912,218 +939,255 @@ function TendersPage() {
 
           {editingTender ? (
             <form
-              className="payment-form"
-              onSubmit={
-                handleUpdateTender
-              }
-            >
-              <div className="form-grid">
-                <label>
-                  Site
-                  <select
-                    name="site_id"
-                    value={
-                      editForm.site_id
-                    }
-                    onChange={
-                      handleEditChange
-                    }
-                    disabled={
-                      updating
-                    }
-                  >
-                    <option value="">
-                      Select Site
-                    </option>
-
-                    {sites.map(
-                      (site) => (
-                        <option
-                          key={
-                            site.id
-                          }
-                          value={
-                            site.id
-                          }
-                        >
-                          {
-                            site.site_name
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-                </label>
-
-                <label>
-                  Tender Title
-                  <input
-                    name="title"
-                    value={
-                      editForm.title
-                    }
-                    onChange={
-                      handleEditChange
-                    }
-                    disabled={
-                      updating
-                    }
-                    required
-                  />
-                </label>
-
-                <label>
-                  Status
-                  <select
-                    name="status"
-                    value={
-                      editForm.status
-                    }
-                    onChange={
-                      handleEditChange
-                    }
-                    disabled={
-                      updating
-                    }
-                    required
-                  >
-                    <option value="running">
-                      Running
-                    </option>
-
-                    <option value="pending">
-                      Pending
-                    </option>
-
-                    <option value="completed">
-                      Completed
-                    </option>
-
-                    <option value="passed">
-                      Passed
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  Due Date
-                  <input
-                    name="due_date"
-                    type="date"
-                    value={
-                      editForm.due_date
-                    }
-                    onChange={
-                      handleEditChange
-                    }
-                    disabled={
-                      updating
-                    }
-                  />
-                </label>
-
-                <label>
-                  Estimated Value
-                  <input
-                    name="estimated_value"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={
-                      editForm.estimated_value
-                    }
-                    onChange={
-                      handleEditChange
-                    }
-                    disabled={
-                      updating
-                    }
-                  />
-                </label>
-              </div>
-
+            className="payment-form"
+            onSubmit={handleUpdateTender}
+          >
+            <div className="form-grid">
               <label>
-                Description
-                <textarea
-                  name="description"
-                  value={
-                    editForm.description
-                  }
-                  onChange={
-                    handleEditChange
-                  }
+                Site Type
+          
+                <select
+                  value={editSiteType}
+                  onChange={(event) => {
+                    const nextSiteType =
+                      event.target.value;
+          
+                    setEditSiteType(
+                      nextSiteType
+                    );
+          
+                    setEditForm(
+                      (previousForm) => ({
+                        ...previousForm,
+                        site_id: "",
+                      })
+                    );
+                  }}
+                  disabled={updating}
+                  required
+                >
+                  <option value="">
+                    Select Site Type
+                  </option>
+          
+                  <option value="Personal Site">
+                    Personal Site
+                  </option>
+          
+                  <option value="Subcontractor Site">
+                    Subcontractor Site
+                  </option>
+                </select>
+              </label>
+          
+              <label>
+                Site
+          
+                <select
+                  name="site_id"
+                  value={editForm.site_id}
+                  onChange={handleEditChange}
                   disabled={
-                    updating
+                    updating ||
+                    !editSiteType
                   }
+                  required
+                >
+                  <option value="">
+                    {editSiteType
+                      ? "Select Site"
+                      : "Select Site Type First"}
+                  </option>
+          
+                  {editFormSites.map(
+                    (site) => (
+                      <option
+                        key={site.id}
+                        value={site.id}
+                      >
+                        {site.site_name}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+          
+              <label>
+                Tender Title
+          
+                <input
+                  name="title"
+                  value={editForm.title}
+                  onChange={handleEditChange}
+                  disabled={updating}
+                  required
                 />
               </label>
-
-              <div className="form-preview-total">
+          
+              <label>
+                Status
+          
+                <select
+                  name="status"
+                  value={editForm.status}
+                  onChange={handleEditChange}
+                  disabled={updating}
+                  required
+                >
+                  <option value="running">
+                    Running
+                  </option>
+          
+                  <option value="pending">
+                    Pending
+                  </option>
+          
+                  <option value="completed">
+                    Completed
+                  </option>
+          
+                  <option value="passed">
+                    Passed
+                  </option>
+                </select>
+              </label>
+          
+              <label>
+                Due Date
+          
+                <input
+                  name="due_date"
+                  type="date"
+                  value={editForm.due_date}
+                  onChange={handleEditChange}
+                  disabled={updating}
+                />
+              </label>
+          
+              <label>
                 Estimated Value
-                Preview:{" "}
-                {money(
-                  editForm.estimated_value
-                )}
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="submit"
-                  disabled={
-                    updating
+          
+                <input
+                  name="estimated_value"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    editForm.estimated_value
                   }
-                >
-                  {updating
-                    ? "Saving..."
-                    : "Save Changes"}
-                </button>
-
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={
-                    cancelEdit
-                  }
-                  disabled={
-                    updating
-                  }
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+                  onChange={handleEditChange}
+                  disabled={updating}
+                />
+              </label>
+            </div>
+          
+            <label>
+              Description
+          
+              <textarea
+                name="description"
+                value={editForm.description}
+                onChange={handleEditChange}
+                disabled={updating}
+              />
+            </label>
+          
+            <div className="form-preview-total">
+              Estimated Value Preview:{" "}
+              {money(
+                editForm.estimated_value
+              )}
+            </div>
+          
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={updating}
+              >
+                {updating
+                  ? "Saving..."
+                  : "Save Changes"}
+              </button>
+          
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={cancelEdit}
+                disabled={updating}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
           ) : (
             <form
               className="payment-form"
-              onSubmit={
-                handleAddTender
-              }
+              onSubmit={handleAddTender}
             >
               <div className="form-grid">
                 <label>
+                  Site Type
+
+                  <select
+                    value={addSiteType}
+                    onChange={(event) => {
+                      const nextSiteType =
+                        event.target.value;
+
+                      setAddSiteType(
+                        nextSiteType
+                      );
+
+                      const form =
+                        event.currentTarget.form;
+
+                      if (form?.site_id) {
+                        form.site_id.value =
+                          "";
+                      }
+                    }}
+                    disabled={adding}
+                    required
+                  >
+                    <option value="">
+                      Select Site Type
+                    </option>
+
+                    <option value="Personal Site">
+                      Personal Site
+                    </option>
+
+                    <option value="Subcontractor Site">
+                      Subcontractor Site
+                    </option>
+                  </select>
+                </label>
+
+                <label>
                   Site
+
                   <select
                     name="site_id"
                     defaultValue=""
-                    disabled={adding}
+                    disabled={
+                      adding ||
+                      !addSiteType
+                    }
+                    required
                   >
                     <option value="">
-                      Select Site
+                      {addSiteType
+                        ? "Select Site"
+                        : "Select Site Type First"}
                     </option>
 
-                    {sites.map(
+                    {addFormSites.map(
                       (site) => (
                         <option
-                          key={
-                            site.id
-                          }
-                          value={
-                            site.id
-                          }
+                          key={site.id}
+                          value={site.id}
                         >
-                          {
-                            site.site_name
-                          }
+                          {site.site_name}
                         </option>
                       )
                     )}
@@ -1132,9 +1196,10 @@ function TendersPage() {
 
                 <label>
                   Tender Title
+
                   <input
                     name="title"
-                    placeholder="Tender title"
+                    placeholder="Enter tender title"
                     disabled={adding}
                     required
                   />
@@ -1142,6 +1207,7 @@ function TendersPage() {
 
                 <label>
                   Status
+
                   <select
                     name="status"
                     defaultValue="running"
@@ -1168,6 +1234,7 @@ function TendersPage() {
 
                 <label>
                   Due Date
+
                   <input
                     name="due_date"
                     type="date"
@@ -1177,6 +1244,7 @@ function TendersPage() {
 
                 <label>
                   Estimated Value
+
                   <input
                     name="estimated_value"
                     type="number"
@@ -1190,6 +1258,7 @@ function TendersPage() {
 
               <label>
                 Description
+
                 <textarea
                   name="description"
                   placeholder="Tender description"
