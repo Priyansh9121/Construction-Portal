@@ -39,6 +39,24 @@ exports.getTenders = async (req, res) => {
   try {
     const companyId = req.user?.company_id || null;
 
+    const databaseCheck = await pool.query(`
+      SELECT
+        current_database() AS database_name,
+        current_schema() AS current_schema,
+        current_user AS database_user,
+        inet_server_addr() AS server_address,
+        inet_server_port() AS server_port,
+        EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'sites'
+            AND column_name = 'tender_id'
+        ) AS tender_id_exists
+    `);
+    
+    console.log("BACKEND DATABASE CHECK:", databaseCheck.rows[0]);
+
     const result = await pool.query(
       `
       SELECT
@@ -68,9 +86,9 @@ exports.getTenders = async (req, res) => {
           '[]'::jsonb
         ) AS sites
 
-      FROM tenders t
+      FROM public.tenders t
 
-      LEFT JOIN sites s
+      LEFT JOIN public.sites s
         ON s.tender_id = t.id
         AND COALESCE(s.is_deleted, FALSE) = FALSE
 
@@ -139,9 +157,9 @@ exports.getTenderById = async (req, res) => {
           '[]'::jsonb
         ) AS sites
 
-      FROM tenders t
+      FROM public.tenders t
 
-      LEFT JOIN sites s
+      LEFT JOIN public.sites s
         ON s.tender_id = t.id
         AND COALESCE(s.is_deleted, FALSE) = FALSE
 
