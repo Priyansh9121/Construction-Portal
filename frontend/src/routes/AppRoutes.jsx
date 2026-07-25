@@ -16,8 +16,6 @@ import DashboardPage from "../pages/DashboardPage";
 import PaymentsPage from "../pages/PaymentsPage";
 import WorkersPage from "../pages/WorkersPage";
 import WorkerMoneyPage from "../pages/WorkerMoneyPage";
-import SitesPage from "../pages/SitesPage";
-import SiteDetailsPage from "../pages/SiteDetailsPage";
 import TendersPage from "../pages/TendersPage";
 import TenderDetailsPage from "../pages/TenderDetailsPage";
 import InvoicesPage from "../pages/InvoicesPage";
@@ -52,7 +50,7 @@ function getHomePath(user) {
 }
 
 /**
- * Shared protected layout for administrators and managers.
+ * Protected layout for administrators and managers.
  */
 function AdminManagerLayout({
   children,
@@ -84,7 +82,7 @@ function AdminManagerLayout({
 }
 
 /**
- * Shared protected layout for administrator-only pages.
+ * Protected layout for administrators only.
  */
 function AdminLayout({
   children,
@@ -134,7 +132,7 @@ function AppRoutes({
   fetchPayments,
 
   /*
-   * Shared dashboard/report data
+   * Shared dashboard and reporting data
    */
   workers = [],
   sites = [],
@@ -164,12 +162,11 @@ function AppRoutes({
   approveExpense,
   rejectExpense,
 }) {
-  const homePath =
-    getHomePath(user);
+  const homePath = getHomePath(user);
 
   return (
     <Routes>
-      {/* Public authentication routes */}
+      {/* Authentication */}
 
       <Route
         path="/login"
@@ -234,7 +231,7 @@ function AppRoutes({
         }
       />
 
-      {/* Worker-only portal */}
+      {/* Worker portal */}
 
       <Route
         path="/worker-portal"
@@ -250,7 +247,7 @@ function AppRoutes({
         }
       />
 
-      {/* Subcontractor-only portal */}
+      {/* Subcontractor portal */}
 
       <Route
         path="/subcontractor-portal"
@@ -291,6 +288,106 @@ function AppRoutes({
         }
       />
 
+      {/* Projects / Tenders */}
+
+      <Route
+        path="/tenders"
+        element={
+          <AdminManagerLayout
+            activePage="Projects"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <TendersPage />
+          </AdminManagerLayout>
+        }
+      />
+
+      {/* Optional cleaner project URL */}
+
+      <Route
+        path="/projects"
+        element={
+          <Navigate
+            to="/tenders"
+            replace
+          />
+        }
+      />
+
+      {/* Tender Details contains all project tabs:
+          Overview
+          Sites
+          Finance
+          Workers
+          Materials
+          Subcontractors
+          Documents
+          Invoices
+          Daily Updates
+      */}
+
+      <Route
+        path="/tenders/:id"
+        element={
+          <AdminManagerLayout
+            activePage="Project Details"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <TenderDetailsPage />
+          </AdminManagerLayout>
+        }
+      />
+
+      {/* Optional cleaner project details URL */}
+
+      <Route
+        path="/projects/:id"
+        element={
+          <AdminManagerLayout
+            activePage="Project Details"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <TenderDetailsPage />
+          </AdminManagerLayout>
+        }
+      />
+
+      {/*
+       * Old site page compatibility.
+       *
+       * Sites are no longer independently created.
+       * Site management now happens inside TenderDetailsPage.
+       */}
+
+      <Route
+        path="/sites"
+        element={
+          <Navigate
+            to="/tenders"
+            replace
+          />
+        }
+      />
+
+      <Route
+        path="/sites/:id"
+        element={
+          <Navigate
+            to="/tenders"
+            replace
+          />
+        }
+      />
+
       {/* Finance */}
 
       <Route
@@ -307,18 +404,14 @@ function AppRoutes({
               payments={payments}
               tenders={tenders}
               addPayment={addPayment}
-              deletePayment={
-                deletePayment
-              }
-              fetchPayments={
-                fetchPayments
-              }
+              deletePayment={deletePayment}
+              fetchPayments={fetchPayments}
             />
           </AdminManagerLayout>
         }
       />
 
-      {/* Workers - page owns useWorkers */}
+      {/* Workers */}
 
       <Route
         path="/workers"
@@ -335,7 +428,7 @@ function AppRoutes({
         }
       />
 
-      {/* Worker money still uses shared App data */}
+      {/* Worker money */}
 
       <Route
         path="/worker-money"
@@ -351,9 +444,7 @@ function AppRoutes({
               workers={workers}
               allocations={allocations}
               expenses={expenses}
-              addAllocation={
-                addAllocation
-              }
+              addAllocation={addAllocation}
               addExpense={addExpense}
               fetchAllocations={
                 fetchAllocations
@@ -384,75 +475,7 @@ function AppRoutes({
         }
       />
 
-      {/* Sites - page owns useSites */}
-
-      <Route
-        path="/sites"
-        element={
-          <AdminManagerLayout
-            activePage="Sites"
-            user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
-          >
-            <SitesPage />
-          </AdminManagerLayout>
-        }
-      />
-
-      {/* Site details loads its own site and finance data */}
-
-      <Route
-        path="/sites/:id"
-        element={
-          <AdminManagerLayout
-            activePage="Site Details"
-            user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
-          >
-            <SiteDetailsPage />
-          </AdminManagerLayout>
-        }
-      />
-
-      {/* Tenders - page owns useTenders and useSites */}
-
-      <Route
-        path="/tenders"
-        element={
-          <AdminManagerLayout
-            activePage="Tenders"
-            user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
-          >
-            <TendersPage />
-          </AdminManagerLayout>
-        }
-      />
-
-      {/* Tender details loads its own records */}
-
-      <Route
-        path="/tenders/:id"
-        element={
-          <AdminManagerLayout
-            activePage="Tender Details"
-            user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
-          >
-            <TenderDetailsPage />
-          </AdminManagerLayout>
-        }
-      />
-
-      {/* Invoices - page owns useInvoices */}
+      {/* Invoices */}
 
       <Route
         path="/invoices"
@@ -469,7 +492,7 @@ function AppRoutes({
         }
       />
 
-      {/* Daily site updates */}
+      {/* Daily site updates remain site-specific */}
 
       <Route
         path="/daily-site-updates"
@@ -486,9 +509,7 @@ function AppRoutes({
               tenders={tenders}
               workers={workers}
               siteLogs={siteLogs}
-              addSiteLog={
-                addSiteLog
-              }
+              addSiteLog={addSiteLog}
               deleteSiteLog={
                 deleteSiteLog
               }
@@ -497,7 +518,7 @@ function AppRoutes({
         }
       />
 
-      {/* Daily approvals are admin-only */}
+      {/* Daily update approvals */}
 
       <Route
         path="/daily-update-approvals"
@@ -514,7 +535,7 @@ function AppRoutes({
         }
       />
 
-      {/* Subcontractors page loads its own records */}
+      {/* Subcontractors */}
 
       <Route
         path="/subcontractors"
@@ -531,7 +552,7 @@ function AppRoutes({
         }
       />
 
-      {/* User management is admin-only */}
+      {/* Users */}
 
       <Route
         path="/users"
@@ -566,7 +587,6 @@ function AppRoutes({
               sites={sites}
               tenders={tenders}
               invoices={invoices}
-              
               siteLogs={siteLogs}
               allocations={allocations}
               expenses={expenses}

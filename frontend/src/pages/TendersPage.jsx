@@ -25,16 +25,27 @@ import {
 } from "../contexts/AuthContext";
 
 import useTenders from "../hooks/useTenders";
-import useSites from "../hooks/useSites";
 
-const EMPTY_EDIT_FORM = {
+const createEmptySite = () => ({
+  site_name: "",
+  site_type: "Personal Site",
+  address: "",
+  status: "active",
+  progress_percent: 0,
+});
+
+const createEmptyProjectForm = () => ({
   title: "",
+  client_name: "",
+  tender_type: "Personal Tender",
   status: "running",
+  start_date: "",
   due_date: "",
-  description: "",
-  site_id: "",
   estimated_value: "",
-};
+  progress_percent: 0,
+  description: "",
+  sites: [createEmptySite()],
+});
 
 function TendersPage() {
   const navigate = useNavigate();
@@ -47,9 +58,19 @@ function TendersPage() {
     fetchTenders,
   } = useTenders(user);
 
-  const {
-    sites = [],
-  } = useSites(user);
+  const [
+    addForm,
+    setAddForm,
+  ] = useState(
+    createEmptyProjectForm
+  );
+
+  const [
+    editForm,
+    setEditForm,
+  ] = useState(
+    createEmptyProjectForm
+  );
 
   const [
     deleteTarget,
@@ -72,13 +93,6 @@ function TendersPage() {
   ] = useState("");
 
   const [
-    editForm,
-    setEditForm,
-  ] = useState(
-    EMPTY_EDIT_FORM
-  );
-
-  const [
     adding,
     setAdding,
   ] = useState(false);
@@ -93,9 +107,6 @@ function TendersPage() {
     setDeleting,
   ] = useState(false);
 
-  const [addSiteType, setAddSiteType] = useState("");
-  const [editSiteType, setEditSiteType] = useState("");
-
   const money = formatCurrency;
 
   const dateOnly = (value) =>
@@ -108,8 +119,42 @@ function TendersPage() {
       .trim()
       .toLowerCase();
 
+  const normaliseSites = (sites) => {
+    if (!Array.isArray(sites)) {
+      return [];
+    }
+
+    return sites.filter(
+      (site) =>
+        site &&
+        !site.is_deleted
+    );
+  };
+
+  const getProjectSites = (
+    tender
+  ) =>
+    normaliseSites(
+      tender?.sites
+    );
+
+  const getProjectSiteNames = (
+    tender
+  ) => {
+    const names =
+      getProjectSites(tender)
+        .map(
+          (site) =>
+            site.site_name
+        )
+        .filter(Boolean);
+
+    return names.join(", ");
+  };
+
   const today = useMemo(() => {
-    const currentDate = new Date();
+    const currentDate =
+      new Date();
 
     currentDate.setHours(
       0,
@@ -121,208 +166,224 @@ function TendersPage() {
     return currentDate;
   }, []);
 
-  const next7Days = useMemo(() => {
-    const futureDate =
-      new Date(today);
+  const next7Days =
+    useMemo(() => {
+      const futureDate =
+        new Date(today);
 
-    futureDate.setDate(
-      futureDate.getDate() + 7
+      futureDate.setDate(
+        futureDate.getDate() +
+          7
+      );
+
+      return futureDate;
+    }, [today]);
+
+  const runningTenders =
+    useMemo(
+      () =>
+        tenders.filter(
+          (tender) =>
+            normaliseStatus(
+              tender.status
+            ) === "running"
+        ),
+      [tenders]
     );
 
-    return futureDate;
-  }, [today]);
-
-  const getSiteName = (siteId) => {
-    const site = sites.find(
-      (item) =>
-        Number(item.id) ===
-        Number(siteId)
+  const pendingTenders =
+    useMemo(
+      () =>
+        tenders.filter(
+          (tender) =>
+            normaliseStatus(
+              tender.status
+            ) === "pending"
+        ),
+      [tenders]
     );
 
-    return (
-      site?.site_name ||
-      "N/A"
-    );
-  };
-  const addFormSites = useMemo(() => {
-    if (!addSiteType) {
-      return [];
-    }
-  
-    return sites.filter(
-      (site) => site.site_type === addSiteType
-    );
-  }, [sites, addSiteType]);
-  
-  const editFormSites = useMemo(() => {
-    if (!editSiteType) {
-      return [];
-    }
-  
-    return sites.filter(
-      (site) => site.site_type === editSiteType
-    );
-  }, [sites, editSiteType]);
-
-  const runningTenders = useMemo(
-    () =>
-      tenders.filter(
-        (tender) =>
-          normaliseStatus(
-            tender.status
-          ) === "running"
-      ),
-    [tenders]
-  );
-
-  const completedTenders = useMemo(
-    () =>
-      tenders.filter((tender) =>
-        [
-          "completed",
-          "passed",
-        ].includes(
-          normaliseStatus(
-            tender.status
-          )
-        )
-      ),
-    [tenders]
-  );
-
-  const pendingTenders = useMemo(
-    () =>
-      tenders.filter(
-        (tender) =>
-          normaliseStatus(
-            tender.status
-          ) === "pending"
-      ),
-    [tenders]
-  );
-
-  const dueSoonTenders = useMemo(
-    () =>
-      tenders.filter((tender) => {
-        if (!tender.due_date) {
-          return false;
-        }
-
-        const dueDate =
-          new Date(
-            tender.due_date
-          );
-
-        dueDate.setHours(
-          0,
-          0,
-          0,
-          0
-        );
-
-        const status =
-          normaliseStatus(
-            tender.status
-          );
-
-        return (
-          dueDate >= today &&
-          dueDate <= next7Days &&
-          ![
-            "completed",
-            "passed",
-          ].includes(status)
-        );
-      }),
-    [
-      tenders,
-      today,
-      next7Days,
-    ]
-  );
-
-  const totalTenderValue = useMemo(
-    () =>
-      tenders.reduce(
-        (sum, tender) =>
-          sum +
-          Number(
-            tender.estimated_value ||
-              0
-          ),
-        0
-      ),
-    [tenders]
-  );
-
-  const filteredTenders = useMemo(() => {
-    const search =
-      searchTerm
-        .trim()
-        .toLowerCase();
-
-    return tenders.filter(
-      (tender) => {
-        const status =
-          normaliseStatus(
-            tender.status
-          );
-
-        const matchesTab =
-          activeTab === "due soon"
-            ? dueSoonTenders.some(
-                (item) =>
-                  Number(item.id) ===
-                  Number(tender.id)
+  const completedTenders =
+    useMemo(
+      () =>
+        tenders.filter(
+          (tender) =>
+            [
+              "completed",
+              "passed",
+            ].includes(
+              normaliseStatus(
+                tender.status
               )
-            : activeTab === "all"
-              ? true
-              : status === activeTab;
+            )
+        ),
+      [tenders]
+    );
 
-        const siteName = String(
-          tender.site_name ||
-            getSiteName(
-              tender.site_id
-            ) ||
-            ""
-        ).toLowerCase();
+  const dueSoonTenders =
+    useMemo(
+      () =>
+        tenders.filter(
+          (tender) => {
+            if (
+              !tender.due_date
+            ) {
+              return false;
+            }
 
-        const searchableText = [
-          tender.title,
-          tender.tender_name,
-          status,
-          tender.description,
-          tender.due_date,
-          tender.estimated_value,
-          siteName,
-        ]
-          .filter(
-            (value) =>
-              value !== null &&
-              value !== undefined
-          )
-          .join(" ")
+            const dueDate =
+              new Date(
+                tender.due_date
+              );
+
+            dueDate.setHours(
+              0,
+              0,
+              0,
+              0
+            );
+
+            const status =
+              normaliseStatus(
+                tender.status
+              );
+
+            return (
+              dueDate >= today &&
+              dueDate <=
+                next7Days &&
+              ![
+                "completed",
+                "passed",
+              ].includes(status)
+            );
+          }
+        ),
+      [
+        tenders,
+        today,
+        next7Days,
+      ]
+    );
+
+  const totalTenderValue =
+    useMemo(
+      () =>
+        tenders.reduce(
+          (sum, tender) =>
+            sum +
+            Number(
+              tender.estimated_value ||
+                0
+            ),
+          0
+        ),
+      [tenders]
+    );
+
+  const totalProjectSites =
+    useMemo(
+      () =>
+        tenders.reduce(
+          (sum, tender) =>
+            sum +
+            getProjectSites(
+              tender
+            ).length,
+          0
+        ),
+      [tenders]
+    );
+
+  const filteredTenders =
+    useMemo(() => {
+      const search =
+        searchTerm
+          .trim()
           .toLowerCase();
 
-        const matchesSearch =
-          !search ||
-          searchableText.includes(
-            search
-          );
+      return tenders.filter(
+        (tender) => {
+          const status =
+            normaliseStatus(
+              tender.status
+            );
 
-        return (
-          matchesTab &&
-          matchesSearch
-        );
-      }
-    );
-  }, [
-    tenders,
-    activeTab,
-    dueSoonTenders,
-    searchTerm,
-    sites,
-  ]);
+          const matchesTab =
+            activeTab ===
+            "due soon"
+              ? dueSoonTenders.some(
+                  (item) =>
+                    Number(
+                      item.id
+                    ) ===
+                    Number(
+                      tender.id
+                    )
+                )
+              : activeTab ===
+                  "all"
+                ? true
+                : status ===
+                  activeTab;
+
+          const sites =
+            getProjectSites(
+              tender
+            );
+
+          const siteText =
+            sites
+              .map(
+                (site) =>
+                  [
+                    site.site_name,
+                    site.address,
+                    site.site_type,
+                    site.status,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+              )
+              .join(" ");
+
+          const searchableText =
+            [
+              tender.title,
+              tender.tender_name,
+              tender.client_name,
+              tender.tender_type,
+              tender.status,
+              tender.description,
+              tender.start_date,
+              tender.due_date,
+              tender.estimated_value,
+              siteText,
+            ]
+              .filter(
+                (value) =>
+                  value !== null &&
+                  value !==
+                    undefined
+              )
+              .join(" ")
+              .toLowerCase();
+
+          return (
+            matchesTab &&
+            (!search ||
+              searchableText.includes(
+                search
+              ))
+          );
+        }
+      );
+    }, [
+      tenders,
+      activeTab,
+      dueSoonTenders,
+      searchTerm,
+    ]);
 
   const filteredTenderValue =
     useMemo(
@@ -342,15 +403,31 @@ function TendersPage() {
   const tenderExportColumns = [
     {
       key: "title",
-      label: "Tender",
+      label: "Project",
     },
     {
-      key: "site_name",
-      label: "Site",
+      key: "client_name",
+      label: "Client",
+    },
+    {
+      key: "tender_type",
+      label: "Project Type",
+    },
+    {
+      key: "site_count",
+      label: "Site Count",
+    },
+    {
+      key: "site_names",
+      label: "Sites",
     },
     {
       key: "status",
       label: "Status",
+    },
+    {
+      key: "start_date",
+      label: "Start Date",
     },
     {
       key: "due_date",
@@ -361,6 +438,10 @@ function TendersPage() {
       label: "Estimated Value",
     },
     {
+      key: "progress_percent",
+      label: "Progress",
+    },
+    {
       key: "description",
       label: "Description",
     },
@@ -368,51 +449,94 @@ function TendersPage() {
 
   const tenderExportRows =
     filteredTenders.map(
-      (tender) => ({
-        title:
-          tender.title ||
-          tender.tender_name ||
-          "",
-        site_name:
-          tender.site_name ||
-          getSiteName(
-            tender.site_id
-          ),
-        status:
-          normaliseStatus(
-            tender.status
-          ),
-        due_date:
-          dateOnly(
-            tender.due_date
-          ),
-        estimated_value:
-          money(
-            tender.estimated_value
-          ),
-        description:
-          tender.description ||
-          "",
-      })
+      (tender) => {
+        const projectSites =
+          getProjectSites(
+            tender
+          );
+
+        return {
+          title:
+            tender.title ||
+            tender.tender_name ||
+            "",
+
+          client_name:
+            tender.client_name ||
+            "",
+
+          tender_type:
+            tender.tender_type ||
+            "",
+
+          site_count:
+            projectSites.length,
+
+          site_names:
+            getProjectSiteNames(
+              tender
+            ),
+
+          status:
+            normaliseStatus(
+              tender.status
+            ),
+
+          start_date:
+            dateOnly(
+              tender.start_date
+            ),
+
+          due_date:
+            dateOnly(
+              tender.due_date
+            ),
+
+          estimated_value:
+            money(
+              tender.estimated_value
+            ),
+
+          progress_percent:
+            `${Number(
+              tender.progress_percent ||
+                0
+            )}%`,
+
+          description:
+            tender.description ||
+            "",
+        };
+      }
     );
 
   const tenderExportSummary = {
-    "Total Tenders":
+    "Total Projects":
       tenders.length,
+
+    "Total Sites":
+      totalProjectSites,
+
     Running:
       runningTenders.length,
+
     Pending:
       pendingTenders.length,
+
     "Completed / Passed":
       completedTenders.length,
+
     "Due Soon":
       dueSoonTenders.length,
-    "Total Tender Value":
+
+    "Total Project Value":
       money(
         totalTenderValue
       ),
-    "Filtered Tenders":
+
+    "Filtered Projects":
       filteredTenders.length,
+
     "Filtered Value":
       money(
         filteredTenderValue
@@ -422,16 +546,9 @@ function TendersPage() {
   const validateTender = (
     payload
   ) => {
-    if (!payload.site_id) {
-      toast.error(
-        "Please select a site type and site."
-      );
-  
-      return false;
-    }
     if (!payload.title) {
       toast.error(
-        "Tender title is required."
+        "Project title is required."
       );
 
       return false;
@@ -448,7 +565,7 @@ function TendersPage() {
       )
     ) {
       toast.error(
-        "Select a valid tender status."
+        "Select a valid project status."
       );
 
       return false;
@@ -458,7 +575,8 @@ function TendersPage() {
       Number.isNaN(
         payload.estimated_value
       ) ||
-      payload.estimated_value < 0
+      payload.estimated_value <
+        0
     ) {
       toast.error(
         "Estimated value must be zero or greater."
@@ -467,7 +585,273 @@ function TendersPage() {
       return false;
     }
 
+    if (
+      Number.isNaN(
+        payload.progress_percent
+      ) ||
+      payload.progress_percent <
+        0 ||
+      payload.progress_percent >
+        100
+    ) {
+      toast.error(
+        "Project progress must be between 0 and 100."
+      );
+
+      return false;
+    }
+
+    if (
+      !Array.isArray(
+        payload.sites
+      ) ||
+      payload.sites.length ===
+        0
+    ) {
+      toast.error(
+        "At least one project site is required."
+      );
+
+      return false;
+    }
+
+    for (
+      let index = 0;
+      index <
+      payload.sites.length;
+      index += 1
+    ) {
+      const site =
+        payload.sites[index];
+
+      if (!site.site_name) {
+        toast.error(
+          `Site ${index + 1} name is required.`
+        );
+
+        return false;
+      }
+
+      if (!site.address) {
+        toast.error(
+          `Site ${index + 1} address is required.`
+        );
+
+        return false;
+      }
+
+      const progress =
+        Number(
+          site.progress_percent ||
+            0
+        );
+
+      if (
+        Number.isNaN(
+          progress
+        ) ||
+        progress < 0 ||
+        progress > 100
+      ) {
+        toast.error(
+          `Site ${index + 1} progress must be between 0 and 100.`
+        );
+
+        return false;
+      }
+    }
+
     return true;
+  };
+
+  const buildPayload = (
+    form
+  ) => ({
+    company_id:
+      user?.company_id ||
+      null,
+
+    title:
+      form.title.trim(),
+
+    client_name:
+      form.client_name.trim(),
+
+    tender_type:
+      form.tender_type ||
+      "Personal Tender",
+
+    status:
+      normaliseStatus(
+        form.status
+      ),
+
+    start_date:
+      form.start_date ||
+      null,
+
+    due_date:
+      form.due_date ||
+      null,
+
+    estimated_value:
+      Number(
+        form.estimated_value ||
+          0
+      ),
+
+    progress_percent:
+      Number(
+        form.progress_percent ||
+          0
+      ),
+
+    description:
+      form.description.trim(),
+
+    sites:
+      form.sites.map(
+        (site) => ({
+          ...(site.id
+            ? {
+                id: Number(
+                  site.id
+                ),
+              }
+            : {}),
+
+          site_name:
+            site.site_name.trim(),
+
+          site_type:
+            site.site_type ||
+            "Personal Site",
+
+          address:
+            site.address.trim(),
+
+          status:
+            normaliseStatus(
+              site.status
+            ) || "active",
+
+          progress_percent:
+            Number(
+              site.progress_percent ||
+                0
+            ),
+        })
+      ),
+  });
+
+  const handleAddChange = (
+    event
+  ) => {
+    const { name, value } =
+      event.target;
+
+    setAddForm(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
+  };
+
+  const handleEditChange = (
+    event
+  ) => {
+    const { name, value } =
+      event.target;
+
+    setEditForm(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
+  };
+
+  const updateSiteField = (
+    mode,
+    index,
+    field,
+    value
+  ) => {
+    const setter =
+      mode === "edit"
+        ? setEditForm
+        : setAddForm;
+
+    setter((previous) => ({
+      ...previous,
+
+      sites:
+        previous.sites.map(
+          (site, siteIndex) =>
+            siteIndex === index
+              ? {
+                  ...site,
+                  [field]:
+                    value,
+                }
+              : site
+        ),
+    }));
+  };
+
+  const addSiteRow = (
+    mode
+  ) => {
+    const setter =
+      mode === "edit"
+        ? setEditForm
+        : setAddForm;
+
+    setter((previous) => ({
+      ...previous,
+
+      sites: [
+        ...previous.sites,
+        createEmptySite(),
+      ],
+    }));
+  };
+
+  const removeSiteRow = (
+    mode,
+    index
+  ) => {
+    const setter =
+      mode === "edit"
+        ? setEditForm
+        : setAddForm;
+
+    setter((previous) => {
+      if (
+        previous.sites.length <=
+        1
+      ) {
+        toast.error(
+          "A project must contain at least one site."
+        );
+
+        return previous;
+      }
+
+      return {
+        ...previous,
+
+        sites:
+          previous.sites.filter(
+            (
+              _site,
+              siteIndex
+            ) =>
+              siteIndex !== index
+          ),
+      };
+    });
   };
 
   const handleAddTender =
@@ -483,52 +867,20 @@ function TendersPage() {
         "function"
       ) {
         toast.error(
-          "Add tender function is unavailable."
+          "Add project function is unavailable."
         );
 
         return;
       }
 
-      const form =
-        event.currentTarget;
-
-      const newTender = {
-        company_id:
-          user?.company_id ||
-          null,
-
-        site_id:
-          form.site_id.value
-            ? Number(
-                form.site_id.value
-              )
-            : null,
-
-        title:
-          form.title.value.trim(),
-
-        status:
-          normaliseStatus(
-            form.status.value
-          ),
-
-        due_date:
-          form.due_date.value ||
-          null,
-
-        description:
-          form.description.value.trim(),
-
-        estimated_value:
-          Number(
-            form.estimated_value
-              .value || 0
-          ),
-      };
+      const payload =
+        buildPayload(
+          addForm
+        );
 
       if (
         !validateTender(
-          newTender
+          payload
         )
       ) {
         return;
@@ -538,29 +890,219 @@ function TendersPage() {
         setAdding(true);
 
         await addTender(
-          newTender
+          payload
         );
 
-        form.reset();
-        setAddSiteType("");
+        setAddForm(
+          createEmptyProjectForm()
+        );
 
         toast.success(
-          "Tender added successfully."
+          "Project and sites created successfully."
         );
       } catch (error) {
         console.error(
-          "Failed to add tender:",
-          error.response?.data ||
+          "Failed to add project:",
+          error?.response?.data ||
             error
         );
 
         toast.error(
-          error.response?.data
+          error?.response?.data
             ?.message ||
-            "Failed to add tender."
+            error?.message ||
+            "Failed to create project."
         );
       } finally {
         setAdding(false);
+      }
+    };
+
+  const startEdit = (
+    tender
+  ) => {
+    if (
+      adding ||
+      updating ||
+      deleting
+    ) {
+      return;
+    }
+
+    const tenderSites =
+      getProjectSites(
+        tender
+      );
+
+    setEditingTender(
+      tender
+    );
+
+    setEditForm({
+      title:
+        tender.title ||
+        tender.tender_name ||
+        "",
+
+      client_name:
+        tender.client_name ||
+        "",
+
+      tender_type:
+        tender.tender_type ||
+        "Personal Tender",
+
+      status:
+        normaliseStatus(
+          tender.status
+        ) || "running",
+
+      start_date:
+        dateOnly(
+          tender.start_date
+        ),
+
+      due_date:
+        dateOnly(
+          tender.due_date
+        ),
+
+      estimated_value:
+        tender.estimated_value ??
+        "",
+
+      progress_percent:
+        Number(
+          tender.progress_percent ||
+            0
+        ),
+
+      description:
+        tender.description ||
+        "",
+
+      sites:
+        tenderSites.length > 0
+          ? tenderSites.map(
+              (site) => ({
+                id: site.id,
+
+                site_name:
+                  site.site_name ||
+                  "",
+
+                site_type:
+                  site.site_type ||
+                  "Personal Site",
+
+                address:
+                  site.address ||
+                  "",
+
+                status:
+                  normaliseStatus(
+                    site.status
+                  ) || "active",
+
+                progress_percent:
+                  Number(
+                    site.progress_percent ||
+                      0
+                  ),
+              })
+            )
+          : [
+              createEmptySite(),
+            ],
+    });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  const cancelEdit = () => {
+    if (updating) {
+      return;
+    }
+
+    setEditingTender(null);
+
+    setEditForm(
+      createEmptyProjectForm()
+    );
+  };
+
+  const handleUpdateTender =
+    async (event) => {
+      event.preventDefault();
+
+      if (
+        !editingTender ||
+        updating
+      ) {
+        return;
+      }
+
+      const payload = {
+        ...buildPayload(
+          editForm
+        ),
+
+        company_id:
+          editingTender.company_id ||
+          user?.company_id ||
+          null,
+      };
+
+      if (
+        !validateTender(
+          payload
+        )
+      ) {
+        return;
+      }
+
+      try {
+        setUpdating(true);
+
+        await updateTender(
+          editingTender.id,
+          payload
+        );
+
+        if (
+          typeof fetchTenders ===
+          "function"
+        ) {
+          await fetchTenders();
+        }
+
+        setEditingTender(null);
+
+        setEditForm(
+          createEmptyProjectForm()
+        );
+
+        toast.success(
+          "Project and sites updated successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Failed to update project:",
+          error?.response?.data ||
+            error
+        );
+
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to update project."
+        );
+      } finally {
+        setUpdating(false);
       }
     };
 
@@ -578,7 +1120,7 @@ function TendersPage() {
         "function"
       ) {
         toast.error(
-          "Delete tender function is unavailable."
+          "Delete project function is unavailable."
         );
 
         return;
@@ -592,195 +1134,44 @@ function TendersPage() {
         );
 
         if (
-          editingTender?.id ===
-          deleteTarget.id
+          Number(
+            editingTender?.id
+          ) ===
+          Number(
+            deleteTarget.id
+          )
         ) {
-          setEditingTender(null);
-          setEditSiteType("");
-        
+          setEditingTender(
+            null
+          );
+
           setEditForm(
-            EMPTY_EDIT_FORM
+            createEmptyProjectForm()
           );
         }
 
-        setDeleteTarget(null);
+        setDeleteTarget(
+          null
+        );
 
         toast.success(
-          "Tender deleted successfully."
+          "Project and associated sites deleted successfully."
         );
       } catch (error) {
         console.error(
-          "Failed to delete tender:",
-          error.response?.data ||
+          "Failed to delete project:",
+          error?.response?.data ||
             error
         );
 
         toast.error(
-          error.response?.data
+          error?.response?.data
             ?.message ||
-            "Failed to delete tender."
+            error?.message ||
+            "Failed to delete project."
         );
       } finally {
         setDeleting(false);
-      }
-    };
-
-  const startEdit = (tender) => {
-      if (adding || updating || deleting) {
-        return;
-      }
-    
-      const linkedSite = sites.find(
-        (site) =>
-          Number(site.id) === Number(tender.site_id)
-      );
-    
-      setEditingTender(tender);
-    
-      setEditSiteType(
-        linkedSite?.site_type || ""
-      );
-    
-      setEditForm({
-        title:
-          tender.title ||
-          tender.tender_name ||
-          "",
-        status:
-          normaliseStatus(tender.status) ||
-          "running",
-        due_date:
-          dateOnly(tender.due_date),
-        description:
-          tender.description || "",
-        site_id:
-          tender.site_id || "",
-        estimated_value:
-          tender.estimated_value || "",
-      });
-    
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-  };
-
-  const cancelEdit = () => {
-    if (updating) {
-      return;
-    }
-  
-    setEditingTender(null);
-    setEditSiteType("");
-    setEditForm(EMPTY_EDIT_FORM);
-  };
-
-  const handleEditChange = (
-    event
-  ) => {
-    const { name, value } =
-      event.target;
-
-    setEditForm(
-      (previousForm) => ({
-        ...previousForm,
-        [name]: value,
-      })
-    );
-  };
-
-  const handleUpdateTender =
-    async (event) => {
-      event.preventDefault();
-
-      if (
-        !editingTender ||
-        updating
-      ) {
-        return;
-      }
-
-      const updatePayload = {
-        company_id:
-          editingTender.company_id ||
-          user?.company_id ||
-          null,
-
-        title:
-          editForm.title.trim(),
-
-        status:
-          normaliseStatus(
-            editForm.status
-          ),
-
-        due_date:
-          editForm.due_date ||
-          null,
-
-        description:
-          editForm.description.trim(),
-
-        site_id:
-          editForm.site_id
-            ? Number(
-                editForm.site_id
-              )
-            : null,
-
-        estimated_value:
-          Number(
-            editForm.estimated_value ||
-              0
-          ),
-      };
-
-      if (
-        !validateTender(
-          updatePayload
-        )
-      ) {
-        return;
-      }
-
-      try {
-        setUpdating(true);
-
-        await updateTender(
-          editingTender.id,
-          updatePayload
-        );
-
-        if (
-          typeof fetchTenders ===
-          "function"
-        ) {
-          await fetchTenders();
-        }
-
-        setEditingTender(null);
-        setEditSiteType("");
-        setEditForm(
-          EMPTY_EDIT_FORM
-        );
-
-        toast.success(
-          "Tender updated successfully."
-        );
-      } catch (error) {
-        console.error(
-          "Failed to update tender:",
-          error.response?.data ||
-            error
-        );
-
-        toast.error(
-          error.response?.data
-            ?.message ||
-            "Failed to update tender."
-        );
-      } finally {
-        setUpdating(false);
       }
     };
 
@@ -793,13 +1184,19 @@ function TendersPage() {
     status
   ) => {
     const value =
-      normaliseStatus(status);
+      normaliseStatus(
+        status
+      );
 
-    if (value === "running") {
+    if (
+      value === "running"
+    ) {
       return "badge green";
     }
 
-    if (value === "pending") {
+    if (
+      value === "pending"
+    ) {
       return "badge yellow";
     }
 
@@ -813,10 +1210,305 @@ function TendersPage() {
     return "badge";
   };
 
+  const getSiteStatusClass = (
+    status
+  ) => {
+    const value =
+      normaliseStatus(
+        status
+      );
+
+    if (
+      value === "active" ||
+      value === "completed"
+    ) {
+      return "badge green";
+    }
+
+    if (
+      value === "planned" ||
+      value === "paused"
+    ) {
+      return "badge yellow";
+    }
+
+    if (
+      value === "cancelled" ||
+      value === "inactive"
+    ) {
+      return "badge red";
+    }
+
+    return "badge blue";
+  };
+
+  const renderSitesForm = (
+    mode,
+    form,
+    disabled
+  ) => (
+    <section className="panel">
+      <div className="section-title-row">
+        <div>
+          <h3>
+            Project Sites
+          </h3>
+
+          <p className="muted-text">
+            Add every physical site
+            belonging to this project.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="secondary-btn"
+          onClick={() =>
+            addSiteRow(mode)
+          }
+          disabled={disabled}
+        >
+          Add Another Site
+        </button>
+      </div>
+
+      {form.sites.map(
+        (site, index) => (
+          <div
+            key={
+              site.id ||
+              `${mode}-site-${index}`
+            }
+            className="panel"
+          >
+            <div className="section-title-row">
+              <div>
+                <h3>
+                  Site {index + 1}
+                </h3>
+
+                {site.id && (
+                  <p className="muted-text">
+                    Existing site ID:{" "}
+                    {site.id}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="delete-btn"
+                onClick={() =>
+                  removeSiteRow(
+                    mode,
+                    index
+                  )
+                }
+                disabled={
+                  disabled ||
+                  form.sites.length <=
+                    1
+                }
+              >
+                Remove Site
+              </button>
+            </div>
+
+            <div className="form-grid">
+              <label>
+                Site Name
+
+                <input
+                  value={
+                    site.site_name
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSiteField(
+                      mode,
+                      index,
+                      "site_name",
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="Enter site name"
+                  disabled={
+                    disabled
+                  }
+                  required
+                />
+              </label>
+
+              <label>
+                Site Type
+
+                <select
+                  value={
+                    site.site_type
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSiteField(
+                      mode,
+                      index,
+                      "site_type",
+                      event.target
+                        .value
+                    )
+                  }
+                  disabled={
+                    disabled
+                  }
+                >
+                  <option value="Personal Site">
+                    Personal Site
+                  </option>
+
+                  <option value="Subcontractor Site">
+                    Subcontractor Site
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Site Status
+
+                <select
+                  value={
+                    site.status
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSiteField(
+                      mode,
+                      index,
+                      "status",
+                      event.target
+                        .value
+                    )
+                  }
+                  disabled={
+                    disabled
+                  }
+                >
+                  <option value="active">
+                    Active
+                  </option>
+
+                  <option value="planned">
+                    Planned
+                  </option>
+
+                  <option value="paused">
+                    Paused
+                  </option>
+
+                  <option value="completed">
+                    Completed
+                  </option>
+
+                  <option value="inactive">
+                    Inactive
+                  </option>
+
+                  <option value="cancelled">
+                    Cancelled
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Site Progress %
+
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={
+                    site.progress_percent
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSiteField(
+                      mode,
+                      index,
+                      "progress_percent",
+                      event.target
+                        .value
+                    )
+                  }
+                  disabled={
+                    disabled
+                  }
+                />
+              </label>
+            </div>
+
+            <label>
+              Site Address
+
+              <textarea
+                value={
+                  site.address
+                }
+                onChange={(
+                  event
+                ) =>
+                  updateSiteField(
+                    mode,
+                    index,
+                    "address",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Enter complete site address"
+                disabled={
+                  disabled
+                }
+                required
+              />
+            </label>
+
+            <div className="form-preview-total">
+              Site Progress:{" "}
+              {Number(
+                site.progress_percent ||
+                  0
+              )}
+              %
+            </div>
+          </div>
+        )
+      )}
+    </section>
+  );
+
   const isBusy =
     adding ||
     updating ||
     deleting;
+
+  const currentForm =
+    editingTender
+      ? editForm
+      : addForm;
+
+  const currentChangeHandler =
+    editingTender
+      ? handleEditChange
+      : handleAddChange;
+
+  const currentSubmitHandler =
+    editingTender
+      ? handleUpdateTender
+      : handleAddTender;
 
   return (
     <>
@@ -824,21 +1516,21 @@ function TendersPage() {
         <div className="section-title-row">
           <div>
             <h2>
-              Tenders Management
+              Projects Management
             </h2>
 
             <p className="muted-text">
-              Track running, pending,
-              completed and due-soon
-              tenders with site links
-              and estimated values.
+              Manage construction
+              projects, project values,
+              deadlines and multiple
+              physical sites.
             </p>
           </div>
 
           <ExportButtons
-            filename="tenders"
-            title="Tenders Report"
-            subtitle="Construction Portal tender register"
+            filename="projects"
+            title="Projects Report"
+            subtitle="Construction Portal project and site register"
             rows={
               tenderExportRows
             }
@@ -854,18 +1546,34 @@ function TendersPage() {
 
       <section className="summary-cards">
         <div className="card">
-          <p>Total Tenders</p>
+          <p>Total Projects</p>
+
           <h2>
             {tenders.length}
           </h2>
         </div>
 
+        <div className="card">
+          <p>Total Sites</p>
+
+          <h2>
+            {totalProjectSites}
+          </h2>
+        </div>
+
         <div className="card highlight-success">
           <p>Running</p>
+
           <h2>
-            {
-              runningTenders.length
-            }
+            {runningTenders.length}
+          </h2>
+        </div>
+
+        <div className="card highlight-warning">
+          <p>Pending</p>
+
+          <h2>
+            {pendingTenders.length}
           </h2>
         </div>
 
@@ -873,35 +1581,25 @@ function TendersPage() {
           <p>
             Completed / Passed
           </p>
-          <h2>
-            {
-              completedTenders.length
-            }
-          </h2>
-        </div>
 
-        <div className="card highlight-warning">
-          <p>Pending</p>
           <h2>
-            {
-              pendingTenders.length
-            }
+            {completedTenders.length}
           </h2>
         </div>
 
         <div className="card highlight-danger">
           <p>Due Soon</p>
+
           <h2>
-            {
-              dueSoonTenders.length
-            }
+            {dueSoonTenders.length}
           </h2>
         </div>
 
         <div className="card">
           <p>
-            Total Tender Value
+            Total Project Value
           </p>
+
           <h2>
             {money(
               totalTenderValue
@@ -911,6 +1609,7 @@ function TendersPage() {
 
         <div className="card">
           <p>Filtered Value</p>
+
           <h2>
             {money(
               filteredTenderValue
@@ -919,499 +1618,418 @@ function TendersPage() {
         </div>
       </section>
 
-      <section className="payment-grid">
-        <section className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>
-                {editingTender
-                  ? "Edit Tender"
-                  : "Add Tender"}
-              </h2>
+      <section className="panel">
+        <div className="section-title-row">
+          <div>
+            <h2>
+              {editingTender
+                ? "Edit Project"
+                : "Create Project"}
+            </h2>
 
-              <p className="muted-text">
-                {editingTender
-                  ? "Update tender site, status, due date and estimated value."
-                  : "Create a new tender and link it to a site."}
-              </p>
-            </div>
+            <p className="muted-text">
+              {editingTender
+                ? "Update project information and synchronise its attached sites."
+                : "Create one project with one or more construction sites."}
+            </p>
           </div>
 
-          {editingTender ? (
-            <form
-            className="payment-form"
-            onSubmit={handleUpdateTender}
-          >
-            <div className="form-grid">
-              <label>
-                Site Type
-          
-                <select
-                  value={editSiteType}
-                  onChange={(event) => {
-                    const nextSiteType =
-                      event.target.value;
-          
-                    setEditSiteType(
-                      nextSiteType
-                    );
-          
-                    setEditForm(
-                      (previousForm) => ({
-                        ...previousForm,
-                        site_id: "",
-                      })
-                    );
-                  }}
-                  disabled={updating}
-                  required
-                >
-                  <option value="">
-                    Select Site Type
-                  </option>
-          
-                  <option value="Personal Site">
-                    Personal Site
-                  </option>
-          
-                  <option value="Subcontractor Site">
-                    Subcontractor Site
-                  </option>
-                </select>
-              </label>
-          
-              <label>
-                Site
-          
-                <select
-                  name="site_id"
-                  value={editForm.site_id}
-                  onChange={handleEditChange}
-                  disabled={
-                    updating ||
-                    !editSiteType
-                  }
-                  required
-                >
-                  <option value="">
-                    {editSiteType
-                      ? "Select Site"
-                      : "Select Site Type First"}
-                  </option>
-          
-                  {editFormSites.map(
-                    (site) => (
-                      <option
-                        key={site.id}
-                        value={site.id}
-                      >
-                        {site.site_name}
-                      </option>
-                    )
-                  )}
-                </select>
-              </label>
-          
-              <label>
-                Tender Title
-          
-                <input
-                  name="title"
-                  value={editForm.title}
-                  onChange={handleEditChange}
-                  disabled={updating}
-                  required
-                />
-              </label>
-          
-              <label>
-                Status
-          
-                <select
-                  name="status"
-                  value={editForm.status}
-                  onChange={handleEditChange}
-                  disabled={updating}
-                  required
-                >
-                  <option value="running">
-                    Running
-                  </option>
-          
-                  <option value="pending">
-                    Pending
-                  </option>
-          
-                  <option value="completed">
-                    Completed
-                  </option>
-          
-                  <option value="passed">
-                    Passed
-                  </option>
-                </select>
-              </label>
-          
-              <label>
-                Due Date
-          
-                <input
-                  name="due_date"
-                  type="date"
-                  value={editForm.due_date}
-                  onChange={handleEditChange}
-                  disabled={updating}
-                />
-              </label>
-          
-              <label>
-                Estimated Value
-          
-                <input
-                  name="estimated_value"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={
-                    editForm.estimated_value
-                  }
-                  onChange={handleEditChange}
-                  disabled={updating}
-                />
-              </label>
-            </div>
-          
-            <label>
-              Description
-          
-              <textarea
-                name="description"
-                value={editForm.description}
-                onChange={handleEditChange}
-                disabled={updating}
-              />
-            </label>
-          
-            <div className="form-preview-total">
-              Estimated Value Preview:{" "}
-              {money(
-                editForm.estimated_value
-              )}
-            </div>
-          
-            <div className="form-actions">
-              <button
-                type="submit"
-                disabled={updating}
-              >
-                {updating
-                  ? "Saving..."
-                  : "Save Changes"}
-              </button>
-          
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={cancelEdit}
-                disabled={updating}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-          ) : (
-            <form
-              className="payment-form"
-              onSubmit={handleAddTender}
-            >
-              <div className="form-grid">
-                <label>
-                  Site Type
-
-                  <select
-                    value={addSiteType}
-                    onChange={(event) => {
-                      const nextSiteType =
-                        event.target.value;
-
-                      setAddSiteType(
-                        nextSiteType
-                      );
-
-                      const form =
-                        event.currentTarget.form;
-
-                      if (form?.site_id) {
-                        form.site_id.value =
-                          "";
-                      }
-                    }}
-                    disabled={adding}
-                    required
-                  >
-                    <option value="">
-                      Select Site Type
-                    </option>
-
-                    <option value="Personal Site">
-                      Personal Site
-                    </option>
-
-                    <option value="Subcontractor Site">
-                      Subcontractor Site
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  Site
-
-                  <select
-                    name="site_id"
-                    defaultValue=""
-                    disabled={
-                      adding ||
-                      !addSiteType
-                    }
-                    required
-                  >
-                    <option value="">
-                      {addSiteType
-                        ? "Select Site"
-                        : "Select Site Type First"}
-                    </option>
-
-                    {addFormSites.map(
-                      (site) => (
-                        <option
-                          key={site.id}
-                          value={site.id}
-                        >
-                          {site.site_name}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </label>
-
-                <label>
-                  Tender Title
-
-                  <input
-                    name="title"
-                    placeholder="Enter tender title"
-                    disabled={adding}
-                    required
-                  />
-                </label>
-
-                <label>
-                  Status
-
-                  <select
-                    name="status"
-                    defaultValue="running"
-                    disabled={adding}
-                    required
-                  >
-                    <option value="running">
-                      Running
-                    </option>
-
-                    <option value="pending">
-                      Pending
-                    </option>
-
-                    <option value="completed">
-                      Completed
-                    </option>
-
-                    <option value="passed">
-                      Passed
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  Due Date
-
-                  <input
-                    name="due_date"
-                    type="date"
-                    disabled={adding}
-                  />
-                </label>
-
-                <label>
-                  Estimated Value
-
-                  <input
-                    name="estimated_value"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    disabled={adding}
-                  />
-                </label>
-              </div>
-
-              <label>
-                Description
-
-                <textarea
-                  name="description"
-                  placeholder="Tender description"
-                  disabled={adding}
-                />
-              </label>
-
-              <button
-                type="submit"
-                disabled={adding}
-              >
-                {adding
-                  ? "Adding..."
-                  : "Add Tender"}
-              </button>
-            </form>
-          )}
-        </section>
-
-        <section className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>
-                Tender Filters
-              </h2>
-
-              <p className="muted-text">
-                Filter by status and
-                search title, site,
-                value or due date.
-              </p>
-            </div>
-
+          {editingTender && (
             <button
               type="button"
               className="secondary-btn"
               onClick={
-                resetFilters
+                cancelEdit
               }
-              disabled={isBusy}
+              disabled={
+                updating
+              }
             >
-              Reset Filters
+              Cancel Editing
             </button>
-          </div>
+          )}
+        </div>
 
-          <div className="tabs">
-            {[
-              {
-                key: "running",
-                label: "Running",
-              },
-              {
-                key: "pending",
-                label: "Pending",
-              },
-              {
-                key: "completed",
-                label: "Completed",
-              },
-              {
-                key: "passed",
-                label: "Passed",
-              },
-              {
-                key: "due soon",
-                label: "Due Soon",
-              },
-              {
-                key: "all",
-                label: "All",
-              },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                className={
-                  activeTab === tab.key
-                    ? "active-tab"
-                    : ""
+        <form
+          className="payment-form"
+          onSubmit={
+            currentSubmitHandler
+          }
+        >
+          <div className="form-grid">
+            <label>
+              Project Title
+
+              <input
+                name="title"
+                value={
+                  currentForm.title
                 }
-                onClick={() =>
-                  setActiveTab(
-                    tab.key
-                  )
+                onChange={
+                  currentChangeHandler
                 }
-                disabled={isBusy}
+                placeholder="Enter project title"
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
+                required
+              />
+            </label>
+
+            <label>
+              Client Name
+
+              <input
+                name="client_name"
+                value={
+                  currentForm.client_name
+                }
+                onChange={
+                  currentChangeHandler
+                }
+                placeholder="Enter client name"
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
+              />
+            </label>
+
+            <label>
+              Project Type
+
+              <select
+                name="tender_type"
+                value={
+                  currentForm.tender_type
+                }
+                onChange={
+                  currentChangeHandler
+                }
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
               >
-                {tab.label}
-              </button>
-            ))}
+                <option value="Personal Tender">
+                  Personal Tender
+                </option>
+
+                <option value="Subcontractor Tender">
+                  Subcontractor Tender
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Project Status
+
+              <select
+                name="status"
+                value={
+                  currentForm.status
+                }
+                onChange={
+                  currentChangeHandler
+                }
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
+                required
+              >
+                <option value="running">
+                  Running
+                </option>
+
+                <option value="pending">
+                  Pending
+                </option>
+
+                <option value="completed">
+                  Completed
+                </option>
+
+                <option value="passed">
+                  Passed
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Start Date
+
+              <input
+                name="start_date"
+                type="date"
+                value={
+                  currentForm.start_date
+                }
+                onChange={
+                  currentChangeHandler
+                }
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
+              />
+            </label>
+
+            <label>
+              Due Date
+
+              <input
+                name="due_date"
+                type="date"
+                value={
+                  currentForm.due_date
+                }
+                onChange={
+                  currentChangeHandler
+                }
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
+              />
+            </label>
+
+            <label>
+              Estimated Value
+
+              <input
+                name="estimated_value"
+                type="number"
+                min="0"
+                step="0.01"
+                value={
+                  currentForm.estimated_value
+                }
+                onChange={
+                  currentChangeHandler
+                }
+                placeholder="0.00"
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
+              />
+            </label>
+
+            <label>
+              Project Progress %
+
+              <input
+                name="progress_percent"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={
+                  currentForm.progress_percent
+                }
+                onChange={
+                  currentChangeHandler
+                }
+                disabled={
+                  editingTender
+                    ? updating
+                    : adding
+                }
+              />
+            </label>
           </div>
 
-          <input
-            className="search-input"
-            type="search"
-            placeholder="Search tenders..."
-            value={searchTerm}
-            onChange={(event) =>
-              setSearchTerm(
-                event.target.value
-              )
+          <label>
+            Project Description
+
+            <textarea
+              name="description"
+              value={
+                currentForm.description
+              }
+              onChange={
+                currentChangeHandler
+              }
+              placeholder="Enter project description"
+              disabled={
+                editingTender
+                  ? updating
+                  : adding
+              }
+            />
+          </label>
+
+          <div className="form-preview-total">
+            Estimated Value:{" "}
+            {money(
+              currentForm.estimated_value
+            )}
+            {" | "}
+            Project Sites:{" "}
+            {
+              currentForm.sites
+                .length
             }
-            disabled={isBusy}
-          />
+          </div>
 
-          <table>
-            <tbody>
-              <tr>
-                <td>
-                  Current Filter
-                </td>
-                <td>
-                  {activeTab}
-                </td>
-              </tr>
+          {renderSitesForm(
+            editingTender
+              ? "edit"
+              : "add",
 
-              <tr>
-                <td>
-                  Matching Tenders
-                </td>
-                <td className="number-cell">
-                  {
-                    filteredTenders.length
-                  }
-                </td>
-              </tr>
+            currentForm,
 
-              <tr>
-                <td>
-                  Matching Value
-                </td>
-                <td className="amount-cell">
-                  {money(
-                    filteredTenderValue
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+            editingTender
+              ? updating
+              : adding
+          )}
+
+          <div className="form-actions">
+            <button
+              type="submit"
+              disabled={
+                editingTender
+                  ? updating
+                  : adding
+              }
+            >
+              {editingTender
+                ? updating
+                  ? "Saving..."
+                  : "Save Project Changes"
+                : adding
+                  ? "Creating..."
+                  : "Create Project"}
+            </button>
+
+            {editingTender && (
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={
+                  cancelEdit
+                }
+                disabled={
+                  updating
+                }
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
       </section>
 
       <section className="panel">
         <div className="section-title-row">
           <div>
             <h2>
-              Tenders Register
+              Project Filters
             </h2>
 
             <p className="muted-text">
-              Open a tender to manage
-              finance, documents,
-              materials, workers and
+              Search projects by title,
+              client, project type,
+              site, address, status,
+              value or date.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={
+              resetFilters
+            }
+            disabled={isBusy}
+          >
+            Reset Filters
+          </button>
+        </div>
+
+        <div className="tabs">
+          {[
+            {
+              key: "running",
+              label: "Running",
+            },
+            {
+              key: "pending",
+              label: "Pending",
+            },
+            {
+              key: "completed",
+              label: "Completed",
+            },
+            {
+              key: "passed",
+              label: "Passed",
+            },
+            {
+              key: "due soon",
+              label: "Due Soon",
+            },
+            {
+              key: "all",
+              label: "All",
+            },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={
+                activeTab ===
+                tab.key
+                  ? "active-tab"
+                  : ""
+              }
+              onClick={() =>
+                setActiveTab(
+                  tab.key
+                )
+              }
+              disabled={isBusy}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <input
+          className="search-input"
+          type="search"
+          placeholder="Search projects and sites..."
+          value={searchTerm}
+          onChange={(event) =>
+            setSearchTerm(
+              event.target.value
+            )
+          }
+          disabled={isBusy}
+        />
+      </section>
+
+      <section className="panel">
+        <div className="section-title-row">
+          <div>
+            <h2>
+              Projects Register
+            </h2>
+
+            <p className="muted-text">
+              Open a project to manage
+              its sites, finance,
+              documents, materials,
+              workers and
               subcontractors.
             </p>
           </div>
@@ -1421,9 +2039,11 @@ function TendersPage() {
           <table>
             <thead>
               <tr>
-                <th>Tender</th>
-                <th>Site</th>
+                <th>Project</th>
+                <th>Client</th>
+                <th>Sites</th>
                 <th>Status</th>
+                <th>Progress</th>
                 <th>Due Date</th>
                 <th>
                   Estimated Value
@@ -1434,62 +2054,22 @@ function TendersPage() {
 
             <tbody>
               {filteredTenders.map(
-                (tender) => (
-                  <tr key={tender.id}>
-                    <td>
-                      <button
-                        type="button"
-                        className="table-link-button"
-                        onClick={() =>
-                          navigate(
-                            `/tenders/${tender.id}`
-                          )
-                        }
-                        disabled={
-                          isBusy
-                        }
-                      >
-                        {tender.title ||
-                          tender.tender_name ||
-                          "-"}
-                      </button>
-                    </td>
+                (tender) => {
+                  const projectSites =
+                    getProjectSites(
+                      tender
+                    );
 
-                    <td>
-                      {tender.site_name ||
-                        getSiteName(
-                          tender.site_id
-                        )}
-                    </td>
-
-                    <td>
-                      <span
-                        className={getStatusClass(
-                          tender.status
-                        )}
-                      >
-                        {normaliseStatus(
-                          tender.status
-                        ) || "-"}
-                      </span>
-                    </td>
-
-                    <td>
-                      {dateOnly(
-                        tender.due_date
-                      ) || "-"}
-                    </td>
-
-                    <td className="amount-cell">
-                      {money(
-                        tender.estimated_value
-                      )}
-                    </td>
-
-                    <td>
-                      <div className="table-actions">
+                  return (
+                    <tr
+                      key={
+                        tender.id
+                      }
+                    >
+                      <td>
                         <button
                           type="button"
+                          className="table-link-button"
                           onClick={() =>
                             navigate(
                               `/tenders/${tender.id}`
@@ -1499,51 +2079,135 @@ function TendersPage() {
                             isBusy
                           }
                         >
-                          Open
+                          {tender.title ||
+                            tender.tender_name ||
+                            "-"}
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startEdit(
-                              tender
-                            )
-                          }
-                          disabled={
-                            isBusy
-                          }
-                        >
-                          Edit
-                        </button>
+                        <p className="muted-text">
+                          {tender.tender_type ||
+                            "Project"}
+                        </p>
+                      </td>
 
-                        <button
-                          type="button"
-                          className="delete-btn"
-                          onClick={() =>
-                            setDeleteTarget(
-                              tender
+                      <td>
+                        {tender.client_name ||
+                          "-"}
+                      </td>
+
+                      <td>
+                        <strong>
+                          {
+                            projectSites.length
+                          }{" "}
+                          Site
+                          {projectSites.length ===
+                          1
+                            ? ""
+                            : "s"}
+                        </strong>
+
+                        <p className="muted-text">
+                          {getProjectSiteNames(
+                            tender
+                          ) ||
+                            "No active sites"}
+                        </p>
+                      </td>
+
+                      <td>
+                        <span
+                          className={
+                            getStatusClass(
+                              tender.status
                             )
                           }
-                          disabled={
-                            isBusy
-                          }
                         >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
+                          {normaliseStatus(
+                            tender.status
+                          ) || "-"}
+                        </span>
+                      </td>
+
+                      <td>
+                        {Number(
+                          tender.progress_percent ||
+                            0
+                        )}
+                        %
+                      </td>
+
+                      <td>
+                        {dateOnly(
+                          tender.due_date
+                        ) || "-"}
+                      </td>
+
+                      <td className="amount-cell">
+                        {money(
+                          tender.estimated_value
+                        )}
+                      </td>
+
+                      <td>
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/tenders/${tender.id}`
+                              )
+                            }
+                            disabled={
+                              isBusy
+                            }
+                          >
+                            Open
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startEdit(
+                                tender
+                              )
+                            }
+                            disabled={
+                              isBusy
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="delete-btn"
+                            onClick={() =>
+                              setDeleteTarget(
+                                tender
+                              )
+                            }
+                            disabled={
+                              isBusy
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
               )}
 
               {filteredTenders.length ===
                 0 && (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="8"
                     className="empty-table-message"
                   >
-                    No tenders found.
+                    No projects found.
                   </td>
                 </tr>
               )}
@@ -1553,9 +2217,9 @@ function TendersPage() {
               0 && (
               <tfoot>
                 <tr>
-                  <td colSpan="4">
+                  <td colSpan="6">
                     <strong>
-                      Total
+                      Filtered Total
                     </strong>
                   </td>
 
@@ -1573,6 +2237,118 @@ function TendersPage() {
             )}
           </table>
         </div>
+
+        {filteredTenders.map(
+          (tender) => {
+            const projectSites =
+              getProjectSites(
+                tender
+              );
+
+            if (
+              projectSites.length ===
+              0
+            ) {
+              return null;
+            }
+
+            return (
+              <details
+                key={`project-sites-${tender.id}`}
+                className="panel"
+              >
+                <summary>
+                  {tender.title ||
+                    tender.tender_name ||
+                    `Project ${tender.id}`}{" "}
+                  —{" "}
+                  {
+                    projectSites.length
+                  }{" "}
+                  Site
+                  {projectSites.length ===
+                  1
+                    ? ""
+                    : "s"}
+                </summary>
+
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>
+                          Site Name
+                        </th>
+                        <th>
+                          Address
+                        </th>
+                        <th>
+                          Type
+                        </th>
+                        <th>
+                          Status
+                        </th>
+                        <th>
+                          Progress
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {projectSites.map(
+                        (site) => (
+                          <tr
+                            key={
+                              site.id
+                            }
+                          >
+                            <td>
+                              {site.site_name ||
+                                "-"}
+                            </td>
+
+                            <td>
+                              {site.address ||
+                                "-"}
+                            </td>
+
+                            <td>
+                              {site.site_type ||
+                                "-"}
+                            </td>
+
+                            <td>
+                              <span
+                                className={
+                                  getSiteStatusClass(
+                                    site.status
+                                  )
+                                }
+                              >
+                                {normaliseStatus(
+                                  site.status
+                                ) ||
+                                  "-"}
+                              </span>
+                            </td>
+
+                            <td>
+                              {Number(
+                                site.progress_percent ||
+                                  0
+                              )}
+                              %
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            );
+          }
+        )}
       </section>
 
       <DeleteVerificationModal
@@ -1582,11 +2358,13 @@ function TendersPage() {
         itemName={
           deleteTarget?.title ||
           deleteTarget?.tender_name ||
-          "tender"
+          "project"
         }
         onCancel={() => {
           if (!deleting) {
-            setDeleteTarget(null);
+            setDeleteTarget(
+              null
+            );
           }
         }}
         onConfirm={

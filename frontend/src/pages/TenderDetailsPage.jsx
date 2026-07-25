@@ -14,9 +14,12 @@ import toast from "react-hot-toast";
 
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 
-import { tenderDetailsTabs } from "../config/tenderDetailsTabs";
+import {
+  tenderDetailsTabs,
+} from "../config/tenderDetailsTabs";
 
 import TenderOverviewTab from "../components/tenderDetails/TenderOverviewTab";
+import TenderSitesTab from "../components/tenderDetails/TenderSitesTab";
 import TenderDocumentsTab from "../components/tenderDetails/TenderDocumentsTab";
 import TenderMaterialsTab from "../components/tenderDetails/TenderMaterialsTab";
 import TenderBankingTab from "../components/tenderDetails/TenderBankingTab";
@@ -25,7 +28,13 @@ import TenderDailyProgressTab from "../components/tenderDetails/TenderDailyProgr
 import TenderSubcontractorsTab from "../components/tenderDetails/TenderSubcontractorsTab";
 import TenderWorkersTab from "../components/tenderDetails/TenderWorkersTab";
 
-import { getWorkers } from "../services/workerService";
+import {
+  getWorkers,
+} from "../services/workerService";
+
+import {
+  getTenderById,
+} from "../services/tenderService";
 
 import {
   getPayments,
@@ -62,9 +71,13 @@ import {
   updateTenderSubcontractor,
 } from "../services/tenderDetailsService";
 
-import { uploadFile } from "../services/uploadService";
+import {
+  uploadFile,
+} from "../services/uploadService";
 
-import { getSubcontractors } from "../services/subcontractorService";
+import {
+  getSubcontractors,
+} from "../services/subcontractorService";
 
 const EMPTY_WORKER_FORM = {
   worker_id: "",
@@ -76,31 +89,53 @@ function TenderDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const numericTenderId = Number(id);
+  const numericTenderId =
+    Number(id);
 
-  const [activeTab, setActiveTab] =
-    useState("overview");
+  const [
+    activeTab,
+    setActiveTab,
+  ] = useState("overview");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [loadError, setLoadError] =
-    useState("");
+  const [
+    loadError,
+    setLoadError,
+  ] = useState("");
 
-  const [tender, setTender] =
-    useState(null);
+  const [
+    tender,
+    setTender,
+  ] = useState(null);
 
-  const [documents, setDocuments] =
-    useState([]);
+  const [
+    tenderSites,
+    setTenderSites,
+  ] = useState([]);
 
-  const [materials, setMaterials] =
-    useState([]);
+  const [
+    documents,
+    setDocuments,
+  ] = useState([]);
 
-  const [banking, setBanking] =
-    useState([]);
+  const [
+    materials,
+    setMaterials,
+  ] = useState([]);
 
-  const [dailyUpdates, setDailyUpdates] =
-    useState([]);
+  const [
+    banking,
+    setBanking,
+  ] = useState([]);
+
+  const [
+    dailyUpdates,
+    setDailyUpdates,
+  ] = useState([]);
 
   const [
     subcontractors,
@@ -112,11 +147,15 @@ function TenderDetailsPage() {
     setAllSubcontractors,
   ] = useState([]);
 
-  const [payments, setPayments] =
-    useState([]);
+  const [
+    payments,
+    setPayments,
+  ] = useState([]);
 
-  const [workers, setWorkers] =
-    useState([]);
+  const [
+    workers,
+    setWorkers,
+  ] = useState([]);
 
   const [
     assignedWorkers,
@@ -198,8 +237,10 @@ function TenderDetailsPage() {
     setSavingSubcontractor,
   ] = useState(false);
 
-  const [deleting, setDeleting] =
-    useState(false);
+  const [
+    deleting,
+    setDeleting,
+  ] = useState(false);
 
   const isBusy =
     addingDocument ||
@@ -213,12 +254,16 @@ function TenderDetailsPage() {
     response,
     key
   ) => {
-    if (Array.isArray(response)) {
+    if (
+      Array.isArray(response)
+    ) {
       return response;
     }
 
     if (
-      Array.isArray(response?.[key])
+      Array.isArray(
+        response?.[key]
+      )
     ) {
       return response[key];
     }
@@ -232,7 +277,9 @@ function TenderDetailsPage() {
     }
 
     if (
-      Array.isArray(response?.data)
+      Array.isArray(
+        response?.data
+      )
     ) {
       return response.data;
     }
@@ -240,11 +287,62 @@ function TenderDetailsPage() {
     return [];
   };
 
+  const normaliseSites = (
+    sites
+  ) => {
+    if (
+      !Array.isArray(sites)
+    ) {
+      return [];
+    }
+
+    return sites.filter(
+      (site) =>
+        site &&
+        !site.is_deleted
+    );
+  };
+
+  const getStatusClass = (
+    status
+  ) => {
+    const value =
+      String(status || "")
+        .trim()
+        .toLowerCase();
+
+    if (
+      [
+        "running",
+        "active",
+        "completed",
+        "passed",
+      ].includes(value)
+    ) {
+      return "badge green";
+    }
+
+    if (
+      [
+        "failed",
+        "cancelled",
+        "inactive",
+        "rejected",
+      ].includes(value)
+    ) {
+      return "badge red";
+    }
+
+    return "badge yellow";
+  };
+
   const loadTenderWorkers =
     useCallback(async () => {
       try {
         const response =
-          await getTenderWorkers(id);
+          await getTenderWorkers(
+            id
+          );
 
         setAssignedWorkers(
           normaliseArrayResponse(
@@ -264,6 +362,7 @@ function TenderDetailsPage() {
         toast.error(
           error.response?.data
             ?.message ||
+            error.message ||
             "Failed to load assigned workers."
         );
       }
@@ -295,6 +394,7 @@ function TenderDetailsPage() {
         toast.error(
           error.response?.data
             ?.message ||
+            error.message ||
             "Failed to load tender finance records."
         );
       }
@@ -312,12 +412,14 @@ function TenderDetailsPage() {
           )
         ) {
           setTender(null);
+          setTenderSites([]);
 
           setLoadError(
             "The selected tender ID is invalid."
           );
 
           setLoading(false);
+
           return;
         }
 
@@ -330,10 +432,23 @@ function TenderDetailsPage() {
 
           const [
             tenderResponse,
+            coreTenderResponse,
             subcontractorResponse,
             workerResponse,
           ] = await Promise.all([
             getTenderDetails(id),
+
+            getTenderById(id).catch(
+              (error) => {
+                console.error(
+                  "Failed to load core tender and site details:",
+                  error.response?.data ||
+                    error
+                );
+
+                return null;
+              }
+            ),
 
             getSubcontractors().catch(
               (error) => {
@@ -367,9 +482,47 @@ function TenderDetailsPage() {
             tenderResponse ||
             {};
 
-          setTender(
+          const detailsTender =
             responseData.tender ||
-              null
+            null;
+
+          const coreTender =
+            coreTenderResponse?.tender ||
+            coreTenderResponse ||
+            null;
+
+          const mergedTender =
+            detailsTender ||
+            coreTender
+              ? {
+                  ...(detailsTender ||
+                    {}),
+                  ...(coreTender ||
+                    {}),
+                  sites:
+                    normaliseSites(
+                      coreTender?.sites
+                    ).length > 0
+                      ? normaliseSites(
+                          coreTender.sites
+                        )
+                      : normaliseSites(
+                          detailsTender?.sites
+                        ),
+                }
+              : null;
+
+          const mergedSites =
+            normaliseSites(
+              mergedTender?.sites
+            );
+
+          setTender(
+            mergedTender
+          );
+
+          setTenderSites(
+            mergedSites
           );
 
           setDocuments(
@@ -430,9 +583,7 @@ function TenderDetailsPage() {
             )
           );
 
-          if (
-            !responseData.tender
-          ) {
+          if (!mergedTender) {
             setLoadError(
               "Tender details were not found."
             );
@@ -447,10 +598,12 @@ function TenderDetailsPage() {
           const message =
             error.response?.data
               ?.message ||
+            error.message ||
             "Failed to load tender details.";
 
           setLoadError(message);
           setTender(null);
+          setTenderSites([]);
 
           if (!showLoader) {
             toast.error(message);
@@ -461,7 +614,10 @@ function TenderDetailsPage() {
           }
         }
       },
-      [id, numericTenderId]
+      [
+        id,
+        numericTenderId,
+      ]
     );
 
   const loadPageData =
@@ -506,6 +662,7 @@ function TenderDetailsPage() {
         toast.error(
           "Document name is required."
         );
+
         return;
       }
 
@@ -529,13 +686,17 @@ function TenderDetailsPage() {
         await addTenderDocument({
           tender_id:
             numericTenderId,
+
           document_name:
             documentName,
+
           document_type:
             documentForm.document_type ||
             null,
+
           file_url:
-            uploadedUrl || null,
+            uploadedUrl ||
+            null,
         });
 
         setDocumentForm(
@@ -559,6 +720,7 @@ function TenderDetailsPage() {
         toast.error(
           error.response?.data
             ?.message ||
+            error.message ||
             "Failed to add tender document."
         );
       } finally {
@@ -584,6 +746,7 @@ function TenderDetailsPage() {
         toast.error(
           "Material name is required."
         );
+
         return;
       }
 
@@ -593,18 +756,24 @@ function TenderDetailsPage() {
         await addTenderMaterial({
           tender_id:
             numericTenderId,
+
           ...materialForm,
+
           material_name:
             materialName,
-          quantity: Number(
-            materialForm.quantity ||
-              0
-          ),
-          amount: Number(
-            materialForm.amount ||
-              materialForm.cost ||
-              0
-          ),
+
+          quantity:
+            Number(
+              materialForm.quantity ||
+                0
+            ),
+
+          amount:
+            Number(
+              materialForm.amount ||
+                materialForm.cost ||
+                0
+            ),
         });
 
         setMaterialForm(
@@ -626,6 +795,7 @@ function TenderDetailsPage() {
         toast.error(
           error.response?.data
             ?.message ||
+            error.message ||
             "Failed to add tender material."
         );
       } finally {
@@ -647,6 +817,7 @@ function TenderDetailsPage() {
         await addTenderBanking({
           tender_id:
             numericTenderId,
+
           ...bankingForm,
         });
 
@@ -669,6 +840,7 @@ function TenderDetailsPage() {
         toast.error(
           error.response?.data
             ?.message ||
+            error.message ||
             "Failed to add banking record."
         );
       } finally {
@@ -684,10 +856,13 @@ function TenderDetailsPage() {
         return;
       }
 
-      if (!workerForm.worker_id) {
+      if (
+        !workerForm.worker_id
+      ) {
         toast.error(
           "Please select a worker."
         );
+
         return;
       }
 
@@ -697,18 +872,25 @@ function TenderDetailsPage() {
         await assignWorkerToTender({
           tender_id:
             numericTenderId,
-          worker_id: Number(
-            workerForm.worker_id
-          ),
+
+          worker_id:
+            Number(
+              workerForm.worker_id
+            ),
+
           notes:
-            workerForm.notes.trim(),
+            String(
+              workerForm.notes ||
+                ""
+            ).trim(),
+
           status:
             workerForm.status,
         });
 
-        setWorkerForm(
-          EMPTY_WORKER_FORM
-        );
+        setWorkerForm({
+          ...EMPTY_WORKER_FORM,
+        });
 
         await loadTenderWorkers();
 
@@ -725,6 +907,7 @@ function TenderDetailsPage() {
         toast.error(
           error.response?.data
             ?.message ||
+            error.message ||
             "Failed to assign worker."
         );
       } finally {
@@ -736,7 +919,9 @@ function TenderDetailsPage() {
     async (event) => {
       event.preventDefault();
 
-      if (savingSubcontractor) {
+      if (
+        savingSubcontractor
+      ) {
         return;
       }
 
@@ -759,6 +944,7 @@ function TenderDetailsPage() {
         toast.error(
           "Please select a subcontractor."
         );
+
         return;
       }
 
@@ -766,6 +952,7 @@ function TenderDetailsPage() {
         toast.error(
           "Please enter a work description."
         );
+
         return;
       }
 
@@ -778,6 +965,7 @@ function TenderDetailsPage() {
         toast.error(
           "Assigned amount must be greater than zero."
         );
+
         return;
       }
 
@@ -794,8 +982,10 @@ function TenderDetailsPage() {
             {
               work_description:
                 workDescription,
+
               assigned_amount:
                 assignedAmount,
+
               status:
                 subcontractorForm.status,
             }
@@ -808,14 +998,18 @@ function TenderDetailsPage() {
           await assignTenderSubcontractor({
             tender_id:
               numericTenderId,
+
             subcontractor_id:
               Number(
                 subcontractorForm.subcontractor_id
               ),
+
             work_description:
               workDescription,
+
             assigned_amount:
               assignedAmount,
+
             status:
               subcontractorForm.status,
           });
@@ -844,6 +1038,7 @@ function TenderDetailsPage() {
         toast.error(
           error.response?.data
             ?.message ||
+            error.message ||
             "Failed to save subcontractor assignment."
         );
       } finally {
@@ -867,12 +1062,15 @@ function TenderDetailsPage() {
         subcontractor_id:
           subcontractor.subcontractor_id ||
           "",
+
         work_description:
           subcontractor.work_description ||
           "",
+
         assigned_amount:
           subcontractor.assigned_amount ||
           "",
+
         status:
           subcontractor.status ||
           "active",
@@ -919,6 +1117,7 @@ function TenderDetailsPage() {
         toast.error(
           "The selected record cannot be deleted."
         );
+
         return;
       }
 
@@ -934,6 +1133,7 @@ function TenderDetailsPage() {
             toast.success(
               "Document deleted successfully."
             );
+
             break;
 
           case "material":
@@ -944,6 +1144,7 @@ function TenderDetailsPage() {
             toast.success(
               "Material deleted successfully."
             );
+
             break;
 
           case "banking":
@@ -954,6 +1155,7 @@ function TenderDetailsPage() {
             toast.success(
               "Banking record deleted successfully."
             );
+
             break;
 
           case "subcontractor":
@@ -971,6 +1173,7 @@ function TenderDetailsPage() {
             toast.success(
               "Subcontractor assignment removed successfully."
             );
+
             break;
 
           case "worker":
@@ -983,6 +1186,7 @@ function TenderDetailsPage() {
             toast.success(
               "Worker assignment removed successfully."
             );
+
             break;
 
           case "payment":
@@ -995,6 +1199,7 @@ function TenderDetailsPage() {
             toast.success(
               "Finance record deleted successfully."
             );
+
             break;
 
           default:
@@ -1064,19 +1269,20 @@ function TenderDetailsPage() {
     remainingBudget,
     tenderProfit,
     tenderProfitPercentage,
+    financeSummary,
   } = tenderSummary;
 
   if (loading) {
     return (
       <section className="panel">
         <h2>
-          Loading tender details...
+          Loading project details...
         </h2>
 
         <p className="muted-text">
-          Loading documents,
-          materials, finance,
-          workers and
+          Loading sites,
+          documents, materials,
+          finance, workers and
           subcontractors.
         </p>
       </section>
@@ -1090,7 +1296,7 @@ function TenderDetailsPage() {
     return (
       <section className="panel">
         <h2>
-          Tender could not be loaded
+          Project could not be loaded
         </h2>
 
         <p
@@ -1098,7 +1304,7 @@ function TenderDetailsPage() {
           role="alert"
         >
           {loadError ||
-            "Tender not found."}
+            "Project not found."}
         </p>
 
         <div className="form-actions">
@@ -1118,7 +1324,7 @@ function TenderDetailsPage() {
               navigate("/tenders")
             }
           >
-            Back to Tenders
+            Back to Projects
           </button>
         </div>
       </section>
@@ -1131,31 +1337,48 @@ function TenderDetailsPage() {
         <section className="panel tender-header">
           <div>
             <p className="dashboard-hero-eyebrow">
-              Tender Details
+              Project Details
             </p>
 
             <h2>
               {tender.title ||
                 tender.tender_name ||
-                "Unnamed Tender"}
+                "Unnamed Project"}
             </h2>
 
             <p>
               Status:{" "}
               <span
                 className={
-                  String(
-                    tender.status || ""
+                  getStatusClass(
+                    tender.status
                   )
-                    .toLowerCase() ===
-                  "running"
-                    ? "badge green"
-                    : "badge yellow"
                 }
               >
                 {tender.status ||
                   "unknown"}
               </span>
+            </p>
+
+            <p>
+              Client:{" "}
+              {tender.client_name ||
+                "N/A"}
+            </p>
+
+            <p>
+              Project Type:{" "}
+              {tender.tender_type ||
+                "N/A"}
+            </p>
+
+            <p>
+              Start Date:{" "}
+              {tender.start_date
+                ? String(
+                    tender.start_date
+                  ).slice(0, 10)
+                : "N/A"}
             </p>
 
             <p>
@@ -1168,30 +1391,38 @@ function TenderDetailsPage() {
             </p>
 
             <p>
-              Site:{" "}
-              {tender.site_name ||
-                "N/A"}
-
-              {tender.address
-                ? ` · ${tender.address}`
-                : ""}
+              Project Sites:{" "}
+              <strong>
+                {tenderSites.length}
+              </strong>
             </p>
+
+            {tenderSites.length >
+              0 && (
+              <p className="muted-text">
+                {tenderSites
+                  .map(
+                    (site) =>
+                      site.site_name
+                  )
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
           </div>
 
           <div className="report-actions">
-            {tender.site_id && (
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    `/sites/${tender.site_id}`
-                  )
-                }
-                disabled={isBusy}
-              >
-                Back to Tender Site
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                setActiveTab(
+                  "sites"
+                )
+              }
+              disabled={isBusy}
+            >
+              View Project Sites
+            </button>
 
             <button
               type="button"
@@ -1201,7 +1432,7 @@ function TenderDetailsPage() {
               }
               disabled={isBusy}
             >
-              Back to Tenders
+              Back to Projects
             </button>
           </div>
         </section>
@@ -1242,7 +1473,9 @@ function TenderDetailsPage() {
             remainingBudget={
               remainingBudget
             }
-            documents={documents}
+            documents={
+              documents
+            }
             materialTotal={
               materialTotal
             }
@@ -1258,12 +1491,17 @@ function TenderDetailsPage() {
             totalTenderCost={
               totalTenderCost
             }
-            payments={payments}
+            payments={
+              payments
+            }
             tenderProfit={
               tenderProfit
             }
             tenderProfitPercentage={
               tenderProfitPercentage
+            }
+            financeSummary={
+              financeSummary
             }
             materialCost={
               materialCost
@@ -1278,9 +1516,23 @@ function TenderDetailsPage() {
         )}
 
         {activeTab ===
+          "sites" && (
+          <TenderSitesTab
+            sites={
+              tenderSites
+            }
+            tender={
+              tender
+            }
+          />
+        )}
+
+        {activeTab ===
           "documents" && (
           <TenderDocumentsTab
-            documents={documents}
+            documents={
+              documents
+            }
             documentForm={
               documentForm
             }
@@ -1305,7 +1557,9 @@ function TenderDetailsPage() {
         {activeTab ===
           "materials" && (
           <TenderMaterialsTab
-            materials={materials}
+            materials={
+              materials
+            }
             materialForm={
               materialForm
             }
@@ -1327,7 +1581,9 @@ function TenderDetailsPage() {
         {activeTab ===
           "banking" && (
           <TenderBankingTab
-            banking={banking}
+            banking={
+              banking
+            }
             bankingForm={
               bankingForm
             }
@@ -1343,7 +1599,9 @@ function TenderDetailsPage() {
             bankingTotal={
               bankingTotal
             }
-            gstTotal={gstTotal}
+            gstTotal={
+              gstTotal
+            }
             loanedTotal={
               loanedTotal
             }
@@ -1359,12 +1617,18 @@ function TenderDetailsPage() {
         {activeTab ===
           "finance" && (
           <TenderFinanceTab
-            payments={payments}
-            tenderId={id}
+            payments={
+              payments
+            }
+            tenderId={
+              id
+            }
             setDeleteTarget={
               setDeleteTarget
             }
-            tender={tender}
+            tender={
+              tender
+            }
             subcontractors={
               subcontractors
             }
@@ -1377,13 +1641,21 @@ function TenderDetailsPage() {
             dailyUpdates={
               dailyUpdates
             }
+            sites={
+              tenderSites
+            }
+            tender={
+              tender
+            }
           />
         )}
 
         {activeTab ===
           "workers" && (
           <TenderWorkersTab
-            workers={workers}
+            workers={
+              workers
+            }
             assignedWorkers={
               assignedWorkers
             }
@@ -1401,6 +1673,9 @@ function TenderDetailsPage() {
             }
             submitting={
               assigningWorker
+            }
+            sites={
+              tenderSites
             }
           />
         )}
@@ -1441,14 +1716,19 @@ function TenderDetailsPage() {
             submitting={
               savingSubcontractor
             }
+            sites={
+              tenderSites
+            }
           />
         )}
       </section>
 
       <DeleteVerificationModal
-        open={Boolean(
-          deleteTarget
-        )}
+        open={
+          Boolean(
+            deleteTarget
+          )
+        }
         itemName={
           deleteTarget?.item
             ?.document_name ||
@@ -1468,13 +1748,17 @@ function TenderDetailsPage() {
         }
         onCancel={() => {
           if (!deleting) {
-            setDeleteTarget(null);
+            setDeleteTarget(
+              null
+            );
           }
         }}
         onConfirm={
           handleConfirmDelete
         }
-        loading={deleting}
+        loading={
+          deleting
+        }
       />
     </>
   );
