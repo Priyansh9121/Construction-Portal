@@ -269,7 +269,6 @@ exports.createTender = async (req, res) => {
         description,
         estimated_value,
         progress_percent,
-        number_of_sites,
         created_by,
         created_at,
         updated_at
@@ -278,7 +277,7 @@ exports.createTender = async (req, res) => {
       (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9, $10,
-        $11, $12, NOW(), NOW()
+        $11, NOW(), NOW()
       )
       RETURNING *
       `,
@@ -293,7 +292,6 @@ exports.createTender = async (req, res) => {
         description?.trim() || "",
         Number(estimated_value || 0),
         Number(progress_percent || 0),
-        sites.length,
         createdBy,
       ]
     );
@@ -451,9 +449,8 @@ exports.updateTender = async (req, res) => {
         description = $7,
         estimated_value = $8,
         progress_percent = $9,
-        number_of_sites = $10,
         updated_at = NOW()
-      WHERE id = $11
+      WHERE id = $10
         AND COALESCE(is_deleted, FALSE) = FALSE
       RETURNING *
       `,
@@ -467,9 +464,6 @@ exports.updateTender = async (req, res) => {
         description?.trim() || "",
         Number(estimated_value || 0),
         Number(progress_percent || 0),
-        Array.isArray(sites)
-          ? sites.length
-          : existingTender.number_of_sites,
         id,
       ]
     );
