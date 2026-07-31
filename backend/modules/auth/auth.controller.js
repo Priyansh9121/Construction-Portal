@@ -355,7 +355,26 @@ exports.login = async (req, res) => {
     }
 
     const userResult = await pool.query(
-      "SELECT * FROM users WHERE LOWER(email) = LOWER($1)",
+      `
+      SELECT
+        u.id,
+        u.full_name,
+        u.email,
+        u.password_hash,
+        u.role,
+        u.status,
+        cu.company_id,
+        cu.role AS company_role,
+        c.company_name
+      FROM public.users u
+      LEFT JOIN public.company_users cu
+        ON cu.user_id = u.id
+      LEFT JOIN public.companies c
+        ON c.id = cu.company_id
+      WHERE LOWER(u.email) = LOWER($1)
+      ORDER BY cu.id ASC
+      LIMIT 1
+      `,
       [email]
     );
 
@@ -375,7 +394,10 @@ exports.login = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    const isMatch = await bcrypt.compare(
+      password,
+      user.password_hash
+    );
 
     if (!isMatch) {
       return res.status(400).json({
@@ -384,11 +406,19 @@ exports.login = async (req, res) => {
       });
     }
 
+    if (!user.company_id) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is not linked to a company.",
+      });
+    }
+
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
         role: user.role,
+        company_id: user.company_id,
       },
       JWT_SECRET,
       {
@@ -396,7 +426,7 @@ exports.login = async (req, res) => {
       }
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Login successful",
       token,
@@ -406,14 +436,17 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role,
         status: user.status,
+        company_id: user.company_id,
+        company_role: user.company_role,
+        company_name: user.company_name,
       },
     });
   } catch (error) {
     console.error("Login error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: error.message || "Server error",
     });
   }
 };
