@@ -1,48 +1,224 @@
 const express = require("express");
+
+const authMiddleware = require(
+  "../../middleware/authMiddleware"
+);
+
+const roleMiddleware = require(
+  "../../middleware/roleMiddleware"
+);
+
+const asyncHandler = require(
+  "../../utils/asyncHandler"
+);
+
+const authController = require(
+  "./auth.controller"
+);
+
 const router = express.Router();
 
-const authController = require("./auth.controller");
-const authMiddleware = require("../../middleware/authMiddleware");
-const roleMiddleware = require("../../middleware/roleMiddleware");
+/*
+|--------------------------------------------------------------------------
+| Reusable access middleware
+|--------------------------------------------------------------------------
+|
+| auth.routes.js contains both public and protected routes, so
+| authentication must remain inside this route file.
+|
+| Grouping the middleware removes repeated declarations from every
+| user-management endpoint.
+|
+*/
 
-router.post("/register", authController.register);
-router.post("/login", authController.login);
+const requireAuthentication = [
+  authMiddleware,
+];
 
-router.post("/forgot-password", authController.forgotPassword);
-router.post("/reset-password", authController.resetPassword);
+const requireAdministrator = [
+  authMiddleware,
 
+  roleMiddleware(
+    ["admin"],
+    {
+      source: "either",
+    }
+  ),
+];
+
+/*
+|--------------------------------------------------------------------------
+| Public authentication routes
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * POST /api/auth/register
+ *
+ * Creates:
+ *
+ * - company
+ * - company owner/admin account
+ * - company_users membership
+ */
+router.post(
+  "/register",
+  asyncHandler(
+    authController.register
+  )
+);
+
+/**
+ * POST /api/auth/login
+ */
+router.post(
+  "/login",
+  asyncHandler(
+    authController.login
+  )
+);
+
+/**
+ * POST /api/auth/forgot-password
+ */
+router.post(
+  "/forgot-password",
+  asyncHandler(
+    authController.forgotPassword
+  )
+);
+
+/**
+ * POST /api/auth/reset-password
+ */
+router.post(
+  "/reset-password",
+  asyncHandler(
+    authController.resetPassword
+  )
+);
+
+/*
+|--------------------------------------------------------------------------
+| Authenticated account routes
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * GET /api/auth/me
+ *
+ * Returns the current user and company context.
+ */
+router.get(
+  "/me",
+  ...requireAuthentication,
+  asyncHandler(
+    authController.getCurrentUser
+  )
+);
+
+/**
+ * PUT /api/auth/change-password
+ *
+ * PUT is retained because the current frontend already uses this route.
+ */
 router.put(
   "/change-password",
-  authMiddleware,
-  authController.changePassword
+  ...requireAuthentication,
+  asyncHandler(
+    authController.changePassword
+  )
 );
+
+/*
+|--------------------------------------------------------------------------
+| Company user management
+|--------------------------------------------------------------------------
+|
+| These routes are administrator-only.
+|
+| The controller performs additional company-owner checks when someone
+| attempts to create or grant administrator access.
+|
+*/
+
+/**
+ * GET /api/auth/users
+ */
+router.get(
+  "/users",
+  ...requireAdministrator,
+  asyncHandler(
+    authController.getUsers
+  )
+);
+
+/**
+ * POST /api/auth/users
+ *
+ * Preferred REST endpoint for creating a company user.
+ */
+router.post(
+  "/users",
+  ...requireAdministrator,
+  asyncHandler(
+    authController.createUser
+  )
+);
+
+/**
+ * PUT /api/auth/users/:userId
+ */
+router.put(
+  "/users/:userId",
+  ...requireAdministrator,
+  asyncHandler(
+    authController.updateUser
+  )
+);
+
+/**
+ * PUT /api/auth/users/:userId/disable
+ *
+ * PUT is retained for compatibility with the current frontend service.
+ */
+router.put(
+  "/users/:userId/disable",
+  ...requireAdministrator,
+  asyncHandler(
+    authController.disableUser
+  )
+);
+
+/**
+ * PUT /api/auth/users/:userId/enable
+ */
+router.put(
+  "/users/:userId/enable",
+  ...requireAdministrator,
+  asyncHandler(
+    authController.enableUser
+  )
+);
+
+/*
+|--------------------------------------------------------------------------
+| Temporary compatibility route
+|--------------------------------------------------------------------------
+|
+| The existing frontend currently posts to /api/auth/create-user.
+| Keep this alias until authService.js is updated to POST /api/auth/users.
+|
+| Remove this route after the frontend migration.
+|
+*/
 
 router.post(
   "/create-user",
-  authMiddleware,
-  roleMiddleware(["admin"]),
-  authController.createUser
-);
-
-router.get(
-  "/users",
-  authMiddleware,
-  roleMiddleware(["admin"]),
-  authController.getUsers
-);
-
-router.put(
-  "/users/:userId",
-  authMiddleware,
-  roleMiddleware(["admin"]),
-  authController.updateUser
-);
-
-router.put(
-  "/users/:userId/disable",
-  authMiddleware,
-  roleMiddleware(["admin"]),
-  authController.disableUser
+  ...requireAdministrator,
+  asyncHandler(
+    authController.createUser
+  )
 );
 
 module.exports = router;

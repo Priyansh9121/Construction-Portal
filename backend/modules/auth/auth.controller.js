@@ -1,452 +1,1101 @@
-const pool = require("../../database/pool");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
-const { JWT_SECRET } = require("../../config/env");
+const pool = require("../../database/pool");
 
-exports.register = async (req, res) => {
-  try {
-    const { full_name, email, password, role = "worker" } = req.body;
+const {
+  NODE_ENV,
+} = require("../../config/env");
 
-    if (!full_name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Full name, email and password are required.",
-      });
-    }
+const {
+  USER_ROLES,
+  COMPANY_ROLES,
+  RECORD_STATUS,
+} = require("../../config/constants");
 
-    const allowedRoles = ["admin", "manager", "worker", "subcontractor"];
+const {
+  cleanText,
+  cleanLowerText,
+  requireCompanyId,
+  requireParamId,
+  getUserId,
+  withTransaction,
+  sendNotFound,
+  sendForbidden,
+} = require("../../utils/requestContext");
 
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user role.",
-      });
-    }
+const {
+  normaliseEmail,
+  normaliseUserRole,
+  normaliseCompanyRole,
+  validatePassword,
+  hashPassword,
+  verifyPassword,
+  createAccessToken,
+  getUserContextByEmail,
+  getUserContextById,
+  emailExists,
+  registerCompanyOwner,
+  createCompanyUser,
+  serialiseUserContext,
+} = require("./auth.service");
 
-    const userExists = await pool.query(
-      "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
-      [email]
+const RESET_TOKEN_EXPIRY_MINUTES = 30;
+
+/**
+ * Creates a secure reset token.
+ *
+ * Only the SHA-256 hash is saved in PostgreSQL.
+ * The raw token is returned only in development until
+ * an email service is implemented.
+ */
+const createPasswordResetToken = () => {
+  const rawToken = crypto
+    .randomBytes(32)
+    .toString("hex");
+
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(rawToken)
+    .digest("hex");
+
+  const expiresAt = new Date(
+    Date.now() +
+      RESET_TOKEN_EXPIRY_MINUTES *
+        60 *
+        1000
+  );
+
+  return {
+    rawToken,
+    tokenHash,
+    expiresAt,
+  };
+};
+
+/**
+ * POST /api/auth/register
+ *
+ * Public registration creates:
+ *
+ * 1. An admin account
+ * 2. A company
+ * 3. An admin company membership
+ *
+ * It does not allow public worker, manager or subcontractor
+ * registrations.
+ */
+exports.register = async (
+  req,
+  res
+) => {
+  const {
+    full_name,
+    email,
+    password,
+    company_name,
+    industry,
+    currency_code,
+    timezone,
+  } = req.body;
+
+  if (!cleanText(full_name)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Full name is required.",
+    });
+  }
+
+  if (!normaliseEmail(email)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "A valid email is required.",
+    });
+  }
+
+  if (!cleanText(company_name)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Company name is required.",
+    });
+  }
+
+  validatePassword(password);
+
+  const userContext =
+    await registerCompanyOwner({
+      fullName: full_name,
+      email,
+      password,
+      companyName: company_name,
+      industry,
+      currencyCode:
+        currency_code,
+      timezone,
+    });
+
+  const token =
+    createAccessToken(
+      userContext
     );
 
-    if (userExists.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists",
-      });
-    }
+  return res.status(201).json({
+    success: true,
+    message:
+      "Company and administrator account created successfully.",
+    token,
+    user:
+      serialiseUserContext(
+        userContext
+      ),
+  });
+};
 
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-
-    const newUser = await pool.query(
-      `
-      INSERT INTO users (full_name, email, password_hash, role, status)
-      VALUES ($1, LOWER($2), $3, $4, 'active')
-      RETURNING id, full_name, email, role, status
-      `,
-      [full_name, email, password_hash, role]
+/**
+ * POST /api/auth/login
+ */
+exports.login = async (
+  req,
+  res
+) => {
+  const email =
+    normaliseEmail(
+      req.body.email
     );
 
-    const user = newUser.rows[0];
+  const password =
+    req.body.password;
 
-    const token = jwt.sign(
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Email and password are required.",
+    });
+  }
+
+  const user =
+    await getUserContextByEmail(
+      email,
       {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      JWT_SECRET,
-      {
-        expiresIn: "7d",
+        includePassword: true,
       }
     );
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      token,
-      user,
-    });
-  } catch (error) {
-    console.error("Register error:", error);
-
-    res.status(500).json({
+  /*
+   * Use the same error for unknown email and wrong password
+   * to avoid revealing registered accounts.
+   */
+  if (!user) {
+    return res.status(400).json({
       success: false,
-      message: error.message || "Server error",
+      message:
+        "Invalid email or password.",
     });
   }
-};
 
-exports.createUser = async (req, res) => {
-  try {
-    const { full_name, email, password, role = "worker", status = "active" } = req.body;
-
-    if (!full_name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Full name, email and password are required.",
-      });
-    }
-
-    const allowedRoles = ["admin", "manager", "worker", "subcontractor"];
-
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user role.",
-      });
-    }
-
-    const userExists = await pool.query(
-      "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
-      [email]
-    );
-
-    if (userExists.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists",
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-
-    const result = await pool.query(
-      `
-      INSERT INTO users (full_name, email, password_hash, role, status)
-      VALUES ($1, LOWER($2), $3, $4, $5)
-      RETURNING id, full_name, email, role, status
-      `,
-      [full_name, email, password_hash, role, status]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "User created successfully",
-      user: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Create user error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Server error",
-    });
-  }
-};
-
-exports.forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const userResult = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 30 * 60 * 1000);
-
-    await pool.query(
-      `
-      UPDATE users
-      SET reset_token = $1,
-          reset_token_expires = $2
-      WHERE email = $3
-      `,
-      [resetToken, expires, email]
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Password reset token generated. Check server logs in development.",
-      resetToken: process.env.NODE_ENV === "development" ? resetToken : undefined,
-    });
-  } catch (error) {
-    console.error("Forgot password error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-exports.resetPassword = async (req, res) => {
-  try {
-    const { token, new_password } = req.body;
-
-    const userResult = await pool.query(
-      `
-      SELECT *
-      FROM users
-      WHERE reset_token = $1
-      AND reset_token_expires > NOW()
-      `,
-      [token]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired reset token",
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(new_password, salt);
-
-    await pool.query(
-      `
-      UPDATE users
-      SET password_hash = $1,
-          reset_token = NULL,
-          reset_token_expires = NULL
-      WHERE id = $2
-      `,
-      [password_hash, user.id]
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Password reset successfully",
-    });
-  } catch (error) {
-    console.error("Reset password error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-exports.changePassword = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { current_password, new_password } = req.body;
-
-    const userResult = await pool.query(
-      "SELECT * FROM users WHERE id = $1",
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    const isMatch = await bcrypt.compare(
-      current_password,
+  const passwordMatches =
+    await verifyPassword(
+      password,
       user.password_hash
     );
 
-    if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-        message: "Current password is incorrect",
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const newPasswordHash = await bcrypt.hash(new_password, salt);
-
-    await pool.query(
-      "UPDATE users SET password_hash = $1 WHERE id = $2",
-      [newPasswordHash, userId]
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Password changed successfully",
-    });
-  } catch (error) {
-    console.error("Change password error:", error);
-    res.status(500).json({
+  if (!passwordMatches) {
+    return res.status(400).json({
       success: false,
-      message: "Server error",
+      message:
+        "Invalid email or password.",
     });
   }
-};
 
-exports.getUsers = async (req, res) => {
-  try {
-    const result = await pool.query(
-      `
-      SELECT id, full_name, email, role, status, created_at
-      FROM users
-      ORDER BY id DESC
-      `
+  if (
+    cleanLowerText(
+      user.status
+    ) !==
+    RECORD_STATUS.ACTIVE
+  ) {
+    return res.status(403).json({
+      success: false,
+      message:
+        "Your account is inactive. Please contact an administrator.",
+    });
+  }
+
+  if (!user.company_id) {
+    return res.status(403).json({
+      success: false,
+      message:
+        "Your account is not linked to a company.",
+    });
+  }
+
+  await pool.query(
+    `
+    UPDATE public.users
+    SET
+      last_login_at = NOW(),
+      updated_at = NOW()
+    WHERE id = $1
+    `,
+    [user.id]
+  );
+
+  const refreshedUser =
+    await getUserContextById(
+      user.id
     );
 
-    res.status(200).json({
-      success: true,
-      users: result.rows,
-    });
-  } catch (error) {
-    console.error("Get users error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-exports.updateUser = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { full_name, email, role, status } = req.body;
-
-    const result = await pool.query(
-      `
-      UPDATE users
-      SET full_name = $1,
-          email = $2,
-          role = $3,
-          status = $4
-      WHERE id = $5
-      RETURNING id, full_name, email, role, status
-      `,
-      [full_name, email, role, status, userId]
+  const token =
+    createAccessToken(
+      refreshedUser
     );
 
-    res.status(200).json({
-      success: true,
-      user: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Update user error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
+  return res.status(200).json({
+    success: true,
+    message:
+      "Login successful.",
+    token,
+    user:
+      serialiseUserContext(
+        refreshedUser
+      ),
+  });
 };
 
-exports.disableUser = async (req, res) => {
-  try {
-    const { userId } = req.params;
+/**
+ * GET /api/auth/me
+ */
+exports.getCurrentUser = async (
+  req,
+  res
+) => {
+  const userId =
+    getUserId(req);
 
-    await pool.query(
-      "UPDATE users SET status = 'inactive' WHERE id = $1",
-      [userId]
+  const user =
+    await getUserContextById(
+      userId
     );
 
-    res.status(200).json({
-      success: true,
-      message: "User disabled successfully",
-    });
-  } catch (error) {
-    console.error("Disable user error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+  if (!user) {
+    return sendNotFound(
+      res,
+      "User"
+    );
   }
+
+  return res.status(200).json({
+    success: true,
+    user:
+      serialiseUserContext(
+        user
+      ),
+  });
 };
 
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+/**
+ * POST /api/auth/create-user
+ *
+ * Creates a user inside the authenticated administrator's company.
+ */
+exports.createUser = async (
+  req,
+  res
+) => {
+  const companyId =
+    requireCompanyId(
+      req,
+      res
+    );
 
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required.",
-      });
+  if (!companyId) {
+    return;
+  }
+
+  const {
+    full_name,
+    email,
+    password,
+    role = USER_ROLES.WORKER,
+    company_role,
+    status =
+      RECORD_STATUS.ACTIVE,
+  } = req.body;
+
+  if (!cleanText(full_name)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Full name is required.",
+    });
+  }
+
+  if (!normaliseEmail(email)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "A valid email is required.",
+    });
+  }
+
+  validatePassword(password);
+
+  const userRole =
+    normaliseUserRole(role);
+
+  const membershipRole =
+    normaliseCompanyRole(
+      company_role ||
+        userRole
+    );
+
+  /*
+   * Only the company owner should be able to create another
+   * administrator.
+   */
+  if (
+    userRole ===
+      USER_ROLES.ADMIN ||
+    membershipRole ===
+      COMPANY_ROLES.ADMIN
+  ) {
+    const currentUserId =
+      Number(req.user.id);
+
+    const ownerUserId =
+      Number(
+        req.user
+          .company_owner_user_id
+      );
+
+    if (
+      currentUserId !==
+      ownerUserId
+    ) {
+      return sendForbidden(
+        res,
+        "Only the company owner can create another administrator."
+      );
     }
+  }
 
-    const userResult = await pool.query(
+  const user =
+    await createCompanyUser({
+      companyId,
+      fullName: full_name,
+      email,
+      password,
+      role: userRole,
+      companyRole:
+        membershipRole,
+      status,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "User created and linked to the company successfully.",
+    user:
+      serialiseUserContext(
+        user
+      ),
+  });
+};
+
+/**
+ * GET /api/auth/users
+ *
+ * Lists only members of the authenticated company.
+ */
+exports.getUsers = async (
+  req,
+  res
+) => {
+  const companyId =
+    requireCompanyId(
+      req,
+      res
+    );
+
+  if (!companyId) {
+    return;
+  }
+
+  const result =
+    await pool.query(
       `
       SELECT
         u.id,
         u.full_name,
         u.email,
-        u.password_hash,
         u.role,
         u.status,
-        cu.company_id,
-        cu.role AS company_role,
-        c.company_name
-      FROM public.users u
-      LEFT JOIN public.company_users cu
-        ON cu.user_id = u.id
-      LEFT JOIN public.companies c
+        u.created_at,
+        u.updated_at,
+        u.last_login_at,
+
+        cu.role
+          AS company_role,
+        cu.created_at
+          AS company_joined_at,
+
+        c.company_name,
+
+        CASE
+          WHEN c.owner_user_id = u.id
+            THEN TRUE
+          ELSE FALSE
+        END AS is_company_owner
+
+      FROM public.company_users cu
+
+      INNER JOIN public.users u
+        ON u.id = cu.user_id
+
+      INNER JOIN public.companies c
         ON c.id = cu.company_id
-      WHERE LOWER(u.email) = LOWER($1)
-      ORDER BY cu.id ASC
+
+      WHERE cu.company_id = $1
+
+      ORDER BY
+        CASE
+          WHEN c.owner_user_id = u.id
+            THEN 0
+          ELSE 1
+        END,
+        u.full_name ASC,
+        u.id ASC
+      `,
+      [companyId]
+    );
+
+  return res.status(200).json({
+    success: true,
+    users: result.rows,
+  });
+};
+
+/**
+ * PUT /api/auth/users/:userId
+ *
+ * Updates the base account and its company membership together.
+ */
+exports.updateUser = async (
+  req,
+  res
+) => {
+  const companyId =
+    requireCompanyId(
+      req,
+      res
+    );
+
+  if (!companyId) {
+    return;
+  }
+
+  const userId =
+    requireParamId(
+      req,
+      res,
+      "userId",
+      "user"
+    );
+
+  if (!userId) {
+    return;
+  }
+
+  const {
+    full_name,
+    email,
+    role,
+    company_role,
+    status,
+  } = req.body;
+
+  const existingResult =
+    await pool.query(
+      `
+      SELECT
+        u.id,
+        u.role,
+        u.status,
+        cu.role AS company_role,
+        c.owner_user_id
+      FROM public.company_users cu
+      INNER JOIN public.users u
+        ON u.id = cu.user_id
+      INNER JOIN public.companies c
+        ON c.id = cu.company_id
+      WHERE cu.company_id = $1
+        AND cu.user_id = $2
       LIMIT 1
       `,
-      [email]
+      [companyId, userId]
     );
 
-    if (userResult.rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
+  if (
+    existingResult.rows.length ===
+    0
+  ) {
+    return sendNotFound(
+      res,
+      "User"
+    );
+  }
 
-    const user = userResult.rows[0];
+  const existing =
+    existingResult.rows[0];
 
-    if (user.status === "inactive") {
-      return res.status(403).json({
-        success: false,
-        message: "Your account is inactive. Please contact admin.",
-      });
-    }
+  const isOwner =
+    Number(
+      existing.owner_user_id
+    ) === userId;
 
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password_hash
+  const requesterIsOwner =
+    Number(
+      req.user.id
+    ) ===
+    Number(
+      existing.owner_user_id
     );
 
-    if (!isMatch) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
+  const nextRole =
+    normaliseUserRole(
+      role ||
+        existing.role
+    );
 
-    if (!user.company_id) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account is not linked to a company.",
-      });
-    }
+  const nextCompanyRole =
+    normaliseCompanyRole(
+      company_role ||
+        existing.company_role ||
+        nextRole
+    );
 
-    const token = jwt.sign(
+  const nextStatus =
+    cleanLowerText(status) ||
+    existing.status;
+
+  if (
+    isOwner &&
+    (
+      nextRole !==
+        USER_ROLES.ADMIN ||
+      nextCompanyRole !==
+        COMPANY_ROLES.ADMIN ||
+      nextStatus !==
+        RECORD_STATUS.ACTIVE
+    )
+  ) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "The company owner must remain an active administrator.",
+    });
+  }
+
+  if (
+    (
+      nextRole ===
+        USER_ROLES.ADMIN ||
+      nextCompanyRole ===
+        COMPANY_ROLES.ADMIN
+    ) &&
+    !requesterIsOwner
+  ) {
+    return sendForbidden(
+      res,
+      "Only the company owner can grant administrator access."
+    );
+  }
+
+  const nextEmail =
+    normaliseEmail(email);
+
+  if (!nextEmail) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "A valid email is required.",
+    });
+  }
+
+  if (
+    await emailExists(
+      nextEmail,
       {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        company_id: user.company_id,
-      },
-      JWT_SECRET,
-      {
-        expiresIn: "7d",
+        excludeUserId:
+          userId,
+      }
+    )
+  ) {
+    return res.status(409).json({
+      success: false,
+      message:
+        "An account with this email already exists.",
+    });
+  }
+
+  const updatedUser =
+    await withTransaction(
+      async (client) => {
+        await client.query(
+          `
+          UPDATE public.users
+          SET
+            full_name = $1,
+            email = LOWER($2),
+            role = $3,
+            status = $4,
+            updated_at = NOW()
+          WHERE id = $5
+          `,
+          [
+            cleanText(
+              full_name
+            ),
+            nextEmail,
+            nextRole,
+            nextStatus,
+            userId,
+          ]
+        );
+
+        await client.query(
+          `
+          UPDATE public.company_users
+          SET role = $1
+          WHERE company_id = $2
+            AND user_id = $3
+          `,
+          [
+            nextCompanyRole,
+            companyId,
+            userId,
+          ]
+        );
+
+        return getUserContextById(
+          userId,
+          {
+            client,
+          }
+        );
       }
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      token,
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        company_id: user.company_id,
-        company_role: user.company_role,
-        company_name: user.company_name,
-      },
-    });
-  } catch (error) {
-    console.error("Login error:", error);
+  return res.status(200).json({
+    success: true,
+    message:
+      "User updated successfully.",
+    user:
+      serialiseUserContext(
+        updatedUser
+      ),
+  });
+};
 
-    return res.status(500).json({
+/**
+ * PATCH /api/auth/users/:userId/disable
+ */
+exports.disableUser = async (
+  req,
+  res
+) => {
+  const companyId =
+    requireCompanyId(
+      req,
+      res
+    );
+
+  if (!companyId) {
+    return;
+  }
+
+  const userId =
+    requireParamId(
+      req,
+      res,
+      "userId",
+      "user"
+    );
+
+  if (!userId) {
+    return;
+  }
+
+  if (
+    userId ===
+    Number(req.user.id)
+  ) {
+    return res.status(400).json({
       success: false,
-      message: error.message || "Server error",
+      message:
+        "You cannot disable your own account.",
     });
   }
+
+  const result =
+    await pool.query(
+      `
+      UPDATE public.users u
+      SET
+        status = 'inactive',
+        updated_at = NOW()
+      FROM public.company_users cu
+      INNER JOIN public.companies c
+        ON c.id = cu.company_id
+      WHERE u.id = $1
+        AND cu.user_id = u.id
+        AND cu.company_id = $2
+        AND c.owner_user_id <> u.id
+      RETURNING
+        u.id,
+        u.full_name,
+        u.email,
+        u.role,
+        u.status
+      `,
+      [userId, companyId]
+    );
+
+  if (
+    result.rows.length ===
+    0
+  ) {
+    return res.status(404).json({
+      success: false,
+      message:
+        "User was not found or cannot be disabled.",
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "User disabled successfully.",
+    user: result.rows[0],
+  });
+};
+
+/**
+ * PATCH /api/auth/users/:userId/enable
+ */
+exports.enableUser = async (
+  req,
+  res
+) => {
+  const companyId =
+    requireCompanyId(
+      req,
+      res
+    );
+
+  if (!companyId) {
+    return;
+  }
+
+  const userId =
+    requireParamId(
+      req,
+      res,
+      "userId",
+      "user"
+    );
+
+  if (!userId) {
+    return;
+  }
+
+  const result =
+    await pool.query(
+      `
+      UPDATE public.users u
+      SET
+        status = 'active',
+        updated_at = NOW()
+      FROM public.company_users cu
+      WHERE u.id = $1
+        AND cu.user_id = u.id
+        AND cu.company_id = $2
+      RETURNING
+        u.id,
+        u.full_name,
+        u.email,
+        u.role,
+        u.status
+      `,
+      [userId, companyId]
+    );
+
+  if (
+    result.rows.length ===
+    0
+  ) {
+    return sendNotFound(
+      res,
+      "User"
+    );
+  }
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "User enabled successfully.",
+    user: result.rows[0],
+  });
+};
+
+/**
+ * POST /api/auth/forgot-password
+ *
+ * Always returns success to avoid revealing whether an email
+ * exists.
+ */
+exports.forgotPassword = async (
+  req,
+  res
+) => {
+  const email =
+    normaliseEmail(
+      req.body.email
+    );
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "A valid email is required.",
+    });
+  }
+
+  const user =
+    await getUserContextByEmail(
+      email
+    );
+
+  let rawToken;
+
+  if (user) {
+    const tokenData =
+      createPasswordResetToken();
+
+    rawToken =
+      tokenData.rawToken;
+
+    await pool.query(
+      `
+      UPDATE public.users
+      SET
+        reset_token = $1,
+        reset_token_expires = $2,
+        updated_at = NOW()
+      WHERE id = $3
+      `,
+      [
+        tokenData.tokenHash,
+        tokenData.expiresAt,
+        user.id,
+      ]
+    );
+  }
+
+  const response = {
+    success: true,
+    message:
+      "If an account exists for this email, password reset instructions have been generated.",
+  };
+
+  /*
+   * Temporary development-only behaviour.
+   *
+   * Remove this once an email provider is connected.
+   */
+  if (
+    NODE_ENV ===
+      "development" &&
+    rawToken
+  ) {
+    response.resetToken =
+      rawToken;
+  }
+
+  return res.status(200).json(
+    response
+  );
+};
+
+/**
+ * POST /api/auth/reset-password
+ */
+exports.resetPassword = async (
+  req,
+  res
+) => {
+  const {
+    token,
+    new_password,
+  } = req.body;
+
+  if (!cleanText(token)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Reset token is required.",
+    });
+  }
+
+  validatePassword(
+    new_password
+  );
+
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(
+      cleanText(token)
+    )
+    .digest("hex");
+
+  const passwordHash =
+    await hashPassword(
+      new_password
+    );
+
+  const result =
+    await pool.query(
+      `
+      UPDATE public.users
+      SET
+        password_hash = $1,
+        reset_token = NULL,
+        reset_token_expires = NULL,
+        updated_at = NOW()
+      WHERE reset_token = $2
+        AND reset_token_expires > NOW()
+      RETURNING id
+      `,
+      [
+        passwordHash,
+        tokenHash,
+      ]
+    );
+
+  if (
+    result.rows.length ===
+    0
+  ) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "The password reset token is invalid or has expired.",
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Password reset successfully.",
+  });
+};
+
+/**
+ * POST /api/auth/change-password
+ */
+exports.changePassword = async (
+  req,
+  res
+) => {
+  const userId =
+    getUserId(req);
+
+  const {
+    current_password,
+    new_password,
+  } = req.body;
+
+  if (
+    !current_password ||
+    !new_password
+  ) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Current password and new password are required.",
+    });
+  }
+
+  validatePassword(
+    new_password
+  );
+
+  if (
+    current_password ===
+    new_password
+  ) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "The new password must be different from the current password.",
+    });
+  }
+
+  const user =
+    await getUserContextById(
+      userId,
+      {
+        includePassword: true,
+      }
+    );
+
+  if (!user) {
+    return sendNotFound(
+      res,
+      "User"
+    );
+  }
+
+  const passwordMatches =
+    await verifyPassword(
+      current_password,
+      user.password_hash
+    );
+
+  if (!passwordMatches) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Current password is incorrect.",
+    });
+  }
+
+  const passwordHash =
+    await hashPassword(
+      new_password
+    );
+
+  await pool.query(
+    `
+    UPDATE public.users
+    SET
+      password_hash = $1,
+      reset_token = NULL,
+      reset_token_expires = NULL,
+      updated_at = NOW()
+    WHERE id = $2
+    `,
+    [
+      passwordHash,
+      userId,
+    ]
+  );
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Password changed successfully.",
+  });
 };

@@ -1,711 +1,1233 @@
-const pool = require("../../database/pool");
+const {
+  requireCompanyId,
+  requireParamId,
+  getUserId,
+} = require("../../utils/requestContext");
 
-/**
- * Normalise and validate an array of tender sites.
- */
-const validateSites = (sites) => {
-  if (!Array.isArray(sites) || sites.length === 0) {
-    return {
-      valid: false,
-      message: "At least one site is required.",
-    };
+const tenderService = require("./tender.service");
+
+/*
+|--------------------------------------------------------------------------
+| Shared request context
+|--------------------------------------------------------------------------
+*/
+
+const getTenderContext = (req, res) => {
+  const companyId = requireCompanyId(
+    req,
+    res
+  );
+
+  if (!companyId) {
+    return null;
   }
 
-  for (const [index, site] of sites.entries()) {
-    if (!site.site_name?.trim()) {
-      return {
-        valid: false,
-        message: `Site ${index + 1} name is required.`,
-      };
-    }
+  const tenderId = requireParamId(
+    req,
+    res,
+    "id",
+    "tender"
+  );
 
-    if (!site.address?.trim()) {
-      return {
-        valid: false,
-        message: `Site ${index + 1} address is required.`,
-      };
-    }
+  if (!tenderId) {
+    return null;
   }
 
-  return { valid: true };
+  return {
+    companyId,
+    tenderId,
+    userId: getUserId(req),
+  };
 };
+
+const getChildId = (
+  req,
+  res,
+  parameterName,
+  label
+) =>
+  requireParamId(
+    req,
+    res,
+    parameterName,
+    label
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Tender register and core operations
+|--------------------------------------------------------------------------
+*/
 
 /**
  * GET /api/tenders
- *
- * Returns every tender with its child sites.
  */
-exports.getTenders = async (req, res) => {
-  try {
-    const companyId = req.user?.company_id || null;
+exports.getTenders = async (
+  req,
+  res
+) => {
+  const companyId = requireCompanyId(
+    req,
+    res
+  );
 
-    const databaseCheck = await pool.query(`
-      SELECT
-        current_database() AS database_name,
-        current_schema() AS current_schema,
-        current_user AS database_user,
-        inet_server_addr() AS server_address,
-        inet_server_port() AS server_port,
-        EXISTS (
-          SELECT 1
-          FROM information_schema.columns
-          WHERE table_schema = 'public'
-            AND table_name = 'sites'
-            AND column_name = 'tender_id'
-        ) AS tender_id_exists
-    `);
-    
-    console.log("BACKEND DATABASE CHECK:", databaseCheck.rows[0]);
-
-    const result = await pool.query(
-      `
-      SELECT
-        t.*,
-
-        COALESCE(
-          jsonb_agg(
-            jsonb_build_object(
-              'id', s.id,
-              'tender_id', s.tender_id,
-              'company_id', s.company_id,
-              'site_name', s.site_name,
-              'site_type', s.site_type,
-              'address', s.address,
-              'status', s.status,
-              'progress_percent', s.progress_percent,
-              'last_update_at', s.last_update_at,
-              'created_at', s.created_at,
-              'updated_at', s.updated_at
-            )
-            ORDER BY s.id ASC
-          )
-          FILTER (
-            WHERE s.id IS NOT NULL
-            AND COALESCE(s.is_deleted, FALSE) = FALSE
-          ),
-          '[]'::jsonb
-        ) AS sites
-
-      FROM public.tenders t
-
-      LEFT JOIN public.sites s
-        ON s.tender_id = t.id
-        AND COALESCE(s.is_deleted, FALSE) = FALSE
-
-      WHERE COALESCE(t.is_deleted, FALSE) = FALSE
-        AND (
-          $1::INTEGER IS NULL
-          OR t.company_id = $1
-        )
-
-      GROUP BY t.id
-      ORDER BY t.id DESC
-      `,
-      [companyId]
-    );
-
-    return res.status(200).json({
-      success: true,
-      tenders: result.rows,
-    });
-  } catch (error) {
-    console.error("Get tenders error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Server error",
-    });
+  if (!companyId) {
+    return;
   }
+
+  const result =
+    await tenderService.listTenders({
+      companyId,
+      query: req.query,
+    });
+
+  return res.status(200).json({
+    success: true,
+    tenders: result.tenders,
+    pagination: result.pagination,
+    statistics: result.statistics,
+  });
+};
+
+/**
+ * GET /api/tenders/statistics
+ */
+exports.getTenderStatistics = async (
+  req,
+  res
+) => {
+  const companyId = requireCompanyId(
+    req,
+    res
+  );
+
+  if (!companyId) {
+    return;
+  }
+
+  const statistics =
+    await tenderService.getTenderStatistics({
+      companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    statistics,
+  });
 };
 
 /**
  * GET /api/tenders/:id
- *
- * Use this for TenderDetailsPage.
  */
-exports.getTenderById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const companyId = req.user?.company_id || null;
+exports.getTenderById = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
 
-    const result = await pool.query(
-      `
-      SELECT
-        t.*,
-
-        COALESCE(
-          jsonb_agg(
-            jsonb_build_object(
-              'id', s.id,
-              'tender_id', s.tender_id,
-              'company_id', s.company_id,
-              'site_name', s.site_name,
-              'site_type', s.site_type,
-              'address', s.address,
-              'status', s.status,
-              'progress_percent', s.progress_percent,
-              'last_update_at', s.last_update_at,
-              'created_at', s.created_at,
-              'updated_at', s.updated_at
-            )
-            ORDER BY s.id ASC
-          )
-          FILTER (
-            WHERE s.id IS NOT NULL
-            AND COALESCE(s.is_deleted, FALSE) = FALSE
-          ),
-          '[]'::jsonb
-        ) AS sites
-
-      FROM public.tenders t
-
-      LEFT JOIN public.sites s
-        ON s.tender_id = t.id
-        AND COALESCE(s.is_deleted, FALSE) = FALSE
-
-      WHERE t.id = $1
-        AND COALESCE(t.is_deleted, FALSE) = FALSE
-        AND (
-          $2::INTEGER IS NULL
-          OR t.company_id = $2
-        )
-
-      GROUP BY t.id
-      `,
-      [id, companyId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found.",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      tender: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Get tender by ID error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Server error",
-    });
+  if (!context) {
+    return;
   }
+
+  const tender =
+    await tenderService.getTenderById({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    tender,
+  });
+};
+
+/**
+ * GET /api/tenders/:id/details
+ */
+exports.getTenderDetails = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const details =
+    await tenderService.getTenderDetails({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    ...details,
+  });
 };
 
 /**
  * POST /api/tenders
- *
- * Creates:
- * 1 tender
- * Multiple child sites
- *
- * Everything runs inside one database transaction.
  */
-exports.createTender = async (req, res) => {
-  const client = await pool.connect();
+exports.createTender = async (
+  req,
+  res
+) => {
+  const companyId = requireCompanyId(
+    req,
+    res
+  );
 
-  try {
-    const {
-      company_id,
-      title,
-      client_name,
-      tender_type = "Personal Tender",
-      status = "running",
-      start_date,
-      due_date,
-      description,
-      estimated_value = 0,
-      progress_percent = 0,
-      sites,
-    } = req.body;
-
-    const companyId =
-      req.user?.company_id ||
-      company_id ||
-      null;
-
-    const createdBy = req.user?.id || null;
-
-    if (!companyId) {
-      return res.status(400).json({
-        success: false,
-        message: "Company ID is required.",
-      });
-    }
-
-    if (!title?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Tender title is required.",
-      });
-    }
-
-    const siteValidation = validateSites(sites);
-
-    if (!siteValidation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: siteValidation.message,
-      });
-    }
-
-    await client.query("BEGIN");
-
-    const tenderResult = await client.query(
-      `
-      INSERT INTO tenders
-      (
-        company_id,
-        title,
-        client_name,
-        tender_type,
-        status,
-        start_date,
-        due_date,
-        description,
-        estimated_value,
-        progress_percent,
-        created_by,
-        created_at,
-        updated_at
-      )
-      VALUES
-      (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8, $9, $10,
-        $11, NOW(), NOW()
-      )
-      RETURNING *
-      `,
-      [
-        companyId,
-        title.trim(),
-        client_name?.trim() || null,
-        tender_type || "Personal Tender",
-        status || "running",
-        start_date || null,
-        due_date || null,
-        description?.trim() || "",
-        Number(estimated_value || 0),
-        Number(progress_percent || 0),
-        createdBy,
-      ]
-    );
-
-    const tender = tenderResult.rows[0];
-    const createdSites = [];
-
-    for (const site of sites) {
-      const siteResult = await client.query(
-        `
-        INSERT INTO sites
-        (
-          company_id,
-          tender_id,
-          site_name,
-          site_type,
-          address,
-          status,
-          progress_percent,
-          created_at,
-          updated_at
-        )
-        VALUES
-        (
-          $1, $2, $3, $4, $5,
-          $6, $7, NOW(), NOW()
-        )
-        RETURNING *
-        `,
-        [
-          companyId,
-          tender.id,
-          site.site_name.trim(),
-          site.site_type || "Personal Site",
-          site.address.trim(),
-          site.status || "active",
-          Number(site.progress_percent || 0),
-        ]
-      );
-
-      createdSites.push(siteResult.rows[0]);
-    }
-
-    await client.query("COMMIT");
-
-    return res.status(201).json({
-      success: true,
-      message: "Tender and sites created successfully.",
-      tender: {
-        ...tender,
-        sites: createdSites,
-      },
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-
-    console.error("Create tender error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to create tender.",
-    });
-  } finally {
-    client.release();
+  if (!companyId) {
+    return;
   }
+
+  const tender =
+    await tenderService.createTender({
+      companyId,
+      userId: getUserId(req),
+      payload: req.body,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Tender and tender sites created successfully.",
+    tender,
+  });
 };
 
 /**
  * PUT /api/tenders/:id
- *
- * Updates the tender and synchronises its sites.
- *
- * Existing sites must include an id.
- * New sites should not include an id.
- * Existing sites omitted from the payload are soft-deleted.
  */
-exports.updateTender = async (req, res) => {
-  const client = await pool.connect();
+exports.updateTender = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
 
-  try {
-    const { id } = req.params;
-
-    const {
-      title,
-      client_name,
-      tender_type = "Personal Tender",
-      status = "running",
-      start_date,
-      due_date,
-      description,
-      estimated_value = 0,
-      progress_percent = 0,
-      sites,
-    } = req.body;
-
-    const companyId = req.user?.company_id || null;
-    const updatedBy = req.user?.id || null;
-
-    if (!title?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Tender title is required.",
-      });
-    }
-
-    if (sites !== undefined) {
-      const siteValidation = validateSites(sites);
-
-      if (!siteValidation.valid) {
-        return res.status(400).json({
-          success: false,
-          message: siteValidation.message,
-        });
-      }
-    }
-
-    await client.query("BEGIN");
-
-    const existingTenderResult = await client.query(
-      `
-      SELECT *
-      FROM tenders
-      WHERE id = $1
-        AND COALESCE(is_deleted, FALSE) = FALSE
-        AND (
-          $2::INTEGER IS NULL
-          OR company_id = $2
-        )
-      FOR UPDATE
-      `,
-      [id, companyId]
-    );
-
-    if (existingTenderResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found.",
-      });
-    }
-
-    const existingTender = existingTenderResult.rows[0];
-
-    const tenderResult = await client.query(
-      `
-      UPDATE tenders
-      SET
-        title = $1,
-        client_name = $2,
-        tender_type = $3,
-        status = $4,
-        start_date = $5,
-        due_date = $6,
-        description = $7,
-        estimated_value = $8,
-        progress_percent = $9,
-        updated_at = NOW()
-      WHERE id = $10
-        AND COALESCE(is_deleted, FALSE) = FALSE
-      RETURNING *
-      `,
-      [
-        title.trim(),
-        client_name?.trim() || null,
-        tender_type || "Personal Tender",
-        status || "running",
-        start_date || null,
-        due_date || null,
-        description?.trim() || "",
-        Number(estimated_value || 0),
-        Number(progress_percent || 0),
-        id,
-      ]
-    );
-
-    const updatedSites = [];
-
-    if (Array.isArray(sites)) {
-      const existingSitesResult = await client.query(
-        `
-        SELECT id
-        FROM sites
-        WHERE tender_id = $1
-          AND COALESCE(is_deleted, FALSE) = FALSE
-        `,
-        [id]
-      );
-
-      const existingSiteIds = existingSitesResult.rows.map(
-        (site) => Number(site.id)
-      );
-
-      const submittedExistingSiteIds = sites
-        .filter((site) => site.id)
-        .map((site) => Number(site.id));
-
-      for (const site of sites) {
-        if (site.id) {
-          const siteResult = await client.query(
-            `
-            UPDATE sites
-            SET
-              site_name = $1,
-              site_type = $2,
-              address = $3,
-              status = $4,
-              progress_percent = $5,
-              updated_at = NOW()
-            WHERE id = $6
-              AND tender_id = $7
-              AND COALESCE(is_deleted, FALSE) = FALSE
-            RETURNING *
-            `,
-            [
-              site.site_name.trim(),
-              site.site_type || "Personal Site",
-              site.address.trim(),
-              site.status || "active",
-              Number(site.progress_percent || 0),
-              site.id,
-              id,
-            ]
-          );
-
-          if (siteResult.rows.length === 0) {
-            throw new Error(
-              `Site ${site.id} was not found under this tender.`
-            );
-          }
-
-          updatedSites.push(siteResult.rows[0]);
-        } else {
-          const siteResult = await client.query(
-            `
-            INSERT INTO sites
-            (
-              company_id,
-              tender_id,
-              site_name,
-              site_type,
-              address,
-              status,
-              progress_percent,
-              created_at,
-              updated_at
-            )
-            VALUES
-            (
-              $1, $2, $3, $4, $5,
-              $6, $7, NOW(), NOW()
-            )
-            RETURNING *
-            `,
-            [
-              existingTender.company_id,
-              id,
-              site.site_name.trim(),
-              site.site_type || "Personal Site",
-              site.address.trim(),
-              site.status || "active",
-              Number(site.progress_percent || 0),
-            ]
-          );
-
-          updatedSites.push(siteResult.rows[0]);
-        }
-      }
-
-      const removedSiteIds = existingSiteIds.filter(
-        (siteId) =>
-          !submittedExistingSiteIds.includes(siteId)
-      );
-
-      if (removedSiteIds.length > 0) {
-        await client.query(
-          `
-          UPDATE sites
-          SET
-            is_deleted = TRUE,
-            deleted_at = NOW(),
-            deleted_by = $1,
-            updated_at = NOW()
-          WHERE tender_id = $2
-            AND id = ANY($3::INTEGER[])
-            AND COALESCE(is_deleted, FALSE) = FALSE
-          `,
-          [
-            updatedBy,
-            id,
-            removedSiteIds,
-          ]
-        );
-      }
-    } else {
-      const sitesResult = await client.query(
-        `
-        SELECT *
-        FROM sites
-        WHERE tender_id = $1
-          AND COALESCE(is_deleted, FALSE) = FALSE
-        ORDER BY id ASC
-        `,
-        [id]
-      );
-
-      updatedSites.push(...sitesResult.rows);
-    }
-
-    await client.query("COMMIT");
-
-    return res.status(200).json({
-      success: true,
-      message: "Tender updated successfully.",
-      tender: {
-        ...tenderResult.rows[0],
-        sites: updatedSites,
-      },
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-
-    console.error("Update tender error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to update tender.",
-    });
-  } finally {
-    client.release();
+  if (!context) {
+    return;
   }
+
+  const tender =
+    await tenderService.updateTender({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      userId: context.userId,
+      payload: req.body,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender updated successfully.",
+    tender,
+  });
 };
 
 /**
  * DELETE /api/tenders/:id
- *
- * Soft-deletes the tender and all its child sites.
  */
-exports.deleteTender = async (req, res) => {
-  const client = await pool.connect();
+exports.deleteTender = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
 
-  try {
-    const { id } = req.params;
-
-    const deletedBy = req.user?.id || null;
-    const companyId = req.user?.company_id || null;
-
-    await client.query("BEGIN");
-
-    const tenderResult = await client.query(
-      `
-      UPDATE tenders
-      SET
-        is_deleted = TRUE,
-        deleted_at = NOW(),
-        deleted_by = $1,
-        updated_at = NOW()
-      WHERE id = $2
-        AND COALESCE(is_deleted, FALSE) = FALSE
-        AND (
-          $3::INTEGER IS NULL
-          OR company_id = $3
-        )
-      RETURNING *
-      `,
-      [
-        deletedBy,
-        id,
-        companyId,
-      ]
-    );
-
-    if (tenderResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-
-      return res.status(404).json({
-        success: false,
-        message: "Tender not found.",
-      });
-    }
-
-    await client.query(
-      `
-      UPDATE sites
-      SET
-        is_deleted = TRUE,
-        deleted_at = NOW(),
-        deleted_by = $1,
-        updated_at = NOW()
-      WHERE tender_id = $2
-        AND COALESCE(is_deleted, FALSE) = FALSE
-      `,
-      [
-        deletedBy,
-        id,
-      ]
-    );
-
-    await client.query("COMMIT");
-
-    return res.status(200).json({
-      success: true,
-      message: "Tender and associated sites deleted successfully.",
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-
-    console.error("Delete tender error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Server error",
-    });
-  } finally {
-    client.release();
+  if (!context) {
+    return;
   }
+
+  const tender =
+    await tenderService.deleteTender({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      userId: context.userId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender and associated tender sites deleted successfully.",
+    tender,
+  });
+};
+
+/**
+ * POST /api/tenders/:id/restore
+ */
+exports.restoreTender = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const tender =
+    await tenderService.restoreTender({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender and associated tender sites restored successfully.",
+    tender,
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Tender documents
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * GET /api/tenders/:id/documents
+ */
+exports.getDocuments = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const documents =
+    await tenderService.getDocuments({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    documents,
+  });
+};
+
+/**
+ * POST /api/tenders/:id/documents
+ */
+exports.createDocument = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const document =
+    await tenderService.createDocument({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      userId: context.userId,
+      payload: req.body,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Tender document added successfully.",
+    document,
+  });
+};
+
+/**
+ * PUT /api/tenders/:id/documents/:documentId
+ */
+exports.updateDocument = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const documentId = getChildId(
+    req,
+    res,
+    "documentId",
+    "document"
+  );
+
+  if (!documentId) {
+    return;
+  }
+
+  const document =
+    await tenderService.updateDocument({
+      tenderId: context.tenderId,
+      documentId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender document updated successfully.",
+    document,
+  });
+};
+
+/**
+ * DELETE /api/tenders/:id/documents/:documentId
+ */
+exports.deleteDocument = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const documentId = getChildId(
+    req,
+    res,
+    "documentId",
+    "document"
+  );
+
+  if (!documentId) {
+    return;
+  }
+
+  const document =
+    await tenderService.deleteDocument({
+      tenderId: context.tenderId,
+      documentId,
+      companyId: context.companyId,
+      userId: context.userId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender document deleted successfully.",
+    document,
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Tender materials
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * GET /api/tenders/:id/materials
+ */
+exports.getMaterials = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const materials =
+    await tenderService.getMaterials({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    materials,
+  });
+};
+
+/**
+ * POST /api/tenders/:id/materials
+ */
+exports.createMaterial = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const material =
+    await tenderService.createMaterial({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Tender material added successfully.",
+    material,
+  });
+};
+
+/**
+ * PUT /api/tenders/:id/materials/:materialId
+ */
+exports.updateMaterial = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const materialId = getChildId(
+    req,
+    res,
+    "materialId",
+    "material"
+  );
+
+  if (!materialId) {
+    return;
+  }
+
+  const material =
+    await tenderService.updateMaterial({
+      tenderId: context.tenderId,
+      materialId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender material updated successfully.",
+    material,
+  });
+};
+
+/**
+ * DELETE /api/tenders/:id/materials/:materialId
+ */
+exports.deleteMaterial = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const materialId = getChildId(
+    req,
+    res,
+    "materialId",
+    "material"
+  );
+
+  if (!materialId) {
+    return;
+  }
+
+  const material =
+    await tenderService.deleteMaterial({
+      tenderId: context.tenderId,
+      materialId,
+      companyId: context.companyId,
+      userId: context.userId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender material deleted successfully.",
+    material,
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Tender banking
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * GET /api/tenders/:id/banking
+ */
+exports.getBanking = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const banking =
+    await tenderService.getBanking({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    banking,
+  });
+};
+
+/**
+ * POST /api/tenders/:id/banking
+ */
+exports.createBanking = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const banking =
+    await tenderService.createBanking({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Tender banking record added successfully.",
+    banking,
+  });
+};
+
+/**
+ * PUT /api/tenders/:id/banking/:bankingId
+ */
+exports.updateBanking = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const bankingId = getChildId(
+    req,
+    res,
+    "bankingId",
+    "banking record"
+  );
+
+  if (!bankingId) {
+    return;
+  }
+
+  const banking =
+    await tenderService.updateBanking({
+      tenderId: context.tenderId,
+      bankingId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender banking record updated successfully.",
+    banking,
+  });
+};
+
+/**
+ * DELETE /api/tenders/:id/banking/:bankingId
+ */
+exports.deleteBanking = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const bankingId = getChildId(
+    req,
+    res,
+    "bankingId",
+    "banking record"
+  );
+
+  if (!bankingId) {
+    return;
+  }
+
+  const banking =
+    await tenderService.deleteBanking({
+      tenderId: context.tenderId,
+      bankingId,
+      companyId: context.companyId,
+      userId: context.userId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender banking record deleted successfully.",
+    banking,
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Tender subcontractors
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * GET /api/tenders/:id/subcontractors
+ */
+exports.getSubcontractors = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const subcontractors =
+    await tenderService.getSubcontractors({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    subcontractors,
+  });
+};
+
+/**
+ * POST /api/tenders/:id/subcontractors
+ */
+exports.assignSubcontractor = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const assignment =
+    await tenderService.assignSubcontractor({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Subcontractor assigned to tender successfully.",
+    assignment,
+  });
+};
+
+/**
+ * PUT /api/tenders/:id/subcontractors/:assignmentId
+ */
+exports.updateSubcontractor = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const assignmentId = getChildId(
+    req,
+    res,
+    "assignmentId",
+    "subcontractor assignment"
+  );
+
+  if (!assignmentId) {
+    return;
+  }
+
+  const assignment =
+    await tenderService.updateSubcontractor({
+      tenderId: context.tenderId,
+      assignmentId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender subcontractor assignment updated successfully.",
+    assignment,
+  });
+};
+
+/**
+ * DELETE /api/tenders/:id/subcontractors/:assignmentId
+ */
+exports.removeSubcontractor = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const assignmentId = getChildId(
+    req,
+    res,
+    "assignmentId",
+    "subcontractor assignment"
+  );
+
+  if (!assignmentId) {
+    return;
+  }
+
+  const assignment =
+    await tenderService.removeSubcontractor({
+      tenderId: context.tenderId,
+      assignmentId,
+      companyId: context.companyId,
+      userId: context.userId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Subcontractor removed from tender successfully.",
+    assignment,
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Tender workers
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * GET /api/tenders/:id/workers
+ */
+exports.getWorkers = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const workers =
+    await tenderService.getWorkers({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    workers,
+  });
+};
+
+/**
+ * POST /api/tenders/:id/workers
+ */
+exports.assignWorker = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const assignment =
+    await tenderService.assignWorker({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      userId: context.userId,
+      payload: req.body,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Worker assigned to tender site successfully.",
+    assignment,
+  });
+};
+
+/**
+ * PUT /api/tenders/:id/workers/:assignmentId
+ */
+exports.updateWorker = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const assignmentId = getChildId(
+    req,
+    res,
+    "assignmentId",
+    "worker assignment"
+  );
+
+  if (!assignmentId) {
+    return;
+  }
+
+  const assignment =
+    await tenderService.updateWorker({
+      tenderId: context.tenderId,
+      assignmentId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender worker assignment updated successfully.",
+    assignment,
+  });
+};
+
+/**
+ * DELETE /api/tenders/:id/workers/:assignmentId
+ */
+exports.removeWorker = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const assignmentId = getChildId(
+    req,
+    res,
+    "assignmentId",
+    "worker assignment"
+  );
+
+  if (!assignmentId) {
+    return;
+  }
+
+  const assignment =
+    await tenderService.removeWorker({
+      tenderId: context.tenderId,
+      assignmentId,
+      companyId: context.companyId,
+      userId: context.userId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Worker removed from tender successfully.",
+    assignment,
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Tender finance
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * GET /api/tenders/:id/finance
+ */
+exports.getFinanceRecords = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const records =
+    await tenderService.getFinanceRecords({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    records,
+  });
+};
+
+/**
+ * GET /api/tenders/:id/finance/summary
+ */
+exports.getFinanceSummary = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const summary =
+    await tenderService.getFinanceSummary({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    summary,
+  });
+};
+
+/**
+ * POST /api/tenders/:id/finance
+ */
+exports.createFinanceRecord = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const record =
+    await tenderService.createFinanceRecord({
+      tenderId: context.tenderId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Tender finance record created successfully.",
+    record,
+  });
+};
+
+/**
+ * PUT /api/tenders/:id/finance/:financeId
+ */
+exports.updateFinanceRecord = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const financeId = getChildId(
+    req,
+    res,
+    "financeId",
+    "finance record"
+  );
+
+  if (!financeId) {
+    return;
+  }
+
+  const record =
+    await tenderService.updateFinanceRecord({
+      tenderId: context.tenderId,
+      financeId,
+      companyId: context.companyId,
+      payload: req.body,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender finance record updated successfully.",
+    record,
+  });
+};
+
+/**
+ * DELETE /api/tenders/:id/finance/:financeId
+ */
+exports.deleteFinanceRecord = async (
+  req,
+  res
+) => {
+  const context = getTenderContext(
+    req,
+    res
+  );
+
+  if (!context) {
+    return;
+  }
+
+  const financeId = getChildId(
+    req,
+    res,
+    "financeId",
+    "finance record"
+  );
+
+  if (!financeId) {
+    return;
+  }
+
+  const record =
+    await tenderService.deleteFinanceRecord({
+      tenderId: context.tenderId,
+      financeId,
+      companyId: context.companyId,
+      userId: context.userId,
+    });
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Tender finance record deleted successfully.",
+    record,
+  });
 };

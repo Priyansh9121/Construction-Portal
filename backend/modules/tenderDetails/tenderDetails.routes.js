@@ -1,28 +1,35 @@
 const express = require("express");
-const router = express.Router();
 
-const tenderDetailsController = require("./tenderDetails.controller");
-
-router.get("/:id", tenderDetailsController.getTenderDetails);
-
-router.post("/documents", tenderDetailsController.addDocument);
-router.delete("/documents/:documentId", tenderDetailsController.deleteDocument);
-
-router.post("/materials", tenderDetailsController.addMaterial);
-router.delete("/materials/:materialId", tenderDetailsController.deleteMaterial);
-
-router.post("/banking", tenderDetailsController.addBanking);
-router.delete("/banking/:bankingId", tenderDetailsController.deleteBanking);
-
-router.put(
-  "/subcontractors/:tenderSubcontractorId",
-  tenderDetailsController.updateTenderSubcontractor
+const asyncHandler = require(
+  "../../utils/asyncHandler"
 );
 
-router.post("/subcontractors", tenderDetailsController.assignSubcontractor);
-router.delete(
-  "/subcontractors/:tenderSubcontractorId",
-  tenderDetailsController.removeSubcontractor
+const tenderController = require(
+  "../tenders/tender.controller"
+);
+
+const router = express.Router();
+
+/*
+|--------------------------------------------------------------------------
+| Temporary Tender Details compatibility route
+|--------------------------------------------------------------------------
+|
+| Existing frontend:
+| GET /api/tender-details/:id
+|
+| Preferred endpoint:
+| GET /api/tenders/:id/details
+|
+| Authentication is already applied in server.js.
+|
+*/
+
+router.get(
+  "/:id",
+  asyncHandler(
+    tenderController.getTenderDetails
+  )
 );
 
 module.exports = router;
