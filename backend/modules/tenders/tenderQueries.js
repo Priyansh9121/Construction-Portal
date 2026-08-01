@@ -74,7 +74,8 @@ const TENDER_BASE_SELECT = `
     t.created_at,
     t.updated_at,
 
-    c.client_name AS linked_client_name,
+    -- The clients table column is "name", not "client_name".
+    c.name AS linked_client_name,
     c.email AS client_email,
     c.phone AS client_phone,
 
@@ -92,13 +93,12 @@ const TENDER_BASE_SELECT = `
 const TENDER_BASE_FROM = `
   FROM public.tenders t
 
+  -- clients has no is_deleted column; it uses a status field instead.
+  -- Filtering on the missing column raised 42703 and broke every query
+  -- built on TENDER_BASE_FROM, including fetching a tender after create.
   LEFT JOIN public.clients c
     ON c.id = t.client_id
    AND c.company_id = t.company_id
-   AND COALESCE(
-     c.is_deleted,
-     FALSE
-   ) = FALSE
 
   LEFT JOIN public.sites s
     ON s.tender_id = t.id
@@ -113,7 +113,7 @@ const TENDER_GROUP_BY = `
   GROUP BY
     t.id,
     c.id,
-    c.client_name,
+    c.name,
     c.email,
     c.phone
 `;
@@ -156,7 +156,7 @@ const buildTenderFilterQuery = ({
         ) ILIKE ${searchParameter}
 
         OR COALESCE(
-          c.client_name,
+          c.name,
           ''
         ) ILIKE ${searchParameter}
 
@@ -428,13 +428,10 @@ const countTenders = async ({
 
     FROM public.tenders t
 
+    -- See TENDER_BASE_FROM: clients has no is_deleted column.
     LEFT JOIN public.clients c
       ON c.id = t.client_id
      AND c.company_id = t.company_id
-     AND COALESCE(
-       c.is_deleted,
-       FALSE
-     ) = FALSE
 
     WHERE ${conditions.join(
       "\n AND "
@@ -574,7 +571,14 @@ const insertTender = async ({
       $4,
       $5,
       $6,
-      $7,
+
+      -- $7 (status) is referenced twice: here, and in the CASE below.
+      -- PostgreSQL tries to deduce a single type from both positions and
+      -- fails with "inconsistent types deduced for parameter $7", which
+      -- made every tender insert error out. The cast has to appear on BOTH
+      -- occurrences — casting only one side just moves the conflict.
+      $7::TEXT,
+
       $8,
       $9,
       $10,
@@ -586,7 +590,7 @@ const insertTender = async ({
       $16,
 
       CASE
-        WHEN $7 IN (
+        WHEN $7::TEXT IN (
           'completed',
           'passed'
         )
@@ -637,7 +641,8 @@ const updateTender = async ({
       title = $3,
       contract_number = $4,
       tender_type = $5,
-      status = $6,
+      -- Cast on both occurrences of $6 — see insertTender for why.
+      status = $6::TEXT,
       priority = $7,
       risk_level = $8,
       start_date = $9,
@@ -648,8 +653,10 @@ const updateTender = async ({
       estimated_margin = $14,
       actual_margin = $15,
 
+      -- Same cast as in insertTender: $6 also sets the status column, and
+      -- without ::TEXT the parameter type cannot be deduced.
       completed_at = CASE
-        WHEN $6 IN (
+        WHEN $6::TEXT IN (
           'completed',
           'passed'
         )

@@ -122,6 +122,7 @@ const authMiddleware = async (
           u.email,
           u.role,
           u.status,
+          u.token_version,
 
           cu.company_id,
           cu.role AS company_role,
@@ -162,6 +163,29 @@ const authMiddleware = async (
 
     const user =
       userResult.rows[0];
+
+    /*
+     * Token generation check.
+     *
+     * users.token_version is bumped whenever a password changes or an
+     * account is deactivated. A token carrying an older generation is
+     * rejected here, which is what makes those actions take effect
+     * immediately rather than at the end of the token's 7-day life.
+     *
+     * Tokens issued before this field existed have no `tv` claim; those
+     * are treated as generation 0 so existing sessions are not broken by
+     * the upgrade itself.
+     */
+    if (
+      Number(decoded?.tv || 0) !==
+      Number(user.token_version || 0)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Your session is no longer valid. Please sign in again.",
+      });
+    }
 
     if (
       String(

@@ -1,9 +1,162 @@
 const pool = require("../../database/pool");
 
-exports.getExpenses = async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
+const asyncHandler = require("../../utils/asyncHandler");
+
+const {
+  requireCompanyId,
+  getUserId,
+  requireParamId,
+  sendNotFound,
+  toNumber,
+  cleanText,
+} = require("../../utils/requestContext");
+
+/*
+|--------------------------------------------------------------------------
+| Tenant scoping
+|--------------------------------------------------------------------------
+|
+| worker_expenses has a company_id column as of migration 001. Every query
+| below filters on it.
+|
+| Ownership of the parent allocation is resolved through a company-scoped
+| lookup rather than by id alone, so a client cannot attach an expense to
+| another company's allocation by guessing its id.
+|
+*/
+
+/**
+ * Loads an allocation only if it belongs to the caller's company.
+ *
+ * Returns null when the allocation does not exist, is soft-deleted, or
+ * belongs to a different company. The caller cannot distinguish those
+ * cases, which is deliberate: it prevents id enumeration.
+ */
+const findAllocationForCompany = async (
+  allocationId,
+  companyId
+) => {
+  const result = await pool.query(
+    `
+    SELECT
+      wa.id,
+      wa.allocated_amount,
+      wa.worker_id
+    FROM worker_allocations wa
+    WHERE wa.id = $1
+      AND wa.company_id = $2
+      AND COALESCE(wa.is_deleted, FALSE) = FALSE
+    `,
+    [allocationId, companyId]
+  );
+
+  return result.rows[0] || null;
+};
+
+/**
+ * Sums approved and pending spend against an allocation.
+ *
+ * excludeExpenseId lets an update recalculate the balance without counting
+ * the row currently being edited.
+ */
+const sumSpentOnAllocation = async (
+  allocationId,
+  companyId,
+  excludeExpenseId = null
+) => {
+  const result = await pool.query(
+    `
+    SELECT COALESCE(SUM(expense_amount), 0) AS total_spent
+    FROM worker_expenses
+    WHERE allocation_id = $1
+      AND company_id = $2
+      AND ($3::BIGINT IS NULL OR id <> $3)
+      AND approval_status <> 'rejected'
+      AND COALESCE(is_deleted, FALSE) = FALSE
+    `,
+    [
+      allocationId,
+      companyId,
+      excludeExpenseId,
+    ]
+  );
+
+  return Number(
+    result.rows[0].total_spent
+  );
+};
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/worker-expenses
+|--------------------------------------------------------------------------
+*/
+exports.getExpenses = asyncHandler(
+  async (req, res) => {
+    const companyId =
+      requireCompanyId(req, res);
+
+    if (!companyId) {
+      return;
+    }
+
+    const conditions = [
+      "we.company_id = $1",
+      "COALESCE(we.is_deleted, FALSE) = FALSE",
+    ];
+
+    const values = [companyId];
+
+    if (req.query.allocation_id) {
+      values.push(
+        req.query.allocation_id
+      );
+
+      conditions.push(
+        `we.allocation_id = $${values.length}`
+      );
+    }
+
+    if (req.query.worker_id) {
+      values.push(
+        req.query.worker_id
+      );
+
+      conditions.push(
+        `wa.worker_id = $${values.length}`
+      );
+    }
+
+    if (
+      req.query.approval_status
+    ) {
+      values.push(
+        req.query.approval_status
+      );
+
+      conditions.push(
+        `we.approval_status = $${values.length}`
+      );
+    }
+
+    // Pagination — these endpoints previously returned the entire table.
+    const limit = Math.min(
+      Number(req.query.limit) ||
+        100,
+      500
+    );
+
+    const offset = Math.max(
+      Number(req.query.offset) ||
+        0,
+      0
+    );
+
+    values.push(limit, offset);
+
+    const result = await pool.query(
+      `
+      SELECT
         we.id,
         we.allocation_id,
         wa.worker_id,
@@ -17,38 +170,52 @@ exports.getExpenses = async (req, res) => {
         we.admin_comment,
         we.approved_by,
         we.approved_at,
-        we.created_at
+        we.created_at,
+        COUNT(*) OVER () AS total_count
       FROM worker_expenses we
-      LEFT JOIN worker_allocations wa ON we.allocation_id = wa.id
-      LEFT JOIN workers w ON wa.worker_id = w.id
-      WHERE COALESCE(we.is_deleted, FALSE) = FALSE
-      ORDER BY we.id DESC
-    `);
+      LEFT JOIN worker_allocations wa
+        ON wa.id = we.allocation_id
+       AND wa.company_id = we.company_id
+      LEFT JOIN workers w
+        ON w.id = wa.worker_id
+       AND w.company_id = we.company_id
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY we.expense_date DESC, we.id DESC
+      LIMIT $${values.length - 1}
+      OFFSET $${values.length}
+      `,
+      values
+    );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       expenses: result.rows,
-    });
-  } catch (error) {
-    console.error("Get expenses error:", {
-      message: error.message,
-      code: error.code,
-      detail: error.detail,
-      stack: error.stack,
-    });
-  
-    res.status(500).json({
-      success: false,
-      message:
-        process.env.NODE_ENV === "production"
-          ? "Failed to load worker expenses."
-          : error.message,
+      pagination: {
+        limit,
+        offset,
+        total: Number(
+          result.rows[0]
+            ?.total_count || 0
+        ),
+      },
     });
   }
-};
+);
 
-exports.createExpense = async (req, res) => {
-  try {
+/*
+|--------------------------------------------------------------------------
+| POST /api/worker-expenses
+|--------------------------------------------------------------------------
+*/
+exports.createExpense = asyncHandler(
+  async (req, res) => {
+    const companyId =
+      requireCompanyId(req, res);
+
+    if (!companyId) {
+      return;
+    }
+
     const {
       allocation_id,
       expense_amount,
@@ -57,49 +224,76 @@ exports.createExpense = async (req, res) => {
       uploaded_photo,
     } = req.body;
 
-    if (!allocation_id || !expense_amount || !expense_date) {
+    if (
+      !allocation_id ||
+      !expense_amount ||
+      !expense_date
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Allocation, expense amount and date are required",
+        message:
+          "Allocation, expense amount and date are required.",
       });
     }
 
-    const allocationResult = await pool.query(
-      `
-      SELECT allocated_amount
-      FROM worker_allocations
-      WHERE id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
-      `,
-      [allocation_id]
+    const amount = toNumber(
+      expense_amount
     );
 
-    if (allocationResult.rows.length === 0) {
-      return res.status(404).json({
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      return res.status(400).json({
         success: false,
-        message: "Allocation not found",
+        message:
+          "Expense amount must be greater than zero.",
       });
     }
 
-    const spentResult = await pool.query(
-      `
-      SELECT COALESCE(SUM(expense_amount), 0) AS total_spent
-      FROM worker_expenses
-      WHERE allocation_id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
-      `,
-      [allocation_id]
+    // Ownership check: resolves the allocation within the caller's company.
+    const allocation =
+      await findAllocationForCompany(
+        allocation_id,
+        companyId
+      );
+
+    if (!allocation) {
+      return sendNotFound(
+        res,
+        "Allocation"
+      );
+    }
+
+    const allocatedAmount = Number(
+      allocation.allocated_amount
     );
 
-    const allocatedAmount = Number(allocationResult.rows[0].allocated_amount);
-    const alreadySpent = Number(spentResult.rows[0].total_spent);
-    const newExpense = Number(expense_amount);
-    const remainingBalance = allocatedAmount - alreadySpent - newExpense;
+    const alreadySpent =
+      await sumSpentOnAllocation(
+        allocation_id,
+        companyId
+      );
+
+    const remainingBalance =
+      allocatedAmount -
+      alreadySpent -
+      amount;
+
+    if (remainingBalance < 0) {
+      return res.status(400).json({
+        success: false,
+        message: `This expense exceeds the remaining allocation balance by ${Math.abs(
+          remainingBalance
+        ).toFixed(2)}.`,
+      });
+    }
 
     const result = await pool.query(
       `
       INSERT INTO worker_expenses
       (
+        company_id,
         allocation_id,
         expense_amount,
         expense_description,
@@ -109,33 +303,55 @@ exports.createExpense = async (req, res) => {
         approval_status,
         created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, 'approved', $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8)
       RETURNING *
       `,
       [
+        companyId,
         allocation_id,
-        expense_amount,
-        expense_description || "",
+        amount,
+        cleanText(
+          expense_description
+        ),
         expense_date,
         remainingBalance,
         uploaded_photo || null,
-        req.user?.id || null,
+        getUserId(req),
       ]
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       expense: result.rows[0],
     });
-  } catch (error) {
-    console.error("Create expense error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
-};
+);
 
-exports.updateExpense = async (req, res) => {
-  try {
-    const { id } = req.params;
+/*
+|--------------------------------------------------------------------------
+| PUT /api/worker-expenses/:id
+|--------------------------------------------------------------------------
+*/
+exports.updateExpense = asyncHandler(
+  async (req, res) => {
+    const companyId =
+      requireCompanyId(req, res);
+
+    if (!companyId) {
+      return;
+    }
+
+    const expenseId =
+      requireParamId(
+        req,
+        res,
+        "id",
+        "expense"
+      );
+
+    if (!expenseId) {
+      return;
+    }
 
     const {
       allocation_id,
@@ -145,38 +361,56 @@ exports.updateExpense = async (req, res) => {
       uploaded_photo,
     } = req.body;
 
-    const allocationResult = await pool.query(
-      `
-      SELECT allocated_amount
-      FROM worker_allocations
-      WHERE id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
-      `,
-      [allocation_id]
+    const amount = toNumber(
+      expense_amount
     );
 
-    if (allocationResult.rows.length === 0) {
-      return res.status(404).json({
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      return res.status(400).json({
         success: false,
-        message: "Allocation not found",
+        message:
+          "Expense amount must be greater than zero.",
       });
     }
 
-    const spentResult = await pool.query(
-      `
-      SELECT COALESCE(SUM(expense_amount), 0) AS total_spent
-      FROM worker_expenses
-      WHERE allocation_id = $1
-      AND id != $2
-      AND COALESCE(is_deleted, FALSE) = FALSE
-      `,
-      [allocation_id, id]
-    );
+    const allocation =
+      await findAllocationForCompany(
+        allocation_id,
+        companyId
+      );
 
-    const allocatedAmount = Number(allocationResult.rows[0].allocated_amount);
-    const alreadySpent = Number(spentResult.rows[0].total_spent);
-    const newExpense = Number(expense_amount);
-    const remainingBalance = allocatedAmount - alreadySpent - newExpense;
+    if (!allocation) {
+      return sendNotFound(
+        res,
+        "Allocation"
+      );
+    }
+
+    const alreadySpent =
+      await sumSpentOnAllocation(
+        allocation_id,
+        companyId,
+        expenseId
+      );
+
+    const remainingBalance =
+      Number(
+        allocation.allocated_amount
+      ) -
+      alreadySpent -
+      amount;
+
+    if (remainingBalance < 0) {
+      return res.status(400).json({
+        success: false,
+        message: `This expense exceeds the remaining allocation balance by ${Math.abs(
+          remainingBalance
+        ).toFixed(2)}.`,
+      });
+    }
 
     const result = await pool.query(
       `
@@ -189,128 +423,172 @@ exports.updateExpense = async (req, res) => {
           uploaded_photo = $6,
           updated_at = NOW()
       WHERE id = $7
-      AND COALESCE(is_deleted, FALSE) = FALSE
+        AND company_id = $8
+        AND COALESCE(is_deleted, FALSE) = FALSE
       RETURNING *
       `,
       [
         allocation_id,
-        expense_amount,
-        expense_description || "",
+        amount,
+        cleanText(
+          expense_description
+        ),
         expense_date,
         remainingBalance,
         uploaded_photo || null,
-        id,
+        expenseId,
+        companyId,
       ]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Expense not found",
-      });
+      return sendNotFound(
+        res,
+        "Expense"
+      );
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       expense: result.rows[0],
     });
-  } catch (error) {
-    console.error("Update expense error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
-};
+);
 
-exports.deleteExpense = async (req, res) => {
-  try {
-    const { id } = req.params;
+/*
+|--------------------------------------------------------------------------
+| DELETE /api/worker-expenses/:id
+|--------------------------------------------------------------------------
+*/
+exports.deleteExpense = asyncHandler(
+  async (req, res) => {
+    const companyId =
+      requireCompanyId(req, res);
+
+    if (!companyId) {
+      return;
+    }
+
+    const expenseId =
+      requireParamId(
+        req,
+        res,
+        "id",
+        "expense"
+      );
+
+    if (!expenseId) {
+      return;
+    }
 
     const result = await pool.query(
       `
       UPDATE worker_expenses
       SET is_deleted = TRUE,
           deleted_at = NOW(),
-          deleted_by = $2,
+          deleted_by = $3,
           updated_at = NOW()
       WHERE id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
-      RETURNING *
+        AND company_id = $2
+        AND COALESCE(is_deleted, FALSE) = FALSE
+      RETURNING id
       `,
-      [id, req.user?.id || null]
+      [
+        expenseId,
+        companyId,
+        getUserId(req),
+      ]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Expense not found",
-      });
+      return sendNotFound(
+        res,
+        "Expense"
+      );
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Expense deleted successfully",
+      message:
+        "Expense deleted successfully.",
     });
-  } catch (error) {
-    console.error("Delete expense error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
-};
+);
 
-exports.approveExpense = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { admin_comment } = req.body;
+/*
+|--------------------------------------------------------------------------
+| Approval transitions
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Shared handler for approve and reject.
+ *
+ * Both previously updated by id alone, which let an admin of one company
+ * approve or reject another company's expense.
+ */
+const setApprovalStatus = (
+  nextStatus
+) =>
+  asyncHandler(async (req, res) => {
+    const companyId =
+      requireCompanyId(req, res);
+
+    if (!companyId) {
+      return;
+    }
+
+    const expenseId =
+      requireParamId(
+        req,
+        res,
+        "id",
+        "expense"
+      );
+
+    if (!expenseId) {
+      return;
+    }
 
     const result = await pool.query(
       `
       UPDATE worker_expenses
-      SET approval_status = 'approved',
+      SET approval_status = $1,
           admin_comment = $2,
           approved_by = $3,
           approved_at = NOW(),
           updated_at = NOW()
-      WHERE id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
+      WHERE id = $4
+        AND company_id = $5
+        AND COALESCE(is_deleted, FALSE) = FALSE
       RETURNING *
       `,
-      [id, admin_comment || "", req.user?.id || null]
+      [
+        nextStatus,
+        cleanText(
+          req.body.admin_comment
+        ),
+        getUserId(req),
+        expenseId,
+        companyId,
+      ]
     );
 
-    res.status(200).json({
+    if (result.rows.length === 0) {
+      return sendNotFound(
+        res,
+        "Expense"
+      );
+    }
+
+    return res.status(200).json({
       success: true,
       expense: result.rows[0],
     });
-  } catch (error) {
-    console.error("Approve expense error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
+  });
 
-exports.rejectExpense = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { admin_comment } = req.body;
+exports.approveExpense =
+  setApprovalStatus("approved");
 
-    const result = await pool.query(
-      `
-      UPDATE worker_expenses
-      SET approval_status = 'rejected',
-          admin_comment = $2,
-          approved_by = $3,
-          approved_at = NOW(),
-          updated_at = NOW()
-      WHERE id = $1
-      AND COALESCE(is_deleted, FALSE) = FALSE
-      RETURNING *
-      `,
-      [id, admin_comment || "", req.user?.id || null]
-    );
-
-    res.status(200).json({
-      success: true,
-      expense: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Reject expense error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
+exports.rejectExpense =
+  setApprovalStatus("rejected");

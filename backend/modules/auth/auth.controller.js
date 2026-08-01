@@ -4,7 +4,13 @@ const pool = require("../../database/pool");
 
 const {
   NODE_ENV,
+  RESET_TOKEN_TTL_MINUTES,
 } = require("../../config/env");
+
+const {
+  sendPasswordResetEmail,
+  isConfigured: isMailConfigured,
+} = require("../../config/mailer");
 
 const {
   USER_ROLES,
@@ -39,7 +45,14 @@ const {
   serialiseUserContext,
 } = require("./auth.service");
 
-const RESET_TOKEN_EXPIRY_MINUTES = 30;
+/**
+ * Reset token lifetime.
+ *
+ * Driven by RESET_TOKEN_TTL_MINUTES so the value stored on the token and
+ * the one quoted in the email cannot disagree.
+ */
+const RESET_TOKEN_EXPIRY_MINUTES =
+  RESET_TOKEN_TTL_MINUTES;
 
 /**
  * Creates a secure reset token.
@@ -745,6 +758,9 @@ exports.disableUser = async (
       UPDATE public.users u
       SET
         status = 'inactive',
+        -- A deactivated user must lose access immediately rather than at
+        -- the end of their token's life.
+        token_version = u.token_version + 1,
         updated_at = NOW()
       FROM public.company_users cu
       INNER JOIN public.companies c
@@ -904,24 +920,50 @@ exports.forgotPassword = async (
     );
   }
 
+  /*
+   * Send the link.
+   *
+   * Deliberately not awaited for its result before responding, and any
+   * failure is swallowed: if a mail outage produced a different response
+   * or a different response time, this endpoint would become a way to
+   * discover which email addresses have accounts.
+   *
+   * The identical response below is returned whether or not the user
+   * exists, for the same reason.
+   */
+  if (user && rawToken) {
+    sendPasswordResetEmail({
+      to: email,
+      fullName: user.full_name,
+      token: rawToken,
+      expiresInMinutes:
+        RESET_TOKEN_EXPIRY_MINUTES,
+    }).catch((error) => {
+      console.error(
+        "[auth] password reset email failed:",
+        error.message
+      );
+    });
+  }
+
   const response = {
     success: true,
     message:
-      "If an account exists for this email, password reset instructions have been generated.",
+      "If an account exists for this email, a password reset link has been sent.",
   };
 
   /*
-   * Temporary development-only behaviour.
-   *
-   * Remove this once an email provider is connected.
+   * Local convenience only: when SMTP is not configured there is nowhere
+   * for the link to go, so the token is returned to keep development
+   * workable. Gated on both the environment and the absence of a mail
+   * provider, so it can never fire in a configured deployment.
    */
   if (
-    NODE_ENV ===
-      "development" &&
+    NODE_ENV === "development" &&
+    !isMailConfigured &&
     rawToken
   ) {
-    response.resetToken =
-      rawToken;
+    response.resetToken = rawToken;
   }
 
   return res.status(200).json(
@@ -973,6 +1015,11 @@ exports.resetPassword = async (
         password_hash = $1,
         reset_token = NULL,
         reset_token_expires = NULL,
+        -- Invalidate every session issued before the reset. Someone who
+        -- had the old password (or a stolen token) is signed out.
+        token_version = token_version + 1,
+        failed_logins = 0,
+        locked_until = NULL,
         updated_at = NOW()
       WHERE reset_token = $2
         AND reset_token_expires > NOW()
@@ -1084,6 +1131,8 @@ exports.changePassword = async (
       password_hash = $1,
       reset_token = NULL,
       reset_token_expires = NULL,
+      -- Sign out other devices; the caller gets a fresh token below.
+      token_version = token_version + 1,
       updated_at = NOW()
     WHERE id = $2
     `,
@@ -1093,9 +1142,26 @@ exports.changePassword = async (
     ]
   );
 
+  /*
+   * The bump above invalidated the caller's own token along with every
+   * other session. Hand back a token carrying the new generation so the
+   * user who just changed their password is not signed out by doing so,
+   * while their other devices are.
+   */
+  const refreshedUser =
+    await getUserContextById(userId);
+
+  const token = createAccessToken(
+    refreshedUser
+  );
+
   return res.status(200).json({
     success: true,
     message:
-      "Password changed successfully.",
+      "Password changed successfully. Other devices have been signed out.",
+    token,
+    user: serialiseUserContext(
+      refreshedUser
+    ),
   });
 };

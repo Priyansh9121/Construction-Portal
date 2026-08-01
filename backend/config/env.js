@@ -321,6 +321,184 @@ const DB_SSL =
     IS_PRODUCTION
   );
 
+/**
+ * PEM-encoded CA bundle for the database server certificate.
+ *
+ * Supply this in production so the TLS connection is actually verified.
+ * Supabase publishes its certificate under
+ * Project Settings -> Database -> SSL Configuration.
+ */
+const DB_SSL_CA =
+  cleanString(
+    process.env.DB_SSL_CA
+  );
+
+/**
+ * Escape hatch that disables certificate verification.
+ *
+ * Defaults to false. Setting this to true accepts ANY certificate,
+ * which removes the protection TLS is there to provide and exposes
+ * the connection to interception. It exists only for local proxies
+ * that present a self-signed certificate.
+ */
+const DB_SSL_REJECT_UNAUTHORIZED =
+  parseBoolean(
+    process.env
+      .DB_SSL_REJECT_UNAUTHORIZED,
+    true
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Rate limiting
+|--------------------------------------------------------------------------
+*/
+
+const RATE_LIMIT_WINDOW_MS =
+  parseInteger(
+    process.env
+      .RATE_LIMIT_WINDOW_MS,
+    15 * 60 * 1000,
+    {
+      minimum: 1000,
+      maximum: 3600000,
+    }
+  );
+
+const RATE_LIMIT_MAX =
+  parseInteger(
+    process.env.RATE_LIMIT_MAX,
+    300,
+    {
+      minimum: 10,
+      maximum: 100000,
+    }
+  );
+
+/**
+ * Deliberately much tighter than the global limit.
+ *
+ * Login runs bcrypt at cost 12, so an unthrottled endpoint is both a
+ * credential-stuffing target and a cheap way to exhaust CPU.
+ */
+const AUTH_RATE_LIMIT_MAX =
+  parseInteger(
+    process.env
+      .AUTH_RATE_LIMIT_MAX,
+    10,
+    {
+      minimum: 3,
+      maximum: 1000,
+    }
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Site operation rules
+|--------------------------------------------------------------------------
+|
+| How far back a supervisor may record material, labour, banking and
+| daily-update entries without an explicit admin grant.
+|
+| From the operations notes: entries are added within two days; anything
+| older requires calling the office for access.
+|
+*/
+
+const SUPERVISOR_EDIT_WINDOW_DAYS =
+  parseInteger(
+    process.env
+      .SUPERVISOR_EDIT_WINDOW_DAYS,
+    2,
+    {
+      minimum: 0,
+      maximum: 365,
+    }
+  );
+
+const SUPERVISOR_BANKING_GRACE_DAYS =
+  parseInteger(
+    process.env
+      .SUPERVISOR_BANKING_GRACE_DAYS,
+    1,
+    {
+      minimum: 0,
+      maximum: 30,
+    }
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Transactional email
+|--------------------------------------------------------------------------
+|
+| Any SMTP provider: Gmail app password, Resend, SendGrid, Postmark, SES.
+| Without these, password reset cannot deliver a link.
+|
+*/
+
+const SMTP_HOST = cleanString(
+  process.env.SMTP_HOST
+);
+
+const SMTP_PORT = parseInteger(
+  process.env.SMTP_PORT,
+  587,
+  {
+    minimum: 1,
+    maximum: 65535,
+  }
+);
+
+// Port 465 uses implicit TLS; 587 upgrades via STARTTLS.
+const SMTP_SECURE = parseBoolean(
+  process.env.SMTP_SECURE,
+  SMTP_PORT === 465
+);
+
+const SMTP_USER = cleanString(
+  process.env.SMTP_USER
+);
+
+const SMTP_PASSWORD = cleanString(
+  process.env.SMTP_PASSWORD
+);
+
+const MAIL_FROM =
+  cleanString(
+    process.env.MAIL_FROM
+  ) ||
+  SMTP_USER ||
+  "no-reply@localhost";
+
+const MAIL_FROM_NAME = cleanString(
+  process.env.MAIL_FROM_NAME,
+  "Construction Portal"
+);
+
+/**
+ * Where the reset link points.
+ *
+ * This is the frontend origin, which is not the same as BASE_URL (the API).
+ */
+const FRONTEND_URL = cleanString(
+  process.env.FRONTEND_URL
+);
+
+/**
+ * How long a password reset token stays valid, in minutes.
+ */
+const RESET_TOKEN_TTL_MINUTES =
+  parseInteger(
+    process.env
+      .RESET_TOKEN_TTL_MINUTES,
+    60,
+    {
+      minimum: 5,
+      maximum: 1440,
+    }
+  );
+
 /*
 |--------------------------------------------------------------------------
 | Supabase Storage
@@ -440,6 +618,25 @@ module.exports = Object.freeze({
   DB_QUERY_TIMEOUT_MS,
   DB_APPLICATION_NAME,
   DB_SSL,
+  DB_SSL_CA,
+  DB_SSL_REJECT_UNAUTHORIZED,
+
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX,
+  AUTH_RATE_LIMIT_MAX,
+
+  SUPERVISOR_EDIT_WINDOW_DAYS,
+  SUPERVISOR_BANKING_GRACE_DAYS,
+
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_SECURE,
+  SMTP_USER,
+  SMTP_PASSWORD,
+  MAIL_FROM,
+  MAIL_FROM_NAME,
+  FRONTEND_URL,
+  RESET_TOKEN_TTL_MINUTES,
 
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,

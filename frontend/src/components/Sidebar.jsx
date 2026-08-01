@@ -19,6 +19,10 @@ function Sidebar({ user }) {
 
     { label: "Site Updates", path: "/daily-site-updates" },
 
+    // Material received, labour ledger, supervisor banking, and the
+    // backdated-entry access queue.
+    { label: "Site Operations", path: "/site-operations" },
+
     ...(user?.role === "admin"
       ? [{ label: "Update Approvals", path: "/daily-update-approvals" }]
       : []),

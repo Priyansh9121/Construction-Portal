@@ -1,5 +1,7 @@
 import { Navigate } from "react-router-dom";
 
+import { useAuth } from "../contexts/AuthContext";
+
 function normaliseRole(value) {
   return String(value || "")
     .trim()
@@ -18,11 +20,47 @@ function getHomePath(role) {
   return "/dashboard";
 }
 
+/**
+ * Route guard.
+ *
+ * `user` may still be passed in by AppRoutes; when it is omitted the guard
+ * falls back to the context, which is the authoritative copy refreshed from
+ * GET /auth/me on mount.
+ *
+ * Note this is a presentation guard only. It decides which screen to render,
+ * not what data the caller may read — the backend re-reads the user's role
+ * from the database on every request and enforces it there.
+ */
 function RoleRoute({
-  user,
+  user: userProp,
   allowedRoles = [],
   children,
 }) {
+  const { user: contextUser, isLoading } = useAuth();
+
+  const user = userProp ?? contextUser;
+
+  // While the cached session is being verified against the server we do not
+  // yet know the real role. Redirecting here would bounce a legitimate user
+  // away from the page they asked for, so hold the route instead.
+  if (isLoading) {
+    return (
+      <div
+        className="route-guard-loading"
+        role="status"
+        aria-live="polite"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "60vh",
+        }}
+      >
+        <span>Loading…</span>
+      </div>
+    );
+  }
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }

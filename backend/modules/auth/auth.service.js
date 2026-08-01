@@ -211,6 +211,20 @@ const createAccessToken = (
         ),
       company_id:
         companyId,
+
+      /*
+       * Token generation.
+       *
+       * authMiddleware compares this against users.token_version and
+       * rejects the token when they differ. Bumping the column therefore
+       * invalidates every token already issued to that user.
+       *
+       * Without it, changing a password or deactivating an account left
+       * existing sessions working for the remainder of the 7-day expiry.
+       */
+      tv: Number(
+        user?.token_version || 0
+      ),
     },
     JWT_SECRET,
     {
@@ -254,6 +268,7 @@ const getUserContextByEmail =
           ${passwordSelection}
           u.role,
           u.status,
+          u.token_version,
           u.created_at,
           u.updated_at,
           u.last_login_at,
@@ -333,6 +348,7 @@ const getUserContextById =
           ${passwordSelection}
           u.role,
           u.status,
+          u.token_version,
           u.created_at,
           u.updated_at,
           u.last_login_at,

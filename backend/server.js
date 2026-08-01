@@ -1,5 +1,11 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+
+const {
+  apiLimiter,
+  authLimiter,
+} = require("./middleware/rateLimiter");
 
 const {
   PORT,
@@ -207,6 +213,70 @@ app.use(
 
 /*
 |--------------------------------------------------------------------------
+| Security headers
+|--------------------------------------------------------------------------
+|
+| This is a JSON API: it returns no HTML and loads no third-party assets, so
+| the content policy can be as restrictive as possible.
+|
+| The frontend is served separately by Vercel and needs its own headers —
+| those are set in frontend/vercel.json.
+|
+*/
+
+app.use(
+  helmet({
+    // Nothing here should ever be rendered as a document.
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+      },
+    },
+
+    // Tell browsers to stay on HTTPS for a year, including subdomains.
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+
+    // Do not leak the API URL to third parties via the Referer header.
+    referrerPolicy: {
+      policy: "no-referrer",
+    },
+
+    // API responses are consumed by fetch/XHR, never embedded, so the
+    // stricter cross-origin policies are safe here.
+    crossOriginResourcePolicy: {
+      policy: "same-site",
+    },
+
+    // Would block the frontend on a different origin from reading responses.
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+/*
+|--------------------------------------------------------------------------
+| Rate limiting
+|--------------------------------------------------------------------------
+|
+| Applied before body parsing so a flood is rejected before the request
+| body is read into memory.
+|
+*/
+
+app.use(
+  "/api",
+  apiLimiter
+);
+
+/*
+|--------------------------------------------------------------------------
 | Request parsing
 |--------------------------------------------------------------------------
 */
@@ -225,6 +295,32 @@ app.use(
     parameterLimit: 1000,
   })
 );
+
+/*
+|--------------------------------------------------------------------------
+| Body normalisation
+|--------------------------------------------------------------------------
+|
+| Express 5 leaves req.body undefined when a request carries no body and no
+| Content-Type, rather than defaulting it to {}. Handlers that read an
+| optional field — an approve endpoint reading req.body.admin_comment, for
+| instance — then throw a TypeError and return 500 where they should have
+| returned a normal result.
+|
+| Guaranteeing an object here fixes the whole class of bug in one place
+| instead of requiring optional chaining at every read site.
+|
+*/
+app.use((req, _res, next) => {
+  if (
+    req.body === undefined ||
+    req.body === null
+  ) {
+    req.body = {};
+  }
+
+  next();
+});
 
 app.use(
   requestLogger
@@ -281,8 +377,11 @@ app.use(
 |
 */
 
+// authLimiter sits in front of every credential endpoint. It only counts
+// failed attempts, so normal use never trips it.
 app.use(
   "/api/auth",
+  authLimiter,
   authRoutes
 );
 
@@ -369,6 +468,65 @@ app.use(
   "/api/site-logs",
   authMiddleware,
   siteLogRoutes
+);
+
+/*
+|--------------------------------------------------------------------------
+| Site operations
+|--------------------------------------------------------------------------
+|
+| Supervisor-facing site recording: material received, the labour ledger,
+| the supervisor banking float, and backdated-entry access requests.
+|
+| Role checks are applied per route inside the module, because supervisors
+| and the office share these paths with different permissions.
+|
+*/
+app.use(
+  "/api/site-operations",
+  authMiddleware,
+  require(
+    "./modules/siteOperations/siteOperations.routes"
+  )
+);
+
+/*
+|--------------------------------------------------------------------------
+| Master data
+|--------------------------------------------------------------------------
+|
+| Investors, suppliers and clients. These tables existed in the database
+| with no code behind them, so payments could only reference an investor by
+| free-text name.
+|
+*/
+app.use(
+  "/api/masters",
+  authMiddleware,
+  require(
+    "./modules/masters/master.routes"
+  )
+);
+
+/*
+|--------------------------------------------------------------------------
+| Notifications and audit trail
+|--------------------------------------------------------------------------
+*/
+app.use(
+  "/api/notifications",
+  authMiddleware,
+  require(
+    "./modules/notifications/notification.routes"
+  )
+);
+
+app.use(
+  "/api/activity",
+  authMiddleware,
+  require(
+    "./modules/notifications/notification.routes"
+  ).activityRouter
 );
 
 app.use(
@@ -648,6 +806,25 @@ process.on(
   }
 );
 
-startServer();
+/*
+|--------------------------------------------------------------------------
+| Startup
+|--------------------------------------------------------------------------
+|
+| Only listen when this file is the process entry point.
+|
+| Without this guard, `require("./server")` from a test bound the port and
+| started the graceful-shutdown handlers as a side effect, which made the
+| app impossible to drive with supertest. Tests import the exported `app`
+| and let supertest manage the socket.
+|
+*/
+if (require.main === module) {
+  startServer();
+}
 
 module.exports = app;
+
+// Exposed so an integration test can start and stop the real listener when
+// it needs one.
+module.exports.startServer = startServer;

@@ -71,6 +71,13 @@ function AppLayout({
         path: "/daily-site-updates",
       },
       {
+        // Material received, labour ledger, supervisor banking and the
+        // backdated-entry access queue.
+        label: "Site Operations",
+        shortLabel: "Site Ops",
+        path: "/site-operations",
+      },
+      {
         label: "Reports",
         path: "/reports",
       },

@@ -28,6 +28,7 @@ import SettingsPage from "../pages/SettingsPage";
 
 import WorkerPortalPage from "../pages/WorkerPortalPage";
 import SubcontractorPortalPage from "../pages/SubcontractorPortalPage";
+import SiteOperationsPage from "../pages/SiteOperationsPage";
 
 function getRole(user) {
   return String(user?.role || "")
@@ -532,6 +533,23 @@ function AppRoutes({
           >
             <DailyUpdateApprovalsPage />
           </AdminLayout>
+        }
+      />
+
+      {/* Site operations — material, labour, banking, access requests */}
+
+      <Route
+        path="/site-operations"
+        element={
+          <AdminManagerLayout
+            activePage="Site Operations"
+            user={user}
+            payments={payments}
+            tenders={tenders}
+            invoices={invoices}
+          >
+            <SiteOperationsPage />
+          </AdminManagerLayout>
         }
       />
 

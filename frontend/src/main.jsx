@@ -44,6 +44,7 @@ import "./styles/pages/worker-portal.css";
 import "./styles/pages/subcontractor-portal.css";
 import "./styles/pages/reports.css";
 import "./styles/pages/settings.css";
+import "./styles/pages/site-operations.css";
 
 /*
  * Responsive rules remain last so they can override desktop
