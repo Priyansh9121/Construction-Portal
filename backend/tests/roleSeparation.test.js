@@ -207,3 +207,88 @@ describe("commercial fields are not exposed to workers", () => {
     expect(JSON.stringify(res.body)).not.toContain("client_phone");
   });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Decisions the office could not make
+|--------------------------------------------------------------------------
+|
+| Two endpoints existed with no caller on any screen, and both left a
+| record stuck in a state nobody could move it out of.
+|
+*/
+
+describe("office decisions", () => {
+  it("approves an allocation so the worker can spend it", async () => {
+    const worker = await office
+      .auth(request.post("/api/workers"))
+      .send({
+        full_name: "Allocation Worker",
+        phone: "9800000009",
+        salary: 800,
+        role: "Mason",
+        status: "active",
+      });
+
+    const workerId = worker.body?.worker?.id ?? worker.body?.data?.id;
+
+    const allocation = await office
+      .auth(request.post("/api/worker-allocations"))
+      .send({
+        worker_id: workerId,
+        allocated_amount: 5000,
+        purpose: "Materials float",
+      });
+
+    expect(allocation.status).toBe(201);
+
+    // Created pending: until this is approved a worker cannot draw on it,
+    // and nothing on screen could approve it.
+    expect(allocation.body.allocation.approval_status).toBe("pending");
+
+    const approved = await office
+      .auth(
+        request.post(
+          `/api/worker-allocations/${allocation.body.allocation.id}/approve`
+        )
+      )
+      .send({ admin_comment: "Approved." });
+
+    expect(approved.status).toBe(200);
+
+    const { rows } = await pool.query(
+      `SELECT approval_status FROM worker_allocations WHERE id = $1`,
+      [allocation.body.allocation.id]
+    );
+
+    expect(rows[0].approval_status).toBe("approved");
+  });
+
+  it("re-enables a disabled account", async () => {
+    const member = await createMember(request, office, {
+      label: "toggled",
+      role: "manager",
+    });
+
+    const disabled = await office.auth(
+      request.put(`/api/auth/users/${member.user.id}/disable`)
+    );
+
+    expect(disabled.status).toBe(200);
+
+    // Without this the row read "Disabled" with nothing to click, so an
+    // account switched off by mistake stayed off.
+    const enabled = await office.auth(
+      request.put(`/api/auth/users/${member.user.id}/enable`)
+    );
+
+    expect(enabled.status).toBe(200);
+
+    const { rows } = await pool.query(
+      `SELECT status FROM users WHERE id = $1`,
+      [member.user.id]
+    );
+
+    expect(rows[0].status).toBe("active");
+  });
+});

@@ -11,6 +11,8 @@ import {
   deleteExpense,
   approveExpense,
   rejectExpense,
+  approveAllocation,
+  rejectAllocation,
 } from "../services/workerMoneyService";
 
 import { useCollection } from "./useCollection";
@@ -77,5 +79,8 @@ export default function useWorkerMoney(user) {
 
     approveExpense,
     rejectExpense,
+
+    approveAllocation,
+    rejectAllocation,
   };
 }

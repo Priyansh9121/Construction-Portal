@@ -152,6 +152,8 @@ function AppRoutes({
   deleteExpense,
   approveExpense,
   rejectExpense,
+  approveAllocation,
+  rejectAllocation,
 }) {
   const homePath = getHomePath(user);
 
@@ -436,6 +438,12 @@ function AppRoutes({
               }
               approveExpense={
                 approveExpense
+              }
+              approveAllocation={
+                approveAllocation
+              }
+              rejectAllocation={
+                rejectAllocation
               }
               rejectExpense={
                 rejectExpense

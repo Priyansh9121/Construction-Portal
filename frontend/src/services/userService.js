@@ -20,6 +20,16 @@ export const disableUser = async (id) => {
   return res.data;
 };
 
+/*
+ * The counterpart to disableUser. The endpoint existed with no caller, so
+ * an account disabled by mistake could not be turned back on from the app
+ * — the row simply read "Disabled" with nothing to click.
+ */
+export const enableUser = async (id) => {
+  const res = await axiosClient.put(`/auth/users/${id}/enable`);
+  return res.data;
+};
+
 export const changePassword = async (data) => {
   const res = await axiosClient.put("/auth/change-password", data);
   return res.data;

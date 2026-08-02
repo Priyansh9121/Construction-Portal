@@ -24,6 +24,8 @@ function WorkerMoneyPage({
   deleteExpense,
   approveExpense,
   rejectExpense,
+  approveAllocation,
+  rejectAllocation,
 }) {
   const [search, setSearch] =
     useState("");
@@ -909,6 +911,67 @@ function WorkerMoneyPage({
           error.response?.data
             ?.message ||
             "Failed to approve expense."
+        );
+      } finally {
+        setProcessingKey(null);
+      }
+    };
+
+  /*
+   * An allocation is created pending, and a worker cannot spend against
+   * one until it is approved. Both endpoints existed with no caller, so
+   * every allocation stayed pending and the money could never be drawn.
+   */
+  const decideAllocation =
+    async (allocation, decision) => {
+      const actionKey =
+        `${decision}:allocation:${allocation.id}`;
+
+      if (processingKey) {
+        return;
+      }
+
+      const act =
+        decision === "approve"
+          ? approveAllocation
+          : rejectAllocation;
+
+      if (typeof act !== "function") {
+        toast.error(
+          "Allocation approval is unavailable."
+        );
+
+        return;
+      }
+
+      try {
+        setProcessingKey(actionKey);
+
+        await act(
+          allocation.id,
+          `${
+            decision === "approve"
+              ? "Approved"
+              : "Rejected"
+          } from the worker money page.`
+        );
+
+        toast.success(
+          decision === "approve"
+            ? "Allocation approved."
+            : "Allocation rejected."
+        );
+
+        await refreshWorkerMoney();
+      } catch (error) {
+        console.error(
+          `Failed to ${decision} allocation:`,
+          error.response?.data || error
+        );
+
+        toast.error(
+          error.response?.data?.message ||
+            `Failed to ${decision} allocation.`
         );
       } finally {
         setProcessingKey(null);
@@ -1866,21 +1929,62 @@ function WorkerMoneyPage({
                       </td>
 
                       <td>
-                        <button
-                          type="button"
-                          className="delete-btn"
-                          disabled={
-                            processingKey !==
-                            null
-                          }
-                          onClick={() =>
-                            requestDeleteAllocation(
-                              allocation
-                            )
-                          }
-                        >
-                          Delete
-                        </button>
+                        <div className="table-actions">
+                          {normaliseStatus(
+                            allocation.approval_status
+                          ) === "pending" && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={
+                                  processingKey !==
+                                  null
+                                }
+                                onClick={() =>
+                                  decideAllocation(
+                                    allocation,
+                                    "approve"
+                                  )
+                                }
+                              >
+                                Approve
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary-btn"
+                                disabled={
+                                  processingKey !==
+                                  null
+                                }
+                                onClick={() =>
+                                  decideAllocation(
+                                    allocation,
+                                    "reject"
+                                  )
+                                }
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            type="button"
+                            className="delete-btn"
+                            disabled={
+                              processingKey !==
+                              null
+                            }
+                            onClick={() =>
+                              requestDeleteAllocation(
+                                allocation
+                              )
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
