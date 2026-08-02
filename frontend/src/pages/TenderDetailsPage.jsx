@@ -1205,6 +1205,7 @@ function TenderDetailsPage() {
 
           case "worker":
             await removeTenderWorker(
+              numericTenderId,
               item.id
             );
 
