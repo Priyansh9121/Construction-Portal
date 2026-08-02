@@ -31,9 +31,32 @@
 
 -- --- Extensions ------------------------------------------------------------
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
--- pgvector: powers the AI conversation/insight embeddings.
--- On Supabase this is available out of the box.
-CREATE EXTENSION IF NOT EXISTS "vector";
+
+-- pgvector powers the embedding columns on ai_conversations and ai_insights.
+--
+-- It is treated as OPTIONAL here on purpose. Nothing in the application uses
+-- those columns yet, and creating an extension needs privileges that a
+-- managed platform may not grant — so a missing extension should not abort
+-- the entire schema.
+--
+-- WITH SCHEMA public matters: Supabase installs extensions into an
+-- `extensions` schema by default, and the column definitions below refer to
+-- the type as public.vector. Pinning it to public keeps those consistent.
+--
+-- If this is skipped, the two embedding columns are simply not created. The
+-- block at the end of this file adds them later once the extension exists.
+DO $ext$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS "vector" WITH SCHEMA public;
+
+    RAISE NOTICE 'pgvector enabled — AI embedding columns will be created.';
+EXCEPTION
+    WHEN insufficient_privilege OR undefined_file OR feature_not_supported THEN
+        RAISE WARNING
+            'pgvector unavailable (%). Continuing without the AI embedding columns; everything else is created normally. Enable it later (Supabase: Database -> Extensions -> vector) and re-run this file to add them.',
+            SQLERRM;
+END
+$ext$;
 
 SET search_path = public, extensions;
 
@@ -144,8 +167,9 @@ CREATE TABLE public.ai_conversations (
     content text NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    vector_id uuid,
-    embedding public.vector
+    vector_id uuid
+    -- embedding: added conditionally at the end of this file,
+    -- only when pgvector is available.
 );
 
 --
@@ -179,8 +203,9 @@ CREATE TABLE public.ai_insights (
     resolved_by integer,
     resolved_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    vector_id uuid,
-    embedding public.vector
+    vector_id uuid
+    -- embedding: added conditionally at the end of this file,
+    -- only when pgvector is available.
 );
 
 --
@@ -4353,6 +4378,41 @@ ALTER TABLE ONLY public.workers
 
 --
 --
+
+-- ===========================================================================
+-- Optional: AI embedding columns
+-- ===========================================================================
+--
+-- Added only when pgvector is present. Splitting them out means a platform
+-- that will not let this migration create the extension still gets the other
+-- 47 tables rather than failing outright.
+--
+-- Safe to re-run: enable the extension later and execute this file again, or
+-- just this block, and the columns appear.
+-- ===========================================================================
+DO $vec$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_extension WHERE extname = 'vector'
+    ) THEN
+        ALTER TABLE public.ai_conversations
+            ADD COLUMN IF NOT EXISTS embedding public.vector;
+
+        ALTER TABLE public.ai_insights
+            ADD COLUMN IF NOT EXISTS embedding public.vector;
+
+        RAISE NOTICE 'AI embedding columns created.';
+    ELSE
+        RAISE WARNING
+            'pgvector is not installed, so ai_conversations.embedding and ai_insights.embedding were skipped. Nothing else is affected — no application code reads them yet.';
+    END IF;
+EXCEPTION
+    WHEN undefined_object THEN
+        RAISE WARNING
+            'pgvector type not resolvable; embedding columns skipped. If the extension lives outside the public schema, drop and recreate it with: CREATE EXTENSION vector WITH SCHEMA public;';
+END
+$vec$;
+
 
 -- ===========================================================================
 -- Next steps

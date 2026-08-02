@@ -146,6 +146,45 @@ It is not hand-written, so it cannot drift from what actually works.
 PostgreSQL 18-only directives (`\restrict`, `transaction_timeout`) are
 stripped so it runs on Supabase's PostgreSQL 15/17.
 
+### Supabase-specific notes
+
+Three things behave differently on Supabase than on a local PostgreSQL, and
+all three are handled — this is here so the reasoning is not lost.
+
+**`postgres` is not a superuser.** An earlier version of `003` ran
+`ALTER ROLE construction_app NOSUPERUSER NOBYPASSRLS`, which fails with:
+
+```
+ERROR: 42501: permission denied to alter role
+DETAIL: Only roles with the SUPERUSER attribute may alter roles
+        with the SUPERUSER attribute.
+```
+
+PostgreSQL only lets a superuser touch the `SUPERUSER` attribute at all,
+even to turn it off. Those attributes are already the defaults for
+`CREATE ROLE`, so the migration verifies them and warns instead of forcing
+them.
+
+**pgvector is optional.** `ai_conversations.embedding` and
+`ai_insights.embedding` need the `vector` extension, and creating an
+extension may be refused. `002` no longer fails outright: it warns, skips
+those two columns, and creates the other 47 tables. Enable the extension
+later (Supabase: Database → Extensions → `vector`) and re-run `002` to add
+them. Nothing in the application reads them yet.
+
+**RLS and registration.** Sign-up creates a company, then a user, then a
+membership — all before any company context exists. A single strict policy
+on `companies` makes that impossible: `WITH CHECK (id = current_company_id())`
+cannot be satisfied by an id the sequence has not generated yet. `003`
+therefore allows the bootstrap insert, and allows the read-back that
+`INSERT ... RETURNING` needs, while every table holding real tenant data
+keeps the strict policy. The seed trigger from `004` is `SECURITY DEFINER`
+for the same reason.
+
+Verified end to end: connecting as `construction_app`, a new company can
+register and receives its 24 materials and 13 labour categories, while
+tenant isolation still holds.
+
 ### 003_supabase_rls.sql
 
 Row-level security, so tenant isolation is enforced by the database rather

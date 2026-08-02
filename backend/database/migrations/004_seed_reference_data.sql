@@ -28,6 +28,11 @@ BEGIN;
 CREATE OR REPLACE FUNCTION public.seed_material_catalog(p_company_id INTEGER)
 RETURNS INTEGER
 LANGUAGE plpgsql
+-- Runs as the owner. Seeding happens inside the registration transaction,
+-- before any company context is set, so under row-level security the
+-- inserts would otherwise be rejected and sign-up would fail.
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     inserted INTEGER := 0;
@@ -113,6 +118,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_labour_categories_company_code
 CREATE OR REPLACE FUNCTION public.seed_labour_categories(p_company_id INTEGER)
 RETURNS INTEGER
 LANGUAGE plpgsql
+-- See seed_material_catalog above.
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     inserted INTEGER := 0;
@@ -176,6 +184,9 @@ END $$;
 CREATE OR REPLACE FUNCTION public.seed_new_company_reference_data()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+-- See seed_material_catalog above.
+SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
     PERFORM public.seed_material_catalog(NEW.id);
