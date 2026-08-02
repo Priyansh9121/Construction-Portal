@@ -238,7 +238,8 @@ export const getTenders =
         getErrorMessage(
           error,
           "Failed to fetch projects."
-        )
+        ),
+        { cause: error }
       );
     }
   };
@@ -274,7 +275,8 @@ export const getTenderById =
         getErrorMessage(
           error,
           "Failed to fetch project details."
-        )
+        ),
+        { cause: error }
       );
     }
   };
@@ -321,7 +323,8 @@ export const createTender =
         getErrorMessage(
           error,
           "Failed to create project."
-        )
+        ),
+        { cause: error }
       );
     }
   };
@@ -380,7 +383,8 @@ export const updateTender =
         getErrorMessage(
           error,
           "Failed to update project."
-        )
+        ),
+        { cause: error }
       );
     }
   };
@@ -417,7 +421,8 @@ export const deleteTender =
         getErrorMessage(
           error,
           "Failed to delete project."
-        )
+        ),
+        { cause: error }
       );
     }
   };
@@ -453,7 +458,8 @@ export const restoreTender =
         getErrorMessage(
           error,
           "Failed to restore project."
-        )
+        ),
+        { cause: error }
       );
     }
   };

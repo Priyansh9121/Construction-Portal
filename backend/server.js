@@ -392,6 +392,42 @@ app.use(
 |
 */
 
+/*
+|--------------------------------------------------------------------------
+| Office-only registers
+|--------------------------------------------------------------------------
+|
+| Authentication alone is not authorisation. These registers hold the
+| company's commercial record — tenders with their margins and client
+| contacts, every payment, the worker roster, subcontractor bank details,
+| invoices and the investor list.
+|
+| Every one of them was reachable by any authenticated account, which
+| includes the labourer and subcontractor logins created for the portals.
+| A worker could read company margins and client phone numbers, and could
+| create payments, invoices and subcontractors outright.
+|
+| Workers and subcontractors have their own scoped surfaces and do not
+| need these:
+|
+|     /api/worker-portal/*          their assignments, updates and money
+|     /api/subcontractor-portal/*   their tenders and documents
+|     /api/site-operations/*        shared, gated per route inside
+|
+| Gating at the mount means a new route added inside any of these modules
+| inherits the restriction instead of having to remember it.
+|
+*/
+const requireOffice = roleMiddleware(
+  [
+    "admin",
+    "manager",
+  ],
+  {
+    source: "either",
+  }
+);
+
 app.use(
   "/api/company",
   authMiddleware,
@@ -401,24 +437,28 @@ app.use(
 app.use(
   "/api/payments",
   authMiddleware,
+  requireOffice,
   paymentRoutes
 );
 
 app.use(
   "/api/workers",
   authMiddleware,
+  requireOffice,
   workerRoutes
 );
 
 app.use(
   "/api/sites",
   authMiddleware,
+  requireOffice,
   siteRoutes
 );
 
 app.use(
   "/api/tenders",
   authMiddleware,
+  requireOffice,
   require(
     "./modules/tenders/tender.routes"
   )
@@ -427,6 +467,7 @@ app.use(
 app.use(
   "/api/tender-finance",
   authMiddleware,
+  requireOffice,
   require(
     "./modules/tenderFinance/tenderFinance.routes"
   )
@@ -435,6 +476,7 @@ app.use(
 app.use(
   "/api/tender-workers",
   authMiddleware,
+  requireOffice,
   require(
     "./modules/tenderWorkers/tenderWorker.routes"
   )
@@ -443,18 +485,21 @@ app.use(
 app.use(
   "/api/subcontractors",
   authMiddleware,
+  requireOffice,
   subcontractorRoutes
 );
 
 app.use(
   "/api/invoices",
   authMiddleware,
+  requireOffice,
   invoiceRoutes
 );
 
 app.use(
   "/api/site-logs",
   authMiddleware,
+  requireOffice,
   siteLogRoutes
 );
 
@@ -491,6 +536,7 @@ app.use(
 app.use(
   "/api/masters",
   authMiddleware,
+  requireOffice,
   require(
     "./modules/masters/master.routes"
   )
@@ -520,12 +566,14 @@ app.use(
 app.use(
   "/api/worker-allocations",
   authMiddleware,
+  requireOffice,
   workerAllocationRoutes
 );
 
 app.use(
   "/api/worker-expenses",
   authMiddleware,
+  requireOffice,
   workerExpenseRoutes
 );
 
