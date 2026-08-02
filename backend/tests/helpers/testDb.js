@@ -73,7 +73,7 @@ const createMember = async (
 ) => {
   const email = `${marker(label)}@test.local`;
 
-  await owner.auth(
+  const created = await owner.auth(
     request.post("/api/auth/users")
   ).send({
     full_name: `${label} User`,
@@ -82,12 +82,31 @@ const createMember = async (
     role,
   });
 
+  // Neither of these used to be checked, so a failure here surfaced much
+  // later as an undefined token producing a 401, and the assertion that
+  // finally failed had nothing to do with the cause.
+  if (created.status >= 400) {
+    throw new Error(
+      `Failed to create member ${label}: ${created.status} ${JSON.stringify(
+        created.body
+      )}`
+    );
+  }
+
   const login = await request
     .post("/api/auth/login")
     .send({
       email,
       password: "TestPass123!",
     });
+
+  if (!login.body?.token) {
+    throw new Error(
+      `Failed to sign in member ${label}: ${login.status} ${JSON.stringify(
+        login.body
+      )}`
+    );
+  }
 
   return {
     label,
