@@ -336,73 +336,77 @@ function TenderDetailsPage() {
     return "badge yellow";
   };
 
+  /*
+   * These two, and loadPageData below, are promise chains rather than
+   * async/await so their state updates are visibly inside callbacks. That
+   * is what makes them safe to start from the mount effect without
+   * forcing an immediate second render.
+   */
   const loadTenderWorkers =
-    useCallback(async () => {
-      try {
-        const response =
-          await getTenderWorkers(
-            id
+    useCallback(() => {
+      return getTenderWorkers(id).then(
+        (response) => {
+          setAssignedWorkers(
+            normaliseArrayResponse(
+              response,
+              "workers"
+            )
+          );
+        },
+        (error) => {
+          console.error(
+            "Failed to load tender workers:",
+            error.response?.data ||
+              error
           );
 
-        setAssignedWorkers(
-          normaliseArrayResponse(
-            response,
-            "workers"
-          )
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load tender workers:",
-          error.response?.data ||
-            error
-        );
+          setAssignedWorkers([]);
 
-        setAssignedWorkers([]);
-
-        toast.error(
-          error.response?.data
-            ?.message ||
-            error.message ||
-            "Failed to load assigned workers."
-        );
-      }
+          toast.error(
+            error.response?.data
+              ?.message ||
+              error.message ||
+              "Failed to load assigned workers."
+          );
+        }
+      );
     }, [id]);
 
   const loadPayments =
-    useCallback(async () => {
-      try {
-        const response =
-          await getPayments({
-            tender_id: id,
-          });
+    useCallback(() => {
+      return getPayments({
+        tender_id: id,
+      }).then(
+        (response) => {
+          setPayments(
+            normaliseArrayResponse(
+              response,
+              "payments"
+            )
+          );
+        },
+        (error) => {
+          console.error(
+            "Failed to load tender payments:",
+            error.response?.data ||
+              error
+          );
 
-        setPayments(
-          normaliseArrayResponse(
-            response,
-            "payments"
-          )
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load tender payments:",
-          error.response?.data ||
-            error
-        );
+          setPayments([]);
 
-        setPayments([]);
-
-        toast.error(
-          error.response?.data
-            ?.message ||
-            error.message ||
-            "Failed to load tender finance records."
-        );
-      }
+          toast.error(
+            error.response?.data
+              ?.message ||
+              error.message ||
+              "Failed to load tender finance records."
+          );
+        }
+      );
     }, [id]);
 
   const fetchTenderDetails =
     useCallback(
-      async ({
+      ({
         showLoader = true,
       } = {}) => {
         if (
@@ -411,31 +415,21 @@ function TenderDetailsPage() {
             numericTenderId
           )
         ) {
-          setTender(null);
-          setTenderSites([]);
+          return Promise.resolve().then(
+            () => {
+              setTender(null);
+              setTenderSites([]);
 
-          setLoadError(
-            "The selected tender ID is invalid."
+              setLoadError(
+                "The selected tender ID is invalid."
+              );
+
+              setLoading(false);
+            }
           );
-
-          setLoading(false);
-
-          return;
         }
 
-        try {
-          if (showLoader) {
-            setLoading(true);
-          }
-
-          setLoadError("");
-
-          const [
-            tenderResponse,
-            coreTenderResponse,
-            subcontractorResponse,
-            workerResponse,
-          ] = await Promise.all([
+        return Promise.all([
             getTenderDetails(id),
 
             getTenderById(id).catch(
@@ -475,8 +469,13 @@ function TenderDetailsPage() {
                 return [];
               }
             ),
-          ]);
-
+          ]).then(
+          ([
+            tenderResponse,
+            coreTenderResponse,
+            subcontractorResponse,
+            workerResponse,
+          ]) => {
           const responseData =
             tenderResponse?.data ||
             tenderResponse ||
@@ -583,12 +582,17 @@ function TenderDetailsPage() {
             )
           );
 
-          if (!mergedTender) {
-            setLoadError(
-              "Tender details were not found."
-            );
+          setLoadError(
+            mergedTender
+              ? ""
+              : "Tender details were not found."
+          );
+
+          if (showLoader) {
+            setLoading(false);
           }
-        } catch (error) {
+        },
+        (error) => {
           console.error(
             "Failed to load tender details:",
             error.response?.data ||
@@ -605,14 +609,13 @@ function TenderDetailsPage() {
           setTender(null);
           setTenderSites([]);
 
-          if (!showLoader) {
-            toast.error(message);
-          }
-        } finally {
           if (showLoader) {
             setLoading(false);
+          } else {
+            toast.error(message);
           }
         }
+        );
       },
       [
         id,
@@ -620,9 +623,16 @@ function TenderDetailsPage() {
       ]
     );
 
+  /*
+   * Returns the chain rather than awaiting it, so the state updates the
+   * three loaders make are visibly deferred into promise callbacks and
+   * this is safe to start from the mount effect. `loading` already starts
+   * true, so the first paint shows the spinner without anything having to
+   * set it here.
+   */
   const loadPageData =
-    useCallback(async () => {
-      await Promise.all([
+    useCallback(() => {
+      return Promise.all([
         fetchTenderDetails(),
         loadPayments(),
         loadTenderWorkers(),
@@ -632,6 +642,18 @@ function TenderDetailsPage() {
       loadPayments,
       loadTenderWorkers,
     ]);
+
+  /*
+   * The Retry button. Unlike the first load, this one has to put the page
+   * back into its loading state before starting.
+   */
+  const retryPageData =
+    useCallback(() => {
+      setLoading(true);
+      setLoadError("");
+
+      return loadPageData();
+    }, [loadPageData]);
 
   useEffect(() => {
     loadPageData();
@@ -1316,7 +1338,7 @@ function TenderDetailsPage() {
           <button
             type="button"
             onClick={
-              loadPageData
+              retryPageData
             }
           >
             Retry

@@ -232,11 +232,13 @@ function SubcontractorPortalPage({
     return [];
   };
 
-  const clearTenderData = () => {
+  // Only calls state setters, which React keeps stable, so this is safe to
+  // memoise once and depend on from the loaders below.
+  const clearTenderData = useCallback(() => {
     setSelectedTender(null);
     setDocuments([]);
     setUpdates([]);
-  };
+  }, []);
 
   const clearUpdatePhoto = () => {
     if (updatePhotoPreview) {
@@ -442,116 +444,142 @@ function SubcontractorPortalPage({
         setTenderLoading(false);
       }
     },
-    [tenders]
+    [tenders, clearTenderData]
   );
 
-  const loadPortal =
-    useCallback(async () => {
-      try {
-        setLoading(true);
-        setLoadError("");
-
-        const [
-          profileResponse,
-          tenderResponse,
-        ] = await Promise.all([
-          getSubcontractorProfile(),
-          getSubcontractorTenders(),
-        ]);
-
-        const profile =
-          profileResponse
-            ?.subcontractor ||
-          profileResponse?.data
-            ?.subcontractor ||
-          null;
-
-        const scopedTenders =
-          extractArray(
+  /*
+   * Fetches the portal and settles the screen.
+   *
+   * Written as a promise chain rather than async/await so that every state
+   * update sits inside a callback. `loading` already starts true, so the
+   * first paint shows the spinner without this having to set it — which
+   * keeps the mount path free of the synchronous state updates that make
+   * an effect re-render immediately.
+   */
+  const runPortalLoad =
+    useCallback(() => {
+      return Promise.all([
+        getSubcontractorProfile(),
+        getSubcontractorTenders(),
+      ])
+        .then(
+          ([
+            profileResponse,
             tenderResponse,
-            "tenders"
-          );
+          ]) => {
+            const profile =
+              profileResponse
+                ?.subcontractor ||
+              profileResponse?.data
+                ?.subcontractor ||
+              null;
 
-        setSubcontractor(
-          profile
-        );
-
-        setTenders(
-          scopedTenders
-        );
-
-        if (
-          scopedTenders.length >
-          0
-        ) {
-          const firstTenderId =
-            scopedTenders[0]
-              .tender_id;
-
-          setSelectedTenderId(
-            String(firstTenderId)
-          );
-
-          try {
-            setTenderLoading(true);
-
-            const response =
-              await getSubcontractorTenderDetails(
-                firstTenderId
+            const scopedTenders =
+              extractArray(
+                tenderResponse,
+                "tenders"
               );
 
-            const data =
-              response?.data ||
-              response ||
-              {};
-
-            setSelectedTender(
-              data.tender || null
+            setSubcontractor(
+              profile
             );
 
-            setDocuments(
-              extractArray(
-                data,
-                "documents"
-              )
+            setTenders(
+              scopedTenders
             );
 
-            setUpdates(
-              extractArray(
-                data,
-                "updates"
-              )
+            if (
+              scopedTenders.length ===
+              0
+            ) {
+              setSelectedTenderId(
+                ""
+              );
+
+              clearTenderData();
+
+              return undefined;
+            }
+
+            const firstTenderId =
+              scopedTenders[0]
+                .tender_id;
+
+            setSelectedTenderId(
+              String(firstTenderId)
             );
-          } finally {
-            setTenderLoading(false);
+
+            setTenderLoading(true);
+
+            return getSubcontractorTenderDetails(
+              firstTenderId
+            )
+              .then((response) => {
+                const data =
+                  response?.data ||
+                  response ||
+                  {};
+
+                setSelectedTender(
+                  data.tender || null
+                );
+
+                setDocuments(
+                  extractArray(
+                    data,
+                    "documents"
+                  )
+                );
+
+                setUpdates(
+                  extractArray(
+                    data,
+                    "updates"
+                  )
+                );
+              })
+              .finally(() => {
+                setTenderLoading(false);
+              });
           }
-        } else {
-          setSelectedTenderId(
-            ""
-          );
+        )
+        .then(
+          () => {
+            setLoading(false);
+          },
+          (error) => {
+            console.error(
+              "Failed to load subcontractor portal:",
+              error.response?.data ||
+                error
+            );
 
-          clearTenderData();
-        }
-      } catch (error) {
-        console.error(
-          "Failed to load subcontractor portal:",
-          error.response?.data ||
-            error
-        );
+            setLoadError(
+              error.response?.data
+                ?.message ||
+                "Failed to load your subcontractor portal."
+            );
 
-        setLoadError(
-          error.response?.data
-            ?.message ||
-            "Failed to load your subcontractor portal."
+            setLoading(false);
+          }
         );
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+    }, [clearTenderData]);
+
+  /*
+   * The Retry button. Unlike the first load, this one has to put the
+   * screen back into its loading state before starting.
+   */
+  const loadPortal =
+    useCallback(() => {
+      setLoading(true);
+      setLoadError("");
+
+      return runPortalLoad();
+    }, [runPortalLoad]);
 
   useEffect(() => {
-    loadPortal();
-  }, [loadPortal]);
+    runPortalLoad();
+  }, [runPortalLoad]);
 
   useEffect(() => {
     return () => {

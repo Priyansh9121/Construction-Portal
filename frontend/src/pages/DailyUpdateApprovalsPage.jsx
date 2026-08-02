@@ -1,5 +1,5 @@
 import {
-  useEffect,
+  useCallback,
   useMemo,
   useState,
 } from "react";
@@ -12,21 +12,32 @@ import {
   rejectDailyUpdate,
 } from "../services/dailyUpdateApprovalService";
 
+import useAsyncResource from "../hooks/useAsyncResource";
+
 import ExportButtons from "../components/export/ExportButtons";
 import ApprovalActionModal from "../components/ApprovalActionModal";
 
 function DailyUpdateApprovalsPage() {
-  const [approvals, setApprovals] =
-    useState([]);
+  const fetchApprovals = useCallback(
+    async () => {
+      const data = await getDailyUpdateApprovals("all");
 
-  const [loading, setLoading] =
-    useState(true);
+      return data.approvals || [];
+    },
+    []
+  );
+
+  const {
+    data: approvals,
+    loading,
+    error: loadError,
+    reload: loadApprovals,
+  } = useAsyncResource(fetchApprovals, {
+    label: "daily update approvals",
+  });
 
   const [processing, setProcessing] =
     useState(false);
-
-  const [loadError, setLoadError] =
-    useState("");
 
   const [
     approveTarget,
@@ -98,50 +109,6 @@ function DailyUpdateApprovalsPage() {
 
     return "badge yellow";
   };
-
-  const loadApprovals = async ({
-    showLoader = true,
-  } = {}) => {
-    try {
-      if (showLoader) {
-        setLoading(true);
-      }
-
-      setLoadError("");
-
-      const data =
-        await getDailyUpdateApprovals(
-          "all"
-        );
-
-      setApprovals(
-        data.approvals || []
-      );
-    } catch (error) {
-      console.error(
-        "Failed to load daily update approvals:",
-        error.response?.data || error
-      );
-
-      const errorMessage =
-        error.response?.data?.message ||
-        "Failed to load daily update approvals.";
-
-      setLoadError(errorMessage);
-
-      if (!showLoader) {
-        toast.error(errorMessage);
-      }
-    } finally {
-      if (showLoader) {
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadApprovals();
-  }, []);
 
   const totals = useMemo(() => {
     const pending =

@@ -1,5 +1,5 @@
 import {
-  useEffect,
+  useCallback,
   useMemo,
   useState,
 } from "react";
@@ -18,6 +18,8 @@ import {
   updateSubcontractor,
 } from "../services/subcontractorService";
 
+import useAsyncResource from "../hooks/useAsyncResource";
+
 const EMPTY_FORM = {
   full_name: "",
   phone: "",
@@ -34,10 +36,29 @@ const EMPTY_FORM = {
 function SubcontractorsPage() {
   const { user } = useAuth();
 
-  const [
-    subcontractors,
-    setSubcontractors,
-  ] = useState([]);
+  const fetchSubcontractorList = useCallback(
+    async () => {
+      const data = await getSubcontractors();
+
+      const records =
+        data?.subcontractors ||
+        data?.data?.subcontractors ||
+        data?.data ||
+        [];
+
+      return Array.isArray(records) ? records : [];
+    },
+    []
+  );
+
+  const {
+    data: subcontractors,
+    loading,
+    error: loadError,
+    reload: fetchSubcontractors,
+  } = useAsyncResource(fetchSubcontractorList, {
+    label: "subcontractors",
+  });
 
   const [
     deleteTarget,
@@ -67,12 +88,6 @@ function SubcontractorsPage() {
   const [formData, setFormData] =
     useState(EMPTY_FORM);
 
-  const [loading, setLoading] =
-    useState(true);
-
-  const [loadError, setLoadError] =
-    useState("");
-
   const [submitting, setSubmitting] =
     useState(false);
 
@@ -89,59 +104,6 @@ function SubcontractorsPage() {
     "active"
       ? "badge green"
       : "badge yellow";
-
-  const fetchSubcontractors =
-    async ({
-      showLoader = true,
-    } = {}) => {
-      try {
-        if (showLoader) {
-          setLoading(true);
-        }
-
-        setLoadError("");
-
-        const data =
-          await getSubcontractors();
-
-        const records =
-          data?.subcontractors ||
-          data?.data?.subcontractors ||
-          data?.data ||
-          [];
-
-        setSubcontractors(
-          Array.isArray(records)
-            ? records
-            : []
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load subcontractors:",
-          error.response?.data ||
-            error
-        );
-
-        const message =
-          error.response?.data
-            ?.message ||
-          "Failed to load subcontractors.";
-
-        setLoadError(message);
-
-        if (!showLoader) {
-          toast.error(message);
-        }
-      } finally {
-        if (showLoader) {
-          setLoading(false);
-        }
-      }
-    };
-
-  useEffect(() => {
-    fetchSubcontractors();
-  }, []);
 
   const totals = useMemo(() => {
     const active =

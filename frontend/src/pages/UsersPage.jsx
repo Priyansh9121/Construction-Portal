@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -18,6 +17,8 @@ import {
   updateUser,
   disableUser,
 } from "../services/userService";
+
+import useAsyncResource from "../hooks/useAsyncResource";
 
 const EMPTY_FORM = {
   full_name: "",
@@ -43,8 +44,29 @@ function UsersPage() {
   const { user: currentUser } =
     useAuth();
 
-  const [users, setUsers] =
-    useState([]);
+  const fetchUserList = useCallback(
+    async () => {
+      const response = await getUsers();
+
+      const records =
+        response?.users ||
+        response?.data?.users ||
+        response?.data ||
+        [];
+
+      return Array.isArray(records) ? records : [];
+    },
+    []
+  );
+
+  const {
+    data: users,
+    loading,
+    error: loadError,
+    reload: fetchUsers,
+  } = useAsyncResource(fetchUserList, {
+    label: "users",
+  });
 
   const [formData, setFormData] =
     useState(EMPTY_FORM);
@@ -78,12 +100,6 @@ function UsersPage() {
     statusFilter,
     setStatusFilter,
   ] = useState("all");
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [loadError, setLoadError] =
-    useState("");
 
   const [
     submitting,
@@ -138,62 +154,6 @@ function UsersPage() {
 
     return "badge green";
   };
-
-  const fetchUsers =
-    useCallback(
-      async ({
-        showLoader = true,
-      } = {}) => {
-        try {
-          if (showLoader) {
-            setLoading(true);
-          }
-
-          setLoadError("");
-
-          const response =
-            await getUsers();
-
-          const records =
-            response?.users ||
-            response?.data?.users ||
-            response?.data ||
-            [];
-
-          setUsers(
-            Array.isArray(records)
-              ? records
-              : []
-          );
-        } catch (error) {
-          console.error(
-            "Failed to load users:",
-            error.response?.data ||
-              error
-          );
-
-          const message =
-            error.response?.data
-              ?.message ||
-            "Failed to load users.";
-
-          setLoadError(message);
-
-          if (!showLoader) {
-            toast.error(message);
-          }
-        } finally {
-          if (showLoader) {
-            setLoading(false);
-          }
-        }
-      },
-      []
-    );
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
 
   const totals = useMemo(() => {
     const active =

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Link,
   useNavigate,
@@ -11,7 +11,19 @@ function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [token, setToken] = useState("");
+  /*
+   * The token normally arrives in the reset link, but the field stays
+   * editable so someone who copied it out of the email by hand can paste
+   * it. Reading the query parameter directly and letting a typed value
+   * take precedence keeps both paths working without an effect that
+   * copies one piece of state into another.
+   */
+  const linkToken = searchParams.get("token") || "";
+  const [typedToken, setTypedToken] = useState(null);
+
+  const token = typedToken ?? linkToken;
+  const setToken = setTypedToken;
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -19,14 +31,6 @@ function ResetPasswordPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    const queryToken = searchParams.get("token");
-
-    if (queryToken) {
-      setToken(queryToken);
-    }
-  }, [searchParams]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
