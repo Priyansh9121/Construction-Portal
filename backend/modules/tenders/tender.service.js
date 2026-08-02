@@ -1300,6 +1300,8 @@ const createDocument = async ({
   return tenderQueries.insertTenderDocument({
     tenderId:
       context.tenderId,
+    companyId:
+      context.companyId,
     uploadedBy:
       context.userId,
     document,
@@ -1426,6 +1428,8 @@ const createMaterial = async ({
   return tenderQueries.insertTenderMaterial({
     tenderId:
       context.tenderId,
+    companyId:
+      context.companyId,
     material,
   });
 };
@@ -1550,6 +1554,8 @@ const createBanking = async ({
   return tenderQueries.insertTenderBanking({
     tenderId:
       context.tenderId,
+    companyId:
+      context.companyId,
     banking,
   });
 };
@@ -1706,6 +1712,8 @@ const assignSubcontractor = async ({
   return tenderQueries.insertTenderSubcontractor({
     tenderId:
       context.tenderId,
+    companyId:
+      context.companyId,
     assignment,
   });
 };
@@ -2052,6 +2060,8 @@ const createFinanceRecord = async ({
   return tenderQueries.insertTenderFinanceRecord({
     tenderId:
       context.tenderId,
+    companyId:
+      context.companyId,
     finance,
   });
 };

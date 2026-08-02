@@ -1,15 +1,44 @@
 import axiosClient from "../api/axiosClient";
-import { uploadFile } from "./uploadService";
+
 /*
 |--------------------------------------------------------------------------
 | Tender Details
 |--------------------------------------------------------------------------
+|
+| Every sub-resource of a tender — documents, materials, banking and
+| subcontractor assignments — is nested under the tender that owns it:
+|
+|     /api/tenders/:tenderId/materials/:materialId
+|
+| The tender id is part of the path rather than the body, so the server can
+| confirm the parent belongs to the caller's company before it touches the
+| child row. A flat "/tender-details/materials" shape cannot do that: it has
+| to trust an id supplied by the client.
+|
+| Read access is a single call — GET /api/tenders/:id/details returns the
+| tender with every tab's data attached, so opening the page is one request
+| rather than nine.
+|
+*/
+
+const tenderPath = (tenderId, suffix = "") => {
+  const id = Number(tenderId);
+
+  if (!id || Number.isNaN(id)) {
+    throw new Error("A valid tender ID is required.");
+  }
+
+  return `/tenders/${id}${suffix}`;
+};
+
+/*
+|--------------------------------------------------------------------------
+| The whole record
+|--------------------------------------------------------------------------
 */
 
 export const getTenderDetails = async (id) => {
-  const response = await axiosClient.get(
-    `/tender-details/${id}`
-  );
+  const response = await axiosClient.get(tenderPath(id, "/details"));
 
   return response.data;
 };
@@ -20,18 +49,18 @@ export const getTenderDetails = async (id) => {
 |--------------------------------------------------------------------------
 */
 
-export const addTenderMaterial = async (payload) => {
+export const addTenderMaterial = async ({ tender_id, ...payload }) => {
   const response = await axiosClient.post(
-    "/tender-details/materials",
+    tenderPath(tender_id, "/materials"),
     payload
   );
 
   return response.data;
 };
 
-export const deleteTenderMaterial = async (id) => {
+export const deleteTenderMaterial = async (tenderId, materialId) => {
   const response = await axiosClient.delete(
-    `/tender-details/materials/${id}`
+    tenderPath(tenderId, `/materials/${materialId}`)
   );
 
   return response.data;
@@ -43,18 +72,18 @@ export const deleteTenderMaterial = async (id) => {
 |--------------------------------------------------------------------------
 */
 
-export const addTenderBanking = async (payload) => {
+export const addTenderBanking = async ({ tender_id, ...payload }) => {
   const response = await axiosClient.post(
-    "/tender-details/banking",
+    tenderPath(tender_id, "/banking"),
     payload
   );
 
   return response.data;
 };
 
-export const deleteTenderBanking = async (id) => {
+export const deleteTenderBanking = async (tenderId, bankingId) => {
   const response = await axiosClient.delete(
-    `/tender-details/banking/${id}`
+    tenderPath(tenderId, `/banking/${bankingId}`)
   );
 
   return response.data;
@@ -66,42 +95,18 @@ export const deleteTenderBanking = async (id) => {
 |--------------------------------------------------------------------------
 */
 
-export const addTenderDocument = async (payload) => {
+export const addTenderDocument = async ({ tender_id, ...payload }) => {
   const response = await axiosClient.post(
-    "/tender-details/documents",
+    tenderPath(tender_id, "/documents"),
     payload
   );
 
   return response.data;
 };
 
-export const deleteTenderDocument = async (id) => {
+export const deleteTenderDocument = async (tenderId, documentId) => {
   const response = await axiosClient.delete(
-    `/tender-details/documents/${id}`
-  );
-
-  return response.data;
-};
-
-
-/*
-|--------------------------------------------------------------------------
-| Daily Progress
-|--------------------------------------------------------------------------
-*/
-
-export const addDailyProgress = async (payload) => {
-  const response = await axiosClient.post(
-    "/site-logs",
-    payload
-  );
-
-  return response.data;
-};
-
-export const deleteDailyProgress = async (id) => {
-  const response = await axiosClient.delete(
-    `/site-logs/${id}`
+    tenderPath(tenderId, `/documents/${documentId}`)
   );
 
   return response.data;
@@ -109,35 +114,35 @@ export const deleteDailyProgress = async (id) => {
 
 /*
 |--------------------------------------------------------------------------
-| Tender Subcontractors
+| Subcontractor assignments
 |--------------------------------------------------------------------------
 */
 
-export const assignTenderSubcontractor = async (
+export const assignTenderSubcontractor = async ({ tender_id, ...payload }) => {
+  const response = await axiosClient.post(
+    tenderPath(tender_id, "/subcontractors"),
+    payload
+  );
+
+  return response.data;
+};
+
+export const updateTenderSubcontractor = async (
+  tenderId,
+  assignmentId,
   payload
 ) => {
-  const response = await axiosClient.post(
-    "/tender-details/subcontractors",
-    payload
-  );
-
-  return response.data;
-};
-
-export const removeTenderSubcontractor = async (
-  id
-) => {
-  const response = await axiosClient.delete(
-    `/tender-details/subcontractors/${id}`
-  );
-
-  return response.data;
-};
-
-export const updateTenderSubcontractor = async (id, payload) => {
   const response = await axiosClient.put(
-    `/tender-details/subcontractors/${id}`,
+    tenderPath(tenderId, `/subcontractors/${assignmentId}`),
     payload
+  );
+
+  return response.data;
+};
+
+export const removeTenderSubcontractor = async (tenderId, assignmentId) => {
+  const response = await axiosClient.delete(
+    tenderPath(tenderId, `/subcontractors/${assignmentId}`)
   );
 
   return response.data;
