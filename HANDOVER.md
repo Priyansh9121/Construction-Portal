@@ -324,12 +324,24 @@ text.
 
 ### Known issues
 
-- **Two npm advisories remain, both non-exploitable here.** `react-router`
-  7.12–8.2 has an open redirect via a backslash in `<Link to>`; every route
-  target in this app is a literal or an internal id, and the one
-  database-driven link is sanitised. `xlsx` has parsing vulnerabilities;
-  this app only writes spreadsheets, never reads them. Recheck both when
-  upstream fixes land.
+- **Three npm advisories, none of which apply here.** Checked rather than
+  assumed:
+
+  `react-router` 7.12–8.2, **CSRF bypass in RSC mode**. This is a Vite SPA
+  using client-side routing; there is no React Server Components mode, no
+  framework mode, and no server handler. The only remedy npm offers is a
+  downgrade to 7.11.0, which is a major version back — not worth taking for
+  a path the app does not have. Note this advisory *replaced* the
+  open-redirect one that was recorded here earlier; the `toInternalPath`
+  guard in `NotificationCenter` stays regardless, since notification links
+  are the one route target that comes from the database.
+
+  `xlsx`, **prototype pollution and ReDoS**, no fix published. Both are in
+  the parser. This app never parses: the only calls are
+  `XLSX.utils.aoa_to_sheet`, `book_new`, `book_append_sheet`,
+  `encode/decode_cell` and `writeFile`. There is no `XLSX.read` anywhere.
+
+  Recheck when upstream fixes land — `npm audit` in `frontend/`.
 - **No code splitting.** The bundle is ~1.9 MB.
 - **Eight pages exceed 1,000 lines.**
 - **The audit trail records outcomes, not diffs.** The writer sits on the
