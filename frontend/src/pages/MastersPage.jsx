@@ -278,13 +278,13 @@ function MastersPage() {
           />
         </div>
 
-        <div className="tab-row">
+        <div className="tabs">
           {TABS.map((item) => (
             <button
               key={item.key}
               type="button"
               className={
-                item.key === activeTab ? "tab-button active" : "tab-button"
+                item.key === activeTab ? "active-tab" : ""
               }
               onClick={() => switchTab(item.key)}
             >
@@ -477,7 +477,7 @@ function MastersPage() {
           )}
 
           {filtered.length > 0 && (
-            <div className="table-scroll">
+            <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
@@ -618,7 +618,7 @@ function MastersPage() {
           )}
 
           {statement?.entries?.length > 0 && (
-            <div className="table-scroll">
+            <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>

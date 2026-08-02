@@ -22,17 +22,6 @@ export const getPayments = async (filters = {}) => {
     : res.data.payments ?? [];
 };
 
-/**
- * Same call, but keeps the pagination metadata.
- */
-export const getPaymentsPage = async (filters = {}) => {
-  const res = await axiosClient.get("/payments", { params: filters });
-
-  return {
-    payments: res.data.payments ?? [],
-    pagination: res.data.pagination ?? null,
-  };
-};
 
 export const createPayment = async (data) => {
   const res = await axiosClient.post("/payments", data);
@@ -65,40 +54,12 @@ export const getPaymentHierarchy = async () => {
   return res.data.hierarchy ?? { income: [], expense: [] };
 };
 
-/**
- * Income, expense and balance, broken down by scope and sub-type.
- */
-export const getPaymentSummary = async (params = {}) => {
-  const res = await axiosClient.get("/payments/summary", { params });
 
-  return {
-    summary: res.data.summary ?? null,
-    breakdown: res.data.breakdown ?? [],
-  };
-};
-
-/**
- * Investor money with interest accrued to today.
- *
- * Interest is computed per request rather than stored, because it keeps
- * running for as long as the money is outstanding.
- */
-export const getInvestorInterest = async () => {
-  const res = await axiosClient.get("/payments/investor-interest");
-
-  return {
-    entries: res.data.entries ?? [],
-    summary: res.data.summary ?? null,
-  };
-};
 
 export default {
   getPayments,
-  getPaymentsPage,
   createPayment,
   updatePayment,
   deletePayment,
   getPaymentHierarchy,
-  getPaymentSummary,
-  getInvestorInterest,
 };

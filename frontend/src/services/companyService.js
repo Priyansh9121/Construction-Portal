@@ -11,11 +11,6 @@ import axiosClient from "../api/axiosClient";
 |
 */
 
-export const getCompany = async () => {
-  const { data } = await axiosClient.get("/company");
-
-  return data.company ?? data;
-};
 
 export const getCompanyMembers = async (params = {}) => {
   const { data } = await axiosClient.get("/company/members", { params });
@@ -24,6 +19,5 @@ export const getCompanyMembers = async (params = {}) => {
 };
 
 export default {
-  getCompany,
   getCompanyMembers,
 };

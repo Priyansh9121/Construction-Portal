@@ -43,3 +43,82 @@
   background: var(--blue-light);
   color: var(--blue-dark);
 }
+/* ---------------------------------------------------------------------------
+   Panels and wrappers that had markup but no rule
+   ---------------------------------------------------------------------------
+   Each of these class names appears in JSX with nothing behind it, so the
+   element fell back to browser defaults — visible as a password toggle
+   sitting under its field rather than inside it, and checkbox rows
+   stacking instead of sitting on one line.
+   ------------------------------------------------------------------------ */
+
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+  padding-right: 68px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  padding: 4px 10px;
+  border: 0;
+  background: none;
+  color: var(--blue-dark);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.password-toggle-btn:hover {
+  text-decoration: underline;
+}
+
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.report-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.route-guard-loading {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  color: var(--muted);
+}

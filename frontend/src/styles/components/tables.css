@@ -109,3 +109,29 @@ tbody tr:hover {
 .table-link-button::after {
   display: none;
 }
+/* ---------------------------------------------------------------------------
+   Filter row
+   ---------------------------------------------------------------------------
+   The select-and-refresh strip above a table. Wraps rather than squeezing
+   its controls on a narrow screen.
+   ------------------------------------------------------------------------ */
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.filter-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.filter-row select {
+  min-width: 180px;
+}

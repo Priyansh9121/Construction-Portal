@@ -32,8 +32,11 @@ export const FILE_MODULES = Object.freeze({
 
 /**
  * Uploads a file and returns the stored record.
+ *
+ * Local to this module: uploadFile below is the only caller, and it is
+ * what every screen uses.
  */
-export async function uploadFileRecord(
+async function uploadFileRecord(
   file,
   {
     folder = "general",
@@ -83,6 +86,5 @@ export async function uploadFile(file, folderOrOptions = "general") {
 
 export default {
   uploadFile,
-  uploadFileRecord,
   FILE_MODULES,
 };

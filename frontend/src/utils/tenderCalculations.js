@@ -1,16 +1,6 @@
-export const getRunningTenders = (tenders = []) => {
-    return tenders.filter((tender) => tender.status === "running");
-};
+
   
-export const getPassedTenders = (tenders = []) => {
-    return tenders.filter((tender) => tender.status === "passed");
-};
   
-export const getDueSoonTenders = (tenders = []) => {
-    return tenders.filter(
-        (tender) => tender.status === "due soon" || tender.status === "pending"
-    );
-};
   
   export const getTenderValue = (tenders = []) => {
     return tenders.reduce(

@@ -40,18 +40,6 @@ export const assignWorkerToTender = async ({ tender_id, ...payload }) => {
   return response.data;
 };
 
-export const updateTenderWorker = async (
-  tenderId,
-  assignmentId,
-  payload
-) => {
-  const response = await axiosClient.put(
-    tenderPath(tenderId, `/${assignmentId}`),
-    payload
-  );
-
-  return response.data;
-};
 
 export const removeTenderWorker = async (tenderId, assignmentId) => {
   const response = await axiosClient.delete(

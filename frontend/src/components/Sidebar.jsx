@@ -32,6 +32,9 @@ function Sidebar({ user }) {
     // Investors, suppliers and clients.
     { label: "Master Data", path: "/masters" },
 
+    // Who changed what.
+    { label: "Activity Log", path: "/activity" },
+
     { label: "Analytics & Reports", path: "/reports" },
     { label: "Settings", path: "/settings" },
   ];

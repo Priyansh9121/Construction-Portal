@@ -1,21 +1,9 @@
-export const emptyFinanceForm = {
-    record_type: "GOVERNMENT_BILL",
-    source_name: "",
-    payment_mode: "Bank",
-    amount: "",
-    interest_percent: "",
-    gst_percent: "18",
-    gst_total: "",
-    gst_done: "",
-    company_charge_percent: "",
-    company_charge_total: "",
-    company_charge_done: "",
-    tds_amount: "",
-    record_date: "",
-    notes: "",
-  };
-  
-  export const emptySubcontractorForm = {
+/*
+ * The Finance tab reads payments rather than tender_finance_records, so
+ * the form shape that used to sit here had no screen behind it.
+ */
+
+export const emptySubcontractorForm = {
     subcontractor_id: "",
     work_description: "",
     assigned_amount: "",

@@ -76,6 +76,11 @@ function AppLayout({
         path: "/masters",
       },
       {
+        label: "Activity Log",
+        shortLabel: "Activity",
+        path: "/activity",
+      },
+      {
         label: "Reports",
         path: "/reports",
       },
