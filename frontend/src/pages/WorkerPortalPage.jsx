@@ -446,122 +446,143 @@ function WorkerPortalPage({
       );
     }, []);
 
-  const loadPortal =
-    useCallback(async () => {
-      try {
-        setLoading(true);
-        setLoadError("");
-
-        const [
+  /*
+   * Fetches the portal and settles the screen.
+   *
+   * Written as a promise chain rather than async/await so that every state
+   * update sits inside a callback. `loading` already starts true, so the
+   * first paint shows the spinner without this having to set it — which
+   * keeps the mount path free of the synchronous state updates that make
+   * an effect re-render immediately.
+   */
+  const runPortalLoad =
+    useCallback(() => {
+      return Promise.all([
+        getWorkerProfile(),
+        getWorkerAssignments(),
+        getWorkerDailyUpdates(),
+        getWorkerMoney(),
+      ]).then(
+        ([
           profileResponse,
           assignmentResponse,
           updateResponse,
           moneyResponse,
-        ] = await Promise.all([
-          getWorkerProfile(),
-          getWorkerAssignments(),
-          getWorkerDailyUpdates(),
-          getWorkerMoney(),
-        ]);
+        ]) => {
+          const profile =
+            profileResponse?.worker ||
+            profileResponse?.data
+              ?.worker ||
+            null;
 
-        const profile =
-          profileResponse?.worker ||
-          profileResponse?.data
-            ?.worker ||
-          null;
+          const scopedAssignments =
+            extractArray(
+              assignmentResponse,
+              "assignments"
+            );
 
-        const scopedAssignments =
-          extractArray(
-            assignmentResponse,
-            "assignments"
+          const updateRecords =
+            extractArray(
+              updateResponse,
+              "updates"
+            );
+
+          const allocationRecords =
+            extractArray(
+              moneyResponse,
+              "allocations"
+            );
+
+          const expenseRecords =
+            extractArray(
+              moneyResponse,
+              "expenses"
+            );
+
+          setWorker(profile);
+
+          setAssignments(
+            scopedAssignments
           );
 
-        const updateRecords =
-          extractArray(
-            updateResponse,
-            "updates"
+          setUpdates(
+            updateRecords
           );
 
-        const allocationRecords =
-          extractArray(
-            moneyResponse,
-            "allocations"
+          setAllocations(
+            allocationRecords
           );
 
-        const expenseRecords =
-          extractArray(
-            moneyResponse,
-            "expenses"
+          setExpenses(
+            expenseRecords
           );
 
-        setWorker(profile);
-
-        setAssignments(
-          scopedAssignments
-        );
-
-        setUpdates(
-          updateRecords
-        );
-
-        setAllocations(
-          allocationRecords
-        );
-
-        setExpenses(
-          expenseRecords
-        );
-
-        if (
-          scopedAssignments.length >
-          0
-        ) {
-          setSelectedAssignmentId(
-            (current) => {
-              const stillExists =
-                scopedAssignments.some(
-                  (item) =>
-                    String(
-                      item.assignment_id
-                    ) ===
-                    String(current)
-                );
-
-              return stillExists
-                ? current
-                : String(
-                    scopedAssignments[0]
-                      .assignment_id
+          if (
+            scopedAssignments.length >
+            0
+          ) {
+            setSelectedAssignmentId(
+              (current) => {
+                const stillExists =
+                  scopedAssignments.some(
+                    (item) =>
+                      String(
+                        item.assignment_id
+                      ) ===
+                      String(current)
                   );
-            }
-          );
-        } else {
-          setSelectedAssignmentId(
-            ""
+
+                return stillExists
+                  ? current
+                  : String(
+                      scopedAssignments[0]
+                        .assignment_id
+                    );
+              }
+            );
+          } else {
+            setSelectedAssignmentId(
+              ""
+            );
+
+            setDocuments([]);
+          }
+
+          setLoading(false);
+        },
+        (error) => {
+          console.error(
+            "Failed to load worker portal:",
+            error.response?.data ||
+              error
           );
 
-          setDocuments([]);
+          setLoadError(
+            error.response?.data
+              ?.message ||
+              "Failed to load your worker portal."
+          );
+
+          setLoading(false);
         }
-      } catch (error) {
-        console.error(
-          "Failed to load worker portal:",
-          error.response?.data ||
-            error
-        );
-
-        setLoadError(
-          error.response?.data
-            ?.message ||
-            "Failed to load your worker portal."
-        );
-      } finally {
-        setLoading(false);
-      }
+      );
     }, []);
 
+  /*
+   * The Retry button. Unlike the first load, this one has to put the
+   * screen back into its loading state before starting.
+   */
+  const loadPortal =
+    useCallback(() => {
+      setLoading(true);
+      setLoadError("");
+
+      return runPortalLoad();
+    }, [runPortalLoad]);
+
   useEffect(() => {
-    loadPortal();
-  }, [loadPortal]);
+    runPortalLoad();
+  }, [runPortalLoad]);
 
   useEffect(() => {
     let cancelled = false;
