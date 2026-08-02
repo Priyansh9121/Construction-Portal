@@ -162,7 +162,11 @@ function SiteOperationsPage() {
 
       <div className="tab-panel">
         {tab === "material" && (
-          <MaterialTab ops={ops} onBlocked={handleBlocked} />
+          <MaterialTab
+            ops={ops}
+            onBlocked={handleBlocked}
+            isOffice={isOffice}
+          />
         )}
 
         {tab === "labour" && (
@@ -170,7 +174,11 @@ function SiteOperationsPage() {
         )}
 
         {tab === "banking" && (
-          <BankingTab ops={ops} onBlocked={handleBlocked} />
+          <BankingTab
+            ops={ops}
+            onBlocked={handleBlocked}
+            isOffice={isOffice}
+          />
         )}
 
         {tab === "access" && (
@@ -205,13 +213,12 @@ function AccessPrompt({ blocked, onCancel, onRequest }) {
 
         <button
           type="button"
-          className="btn btn--primary"
           onClick={() => onRequest(reason)}
         >
           Request access
         </button>
 
-        <button type="button" className="btn" onClick={onCancel}>
+        <button type="button" className="secondary-btn" onClick={onCancel}>
           Cancel
         </button>
       </div>
@@ -225,7 +232,26 @@ function AccessPrompt({ blocked, onCancel, onRequest }) {
 |--------------------------------------------------------------------------
 */
 
-function MaterialTab({ ops, onBlocked }) {
+function MaterialTab({ ops, onBlocked, isOffice }) {
+  const [deciding, setDeciding] = useState(null);
+
+  const decide = async (id, decision) => {
+    try {
+      setDeciding(id);
+
+      const result = await ops.decideMaterial(id, decision);
+
+      toast.success(
+        result?.message ||
+          `Entry ${decision === "approve" ? "approved" : "rejected"}.`
+      );
+    } catch {
+      toast.error("Could not update that entry.");
+    } finally {
+      setDeciding(null);
+    }
+  };
+
   const emptyForm = {
     material_id: "",
     entry_date: todayLocal(),
@@ -450,7 +476,7 @@ function MaterialTab({ ops, onBlocked }) {
 
           <button
             type="button"
-            className="btn"
+            className="secondary-btn"
             onClick={() => cameraRef.current?.click()}
           >
             Take photo
@@ -458,7 +484,7 @@ function MaterialTab({ ops, onBlocked }) {
 
           <button
             type="button"
-            className="btn"
+            className="secondary-btn"
             onClick={() => galleryRef.current?.click()}
           >
             Choose from gallery
@@ -478,7 +504,6 @@ function MaterialTab({ ops, onBlocked }) {
 
         <button
           type="submit"
-          className="btn btn--primary"
           disabled={saving}
         >
           {saving ? "Saving…" : "Record material"}
@@ -501,6 +526,7 @@ function MaterialTab({ ops, onBlocked }) {
                   <th>Total</th>
                   <th>Photo</th>
                   <th>Status</th>
+                  {isOffice && <th>Decision</th>}
                 </tr>
               </thead>
               <tbody>
@@ -534,6 +560,16 @@ function MaterialTab({ ops, onBlocked }) {
                         {m.approval_status}
                       </span>
                     </td>
+
+                    {isOffice && (
+                      <td>
+                        <DecideCell
+                          status={m.approval_status}
+                          busy={deciding === m.id}
+                          onDecide={(decision) => decide(m.id, decision)}
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -658,7 +694,7 @@ function LabourTab({ ops, onBlocked }) {
             }
           />
 
-          <button type="submit" className="btn btn--primary">
+          <button type="submit">
             Add
           </button>
         </form>
@@ -756,7 +792,7 @@ function LabourTab({ ops, onBlocked }) {
                 }
               />
 
-              <button type="submit" className="btn btn--primary">
+              <button type="submit">
                 Record
               </button>
             </form>
@@ -796,7 +832,32 @@ function LabourTab({ ops, onBlocked }) {
 |--------------------------------------------------------------------------
 */
 
-function BankingTab({ ops, onBlocked }) {
+function BankingTab({ ops, onBlocked, isOffice }) {
+  const [deciding, setDeciding] = useState(null);
+
+  const { loadExpenses } = ops;
+
+  useEffect(() => {
+    loadExpenses().catch(() => {});
+  }, [loadExpenses]);
+
+  const decide = async (id, decision) => {
+    try {
+      setDeciding(id);
+
+      const result = await ops.decideExpense(id, decision);
+
+      toast.success(
+        result?.message ||
+          `Expense ${decision === "approve" ? "approved" : "rejected"}.`
+      );
+    } catch {
+      toast.error("Could not update that expense.");
+    } finally {
+      setDeciding(null);
+    }
+  };
+
   const [expense, setExpense] = useState({
     expense_date: todayLocal(),
     category: "material",
@@ -956,10 +1017,102 @@ function BankingTab({ ops, onBlocked }) {
           />
         </label>
 
-        <button type="submit" className="btn btn--primary">
+        <button type="submit">
           Record expense
         </button>
       </form>
+
+      <section className="card">
+        <h2>Recorded expenses</h2>
+
+        {ops.expenses.length === 0 ? (
+          <p className="empty">Nothing recorded yet.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Category</th>
+                  <th>Amount</th>
+                  <th>Paid by</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  {isOffice && <th>Decision</th>}
+                </tr>
+              </thead>
+
+              <tbody>
+                {ops.expenses.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.expense_date}</td>
+                    <td>{row.category}</td>
+                    <td>{formatCurrency(row.amount)}</td>
+                    <td>{row.payment_mode}</td>
+                    <td>{row.description || "—"}</td>
+                    <td>
+                      <span
+                        className={`status status--${row.approval_status}`}
+                      >
+                        {row.approval_status}
+                      </span>
+                    </td>
+
+                    {isOffice && (
+                      <td>
+                        <DecideCell
+                          status={row.approval_status}
+                          busy={deciding === row.id}
+                          onDecide={(decision) => decide(row.id, decision)}
+                        />
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Approve / reject
+|--------------------------------------------------------------------------
+|
+| Material entries and supervisor expenses are both recorded as pending.
+| The API could always decide them; nothing on screen could, so they
+| stayed pending for ever.
+|
+*/
+
+function DecideCell({ status, onDecide, busy }) {
+  if (status !== "pending") {
+    return <span className="muted-text">—</span>;
+  }
+
+  return (
+    <div className="row-actions">
+      <button
+        type="button"
+        className="secondary-btn"
+        disabled={busy}
+        onClick={() => onDecide("approve")}
+      >
+        Approve
+      </button>
+
+      <button
+        type="button"
+        className="delete-btn"
+        disabled={busy}
+        onClick={() => onDecide("reject")}
+      >
+        Reject
+      </button>
     </div>
   );
 }
@@ -1027,14 +1180,14 @@ function AccessTab({ ops, isOffice }) {
                         <>
                           <button
                             type="button"
-                            className="btn btn--primary"
+                           
                             onClick={() => act(r.id, "grant")}
                           >
                             Grant
                           </button>
                           <button
                             type="button"
-                            className="btn"
+                            className="secondary-btn"
                             onClick={() => act(r.id, "deny")}
                           >
                             Deny

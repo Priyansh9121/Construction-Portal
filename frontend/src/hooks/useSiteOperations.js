@@ -25,6 +25,8 @@ export function useSiteOperations() {
   const [materials, setMaterials] = useState([]);
   const [labour, setLabour] = useState([]);
   const [labourCategories, setLabourCategories] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+
   const [banking, setBanking] = useState(null);
   const [accessRequests, setAccessRequests] = useState([]);
 
@@ -185,6 +187,66 @@ export function useSiteOperations() {
     [run]
   );
 
+  const loadExpenses = useCallback(
+    (params) =>
+      run(async () => {
+        const rows =
+          await siteOperationsService.getSupervisorExpenses(params);
+
+        setExpenses(rows);
+
+        return rows;
+      }),
+    [run]
+  );
+
+  /*
+   * The office side of the supervisor workflow. Expenses and material
+   * entries are recorded as pending; without these they stayed pending
+   * for ever, because nothing on screen could decide them.
+   */
+  const decideExpense = useCallback(
+    (id, decision, note) =>
+      run(async () => {
+        const result =
+          decision === "approve"
+            ? await siteOperationsService.approveSupervisorExpense(id, note)
+            : await siteOperationsService.rejectSupervisorExpense(id, note);
+
+        await Promise.all([
+          siteOperationsService
+            .getSupervisorExpenses()
+            .then(setExpenses)
+            .catch(() => {}),
+          siteOperationsService
+            .getBankingSummary()
+            .then(setBanking)
+            .catch(() => {}),
+        ]);
+
+        return result;
+      }),
+    [run]
+  );
+
+  const decideMaterial = useCallback(
+    (id, decision, note) =>
+      run(async () => {
+        const result =
+          decision === "approve"
+            ? await siteOperationsService.approveMaterialEntry(id, note)
+            : await siteOperationsService.rejectMaterialEntry(id, note);
+
+        await siteOperationsService
+          .getMaterialEntries()
+          .then((data) => setMaterials(data.entries))
+          .catch(() => {});
+
+        return result;
+      }),
+    [run]
+  );
+
   const loadAccessRequests = useCallback(
     (params) =>
       run(async () => {
@@ -220,6 +282,7 @@ export function useSiteOperations() {
     labour,
     labourCategories,
     banking,
+    expenses,
     accessRequests,
 
     loading,
@@ -237,6 +300,9 @@ export function useSiteOperations() {
 
     loadBanking,
     addExpense,
+    loadExpenses,
+    decideExpense,
+    decideMaterial,
 
     loadAccessRequests,
     requestAccess,
