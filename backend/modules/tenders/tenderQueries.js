@@ -132,7 +132,9 @@ const buildTenderFilterQuery = ({
 
   const conditions = [
     "t.company_id = $1",
-    "COALESCE(t.is_deleted, FALSE) = FALSE",
+    filters.deleted
+      ? "COALESCE(t.is_deleted, FALSE) = TRUE"
+      : "COALESCE(t.is_deleted, FALSE) = FALSE",
   ];
 
   const addValue = (value) => {

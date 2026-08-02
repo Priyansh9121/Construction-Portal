@@ -1005,6 +1005,17 @@ const {
       due_to:
         dueTo,
   
+      /*
+       * Deleting a tender is a soft delete, and there was no way to see
+       * one afterwards — so POST /api/tenders/:id/restore existed with no
+       * way to reach it, and a project deleted by mistake was gone as far
+       * as anyone using the app could tell.
+       */
+      deleted:
+        String(query.deleted || "")
+          .trim()
+          .toLowerCase() === "true",
+  
       limit,
       offset,
     };

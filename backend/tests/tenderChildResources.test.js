@@ -265,6 +265,41 @@ describe("tender finance records", () => {
 });
 
 describe("soft delete and restore", () => {
+  it("lists a deleted tender only under ?deleted=true", async () => {
+    // Deleting is a soft delete, but the list hard-coded is_deleted =
+    // FALSE, so a deleted project could not be seen — which left
+    // POST /:id/restore unreachable and a mistaken delete permanent as far
+    // as anyone using the app could tell.
+    const doomed = await company
+      .auth(request.post("/api/tenders"))
+      .send({
+        title: "Deleted By Mistake",
+        status: "running",
+        sites: [{ site_name: "S", address: "1 Road" }],
+      });
+
+    const doomedId = doomed.body.tender.id;
+
+    const titles = async (query) => {
+      const res = await company.auth(request.get(`/api/tenders${query}`));
+
+      return (res.body.tenders || []).map((row) => row.title);
+    };
+
+    expect(await titles("")).toContain("Deleted By Mistake");
+    expect(await titles("?deleted=true")).not.toContain("Deleted By Mistake");
+
+    await company.auth(request.delete(`/api/tenders/${doomedId}`));
+
+    expect(await titles("")).not.toContain("Deleted By Mistake");
+    expect(await titles("?deleted=true")).toContain("Deleted By Mistake");
+
+    await company.auth(request.post(`/api/tenders/${doomedId}/restore`));
+
+    expect(await titles("")).toContain("Deleted By Mistake");
+    expect(await titles("?deleted=true")).not.toContain("Deleted By Mistake");
+  });
+
   it("restores a deleted tender over POST, not PATCH", async () => {
     const removed = await company.auth(
       request.delete(`/api/tenders/${tenderId}`)
