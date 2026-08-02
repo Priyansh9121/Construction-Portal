@@ -10,6 +10,11 @@ const {
   cleanLowerText,
 } = require("../../utils/requestContext");
 
+const {
+  calculateInterest,
+  money,
+} = require("../payments/payment.service");
+
 /*
 |--------------------------------------------------------------------------
 | Master data
@@ -404,6 +409,7 @@ exports.getInvestorStatement =
       SELECT
         p.id,
         p.payment_direction,
+        p.payment_sub_type,
         p.payment_date,
         p.amount,
         p.interest_percent,
@@ -423,11 +429,6 @@ exports.getInvestorStatement =
       `,
       [companyId, id, investor.name]
     );
-
-    const {
-      calculateInterest,
-      money,
-    } = require("../payments/payment.service");
 
     let received = 0;
 

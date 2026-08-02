@@ -71,6 +71,11 @@ function AppLayout({
         path: "/site-operations",
       },
       {
+        label: "Master Data",
+        shortLabel: "Masters",
+        path: "/masters",
+      },
+      {
         label: "Reports",
         path: "/reports",
       },
