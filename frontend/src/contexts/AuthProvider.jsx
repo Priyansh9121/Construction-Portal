@@ -1,6 +1,4 @@
 import {
-  createContext,
-  useContext,
   useState,
   useEffect,
   useCallback,
@@ -8,7 +6,7 @@ import {
 
 import axiosClient from "../api/axiosClient";
 
-const AuthContext = createContext();
+import { AuthContext } from "./authContext";
 
 /**
  * Reads the cached user from localStorage without ever throwing.
@@ -81,35 +79,37 @@ export function AuthProvider({ children }) {
     // isLoading is initialised from the presence of a token, so with no
     // token it is already false — setting it here would only trigger an
     // extra render.
-    if (!token) return;
+    if (!token) return undefined;
 
     let cancelled = false;
 
-    (async () => {
-      try {
-        const { data } = await axiosClient.get("/auth/me");
+    axiosClient
+      .get("/auth/me")
+      .then(
+        ({ data }) => {
+          if (cancelled) return;
 
-        if (cancelled) return;
+          const freshUser = data?.user ?? data;
 
-        const freshUser = data?.user ?? data;
+          if (freshUser && typeof freshUser === "object") {
+            setUser(freshUser);
+          }
+        },
+        (error) => {
+          if (cancelled) return;
 
-        if (freshUser && typeof freshUser === "object") {
-          setUser(freshUser);
+          // 401 is already handled by the axios interceptor, which clears
+          // storage and redirects. Anything else (server down, network drop)
+          // should not sign the user out — keep the cached copy and let the
+          // individual screens surface their own errors.
+          if (error?.response?.status === 401) {
+            setUserState(null);
+          }
         }
-      } catch (error) {
-        if (cancelled) return;
-
-        // 401 is already handled by the axios interceptor, which clears
-        // storage and redirects. Anything else (server down, network drop)
-        // should not sign the user out — keep the cached copy and let the
-        // individual screens surface their own errors.
-        if (error?.response?.status === 401) {
-          setUserState(null);
-        }
-      } finally {
+      )
+      .then(() => {
         if (!cancelled) setIsLoading(false);
-      }
-    })();
+      });
 
     return () => {
       cancelled = true;
@@ -131,12 +131,4 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("useAuth must be used inside an AuthProvider.");
-  }
-
-  return context;
-}
+export default AuthProvider;

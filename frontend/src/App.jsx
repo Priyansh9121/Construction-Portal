@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useAuth } from "./contexts/AuthContext";
+import { useAuth } from "./contexts/authContext";
 
 import usePayments from "./hooks/usePayments";
 import useSites from "./hooks/useSites";

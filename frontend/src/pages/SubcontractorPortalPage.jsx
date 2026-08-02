@@ -8,7 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 import { formatCurrency } from "../utils/currency";
 
 import ExportButtons from "../components/export/ExportButtons";

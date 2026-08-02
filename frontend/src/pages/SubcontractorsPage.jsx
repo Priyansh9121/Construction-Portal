@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import ExportButtons from "../components/export/ExportButtons";
 
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 
 import {
   getSubcontractors,

@@ -1,6 +1,19 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
+
+/*
+ * Pure helpers, hoisted out of the component. Recreated on every render
+ * they became invisible hook dependencies: the filter memos below listed
+ * the state those helpers close over, which was right, but the linter
+ * could not see the connection.
+ */
+const money = formatCurrency;
+
+const dateOnly = (value) => {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+};
 
 function ReportsPage({
   payments = [],
@@ -17,13 +30,6 @@ function ReportsPage({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-
-  const money = formatCurrency;
-
-  const dateOnly = (value) => {
-    if (!value) return "";
-    return String(value).slice(0, 10);
-  };
 
   const normaliseStatus = (value) =>
     String(value || "")
@@ -48,26 +54,32 @@ function ReportsPage({
     return "badge yellow";
   };
 
-  const inDateRange = (value) => {
-    if (!value) return true;
+  const inDateRange = useCallback(
+    (value) => {
+      if (!value) return true;
 
-    const currentDate = dateOnly(value);
+      const currentDate = dateOnly(value);
 
-    if (fromDate && currentDate < fromDate) return false;
-    if (toDate && currentDate > toDate) return false;
+      if (fromDate && currentDate < fromDate) return false;
+      if (toDate && currentDate > toDate) return false;
 
-    return true;
-  };
+      return true;
+    },
+    [fromDate, toDate]
+  );
 
-  const matchesSearch = (item) => {
-    const search = searchTerm.trim().toLowerCase();
+  const matchesSearch = useCallback(
+    (item) => {
+      const search = searchTerm.trim().toLowerCase();
 
-    if (!search) return true;
+      if (!search) return true;
 
-    return JSON.stringify(item || {})
-      .toLowerCase()
-      .includes(search);
-  };
+      return JSON.stringify(item || {})
+        .toLowerCase()
+        .includes(search);
+    },
+    [searchTerm]
+  );
 
   const filteredPayments = useMemo(() => {
     return payments.filter(
@@ -75,13 +87,13 @@ function ReportsPage({
         inDateRange(item.payment_date || item.created_at) &&
         matchesSearch(item)
     );
-  }, [payments, fromDate, toDate, searchTerm]);
+  }, [payments, inDateRange, matchesSearch]);
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter(
       (item) => inDateRange(item.created_at) && matchesSearch(item)
     );
-  }, [invoices, fromDate, toDate, searchTerm]);
+  }, [invoices, inDateRange, matchesSearch]);
 
   const filteredSiteLogs = useMemo(() => {
     return siteLogs.filter(
@@ -89,7 +101,7 @@ function ReportsPage({
         inDateRange(item.log_date || item.created_at) &&
         matchesSearch(item)
     );
-  }, [siteLogs, fromDate, toDate, searchTerm]);
+  }, [siteLogs, inDateRange, matchesSearch]);
 
   const filteredAllocations = useMemo(() => {
     return allocations.filter(
@@ -97,7 +109,7 @@ function ReportsPage({
         inDateRange(item.allocated_at || item.created_at) &&
         matchesSearch(item)
     );
-  }, [allocations, fromDate, toDate, searchTerm]);
+  }, [allocations, inDateRange, matchesSearch]);
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter(
@@ -105,26 +117,26 @@ function ReportsPage({
         inDateRange(item.expense_date || item.created_at) &&
         matchesSearch(item)
     );
-  }, [expenses, fromDate, toDate, searchTerm]);
+  }, [expenses, inDateRange, matchesSearch]);
 
   const filteredWorkers = useMemo(
     () => workers.filter(matchesSearch),
-    [workers, searchTerm]
+    [workers, matchesSearch]
   );
 
   const filteredSites = useMemo(
     () => sites.filter(matchesSearch),
-    [sites, searchTerm]
+    [sites, matchesSearch]
   );
 
   const filteredTenders = useMemo(
     () => tenders.filter(matchesSearch),
-    [tenders, searchTerm]
+    [tenders, matchesSearch]
   );
 
   const filteredSubcontractors = useMemo(
     () => subcontractors.filter(matchesSearch),
-    [subcontractors, searchTerm]
+    [subcontractors, matchesSearch]
   );
 
   const executiveTotals = useMemo(() => {

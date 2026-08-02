@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import toast from "react-hot-toast";
 
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 import { useSiteOperations, useLabourLedger } from "../hooks/useSiteOperations";
 import { formatCurrency } from "../utils/currency";
 import uploadService from "../services/uploadService";

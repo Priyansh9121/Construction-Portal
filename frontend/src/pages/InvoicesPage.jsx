@@ -6,7 +6,7 @@ import ExportButtons from "../components/export/ExportButtons";
 
 import { updateInvoice } from "../services/invoiceService";
 import { formatCurrency } from "../utils/currency";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 import useInvoices from "../hooks/useInvoices";
 
 const EMPTY_EDIT_FORM = {
