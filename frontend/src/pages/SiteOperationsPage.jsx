@@ -6,6 +6,7 @@ import { useSiteOperations, useLabourLedger } from "../hooks/useSiteOperations";
 import { formatCurrency } from "../utils/currency";
 import uploadService from "../services/uploadService";
 import siteOperationsService from "../services/siteOperationsService";
+import { getCompanyMembers } from "../services/companyService";
 
 /*
 |--------------------------------------------------------------------------
@@ -834,12 +835,74 @@ function LabourTab({ ops, onBlocked }) {
 
 function BankingTab({ ops, onBlocked, isOffice }) {
   const [deciding, setDeciding] = useState(null);
+  const [members, setMembers] = useState([]);
 
-  const { loadExpenses } = ops;
+  const [receipt, setReceipt] = useState({
+    supervisor_user_id: "",
+    receipt_date: todayLocal(),
+    receipt_type: "bank",
+    amount: "",
+    reference_number: "",
+    bank_name: "",
+    notes: "",
+  });
+
+  const [savingReceipt, setSavingReceipt] = useState(false);
+
+  const {
+    loadExpenses,
+    loadReceipts,
+  } = ops;
 
   useEffect(() => {
     loadExpenses().catch(() => {});
-  }, [loadExpenses]);
+    loadReceipts().catch(() => {});
+  }, [loadExpenses, loadReceipts]);
+
+  useEffect(() => {
+    if (!isOffice) {
+      return;
+    }
+
+    // Only the office can read the member list, and only the office
+    // records money going out to a supervisor.
+    getCompanyMembers()
+      .then(setMembers)
+      .catch(() => setMembers([]));
+  }, [isOffice]);
+
+  const submitReceipt = async (event) => {
+    event.preventDefault();
+
+    if (savingReceipt) {
+      return;
+    }
+
+    try {
+      setSavingReceipt(true);
+
+      await ops.addReceipt({
+        ...receipt,
+        supervisor_user_id: Number(receipt.supervisor_user_id),
+        amount: Number(receipt.amount),
+      });
+
+      toast.success("Money received recorded.");
+
+      setReceipt((previous) => ({
+        ...previous,
+        amount: "",
+        reference_number: "",
+        notes: "",
+      }));
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || "Could not record that receipt."
+      );
+    } finally {
+      setSavingReceipt(false);
+    }
+  };
 
   const decide = async (id, decision) => {
     try {
@@ -1021,6 +1084,163 @@ function BankingTab({ ops, onBlocked, isOffice }) {
           Record expense
         </button>
       </form>
+
+      {isOffice && (
+        <form className="card" onSubmit={submitReceipt}>
+          <h2>Money given to a supervisor</h2>
+
+          <p className="page-subtitle">
+            The three routes from the notebook — bank, cash and GST cash.
+            Recording them here is what the float is measured against;
+            without it the balance could only ever fall.
+          </p>
+
+          <label>
+            Supervisor
+            <select
+              value={receipt.supervisor_user_id}
+              onChange={(e) =>
+                setReceipt({
+                  ...receipt,
+                  supervisor_user_id: e.target.value,
+                })
+              }
+              required
+            >
+              <option value="">Select a person</option>
+
+              {members.map((member) => (
+                <option
+                  key={member.user_id ?? member.id}
+                  value={member.user_id ?? member.id}
+                >
+                  {member.full_name} (
+                  {member.company_role ?? member.user_role})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="grid-2">
+            <label>
+              Date
+              <input
+                type="date"
+                value={receipt.receipt_date}
+                onChange={(e) =>
+                  setReceipt({ ...receipt, receipt_date: e.target.value })
+                }
+                required
+              />
+            </label>
+
+            <label>
+              Route
+              <select
+                value={receipt.receipt_type}
+                onChange={(e) =>
+                  setReceipt({ ...receipt, receipt_type: e.target.value })
+                }
+              >
+                <option value="bank">Bank</option>
+                <option value="cash">Cash</option>
+                <option value="gst_cash">GST cash</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="grid-2">
+            <label>
+              Amount
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={receipt.amount}
+                onChange={(e) =>
+                  setReceipt({ ...receipt, amount: e.target.value })
+                }
+                required
+              />
+            </label>
+
+            <label>
+              Reference
+              <input
+                value={receipt.reference_number}
+                onChange={(e) =>
+                  setReceipt({
+                    ...receipt,
+                    reference_number: e.target.value,
+                  })
+                }
+                placeholder="Cheque or UTR number"
+              />
+            </label>
+          </div>
+
+          {receipt.receipt_type === "bank" && (
+            <label>
+              Bank
+              <input
+                value={receipt.bank_name}
+                onChange={(e) =>
+                  setReceipt({ ...receipt, bank_name: e.target.value })
+                }
+              />
+            </label>
+          )}
+
+          <label>
+            Notes
+            <textarea
+              rows={2}
+              value={receipt.notes}
+              onChange={(e) =>
+                setReceipt({ ...receipt, notes: e.target.value })
+              }
+            />
+          </label>
+
+          <button type="submit" disabled={savingReceipt}>
+            {savingReceipt ? "Recording..." : "Record money received"}
+          </button>
+        </form>
+      )}
+
+      <section className="card">
+        <h2>Money received</h2>
+
+        {ops.receipts.length === 0 ? (
+          <p className="empty">Nothing recorded yet.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Supervisor</th>
+                  <th>Route</th>
+                  <th>Amount</th>
+                  <th>Reference</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {ops.receipts.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.receipt_date}</td>
+                    <td>{row.supervisor_name || "—"}</td>
+                    <td>{row.receipt_type.replace("_", " ")}</td>
+                    <td>{formatCurrency(row.amount)}</td>
+                    <td>{row.reference_number || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="card">
         <h2>Recorded expenses</h2>

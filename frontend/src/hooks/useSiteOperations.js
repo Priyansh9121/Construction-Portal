@@ -27,6 +27,8 @@ export function useSiteOperations() {
   const [labourCategories, setLabourCategories] = useState([]);
   const [expenses, setExpenses] = useState([]);
 
+  const [receipts, setReceipts] = useState([]);
+
   const [banking, setBanking] = useState(null);
   const [accessRequests, setAccessRequests] = useState([]);
 
@@ -247,6 +249,46 @@ export function useSiteOperations() {
     [run]
   );
 
+  /*
+   * Money reaching a supervisor, by the notebook's three routes: bank,
+   * cash and GST cash. Without these the float could only ever go down —
+   * expenses were recorded, top-ups were not.
+   */
+  const loadReceipts = useCallback(
+    (params) =>
+      run(async () => {
+        const { receipts: rows } =
+          await siteOperationsService.getFundReceipts(params);
+
+        setReceipts(rows);
+
+        return rows;
+      }),
+    [run]
+  );
+
+  const addReceipt = useCallback(
+    (payload) =>
+      run(async () => {
+        const receipt =
+          await siteOperationsService.createFundReceipt(payload);
+
+        await Promise.all([
+          siteOperationsService
+            .getFundReceipts()
+            .then(({ receipts: rows }) => setReceipts(rows))
+            .catch(() => {}),
+          siteOperationsService
+            .getBankingSummary()
+            .then(setBanking)
+            .catch(() => {}),
+        ]);
+
+        return receipt;
+      }),
+    [run]
+  );
+
   const loadAccessRequests = useCallback(
     (params) =>
       run(async () => {
@@ -283,6 +325,7 @@ export function useSiteOperations() {
     labourCategories,
     banking,
     expenses,
+    receipts,
     accessRequests,
 
     loading,
@@ -303,6 +346,9 @@ export function useSiteOperations() {
     loadExpenses,
     decideExpense,
     decideMaterial,
+
+    loadReceipts,
+    addReceipt,
 
     loadAccessRequests,
     requestAccess,
