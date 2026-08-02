@@ -15,7 +15,9 @@ function Sidebar({ user }) {
       ? [{ label: "User Management", path: "/users" }]
       : []),
 
-    { label: "Sites / Projects", path: "/sites" },
+    // Sites are managed inside the tender that owns them, so this points
+    // at the project register rather than the removed standalone page.
+    { label: "Projects", path: "/tenders" },
 
     { label: "Site Updates", path: "/daily-site-updates" },
 
@@ -26,6 +28,9 @@ function Sidebar({ user }) {
     ...(user?.role === "admin"
       ? [{ label: "Update Approvals", path: "/daily-update-approvals" }]
       : []),
+
+    // Investors, suppliers and clients.
+    { label: "Master Data", path: "/masters" },
 
     { label: "Analytics & Reports", path: "/reports" },
     { label: "Settings", path: "/settings" },

@@ -24,6 +24,7 @@ import DailyUpdateApprovalsPage from "../pages/DailyUpdateApprovalsPage";
 import SubcontractorsPage from "../pages/SubcontractorsPage";
 import UsersPage from "../pages/UsersPage";
 import ReportsPage from "../pages/ReportsPage";
+import MastersPage from "../pages/MastersPage";
 import SettingsPage from "../pages/SettingsPage";
 
 import WorkerPortalPage from "../pages/WorkerPortalPage";
@@ -533,6 +534,20 @@ function AppRoutes({
           >
             <UsersPage />
           </AdminLayout>
+        }
+      />
+
+      {/* Master data — investors, suppliers, clients */}
+
+      <Route
+        path="/masters"
+        element={
+          <AdminManagerLayout
+            activePage="Master Data"
+            user={user}
+          >
+            <MastersPage />
+          </AdminManagerLayout>
         }
       />
 
