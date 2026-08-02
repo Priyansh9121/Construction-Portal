@@ -559,8 +559,8 @@ app.use(
   "/api/activity",
   authMiddleware,
   require(
-    "./modules/notifications/notification.routes"
-  ).activityRouter
+    "./modules/notifications/activity.routes"
+  )
 );
 
 app.use(

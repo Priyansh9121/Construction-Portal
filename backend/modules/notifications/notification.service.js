@@ -92,7 +92,7 @@ const notifyRole = async ({
         INNER JOIN company_users cu ON cu.user_id = u.id
         WHERE cu.company_id = $1
           AND u.status = 'active'
-          AND (u.role = ANY($2) OR cu.company_role = ANY($2))
+          AND (u.role = ANY($2) OR cu.role = ANY($2))
         `,
         [companyId, roles]
       );

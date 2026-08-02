@@ -57,9 +57,6 @@ function AdminManagerLayout({
   children,
   activePage,
   user,
-  payments = [],
-  tenders = [],
-  invoices = [],
 }) {
   return (
     <RoleRoute
@@ -72,9 +69,6 @@ function AdminManagerLayout({
       <AppLayout
         activePage={activePage}
         user={user}
-        payments={payments}
-        tenders={tenders}
-        invoices={invoices}
       >
         {children}
       </AppLayout>
@@ -89,9 +83,6 @@ function AdminLayout({
   children,
   activePage,
   user,
-  payments = [],
-  tenders = [],
-  invoices = [],
 }) {
   return (
     <RoleRoute
@@ -101,9 +92,6 @@ function AdminLayout({
       <AppLayout
         activePage={activePage}
         user={user}
-        payments={payments}
-        tenders={tenders}
-        invoices={invoices}
       >
         {children}
       </AppLayout>
@@ -274,9 +262,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Dashboard"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <DashboardPage
               payments={payments}
@@ -297,9 +282,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Projects"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <TendersPage />
           </AdminManagerLayout>
@@ -336,9 +318,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Project Details"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <TenderDetailsPage />
           </AdminManagerLayout>
@@ -353,9 +332,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Project Details"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <TenderDetailsPage />
           </AdminManagerLayout>
@@ -397,9 +373,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Finance"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <PaymentsPage
               payments={payments}
@@ -420,9 +393,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Workers"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <WorkersPage />
           </AdminManagerLayout>
@@ -437,9 +407,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Worker Money"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <WorkerMoneyPage
               workers={workers}
@@ -484,9 +451,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Invoices"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <InvoicesPage />
           </AdminManagerLayout>
@@ -501,9 +465,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Daily Site Updates"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <DailySiteUpdatesPage
               sites={sites}
@@ -527,9 +488,6 @@ function AppRoutes({
           <AdminLayout
             activePage="Update Approvals"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <DailyUpdateApprovalsPage />
           </AdminLayout>
@@ -544,9 +502,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Site Operations"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <SiteOperationsPage />
           </AdminManagerLayout>
@@ -561,9 +516,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Subcontractors"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <SubcontractorsPage />
           </AdminManagerLayout>
@@ -578,9 +530,6 @@ function AppRoutes({
           <AdminLayout
             activePage="Users"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <UsersPage />
           </AdminLayout>
@@ -595,9 +544,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Reports"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <ReportsPage
               payments={payments}
@@ -621,9 +567,6 @@ function AppRoutes({
           <AdminManagerLayout
             activePage="Settings"
             user={user}
-            payments={payments}
-            tenders={tenders}
-            invoices={invoices}
           >
             <SettingsPage />
           </AdminManagerLayout>

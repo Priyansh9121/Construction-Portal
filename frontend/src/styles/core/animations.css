@@ -679,7 +679,41 @@
   .notification-panel a:hover {
     background: #f8fafc;
   }
-  
+
+  /* Unread items carry a marker so the badge count is explainable at a
+     glance rather than being a number with nothing behind it. */
+  .notification-panel a.unread {
+    background: #eff6ff;
+    border-left: 3px solid var(--blue-dark);
+  }
+
+  .notification-panel a.unread strong::after {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: var(--danger);
+    vertical-align: middle;
+  }
+
+  .notification-panel .link-button {
+    display: block;
+    margin: 0 0 8px auto;
+    padding: 4px 8px;
+    border: 0;
+    background: none;
+    color: var(--blue-dark);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .notification-panel .link-button:hover {
+    text-decoration: underline;
+  }
+
   .notification-panel strong {
     font-size: 12px;
     color: var(--blue-dark);
