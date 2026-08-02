@@ -176,32 +176,134 @@ password reset, `.gitignore`, `.env.example`, security headers in
 
 ### Tests
 
-45 passing. `npm test` in `backend/`.
+143 passing. `npm test` in `backend/`.
 
 - `tenantIsolation.test.js` — seeds two companies, asserts neither can read
   or touch the other through any endpoint. This is the test that found the
   four extra leaking modules.
+- `roleSeparation.test.js` — the same question inside one company: a
+  labourer must not reach the office registers, and must keep their portal.
+- `tenderChildResources.test.js` — every document, material, banking and
+  subcontractor write, each checked for the owning `company_id` read back
+  from the database rather than echoed from the response.
+- `portals.test.js` — the worker and subcontractor screens end to end,
+  from the office assigning someone to the update they submit.
+- `activityLog.test.js` — the audit trail, including that a password never
+  reaches it and that a failed request writes nothing.
+- `notifications.test.js` — the access-request fan-out and queue privacy.
+- `masters.test.js` — investors, suppliers, clients and the statement.
 - `paymentCalculations.test.js` — the money maths, including your notebook's
-  worked example as a regression test, and the timezone arithmetic.
+  worked example as a regression test, the timezone arithmetic, and both
+  directions of the Add Payment tree: every option it offers is one the
+  validator accepts, and every combination the validator accepts is
+  reachable from it.
+
+---
+
+## The audit pass
+
+A second sweep went over every file, then re-ran until nothing new
+surfaced. Sixteen commits. The headline is that a lot of this application
+did not work, and the reasons were structural rather than scattered.
+
+### Whole screens that did nothing
+
+**Every write on Tender Details.** Adding or deleting a document,
+material, banking record or subcontractor assignment posted to a flat
+`/api/tender-details/*` path no router served. Nine actions, all 404.
+
+Underneath sat a second fault the first one hid: migration 001 made
+`company_id` NOT NULL on five tender child tables and none of the INSERTs
+wrote it. Fixing the routing alone would have turned a 404 into a 500.
+
+**Every write in both portals.** Four more INSERTs omitted the same
+column, so a worker or subcontractor submitting a daily update, a
+backdated one, an expense or a document got a 500. The worker portal also
+read its assignments from `tender_workers`, a second table for the same
+concept that nothing has ever written to, and joined on `tenders.site_id`,
+a column that does not exist. Every worker was told they were not assigned
+to the site they were standing on.
+
+**The supervisor float could only fall.** Expenses had a form; the
+receipts that fund them had an API, a table and no way in.
+
+**Nothing could be approved.** Material entries, supervisor expenses and
+worker allocations are all recorded pending. No screen could decide any of
+them, so they stayed pending — and a pending allocation cannot be spent.
+
+**A deleted project was gone.** Soft delete, and the list hard-coded
+`is_deleted = FALSE`, so `POST /:id/restore` could not be reached.
+
+**A disabled user stayed disabled.** Disable worked; enable had no button.
+
+### Authorisation
+
+Authentication was being treated as authorisation. Twelve office registers
+sat behind `authMiddleware` alone, so any worker or subcontractor login
+could read the tender list with `estimated_value`, `estimated_margin`,
+`actual_margin` and client contact details, the entire payment ledger,
+worker allocations and expenses, subcontractors with their bank details,
+and the investor list — and could create payments, invoices and
+subcontractors. Verified against a running server before and after.
+
+### Two copies of the same thing
+
+**The Add Payment tree existed twice** — once in the API, which validates
+every submission, and once hard-coded in the frontend, which the form was
+built from. They had drifted both ways: the form offered three
+combinations the server refuses and hid two it accepts, and dropped a
+whole level, so material, labour and GST could not be recorded against a
+personal tender at all. The form now reads `GET /api/payments/hierarchy`.
+
+**Three CSV exporters**, one reachable. **Two adapter modules** whose own
+headers called them temporary. **Six copies** of the same forty-line page
+loader. **Six copies** of the same data hook, three of which had lost
+their role check.
+
+### Dormant code, now working
+
+`activity_logs` had a complete writer that nothing called, so
+`GET /api/activity` served an empty table. `notifyRole` selected on a
+column that does not exist and the failure was swallowed, so no
+notification was ever written — and the bell never asked, deriving its
+list from whatever the current page happened to be holding. Investors,
+suppliers and clients had a tested API and no screen.
+
+All three are wired, with screens: Activity Log, a real notification
+queue, and Master Data with the investor statement.
+
+### What holds it shut
+
+Seven checks, all reporting clean, several written during the pass because
+the same class of fault kept reappearing:
+
+| Check | Was | Now |
+|---|---|---|
+| Frontend calls with no route | 10 | 0 |
+| INSERTs missing a NOT NULL `company_id` | 6 | 0 |
+| SQL naming a column that does not exist | 3 | 0 |
+| ESLint problems | 47 | 0 |
+| Dead exports | 30 | 0 |
+| `className` with no CSS rule | 9 | 0 |
+| Orphan files | 14 | 0 |
+
+Tests went 45 → 143. The column checker was itself tested against a
+deliberately broken column to confirm it detects one.
 
 ---
 
 ## Still outstanding
 
-Being straight about what is not done:
-
 ### Functional
 
-- **Frontend for the Add Payment hierarchy.** The API and the tree are
-  ready; `PaymentsPage`/`FinanceWizard` still use the old flat form. The
-  server serves the structure at `GET /api/payments/hierarchy` — the form
-  can be generated from it.
-- **Worker and subcontractor portal screens** for the new material, labour
-  and banking endpoints. Backend is complete and tested; `SiteOperationsPage`
-  covers the office side of the same data.
-- **Masters UI** for investors, suppliers and clients.
-- **Notification bell** is still computed client-side from tenders and
-  invoices; it should read `GET /api/notifications`.
+- **Company administration.** `PUT /api/company`, member role changes,
+  member removal and ownership transfer all work and have no screen.
+  Settings should grow one.
+- **A file manager.** `GET /api/upload`, `/upload/:id` and
+  `DELETE /upload/:id` have no caller.
+- **Material and labour editing.** A supervisor who mistypes an entry
+  cannot correct it; the delete and update endpoints exist.
+- **Pagination.** The API paginates; the screens request everything.
 
 ### Still-unused tables
 
@@ -211,24 +313,29 @@ Being straight about what is not done:
 `tags`, `tag_assignments`, `saved_reports`, `user_settings`,
 `worker_sensitive_details`.
 
+These are schema ahead of the code rather than dead code in the repo, and
+dropping them destroys design intent — so they are reported, not removed.
+The one exception was `tender_workers`, which duplicated a table in active
+use; migration 005 drops it, and only when it is empty.
+
 `worker_sensitive_details` is worth doing next — it has encrypted columns
-for bank details, while `subcontractors` currently stores account numbers
-in plain text.
+for bank details, while `subcontractors` stores account numbers in plain
+text.
 
 ### Known issues
 
 - **Two npm advisories remain, both non-exploitable here.** `react-router`
   7.12–8.2 has an open redirect via a backslash in `<Link to>`; every route
   target in this app is a literal or an internal id, and the one
-  database-driven link is now sanitised. `xlsx` has parsing
-  vulnerabilities; this app only writes spreadsheets, never reads them.
-  Recheck both when upstream fixes land.
-- **No pagination on the frontend.** The API paginates; the screens still
-  request and render everything.
+  database-driven link is sanitised. `xlsx` has parsing vulnerabilities;
+  this app only writes spreadsheets, never reads them. Recheck both when
+  upstream fixes land.
 - **No code splitting.** The bundle is ~1.9 MB.
-- **Nine pages exceed 1,000 lines.**
-- `useAuth` is exported from `AuthContext.jsx` alongside the provider, which
-  breaks fast refresh. Pre-existing; fixing it touches 17 files.
+- **Eight pages exceed 1,000 lines.**
+- **The audit trail records outcomes, not diffs.** The writer sits on the
+  response, so it sees what a record became rather than a before/after
+  pair. Who, when and what it became is recorded; the previous value is
+  not. The column is labelled Details rather than Change for that reason.
 
 ---
 
@@ -259,9 +366,19 @@ company. `utils/scopedCrud.js` makes that structurally impossible for the
 simple registers — use it for new CRUD modules rather than hand-writing
 another controller.
 
-**Run the isolation test before shipping anything that touches a query.**
-It is the cheapest guard you have against reintroducing the leak, and it
-already caught four modules nobody suspected.
+**Authentication is not authorisation.** A new register goes behind
+`requireOffice` in `server.js` unless a worker or subcontractor genuinely
+needs it. That check is mounted rather than per-route so a route added
+inside one of those modules inherits it instead of having to remember it.
+
+**Run the isolation and role tests before shipping anything that touches a
+query.** They are the cheapest guard you have, and between them they found
+four leaking modules and twelve open registers that nobody suspected.
+
+**A route the frontend cannot reach is not "spare capacity".** Nine of the
+faults in this pass were an endpoint and a screen that disagreed, and each
+looked fine from either side alone. The checks in the audit pass table
+above are worth re-running after any routing change.
 
 **RLS is not live until `DATABASE_URL` uses `construction_app`.** As long as
 the API connects as `postgres`, the policies in migration 003 do nothing.
@@ -269,3 +386,7 @@ the API connects as `postgres`, the policies in migration 003 do nothing.
 **Dates are calendar dates.** `DATE` columns come back as `"YYYY-MM-DD"`
 strings on purpose — see the parser in `database/pool.js`. Do not convert
 them to `Date` objects on the way out.
+
+**`company_id` is NOT NULL on 35 tables.** A new INSERT that forgets it
+fails with `23502`, and only on the code path that runs it — which is how
+six of them survived. Write it explicitly.
