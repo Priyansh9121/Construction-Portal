@@ -162,12 +162,14 @@ describe("a notification queue is private to its owner", () => {
   });
 
   it("refuses to mark another member's notification read", async () => {
-    const mine = await office.auth(request.get("/api/notifications"));
-    const theirs = await supervisor.auth(request.get("/api/notifications"));
+    // The fan-out writes one row per recipient without awaiting them, so
+    // wait for the manager's copy rather than assuming it has landed.
+    const mine = await waitForNotifications(office);
+    const theirs = await waitForNotifications(supervisor);
 
-    const otherId = theirs.body.notifications.find(
+    const otherId = theirs.notifications.find(
       (item) =>
-        !mine.body.notifications.some((own) => own.id === item.id)
+        !mine.notifications.some((own) => own.id === item.id)
     )?.id;
 
     // Every office member has their own row for the same event, so the
