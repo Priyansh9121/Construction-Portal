@@ -107,3 +107,41 @@ export const rejectExpense = async (
 
   return res.data;
 };
+/*
+|--------------------------------------------------------------------------
+| Allocation approval
+|--------------------------------------------------------------------------
+|
+| An allocation is created pending, and a worker cannot spend against one
+| until it is approved. Both endpoints existed; neither had a caller, so
+| every allocation stayed pending and the money could never be drawn.
+|
+*/
+
+export const approveAllocation = async (
+  id,
+  admin_comment = ""
+) => {
+  const res = await axiosClient.post(
+    `/worker-allocations/${id}/approve`,
+    {
+      admin_comment,
+    }
+  );
+
+  return res.data;
+};
+
+export const rejectAllocation = async (
+  id,
+  admin_comment = ""
+) => {
+  const res = await axiosClient.post(
+    `/worker-allocations/${id}/reject`,
+    {
+      admin_comment,
+    }
+  );
+
+  return res.data;
+};

@@ -16,6 +16,7 @@ import {
   createUser,
   updateUser,
   disableUser,
+  enableUser,
 } from "../services/userService";
 
 import useAsyncResource from "../hooks/useAsyncResource";
@@ -558,6 +559,40 @@ function UsersPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleEnable = async (
+    portalUser
+  ) => {
+    if (submitting || disabling) {
+      return;
+    }
+
+    try {
+      setDisabling(true);
+
+      await enableUser(portalUser.id);
+
+      toast.success(
+        `${portalUser.full_name} can sign in again.`
+      );
+
+      await fetchUsers({
+        showLoader: false,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to enable user:",
+        error.response?.data || error
+      );
+
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to enable this user."
+      );
+    } finally {
+      setDisabling(false);
     }
   };
 
@@ -1430,26 +1465,39 @@ function UsersPage() {
                             Preview
                           </button>
 
-                          <button
-                            type="button"
-                            className="delete-btn"
-                            disabled={
-                              isInactive ||
-                              isCurrentUser ||
-                              isBusy
-                            }
-                            onClick={() =>
-                              requestDisable(
-                                portalUser
-                              )
-                            }
-                          >
-                            {isInactive
-                              ? "Disabled"
-                              : isCurrentUser
+                          {isInactive ? (
+                            <button
+                              type="button"
+                              disabled={
+                                isBusy
+                              }
+                              onClick={() =>
+                                handleEnable(
+                                  portalUser
+                                )
+                              }
+                            >
+                              Enable
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="delete-btn"
+                              disabled={
+                                isCurrentUser ||
+                                isBusy
+                              }
+                              onClick={() =>
+                                requestDisable(
+                                  portalUser
+                                )
+                              }
+                            >
+                              {isCurrentUser
                                 ? "Current User"
                                 : "Disable"}
-                          </button>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

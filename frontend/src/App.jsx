@@ -73,6 +73,8 @@ function App() {
     deleteExpense,
     approveExpense,
     rejectExpense,
+    approveAllocation,
+    rejectAllocation,
   } = useWorkerMoney(user);
 
   /**
@@ -652,6 +654,12 @@ function App() {
       }
       approveExpense={
         approveExpense
+      }
+      approveAllocation={
+        approveAllocation
+      }
+      rejectAllocation={
+        rejectAllocation
       }
       rejectExpense={
         rejectExpense
