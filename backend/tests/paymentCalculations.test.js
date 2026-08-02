@@ -286,3 +286,120 @@ describe("entry window date arithmetic", () => {
     ).toBe(0);
   });
 });
+
+/*
+|--------------------------------------------------------------------------
+| The tree the form is built from
+|--------------------------------------------------------------------------
+|
+| The Add Payment form used to be built from a second copy of this tree
+| hard-coded in the frontend, and the two drifted: the form offered three
+| subcontractor expense types the server refuses, and hid two it accepts.
+|
+| The form now reads GET /api/payments/hierarchy, so these assert the two
+| things that made the drift possible — every option the tree offers is a
+| combination the validator accepts, and the endpoint really does serve the
+| whole tree.
+|
+*/
+
+describe("payment hierarchy", () => {
+  const {
+    INCOME_SECTIONS,
+    EXPENSE_SECTIONS,
+    isValidCombination,
+  } = require("../modules/payments/payment.hierarchy");
+
+  /*
+   * Walks a section down to its leaves. Most branches are two levels, but
+   * "Site" under a personal-tender expense carries a third — the
+   * notebook's A. Order / B. Salary / C. Labour / D. GST / E. Other — as
+   * `groups`.
+   */
+  const leaves = (node, label) => {
+    const groups = node.groups ?? [];
+
+    if (groups.length > 0) {
+      return groups.map((group) => ({
+        subType: group.subType,
+        fields: group.fields,
+        label: `${label} / ${group.label}`,
+      }));
+    }
+
+    const children = node.children ?? [];
+
+    if (children.length > 0) {
+      return children.flatMap((child) =>
+        leaves(child, `${label} / ${child.label}`)
+      );
+    }
+
+    return [{ subType: node.subType, fields: node.fields, label }];
+  };
+
+  const offered = (sections, direction) =>
+    sections.flatMap((section) =>
+      leaves(section, section.label).map((leaf) => ({
+        ...leaf,
+        direction,
+        scope: section.scope,
+      }))
+    );
+
+  const everyOption = [
+    ...offered(INCOME_SECTIONS, "income"),
+    ...offered(EXPENSE_SECTIONS, "expense"),
+  ];
+
+  it("offers only combinations the validator accepts", () => {
+    const rejected = everyOption.filter(
+      (option) =>
+        !isValidCombination(
+          option.direction,
+          option.scope,
+          option.subType
+        )
+    );
+
+    expect(rejected).toEqual([]);
+  });
+
+  it("gives every option a sub-type and a scope", () => {
+    for (const option of everyOption) {
+      expect(option.subType, option.label).toBeTruthy();
+      expect(option.scope, option.label).toBeTruthy();
+    }
+  });
+
+  it("describes the fields each option needs", () => {
+    // The form renders from these, so an option with no fields would show
+    // the user an empty form.
+    for (const option of everyOption) {
+      expect(option.fields?.length, option.label).toBeGreaterThan(0);
+    }
+  });
+
+  it("offers every combination the validator accepts", () => {
+    // The other direction: a combination the server would accept but no
+    // option reaches is a payment the user cannot record. Material and
+    // Labour against a personal tender were exactly that, because the
+    // client dropped the third level of the tree.
+    const reachable = new Set(
+      everyOption.map(
+        (option) =>
+          `${option.direction}|${option.scope}|${option.subType}`
+      )
+    );
+
+    const {
+      VALID_COMBINATIONS,
+    } = require("../modules/payments/payment.hierarchy");
+
+    const unreachable = [...VALID_COMBINATIONS].filter(
+      (combination) => !reachable.has(combination)
+    );
+
+    expect(unreachable).toEqual([]);
+  });
+});

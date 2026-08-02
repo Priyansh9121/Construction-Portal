@@ -1792,4 +1792,4 @@ function TenderDetailsPage() {
   );
 }
 
-export default TenderDetailsPage;
+export default TenderDetailsPage; 

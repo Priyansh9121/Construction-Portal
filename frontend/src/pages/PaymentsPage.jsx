@@ -10,9 +10,9 @@ import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import { useAuth } from "../contexts/authContext";
 
 import {
-  getActiveSections,
+  usePaymentSections,
   getDefaultChildOption,
-} from "../config/paymentSections";
+} from "../hooks/usePaymentSections";
 
 import { updatePayment } from "../services/paymentService";
 import useFinanceStatistics from "../hooks/useFinanceStatistics";
@@ -43,9 +43,21 @@ function PaymentsPage({
   const [submitting, setSubmitting] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
 
+  /*
+   * The Income/Expense tree comes from the server, which is also what
+   * validates a submission. A second copy on the client had drifted: the
+   * form offered three subcontractor expense types the API refuses, and
+   * hid two it accepts.
+   */
+  const {
+    getActiveSections,
+    loading: sectionsLoading,
+    error: sectionsError,
+  } = usePaymentSections();
+
   const activeSections = useMemo(
     () => getActiveSections(mainTab),
-    [mainTab]
+    [getActiveSections, mainTab]
   );
 
   const totals = useFinanceStatistics(payments);
@@ -384,6 +396,26 @@ function PaymentsPage({
       <FinanceTrendChart
         payments={payments}
       />
+
+      {/*
+       * The payment types come from the API. Say so while they load or if
+       * the call fails, rather than showing a wizard with no tabs and
+       * letting the user think there is nothing to record.
+       */}
+      {sectionsLoading && (
+        <section className="panel">
+          <p className="muted-text">Loading payment types...</p>
+        </section>
+      )}
+
+      {sectionsError && !sectionsLoading && (
+        <section className="panel">
+          <p className="error" role="alert">
+            {sectionsError} Add Payment is unavailable until the payment
+            types load.
+          </p>
+        </section>
+      )}
 
       <FinanceWizard
         editingPayment={editingPayment}
