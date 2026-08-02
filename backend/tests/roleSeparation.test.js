@@ -59,7 +59,8 @@ const OFFICE_READS = [
   "/api/worker-allocations",
   "/api/worker-expenses",
   "/api/masters/investors",
-  "/api/tender-workers/1",
+  "/api/tenders/1/workers",
+  "/api/tenders/1/finance",
 ];
 
 const OFFICE_WRITES = [

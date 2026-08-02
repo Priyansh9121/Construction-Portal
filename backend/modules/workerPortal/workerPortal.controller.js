@@ -37,17 +37,26 @@ async function getWorkerByLoggedInUser(userId) {
 | Helper: check active tender assignment
 |--------------------------------------------------------------------------
 */
+/*
+ * Assignments live in worker_assignments — that is what the office writes
+ * through POST /api/tenders/:id/workers.
+ *
+ * This used to read tender_workers, a second table for the same concept
+ * that nothing has ever written to, and joined on t.site_id. There is no
+ * site_id on tenders: sites point at tenders, not the reverse. So the
+ * lookup could never match, and every worker submitting a daily update was
+ * told they were not assigned to the site.
+ */
 async function getActiveAssignment(workerId, siteId, tenderId) {
   const result = await pool.query(
     `
-    SELECT tw.*
-    FROM tender_workers tw
-    INNER JOIN tenders t ON t.id = tw.tender_id
-    WHERE tw.worker_id = $1
-      AND t.site_id = $2
-      AND tw.tender_id = $3
-      AND tw.status = 'active'
-      AND COALESCE(tw.is_deleted, FALSE) = FALSE
+    SELECT wa.*
+    FROM worker_assignments wa
+    WHERE wa.worker_id = $1
+      AND wa.site_id = $2
+      AND wa.tender_id = $3
+      AND COALESCE(wa.status, 'active') = 'active'
+      AND COALESCE(wa.is_deleted, FALSE) = FALSE
     LIMIT 1
     `,
     [workerId, siteId, tenderId]
@@ -111,13 +120,13 @@ exports.getMyAssignments = async (req, res) => {
     const result = await pool.query(
       `
       SELECT
-        tw.id AS assignment_id,
-        tw.worker_id,
-        t.site_id,
-        tw.tender_id,
-        tw.notes AS assignment_notes,
-        tw.status AS assignment_status,
-        tw.created_at AS assigned_at,
+        wa.id AS assignment_id,
+        wa.worker_id,
+        wa.site_id,
+        wa.tender_id,
+        wa.notes AS assignment_notes,
+        wa.status AS assignment_status,
+        wa.assigned_at,
 
         s.site_name,
         s.address,
@@ -128,14 +137,14 @@ exports.getMyAssignments = async (req, res) => {
         t.status AS tender_status,
         t.due_date,
         t.description AS tender_description
-      FROM tender_workers tw
-      INNER JOIN tenders t ON t.id = tw.tender_id
-      LEFT JOIN sites s ON s.id = t.site_id
-      WHERE tw.worker_id = $1
-        AND tw.status = 'active'
-        AND COALESCE(tw.is_deleted, FALSE) = FALSE
+      FROM worker_assignments wa
+      LEFT JOIN sites s ON s.id = wa.site_id
+      LEFT JOIN tenders t ON t.id = wa.tender_id
+      WHERE wa.worker_id = $1
+        AND COALESCE(wa.status, 'active') = 'active'
+        AND COALESCE(wa.is_deleted, FALSE) = FALSE
         AND COALESCE(t.is_deleted, FALSE) = FALSE
-      ORDER BY tw.id DESC
+      ORDER BY wa.id DESC
       `,
       [worker.worker_id]
     );
@@ -289,6 +298,7 @@ exports.createMyDailyUpdate = async (req, res) => {
         `
         INSERT INTO daily_update_approvals
           (
+            company_id,
             worker_id,
             site_id,
             tender_id,
@@ -299,10 +309,11 @@ exports.createMyDailyUpdate = async (req, res) => {
             status
           )
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7, 'pending')
+          ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
         RETURNING *
         `,
         [
+          worker.company_id,
           worker.worker_id,
           numericSiteId,
           numericTenderId,
@@ -326,6 +337,7 @@ exports.createMyDailyUpdate = async (req, res) => {
       `
       INSERT INTO daily_site_logs
         (
+          company_id,
           site_id,
           tender_id,
           worker_id,
@@ -335,10 +347,11 @@ exports.createMyDailyUpdate = async (req, res) => {
           created_by
         )
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7)
+        ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
       `,
       [
+        worker.company_id,
         numericSiteId,
         numericTenderId,
         worker.worker_id,
@@ -386,10 +399,10 @@ exports.getMyTenderDocuments = async (req, res) => {
     const assignmentCheck = await pool.query(
       `
       SELECT id
-      FROM tender_workers
+      FROM worker_assignments
       WHERE worker_id = $1
         AND tender_id = $2
-        AND status = 'active'
+        AND COALESCE(status, 'active') = 'active'
         AND COALESCE(is_deleted, FALSE) = FALSE
       LIMIT 1
       `,
@@ -563,6 +576,7 @@ exports.createMyExpense = async (req, res) => {
       `
       INSERT INTO worker_expenses
       (
+        company_id,
         allocation_id,
         expense_amount,
         expense_description,
@@ -573,10 +587,11 @@ exports.createMyExpense = async (req, res) => {
         created_by
       )
       VALUES
-      ($1, $2, $3, $4, $5, $6, 'pending', $7)
+      ($1, $2, $3, $4, $5, $6, $7, 'pending', $8)
       RETURNING *
       `,
       [
+        worker.company_id,
         allocation_id,
         expense_amount,
         expense_description || "",

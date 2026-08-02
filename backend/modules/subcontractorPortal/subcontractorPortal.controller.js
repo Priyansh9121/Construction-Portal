@@ -110,7 +110,19 @@ exports.getMyTenders = async (req, res) => {
         s.status AS site_status
       FROM tender_subcontractors ts
       INNER JOIN tenders t ON t.id = ts.tender_id
-      LEFT JOIN sites s ON s.id = t.site_id
+      LEFT JOIN LATERAL (
+        SELECT
+          site.id,
+          site.site_name,
+          site.address,
+          site.site_type,
+          site.status
+        FROM sites site
+        WHERE site.tender_id = t.id
+          AND COALESCE(site.is_deleted, FALSE) = FALSE
+        ORDER BY site.id
+        LIMIT 1
+      ) s ON TRUE
       WHERE ts.subcontractor_id = $1
         AND COALESCE(ts.is_deleted, FALSE) = FALSE
         AND COALESCE(t.is_deleted, FALSE) = FALSE
@@ -168,7 +180,19 @@ exports.getMyTenderDetails = async (req, res) => {
         s.address,
         s.site_type
       FROM tenders t
-      LEFT JOIN sites s ON s.id = t.site_id
+      LEFT JOIN LATERAL (
+        SELECT
+          site.id,
+          site.site_name,
+          site.address,
+          site.site_type,
+          site.status
+        FROM sites site
+        WHERE site.tender_id = t.id
+          AND COALESCE(site.is_deleted, FALSE) = FALSE
+        ORDER BY site.id
+        LIMIT 1
+      ) s ON TRUE
       WHERE t.id = $1
         AND COALESCE(t.is_deleted, FALSE) = FALSE
       `,
@@ -315,6 +339,7 @@ exports.createMyDailyUpdate = async (req, res) => {
         `
         INSERT INTO daily_update_approvals
         (
+          company_id,
           subcontractor_id,
           site_id,
           tender_id,
@@ -324,10 +349,11 @@ exports.createMyDailyUpdate = async (req, res) => {
           reason,
           status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
         RETURNING *
         `,
         [
+          subcontractor.company_id,
           subcontractor.subcontractor_id,
           site_id,
           tender_id,
@@ -351,6 +377,7 @@ exports.createMyDailyUpdate = async (req, res) => {
       `
       INSERT INTO daily_site_logs
       (
+        company_id,
         site_id,
         tender_id,
         subcontractor_id,
@@ -359,10 +386,11 @@ exports.createMyDailyUpdate = async (req, res) => {
         photo_url,
         created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
       `,
       [
+        subcontractor.company_id,
         site_id,
         tender_id,
         subcontractor.subcontractor_id,
@@ -424,18 +452,19 @@ exports.addMyTenderDocument = async (req, res) => {
       `
       INSERT INTO tender_documents
       (
+        company_id,
         tender_id,
         document_name,
         document_type,
         file_url,
         uploaded_by,
-        uploaded_by_type,
         is_deleted
       )
-      VALUES ($1, $2, $3, $4, $5, 'subcontractor', FALSE)
+      VALUES ($1, $2, $3, $4, $5, $6, FALSE)
       RETURNING *
       `,
       [
+        subcontractor.company_id,
         tender_id,
         document_name,
         document_type || "PDF",

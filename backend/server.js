@@ -72,14 +72,6 @@ const tenderRoutes = require(
   "./modules/tenders/tender.routes"
 );
 
-const tenderFinanceRoutes = require(
-  "./modules/tenderFinance/tenderFinance.routes"
-);
-
-const tenderWorkerRoutes = require(
-  "./modules/tenderWorkers/tenderWorker.routes"
-);
-
 const subcontractorRoutes = require(
   "./modules/subcontractors/subcontractor.routes"
 );
@@ -461,24 +453,6 @@ app.use(
   requireOffice,
   require(
     "./modules/tenders/tender.routes"
-  )
-);
-
-app.use(
-  "/api/tender-finance",
-  authMiddleware,
-  requireOffice,
-  require(
-    "./modules/tenderFinance/tenderFinance.routes"
-  )
-);
-
-app.use(
-  "/api/tender-workers",
-  authMiddleware,
-  requireOffice,
-  require(
-    "./modules/tenderWorkers/tenderWorker.routes"
   )
 );
 

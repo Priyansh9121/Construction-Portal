@@ -2061,6 +2061,7 @@ const workerAssignmentExists =
 
 const insertTenderWorker = async ({
   tenderId,
+  companyId,
   assignedBy,
   assignment,
   client = pool,
@@ -2072,6 +2073,7 @@ const insertTenderWorker = async ({
       worker_id,
       site_id,
       tender_id,
+      company_id,
       assigned_by,
       notes,
       status,
@@ -2089,8 +2091,9 @@ const insertTenderWorker = async ({
       $4,
       $5,
       $6,
-      NOW(),
       $7,
+      NOW(),
+      $8,
       FALSE,
       NOW(),
       NOW()
@@ -2101,6 +2104,7 @@ const insertTenderWorker = async ({
       assignment.worker_id,
       assignment.site_id,
       tenderId,
+      companyId,
       assignedBy,
       assignment.notes,
       assignment.status,

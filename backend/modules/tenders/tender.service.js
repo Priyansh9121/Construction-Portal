@@ -1895,6 +1895,8 @@ const assignWorker = async ({
   return tenderQueries.insertTenderWorker({
     tenderId:
       context.tenderId,
+    companyId:
+      context.companyId,
     assignedBy:
       context.userId,
     assignment,
