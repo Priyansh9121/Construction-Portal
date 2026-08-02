@@ -309,7 +309,7 @@ exports.getCurrentUser = async (
 };
 
 /**
- * POST /api/auth/create-user
+ * POST /api/auth/users
  *
  * Creates a user inside the authenticated administrator's company.
  */

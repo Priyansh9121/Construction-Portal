@@ -3,12 +3,53 @@ const router = express.Router();
 
 const allocationController = require("./workerAllocation.controller");
 
-router.get("/", allocationController.getAllocations);
-router.post("/", allocationController.createAllocation);
-router.put("/:id", allocationController.updateAllocation);
-router.delete("/:id", allocationController.deleteAllocation);
+const {
+  logActivity,
+  ACTIVITY_ACTIONS,
+} = require("../../utils/activityLog");
 
-router.post("/:id/approve", allocationController.approveAllocation);
-router.post("/:id/reject", allocationController.rejectAllocation);
+/*
+|--------------------------------------------------------------------------
+| Worker allocations
+|--------------------------------------------------------------------------
+|
+| Authentication and the office role check are applied in server.js.
+|
+| Allocating, approving or withdrawing money is exactly what an audit trail
+| exists for, so every mutation here is recorded.
+|
+*/
+
+router.get("/", allocationController.getAllocations);
+
+router.post(
+  "/",
+  logActivity("worker_allocations", ACTIVITY_ACTIONS.CREATE),
+  allocationController.createAllocation
+);
+
+router.put(
+  "/:id",
+  logActivity("worker_allocations", ACTIVITY_ACTIONS.UPDATE),
+  allocationController.updateAllocation
+);
+
+router.delete(
+  "/:id",
+  logActivity("worker_allocations", ACTIVITY_ACTIONS.DELETE),
+  allocationController.deleteAllocation
+);
+
+router.post(
+  "/:id/approve",
+  logActivity("worker_allocations", ACTIVITY_ACTIONS.APPROVE),
+  allocationController.approveAllocation
+);
+
+router.post(
+  "/:id/reject",
+  logActivity("worker_allocations", ACTIVITY_ACTIONS.REJECT),
+  allocationController.rejectAllocation
+);
 
 module.exports = router;

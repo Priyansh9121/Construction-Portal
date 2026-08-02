@@ -66,6 +66,20 @@ const redact = (value, depth = 0) => {
     return value;
   }
 
+  /*
+   * node-pg returns TIMESTAMPTZ columns as Date objects, and a Date has no
+   * enumerable own properties — walking into one the way we walk a plain
+   * object returns {} and loses the timestamp. Every created_at and
+   * updated_at in the trail was being stored as an empty object.
+   */
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Buffer.isBuffer(value)) {
+    return "[binary]";
+  }
+
   return Object.entries(value).reduce(
     (acc, [key, val]) => {
       acc[key] = REDACTED_KEYS.has(
@@ -188,6 +202,59 @@ const record = ({
 };
 
 /**
+ * The keys modules return their created or updated record under.
+ *
+ * Kept as a list rather than a chain of ?? so a new module only has to add
+ * its key here.
+ */
+const ENTITY_KEYS = [
+  "payment",
+  "entry",
+  "labour",
+  "item",
+  "receipt",
+  "expense",
+  "allocation",
+  "siteLog",
+  "approval",
+  "tender",
+  "worker",
+  "subcontractor",
+  "invoice",
+  "site",
+  "document",
+  "material",
+  "banking",
+  "finance",
+  "assignment",
+  "user",
+  "request",
+];
+
+/**
+ * The id this row is about: the returned record's, or the one addressed in
+ * the path when the response carries no body (a delete, typically).
+ */
+const resolveRecordId = (entity, req) => {
+  if (entity?.id != null) {
+    return Number(entity.id);
+  }
+
+  const fromPath =
+    req?.params?.id ??
+    req?.params?.userId ??
+    null;
+
+  const parsed = Number(fromPath);
+
+  // Number(undefined) is NaN, and NaN ?? null is still NaN — which
+  // Postgres rejects for a bigint column. Check the result, not the input.
+  return Number.isFinite(parsed)
+    ? parsed
+    : null;
+};
+
+/**
  * Express middleware that logs a successful mutating request.
  *
  * Hooks res.json so the created or updated record is available, and only
@@ -208,25 +275,20 @@ const logActivity = (
     if (succeeded) {
       // Find the returned entity under whichever key the module used.
       const entity =
-        body?.payment ??
-        body?.entry ??
-        body?.labour ??
-        body?.item ??
-        body?.receipt ??
-        body?.expense ??
-        body?.allocation ??
-        body?.siteLog ??
-        body?.approval ??
-        null;
+        ENTITY_KEYS.reduce(
+          (found, key) =>
+            found ?? body?.[key] ?? null,
+          null
+        );
 
       record({
         req,
         action,
         module,
-        recordId:
-          entity?.id ??
-          Number(req.params?.id) ??
-          null,
+        recordId: resolveRecordId(
+          entity,
+          req
+        ),
         after: entity,
       });
     }
