@@ -23,9 +23,6 @@ function AppLayout({
   children,
   activePage,
   user,
-  tenders = [],
-  invoices = [],
-  payments = [],
 }) {
   const role = getRole(user);
 
@@ -56,10 +53,6 @@ function AppLayout({
         label: "Subcontractors",
         shortLabel: "Subs",
         path: "/subcontractors",
-      },
-      {
-        label: "Sites",
-        path: "/sites",
       },
       {
         label: "Tenders",
@@ -138,12 +131,7 @@ function AppLayout({
       <Sidebar user={user} />
 
       <main className="main-content">
-        <Topbar
-          activePage={activePage}
-          tenders={tenders}
-          invoices={invoices}
-          payments={payments}
-        />
+        <Topbar activePage={activePage} />
 
         <nav
           className="mobile-page-nav"
