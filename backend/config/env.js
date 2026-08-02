@@ -189,9 +189,51 @@ const JWT_SECRET =
       : developmentJwtSecret
   );
 
+/**
+ * Builds an actionable message for a missing or weak production secret.
+ *
+ * A deploy that dies on "JWT_SECRET is required" tells you what is wrong
+ * but not what to do, which is a poor experience at exactly the moment
+ * someone is under pressure. This spells out the fix.
+ *
+ * The "injected env (0)" line dotenv prints just above is the useful clue:
+ * it means no variables reached the process at all, which on a hosted
+ * platform means they were never configured in its dashboard. .env is
+ * deliberately not committed, so the platform is the only source.
+ */
+const missingSecretMessage = (
+  reason
+) =>
+  [
+    "",
+    "──────────────────────────────────────────────────────────────",
+    ` Cannot start: ${reason}`,
+    "──────────────────────────────────────────────────────────────",
+    "",
+    " The .env file is intentionally not committed, so a hosted",
+    " deployment gets its configuration from the platform, not the",
+    " repository.",
+    "",
+    " Fix — set these in your host's environment settings:",
+    "   (Render: Dashboard -> your service -> Environment)",
+    "",
+    "   JWT_SECRET      at least 32 characters, generate with:",
+    "                   openssl rand -base64 48",
+    "   DATABASE_URL    your PostgreSQL connection string",
+    "   NODE_ENV        production",
+    "   CORS_ORIGINS    your frontend URL",
+    "",
+    " backend/.env.example lists every supported variable.",
+    " See DEPLOYMENT.md for the full walkthrough.",
+    "──────────────────────────────────────────────────────────────",
+    "",
+  ].join("\n");
+
 if (!JWT_SECRET) {
   throw new Error(
-    "JWT_SECRET is required in production"
+    missingSecretMessage(
+      "JWT_SECRET is not set"
+    )
   );
 }
 
@@ -200,7 +242,24 @@ if (
   JWT_SECRET.length < 32
 ) {
   throw new Error(
-    "JWT_SECRET must contain at least 32 characters in production"
+    missingSecretMessage(
+      `JWT_SECRET is only ${JWT_SECRET.length} characters; production requires at least 32`
+    )
+  );
+}
+
+/**
+ * Refuse to run in production with the development placeholder, whatever
+ * its length. A known secret is the same as no secret.
+ */
+if (
+  IS_PRODUCTION &&
+  JWT_SECRET === developmentJwtSecret
+) {
+  throw new Error(
+    missingSecretMessage(
+      "JWT_SECRET is still the development placeholder"
+    )
   );
 }
 

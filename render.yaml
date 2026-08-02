@@ -1,0 +1,140 @@
+# ===========================================================================
+# Render blueprint — Construction Portal API
+# ===========================================================================
+#
+# Declares the service and every environment variable it needs, so the
+# configuration lives in the repository rather than only in a dashboard.
+#
+# Secrets are NOT stored here. Variables marked `sync: false` must be filled
+# in once from the Render dashboard; Render then remembers them and will not
+# overwrite them on redeploy.
+#
+# To use:
+#   Render Dashboard -> New -> Blueprint -> pick this repo.
+#   Render reads this file and creates the service.
+#
+# If the service already exists, just set the variables under
+# Dashboard -> your service -> Environment. This file is optional.
+# ===========================================================================
+
+services:
+  - type: web
+    name: construction-portal-api
+    runtime: node
+    plan: free
+
+    # The API lives in backend/, so build and start there.
+    rootDir: backend
+
+    buildCommand: npm ci
+    startCommand: node server.js
+
+    healthCheckPath: /api/health
+
+    envVars:
+      # --- Runtime ------------------------------------------------------
+      - key: NODE_ENV
+        value: production
+
+      # Render supplies PORT; the app reads it.
+      - key: PORT
+        value: 10000
+
+      # --- Secrets — set these once in the dashboard --------------------
+      # Generate with: openssl rand -base64 48
+      # Must be at least 32 characters or the app refuses to start.
+      - key: JWT_SECRET
+        sync: false
+
+      # PostgreSQL connection string.
+      # Supabase: Project Settings -> Database -> Connection string (URI).
+      - key: DATABASE_URL
+        sync: false
+
+      # --- Database -----------------------------------------------------
+      # Managed Postgres requires TLS.
+      - key: DB_SSL
+        value: "true"
+
+      # Verification is on by default. Supply the provider's CA bundle here
+      # so the certificate is actually checked rather than blindly trusted.
+      - key: DB_SSL_CA
+        sync: false
+
+      - key: DB_POOL_MAX
+        value: "10"
+      - key: DB_POOL_MIN
+        value: "0"
+      - key: DB_APPLICATION_NAME
+        value: construction-portal-api
+
+      # --- CORS / URLs --------------------------------------------------
+      # Comma-separated. Must include the deployed frontend origin, or every
+      # browser request is blocked.
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Where password-reset links point (the frontend, not the API).
+      - key: FRONTEND_URL
+        sync: false
+
+      - key: BASE_URL
+        sync: false
+
+      # --- Auth ---------------------------------------------------------
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+      # --- Supabase Storage ---------------------------------------------
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: construction-files
+
+      # --- Uploads ------------------------------------------------------
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "10"
+      - key: ALLOWED_UPLOAD_FOLDERS
+        value: tenders,sites,workers,subcontractors,invoices,daily-updates,site-inspections,site-models,materials,labour,banking
+
+      # --- Email (password reset) ---------------------------------------
+      # Without these, a user who forgets their password cannot recover it.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: Construction Portal
+
+      # --- Localisation -------------------------------------------------
+      - key: DEFAULT_CURRENCY
+        value: INR
+      - key: DEFAULT_TIMEZONE
+        value: Asia/Kolkata
+
+      # --- Rate limiting ------------------------------------------------
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_MAX
+        value: "300"
+      - key: AUTH_RATE_LIMIT_MAX
+        value: "10"
+
+      # --- Site operation rules -----------------------------------------
+      # How many days back a supervisor may record without admin approval.
+      - key: SUPERVISOR_EDIT_WINDOW_DAYS
+        value: "2"
+      - key: SUPERVISOR_BANKING_GRACE_DAYS
+        value: "1"
+
+      # --- Break-glass admin --------------------------------------------
+      # Deliberately left unset. Setting these in a deployed environment
+      # creates a standing authentication bypass.
