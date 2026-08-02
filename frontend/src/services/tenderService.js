@@ -464,9 +464,6 @@ export const restoreTender =
     }
   };
 
-export const buildTenderRequestPayload =
-  buildTenderPayload;
-
 export default {
   getTenders,
   getTenderById,
@@ -474,5 +471,4 @@ export default {
   updateTender,
   deleteTender,
   restoreTender,
-  buildTenderRequestPayload,
 };

@@ -40,13 +40,6 @@ export const getMaterialEntries = async (params = {}) => {
   };
 };
 
-export const getMaterialSummary = async (params = {}) => {
-  const { data } = await axiosClient.get(`${base}/materials/summary`, {
-    params,
-  });
-
-  return data.summary ?? [];
-};
 
 /**
  * Records a material delivery.
@@ -60,11 +53,6 @@ export const createMaterialEntry = async (payload) => {
   return data.entry;
 };
 
-export const deleteMaterialEntry = async (id) => {
-  const { data } = await axiosClient.delete(`${base}/materials/${id}`);
-
-  return data;
-};
 
 export const approveMaterialEntry = async (id, admin_comment = "") => {
   const { data } = await axiosClient.post(
@@ -108,17 +96,7 @@ export const createLabour = async (payload) => {
   return data.labour;
 };
 
-export const updateLabour = async (id, payload) => {
-  const { data } = await axiosClient.put(`${base}/labour/${id}`, payload);
 
-  return data.labour;
-};
-
-export const deleteLabour = async (id) => {
-  const { data } = await axiosClient.delete(`${base}/labour/${id}`);
-
-  return data;
-};
 
 /**
  * One labourer's account: every dated entry plus running totals.
@@ -272,17 +250,13 @@ export const denyAccessRequest = async (id, admin_comment = "") => {
 export default {
   getMaterialCatalog,
   getMaterialEntries,
-  getMaterialSummary,
   createMaterialEntry,
-  deleteMaterialEntry,
   approveMaterialEntry,
   rejectMaterialEntry,
 
   getLabourCategories,
   getLabour,
   createLabour,
-  updateLabour,
-  deleteLabour,
   getLabourLedger,
   createLabourWorkEntry,
 

@@ -25,6 +25,7 @@ import SubcontractorsPage from "../pages/SubcontractorsPage";
 import UsersPage from "../pages/UsersPage";
 import ReportsPage from "../pages/ReportsPage";
 import MastersPage from "../pages/MastersPage";
+import ActivityPage from "../pages/ActivityPage";
 import SettingsPage from "../pages/SettingsPage";
 
 import WorkerPortalPage from "../pages/WorkerPortalPage";
@@ -547,6 +548,20 @@ function AppRoutes({
             user={user}
           >
             <MastersPage />
+          </AdminManagerLayout>
+        }
+      />
+
+      {/* Audit trail — office only, same as the API */}
+
+      <Route
+        path="/activity"
+        element={
+          <AdminManagerLayout
+            activePage="Activity Log"
+            user={user}
+          >
+            <ActivityPage />
           </AdminManagerLayout>
         }
       />
