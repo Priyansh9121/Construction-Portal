@@ -72,10 +72,6 @@ const tenderRoutes = require(
   "./modules/tenders/tender.routes"
 );
 
-const tenderDetailsRoutes = require(
-  "./modules/tenderDetails/tenderDetails.routes"
-);
-
 const tenderFinanceRoutes = require(
   "./modules/tenderFinance/tenderFinance.routes"
 );
@@ -425,14 +421,6 @@ app.use(
   authMiddleware,
   require(
     "./modules/tenders/tender.routes"
-  )
-);
-
-app.use(
-  "/api/tender-details",
-  authMiddleware,
-  require(
-    "./modules/tenderDetails/tenderDetails.routes"
   )
 );
 

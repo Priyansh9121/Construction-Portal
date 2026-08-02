@@ -435,7 +435,7 @@ export const restoreTender =
 
     try {
       const response =
-        await axiosClient.patch(
+        await axiosClient.post(
           `/tenders/${id}/restore`
         );
 

@@ -978,6 +978,7 @@ function TenderDetailsPage() {
           editingAssignedSub
         ) {
           await updateTenderSubcontractor(
+            numericTenderId,
             editingAssignedSub.id,
             {
               work_description:
@@ -1127,6 +1128,7 @@ function TenderDetailsPage() {
         switch (type) {
           case "document":
             await deleteTenderDocument(
+              numericTenderId,
               item.id
             );
 
@@ -1138,6 +1140,7 @@ function TenderDetailsPage() {
 
           case "material":
             await deleteTenderMaterial(
+              numericTenderId,
               item.id
             );
 
@@ -1149,6 +1152,7 @@ function TenderDetailsPage() {
 
           case "banking":
             await deleteTenderBanking(
+              numericTenderId,
               item.id
             );
 
@@ -1160,6 +1164,7 @@ function TenderDetailsPage() {
 
           case "subcontractor":
             await removeTenderSubcontractor(
+              numericTenderId,
               item.id
             );
 

@@ -1197,6 +1197,7 @@ const getTenderDocuments = async ({
 
 const insertTenderDocument = async ({
   tenderId,
+  companyId,
   uploadedBy,
   document,
   client = pool,
@@ -1206,6 +1207,7 @@ const insertTenderDocument = async ({
     INSERT INTO public.tender_documents
     (
       tender_id,
+      company_id,
       document_name,
       document_type,
       file_url,
@@ -1221,6 +1223,7 @@ const insertTenderDocument = async ({
       $3,
       $4,
       $5,
+      $6,
       FALSE,
       NOW(),
       NOW()
@@ -1229,6 +1232,7 @@ const insertTenderDocument = async ({
     `,
     [
       tenderId,
+      companyId,
       document.document_name,
       document.document_type,
       document.file_url,
@@ -1356,6 +1360,7 @@ const getTenderMaterials = async ({
 
 const insertTenderMaterial = async ({
   tenderId,
+  companyId,
   material,
   client = pool,
 }) => {
@@ -1364,6 +1369,7 @@ const insertTenderMaterial = async ({
     INSERT INTO public.tender_materials
     (
       tender_id,
+      company_id,
       section_name,
       material_name,
       quantity,
@@ -1387,6 +1393,7 @@ const insertTenderMaterial = async ({
       $7,
       $8,
       $9,
+      $10,
       FALSE,
       NOW(),
       NOW()
@@ -1395,6 +1402,7 @@ const insertTenderMaterial = async ({
     `,
     [
       tenderId,
+      companyId,
       material.section_name,
       material.material_name,
       material.quantity,
@@ -1536,6 +1544,7 @@ const getTenderBanking = async ({
 
 const insertTenderBanking = async ({
   tenderId,
+  companyId,
   banking,
   client = pool,
 }) => {
@@ -1544,6 +1553,7 @@ const insertTenderBanking = async ({
     INSERT INTO public.tender_banking
     (
       tender_id,
+      company_id,
       payment_type,
       bank_name,
       account_name,
@@ -1567,6 +1577,7 @@ const insertTenderBanking = async ({
       $7,
       $8,
       $9,
+      $10,
       FALSE,
       NOW(),
       NOW()
@@ -1575,6 +1586,7 @@ const insertTenderBanking = async ({
     `,
     [
       tenderId,
+      companyId,
       banking.payment_type,
       banking.bank_name,
       banking.account_name,
@@ -1795,6 +1807,7 @@ const tenderSubcontractorExists =
 const insertTenderSubcontractor =
   async ({
     tenderId,
+    companyId,
     assignment,
     client = pool,
   }) => {
@@ -1803,6 +1816,7 @@ const insertTenderSubcontractor =
       INSERT INTO public.tender_subcontractors
       (
         tender_id,
+        company_id,
         subcontractor_id,
         work_description,
         assigned_amount,
@@ -1818,6 +1832,7 @@ const insertTenderSubcontractor =
         $3,
         $4,
         $5,
+        $6,
         FALSE,
         NOW(),
         NOW()
@@ -1826,6 +1841,7 @@ const insertTenderSubcontractor =
       `,
       [
         tenderId,
+        companyId,
         assignment.subcontractor_id,
         assignment.work_description,
         assignment.assigned_amount,
@@ -2237,6 +2253,7 @@ const getTenderFinanceRecords =
 const insertTenderFinanceRecord =
   async ({
     tenderId,
+    companyId,
     finance,
     client = pool,
   }) => {
@@ -2246,6 +2263,7 @@ const insertTenderFinanceRecord =
       (
         site_id,
         tender_id,
+        company_id,
         record_type,
         source_name,
         payment_mode,
@@ -2288,6 +2306,7 @@ const insertTenderFinanceRecord =
         $17,
         $18,
         $19,
+        $20,
         FALSE,
         NOW(),
         NOW()
@@ -2297,6 +2316,7 @@ const insertTenderFinanceRecord =
       [
         finance.site_id,
         tenderId,
+        companyId,
         finance.record_type,
         finance.source_name,
         finance.payment_mode,
