@@ -5,7 +5,7 @@ import {
 } from "react-router-dom";
 
 import { registerUser } from "../services/authService";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 
 function RegisterPage() {
   const navigate = useNavigate();

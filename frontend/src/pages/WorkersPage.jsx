@@ -11,7 +11,7 @@ import ExportButtons from "../components/export/ExportButtons";
 import { updateWorker } from "../services/workerService";
 import { formatCurrency } from "../utils/currency";
 
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 import useWorkers from "../hooks/useWorkers";
 
 const EMPTY_EDIT_FORM = {

@@ -20,9 +20,7 @@ import {
   formatCurrency,
 } from "../utils/currency";
 
-import {
-  useAuth,
-} from "../contexts/AuthContext";
+import { useAuth,  } from "../contexts/authContext";
 
 import useTenders from "../hooks/useTenders";
 
@@ -46,6 +44,31 @@ const createEmptyProjectForm = () => ({
   description: "",
   sites: [createEmptySite()],
 });
+
+/*
+ * Pure helpers, hoisted out of the component. Recreated on every render
+ * they became invisible dependencies of the memos that call them.
+ */
+const normaliseSites = (sites) => {
+  if (!Array.isArray(sites)) {
+    return [];
+  }
+
+  return sites.filter(
+    (site) => site && !site.is_deleted
+  );
+};
+
+const getProjectSites = (tender) =>
+  normaliseSites(tender?.sites);
+
+const getProjectSiteNames = (tender) => {
+  const names = getProjectSites(tender)
+    .map((site) => site.site_name)
+    .filter(Boolean);
+
+  return names.join(", ");
+};
 
 function TendersPage() {
   const navigate = useNavigate();
@@ -118,39 +141,6 @@ function TendersPage() {
     String(value || "")
       .trim()
       .toLowerCase();
-
-  const normaliseSites = (sites) => {
-    if (!Array.isArray(sites)) {
-      return [];
-    }
-
-    return sites.filter(
-      (site) =>
-        site &&
-        !site.is_deleted
-    );
-  };
-
-  const getProjectSites = (
-    tender
-  ) =>
-    normaliseSites(
-      tender?.sites
-    );
-
-  const getProjectSiteNames = (
-    tender
-  ) => {
-    const names =
-      getProjectSites(tender)
-        .map(
-          (site) =>
-            site.site_name
-        )
-        .filter(Boolean);
-
-    return names.join(", ");
-  };
 
   const today = useMemo(() => {
     const currentDate =

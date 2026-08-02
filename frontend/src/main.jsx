@@ -6,9 +6,7 @@ import {
 } from "react-hot-toast";
 
 import App from "./App.jsx";
-import {
-  AuthProvider,
-} from "./contexts/AuthContext.jsx";
+import { AuthProvider } from "./contexts/AuthProvider";
 
 /*
  * Base Vite/global stylesheet.

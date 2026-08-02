@@ -7,7 +7,7 @@ import FinanceWizard from "../components/finance/FinanceWizard";
 import FinanceTable from "../components/finance/FinanceTable";
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 
 import {
   getActiveSections,

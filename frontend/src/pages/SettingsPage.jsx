@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import { changePassword } from "../services/authService";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authContext";
 import ExportButtons from "../components/export/ExportButtons";
 
 const DEFAULT_COMPANY_SETTINGS = {
