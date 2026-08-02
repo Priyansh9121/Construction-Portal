@@ -16,6 +16,11 @@ const authController = require(
   "./auth.controller"
 );
 
+const {
+  logActivity,
+  ACTIVITY_ACTIONS,
+} = require("../../utils/activityLog");
+
 const router = express.Router();
 
 /*
@@ -161,6 +166,10 @@ router.get(
 router.post(
   "/users",
   ...requireAdministrator,
+  logActivity(
+    "users",
+    ACTIVITY_ACTIONS.CREATE
+  ),
   asyncHandler(
     authController.createUser
   )
@@ -172,6 +181,10 @@ router.post(
 router.put(
   "/users/:userId",
   ...requireAdministrator,
+  logActivity(
+    "users",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     authController.updateUser
   )
@@ -185,6 +198,10 @@ router.put(
 router.put(
   "/users/:userId/disable",
   ...requireAdministrator,
+  logActivity(
+    "users",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     authController.disableUser
   )
@@ -196,28 +213,12 @@ router.put(
 router.put(
   "/users/:userId/enable",
   ...requireAdministrator,
+  logActivity(
+    "users",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     authController.enableUser
-  )
-);
-
-/*
-|--------------------------------------------------------------------------
-| Temporary compatibility route
-|--------------------------------------------------------------------------
-|
-| The existing frontend currently posts to /api/auth/create-user.
-| Keep this alias until authService.js is updated to POST /api/auth/users.
-|
-| Remove this route after the frontend migration.
-|
-*/
-
-router.post(
-  "/create-user",
-  ...requireAdministrator,
-  asyncHandler(
-    authController.createUser
   )
 );
 

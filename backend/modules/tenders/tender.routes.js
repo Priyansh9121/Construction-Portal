@@ -12,6 +12,11 @@ const tenderController = require(
   "./tender.controller"
 );
 
+const {
+  logActivity,
+  ACTIVITY_ACTIONS,
+} = require("../../utils/activityLog");
+
 const router = express.Router();
 
 /*
@@ -62,6 +67,10 @@ router.get(
 router.post(
   "/",
   requireTenderManagement,
+  logActivity(
+    "tenders",
+    ACTIVITY_ACTIONS.CREATE
+  ),
   asyncHandler(
     tenderController.createTender
   )
@@ -96,6 +105,10 @@ router.get(
 router.post(
   "/:id/documents",
   requireTenderManagement,
+  logActivity(
+    "tender_documents",
+    ACTIVITY_ACTIONS.CREATE
+  ),
   asyncHandler(
     tenderController.createDocument
   )
@@ -104,6 +117,10 @@ router.post(
 router.put(
   "/:id/documents/:documentId",
   requireTenderManagement,
+  logActivity(
+    "tender_documents",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     tenderController.updateDocument
   )
@@ -112,6 +129,10 @@ router.put(
 router.delete(
   "/:id/documents/:documentId",
   requireTenderManagement,
+  logActivity(
+    "tender_documents",
+    ACTIVITY_ACTIONS.DELETE
+  ),
   asyncHandler(
     tenderController.deleteDocument
   )
@@ -133,6 +154,10 @@ router.get(
 router.post(
   "/:id/materials",
   requireTenderManagement,
+  logActivity(
+    "tender_materials",
+    ACTIVITY_ACTIONS.CREATE
+  ),
   asyncHandler(
     tenderController.createMaterial
   )
@@ -141,6 +166,10 @@ router.post(
 router.put(
   "/:id/materials/:materialId",
   requireTenderManagement,
+  logActivity(
+    "tender_materials",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     tenderController.updateMaterial
   )
@@ -149,6 +178,10 @@ router.put(
 router.delete(
   "/:id/materials/:materialId",
   requireTenderManagement,
+  logActivity(
+    "tender_materials",
+    ACTIVITY_ACTIONS.DELETE
+  ),
   asyncHandler(
     tenderController.deleteMaterial
   )
@@ -170,6 +203,10 @@ router.get(
 router.post(
   "/:id/banking",
   requireTenderManagement,
+  logActivity(
+    "tender_banking",
+    ACTIVITY_ACTIONS.CREATE
+  ),
   asyncHandler(
     tenderController.createBanking
   )
@@ -178,6 +215,10 @@ router.post(
 router.put(
   "/:id/banking/:bankingId",
   requireTenderManagement,
+  logActivity(
+    "tender_banking",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     tenderController.updateBanking
   )
@@ -186,6 +227,10 @@ router.put(
 router.delete(
   "/:id/banking/:bankingId",
   requireTenderManagement,
+  logActivity(
+    "tender_banking",
+    ACTIVITY_ACTIONS.DELETE
+  ),
   asyncHandler(
     tenderController.deleteBanking
   )
@@ -207,6 +252,10 @@ router.get(
 router.post(
   "/:id/subcontractors",
   requireTenderManagement,
+  logActivity(
+    "tender_subcontractors",
+    ACTIVITY_ACTIONS.ASSIGN
+  ),
   asyncHandler(
     tenderController.assignSubcontractor
   )
@@ -215,6 +264,10 @@ router.post(
 router.put(
   "/:id/subcontractors/:assignmentId",
   requireTenderManagement,
+  logActivity(
+    "tender_subcontractors",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     tenderController.updateSubcontractor
   )
@@ -223,6 +276,10 @@ router.put(
 router.delete(
   "/:id/subcontractors/:assignmentId",
   requireTenderManagement,
+  logActivity(
+    "tender_subcontractors",
+    ACTIVITY_ACTIONS.REMOVE
+  ),
   asyncHandler(
     tenderController.removeSubcontractor
   )
@@ -244,6 +301,10 @@ router.get(
 router.post(
   "/:id/workers",
   requireTenderManagement,
+  logActivity(
+    "tender_workers",
+    ACTIVITY_ACTIONS.ASSIGN
+  ),
   asyncHandler(
     tenderController.assignWorker
   )
@@ -252,6 +313,10 @@ router.post(
 router.put(
   "/:id/workers/:assignmentId",
   requireTenderManagement,
+  logActivity(
+    "tender_workers",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     tenderController.updateWorker
   )
@@ -260,6 +325,10 @@ router.put(
 router.delete(
   "/:id/workers/:assignmentId",
   requireTenderManagement,
+  logActivity(
+    "tender_workers",
+    ACTIVITY_ACTIONS.REMOVE
+  ),
   asyncHandler(
     tenderController.removeWorker
   )
@@ -291,6 +360,10 @@ router.get(
 router.post(
   "/:id/finance",
   requireTenderManagement,
+  logActivity(
+    "tender_finance",
+    ACTIVITY_ACTIONS.CREATE
+  ),
   asyncHandler(
     tenderController.createFinanceRecord
   )
@@ -299,6 +372,10 @@ router.post(
 router.put(
   "/:id/finance/:financeId",
   requireTenderManagement,
+  logActivity(
+    "tender_finance",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     tenderController.updateFinanceRecord
   )
@@ -307,6 +384,10 @@ router.put(
 router.delete(
   "/:id/finance/:financeId",
   requireTenderManagement,
+  logActivity(
+    "tender_finance",
+    ACTIVITY_ACTIONS.DELETE
+  ),
   asyncHandler(
     tenderController.deleteFinanceRecord
   )
@@ -324,6 +405,10 @@ router.delete(
 router.post(
   "/:id/restore",
   requireTenderManagement,
+  logActivity(
+    "tenders",
+    ACTIVITY_ACTIONS.RESTORE
+  ),
   asyncHandler(
     tenderController.restoreTender
   )
@@ -348,6 +433,10 @@ router.get(
 router.put(
   "/:id",
   requireTenderManagement,
+  logActivity(
+    "tenders",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     tenderController.updateTender
   )
@@ -356,6 +445,10 @@ router.put(
 router.delete(
   "/:id",
   requireTenderManagement,
+  logActivity(
+    "tenders",
+    ACTIVITY_ACTIONS.DELETE
+  ),
   asyncHandler(
     tenderController.deleteTender
   )

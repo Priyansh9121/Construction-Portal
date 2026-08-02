@@ -6,7 +6,7 @@ export const getUsers = async () => {
 };
 
 export const createUser = async (data) => {
-  const res = await axiosClient.post("/auth/create-user", data);
+  const res = await axiosClient.post("/auth/users", data);
   return res.data;
 };
 

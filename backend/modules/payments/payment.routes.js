@@ -4,6 +4,11 @@ const asyncHandler = require("../../utils/asyncHandler");
 
 const paymentController = require("./payment.controller");
 
+const {
+  logActivity,
+  ACTIVITY_ACTIONS,
+} = require("../../utils/activityLog");
+
 const router = express.Router();
 
 /*
@@ -53,6 +58,10 @@ router.get(
 // POST /api/payments
 router.post(
   "/",
+  logActivity(
+    "payments",
+    ACTIVITY_ACTIONS.CREATE
+  ),
   asyncHandler(
     paymentController.createPayment
   )
@@ -61,6 +70,10 @@ router.post(
 // PUT /api/payments/:id
 router.put(
   "/:id",
+  logActivity(
+    "payments",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(
     paymentController.updatePayment
   )
@@ -69,6 +82,10 @@ router.put(
 // DELETE /api/payments/:id
 router.delete(
   "/:id",
+  logActivity(
+    "payments",
+    ACTIVITY_ACTIONS.DELETE
+  ),
   asyncHandler(
     paymentController.deletePayment
   )
