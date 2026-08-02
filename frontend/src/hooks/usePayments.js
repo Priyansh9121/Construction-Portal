@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
   getPayments,
@@ -8,83 +8,64 @@ import {
 
 import { canLoadAdminData } from "../utils/roleAccess";
 
+import { useCollection } from "./useCollection";
+
 function usePayments(user) {
-  const [payments, setPayments] = useState([]);
+  const {
+    items: payments,
+    loading,
+    error,
+    refresh,
+    patch,
+  } = useCollection(user, {
+    fetcher: getPayments,
+    label: "payments",
+  });
 
-  const fetchPayments = async () => {
-    if (!canLoadAdminData(user)) {
-      setPayments([]);
-      return [];
-    }
+  const addPayment = useCallback(
+    async (paymentData) => {
+      if (!canLoadAdminData(user)) {
+        throw new Error("You are not allowed to create payments.");
+      }
 
-    try {
-      const data = await getPayments();
+      const data = await createPayment(paymentData);
 
-      const rows = Array.isArray(data)
-        ? data
-        : data.payments || [];
+      if (data.payment) {
+        patch((rows) => [
+          data.payment,
+          ...rows.filter((item) => item.id !== data.payment.id),
+        ]);
+      } else {
+        await refresh();
+      }
 
-      setPayments(rows);
-      return rows;
-    } catch (error) {
-      console.error(
-        "Failed to fetch payments",
-        error.response?.data || error
+      return data;
+    },
+    [user, patch, refresh]
+  );
+
+  const removePayment = useCallback(
+    async (id) => {
+      if (!canLoadAdminData(user)) {
+        throw new Error("You are not allowed to delete payments.");
+      }
+
+      const data = await deletePayment(id);
+
+      patch((rows) =>
+        rows.filter((payment) => Number(payment.id) !== Number(id))
       );
 
-      setPayments([]);
-      throw error;
-    }
-  };
-
-  useEffect(() => {
-    if (canLoadAdminData(user)) {
-      fetchPayments();
-    } else {
-      setPayments([]);
-    }
-  }, [user?.id, user?.role]);
-
-  const addPayment = async (paymentData) => {
-    if (!canLoadAdminData(user)) {
-      throw new Error("You are not allowed to create payments.");
-    }
-
-    const data = await createPayment(paymentData);
-
-    if (data.payment) {
-      setPayments((previous) => [
-        data.payment,
-        ...previous.filter(
-          (item) => item.id !== data.payment.id
-        ),
-      ]);
-    } else {
-      await fetchPayments();
-    }
-
-    return data;
-  };
-
-  const removePayment = async (id) => {
-    if (!canLoadAdminData(user)) {
-      throw new Error("You are not allowed to delete payments.");
-    }
-
-    const data = await deletePayment(id);
-
-    setPayments((previous) =>
-      previous.filter(
-        (payment) => Number(payment.id) !== Number(id)
-      )
-    );
-
-    return data;
-  };
+      return data;
+    },
+    [user, patch]
+  );
 
   return {
     payments,
-    fetchPayments,
+    loading,
+    error,
+    fetchPayments: refresh,
     addPayment,
     removePayment,
   };

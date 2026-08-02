@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
   getInvoices,
@@ -6,38 +6,45 @@ import {
   deleteInvoice,
 } from "../services/invoiceService";
 
+import { useCollection } from "./useCollection";
+
 export default function useInvoices(user) {
-  const [invoices, setInvoices] = useState([]);
+  const {
+    items: invoices,
+    loading,
+    error,
+    refresh,
+  } = useCollection(user, {
+    fetcher: getInvoices,
+    label: "invoices",
+  });
 
-  const fetchInvoices = async () => {
-    try {
-      const data = await getInvoices();
-      setInvoices(data);
-    } catch (err) {
-      console.error("Failed to load invoices", err);
-    }
-  };
+  const addInvoice = useCallback(
+    async (invoice) => {
+      const result = await createInvoice(invoice);
+      await refresh();
 
-  useEffect(() => {
-    if (user) {
-      fetchInvoices();
-    }
-  }, [user]);
+      return result;
+    },
+    [refresh]
+  );
 
-  const addInvoice = async (invoice) => {
-    await createInvoice(invoice);
-    fetchInvoices();
-  };
+  const removeInvoice = useCallback(
+    async (id) => {
+      const result = await deleteInvoice(id);
+      await refresh();
 
-  const removeInvoice = async (id) => {
-    await deleteInvoice(id);
-    fetchInvoices();
-  };
+      return result;
+    },
+    [refresh]
+  );
 
   return {
     invoices,
+    loading,
+    error,
     addInvoice,
     removeInvoice,
-    fetchInvoices,
+    fetchInvoices: refresh,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
   getSiteLogs,
@@ -8,78 +8,57 @@ import {
 
 import { canLoadAdminData } from "../utils/roleAccess";
 
+import { useCollection } from "./useCollection";
+
 export default function useSiteLogs(user) {
-  const [siteLogs, setSiteLogs] = useState([]);
+  const {
+    items: siteLogs,
+    loading,
+    error,
+    refresh,
+    patch,
+  } = useCollection(user, {
+    fetcher: getSiteLogs,
+    label: "site logs",
+  });
 
-  const fetchSiteLogs = async () => {
-    if (!canLoadAdminData(user)) {
-      setSiteLogs([]);
-      return [];
-    }
-  
-    try {
-      const data = await getSiteLogs();
-  
-      const rows = Array.isArray(data)
-        ? data
-        : data.siteLogs || data.logs || [];
-  
-      setSiteLogs(rows);
-      return rows;
-    } catch (error) {
-      console.error(
-        "Failed to load site logs",
-        error.response?.data || error
-      );
-  
-      setSiteLogs([]);
-  
-      // Do not throw here for automatic page loading.
-      return [];
-    }
-  };
+  const addSiteLog = useCallback(
+    async (log) => {
+      if (!canLoadAdminData(user)) {
+        throw new Error(
+          "Use the scoped worker or subcontractor portal to submit updates."
+        );
+      }
 
-  useEffect(() => {
-    if (canLoadAdminData(user)) {
-      fetchSiteLogs();
-    } else {
-      setSiteLogs([]);
-    }
-  }, [user?.id, user?.role]);
+      const result = await createSiteLog(log);
+      await refresh();
 
-  const addSiteLog = async (log) => {
-    if (!canLoadAdminData(user)) {
-      throw new Error(
-        "Use the scoped worker or subcontractor portal to submit updates."
-      );
-    }
+      return result;
+    },
+    [user, refresh]
+  );
 
-    const result = await createSiteLog(log);
-    await fetchSiteLogs();
+  const removeSiteLog = useCallback(
+    async (id) => {
+      if (!canLoadAdminData(user)) {
+        throw new Error("You are not allowed to delete site logs.");
+      }
 
-    return result;
-  };
+      const result = await deleteSiteLog(id);
 
-  const removeSiteLog = async (id) => {
-    if (!canLoadAdminData(user)) {
-      throw new Error("You are not allowed to delete site logs.");
-    }
+      patch((rows) => rows.filter((item) => Number(item.id) !== Number(id)));
 
-    const result = await deleteSiteLog(id);
-
-    setSiteLogs((previous) =>
-      previous.filter(
-        (item) => Number(item.id) !== Number(id)
-      )
-    );
-
-    return result;
-  };
+      return result;
+    },
+    [user, patch]
+  );
 
   return {
     siteLogs,
+    loading,
+    error,
     addSiteLog,
     removeSiteLog,
-    fetchSiteLogs,
+    fetchSiteLogs: refresh,
   };
 }

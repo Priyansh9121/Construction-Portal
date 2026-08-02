@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { canLoadAdminData } from "../utils/roleAccess";
+import { useCallback } from "react";
 
 import {
   getAllocations,
@@ -14,68 +13,61 @@ import {
   rejectExpense,
 } from "../services/workerMoneyService";
 
+import { useCollection } from "./useCollection";
+
 export default function useWorkerMoney(user) {
-  const [allocations, setAllocations] = useState([]);
-  const [expenses, setExpenses] = useState([]);
+  const allocationState = useCollection(user, {
+    fetcher: getAllocations,
+    label: "allocations",
+  });
 
-  const fetchAllocations = async () => {
-    if (!canLoadAdminData(user)) {
-      setAllocations([]);
-      return [];
-    }
-    try {
-      const data = await getAllocations();
-      setAllocations(data || []);
-    } catch (err) {
-      console.error("Failed to load allocations", err);
-      setAllocations([]);
-    }
-  };
+  const expenseState = useCollection(user, {
+    fetcher: getExpenses,
+    label: "expenses",
+  });
 
-  const fetchExpenses = async () => {
-    if (!canLoadAdminData(user)) {
-      setExpenses([]);
-      return [];
-    }
-    try {
-      const data = await getExpenses();
-      setExpenses(data || []);
-    } catch (err) {
-      console.error("Failed to load expenses", err);
-      setExpenses([]);
-    }
-  };
+  const {
+    refresh: refreshAllocations,
+  } = allocationState;
 
-  useEffect(() => {
-    if (canLoadAdminData(user)) {
-      fetchAllocations();
-      fetchExpenses();
-    } else {
-      setAllocations([]);
-      setExpenses([]);
-    }
-  }, [user?.id, user?.role]);
+  const {
+    refresh: refreshExpenses,
+  } = expenseState;
 
-  const addAllocation = async (allocation) => {
-    await createAllocation(allocation);
-    await fetchAllocations();
-  };
+  const addAllocation = useCallback(
+    async (allocation) => {
+      const result = await createAllocation(allocation);
+      await refreshAllocations();
 
-  const addExpense = async (expense) => {
-    await createExpense(expense);
-    await fetchExpenses();
-    await fetchAllocations();
-  };
+      return result;
+    },
+    [refreshAllocations]
+  );
+
+  const addExpense = useCallback(
+    async (expense) => {
+      const result = await createExpense(expense);
+
+      // An expense draws down its allocation, so both registers move.
+      await Promise.all([refreshExpenses(), refreshAllocations()]);
+
+      return result;
+    },
+    [refreshExpenses, refreshAllocations]
+  );
 
   return {
-    allocations,
-    expenses,
+    allocations: allocationState.items,
+    expenses: expenseState.items,
+
+    loading: allocationState.loading || expenseState.loading,
+    error: allocationState.error || expenseState.error,
 
     addAllocation,
     addExpense,
 
-    fetchAllocations,
-    fetchExpenses,
+    fetchAllocations: refreshAllocations,
+    fetchExpenses: refreshExpenses,
 
     updateAllocation,
     deleteAllocation,

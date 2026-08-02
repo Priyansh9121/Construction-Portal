@@ -14,9 +14,6 @@ import {
 
 const headerColor = [15, 23, 42];
 const blueBand = [219, 234, 254];
-const greenBand = [220, 252, 231];
-const yellowBand = [254, 249, 195];
-const orangeBand = [255, 237, 213];
 
 const money = formatExportMoney;
 
@@ -150,20 +147,21 @@ function addSectionTable(doc, startY, title, rows = [], options = {}) {
   return doc.lastAutoTable.finalY + 18;
 }
 
-function createWorkbookSheet(rows, sheetName = "Report") {
+/**
+ * Writes one sheet of rows to an .xlsx file.
+ *
+ * Column widths are per-report because the label column varies in length,
+ * so they are passed in rather than fixed here.
+ */
+function writeWorkbook(rows, { sheetName, columnWidths, fileName }) {
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
 
-  worksheet["!cols"] = [
-    { wch: 42 },
-    { wch: 16 },
-    { wch: 18 },
-    { wch: 18 },
-  ];
+  worksheet["!cols"] = columnWidths.map((wch) => ({ wch }));
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
-  return workbook;
+  XLSX.writeFile(workbook, fileName);
 }
 
 export function exportSubletBillPDF(data = {}) {
@@ -227,8 +225,10 @@ export function exportSubletBillPDF(data = {}) {
         totalColor: BRAND.lightBlue,
       }
     );
-  
-    y = addSectionTable(
+
+    // Last table on the page — nothing is positioned after it, so the
+    // returned cursor is not needed.
+    addSectionTable(
       doc,
       y,
       "Sublet Bill Calculation",
@@ -301,18 +301,11 @@ export function exportSubletBillExcel(data) {
     ["Final TRF Payment", "", c.trfPayment],
   ];
 
-  const worksheet = XLSX.utils.aoa_to_sheet(rows);
-
-  worksheet["!cols"] = [
-    { wch: 42 },
-    { wch: 14 },
-    { wch: 18 },
-  ];
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Sublet Bill");
-
-  XLSX.writeFile(workbook, `${data.packageNo || "sublet-bill"}.xlsx`);
+  writeWorkbook(rows, {
+    sheetName: "Sublet Bill",
+    columnWidths: [42, 14, 18],
+    fileName: `${data.packageNo || "sublet-bill"}.xlsx`,
+  });
 }
 
 export function exportGovernmentBillPDF(data = {}) {
@@ -449,12 +442,9 @@ export function exportGovernmentBillPDF(data = {}) {
       ["Net Payable / Cheque Amount", "", netPayable],
     ];
   
-    const worksheet = XLSX.utils.aoa_to_sheet(rows);
-  
-    worksheet["!cols"] = [{ wch: 36 }, { wch: 14 }, { wch: 18 }];
-  
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Government Bill");
-  
-    XLSX.writeFile(workbook, `${data.tenderName || "government-bill"}.xlsx`);
+    writeWorkbook(rows, {
+      sheetName: "Government Bill",
+      columnWidths: [36, 14, 18],
+      fileName: `${data.tenderName || "government-bill"}.xlsx`,
+    });
   }

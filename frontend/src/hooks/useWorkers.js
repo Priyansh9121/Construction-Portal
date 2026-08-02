@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
   getWorkers,
@@ -6,38 +6,45 @@ import {
   deleteWorker,
 } from "../services/workerService";
 
+import { useCollection } from "./useCollection";
+
 export default function useWorkers(user) {
-  const [workers, setWorkers] = useState([]);
+  const {
+    items: workers,
+    loading,
+    error,
+    refresh,
+  } = useCollection(user, {
+    fetcher: getWorkers,
+    label: "workers",
+  });
 
-  const fetchWorkers = async () => {
-    try {
-      const data = await getWorkers();
-      setWorkers(data);
-    } catch (err) {
-      console.error("Failed to load workers", err);
-    }
-  };
+  const addWorker = useCallback(
+    async (worker) => {
+      const result = await createWorker(worker);
+      await refresh();
 
-  useEffect(() => {
-    if (user) {
-      fetchWorkers();
-    }
-  }, [user]);
+      return result;
+    },
+    [refresh]
+  );
 
-  const addWorker = async (worker) => {
-    await createWorker(worker);
-    fetchWorkers();
-  };
+  const removeWorker = useCallback(
+    async (id) => {
+      const result = await deleteWorker(id);
+      await refresh();
 
-  const removeWorker = async (id) => {
-    await deleteWorker(id);
-    fetchWorkers();
-  };
+      return result;
+    },
+    [refresh]
+  );
 
   return {
     workers,
+    loading,
+    error,
     addWorker,
     removeWorker,
-    fetchWorkers,
+    fetchWorkers: refresh,
   };
 }

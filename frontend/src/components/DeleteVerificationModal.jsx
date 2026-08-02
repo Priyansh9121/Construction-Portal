@@ -1,4 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+/*
+|--------------------------------------------------------------------------
+| Delete verification
+|--------------------------------------------------------------------------
+|
+| The last step before a destructive action. Every page that deletes
+| something routes through here, so the challenge has to actually gate the
+| button — it previously computed whether the answer was correct and then
+| ignored the result, leaving Delete enabled whatever the user typed.
+|
+*/
 
 const SECURITY_QUESTION = {
   question: "Type the last 3 letters of DELETE",
@@ -14,16 +26,35 @@ function DeleteVerificationModal({
 }) {
   const [answer, setAnswer] = useState("");
 
-  useEffect(() => {
-    if (open) {
-      setAnswer("");
-    }
-  }, [open]);
+  /*
+   * Clear the previous answer when the dialog reopens.
+   *
+   * Adjusting state during render is React's documented alternative to an
+   * effect here: it happens before the browser paints, so the stale answer
+   * from the last deletion is never briefly visible, and it avoids the
+   * extra render an effect would cost.
+   */
+  const [wasOpen, setWasOpen] = useState(open);
 
-  if (!open) return null;
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    setAnswer("");
+  }
+
+  if (!open) {
+    return null;
+  }
 
   const isValid =
     answer.trim().toUpperCase() === SECURITY_QUESTION.answer;
+
+  const confirm = () => {
+    if (!isValid || loading) {
+      return;
+    }
+
+    onConfirm();
+  };
 
   return (
     <div className="modal-backdrop">
@@ -38,9 +69,17 @@ function DeleteVerificationModal({
 
         <input
           value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
+          onChange={(event) => setAnswer(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              confirm();
+            }
+          }}
           placeholder="Enter answer"
           autoComplete="off"
+          autoFocus
+          aria-invalid={answer.length > 0 && !isValid}
         />
 
         <div className="modal-actions">
@@ -55,8 +94,13 @@ function DeleteVerificationModal({
           <button
             type="button"
             className="delete-btn"
-            onClick={onConfirm}
-            disabled={loading}
+            onClick={confirm}
+            disabled={loading || !isValid}
+            title={
+              isValid
+                ? undefined
+                : "Answer the verification question to enable deletion."
+            }
           >
             {loading ? "Deleting..." : "Delete"}
           </button>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
   getSites,
@@ -6,38 +6,45 @@ import {
   deleteSite,
 } from "../services/siteService";
 
+import { useCollection } from "./useCollection";
+
 export default function useSites(user) {
-  const [sites, setSites] = useState([]);
+  const {
+    items: sites,
+    loading,
+    error,
+    refresh,
+  } = useCollection(user, {
+    fetcher: getSites,
+    label: "sites",
+  });
 
-  const fetchSites = async () => {
-    try {
-      const data = await getSites();
-      setSites(data);
-    } catch (err) {
-      console.error("Failed to load sites", err);
-    }
-  };
+  const addSite = useCallback(
+    async (site) => {
+      const result = await createSite(site);
+      await refresh();
 
-  useEffect(() => {
-    if (user) {
-      fetchSites();
-    }
-  }, [user]);
+      return result;
+    },
+    [refresh]
+  );
 
-  const addSite = async (site) => {
-    await createSite(site);
-    fetchSites();
-  };
+  const removeSite = useCallback(
+    async (id) => {
+      const result = await deleteSite(id);
+      await refresh();
 
-  const removeSite = async (id) => {
-    await deleteSite(id);
-    fetchSites();
-  };
+      return result;
+    },
+    [refresh]
+  );
 
   return {
     sites,
+    loading,
+    error,
     addSite,
     removeSite,
-    fetchSites,
+    fetchSites: refresh,
   };
 }
