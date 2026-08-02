@@ -302,7 +302,7 @@ router.post(
   "/:id/workers",
   requireTenderManagement,
   logActivity(
-    "tender_workers",
+    "worker_assignments",
     ACTIVITY_ACTIONS.ASSIGN
   ),
   asyncHandler(
@@ -314,7 +314,7 @@ router.put(
   "/:id/workers/:assignmentId",
   requireTenderManagement,
   logActivity(
-    "tender_workers",
+    "worker_assignments",
     ACTIVITY_ACTIONS.UPDATE
   ),
   asyncHandler(
@@ -326,7 +326,7 @@ router.delete(
   "/:id/workers/:assignmentId",
   requireTenderManagement,
   logActivity(
-    "tender_workers",
+    "worker_assignments",
     ACTIVITY_ACTIONS.REMOVE
   ),
   asyncHandler(

@@ -15,6 +15,7 @@ needs the upgrade.
 ```
 001_upgrade_schema.sql        ← run this
 004_seed_reference_data.sql   ← then this
+005_drop_duplicate_assignment_table.sql   ← optional, see below
 ```
 
 Skip `002` — it is for empty databases and your local one is not empty.
@@ -30,6 +31,7 @@ below before running it.
 002_baseline_supabase.sql     ← complete schema, 47 tables
 003_supabase_rls.sql          ← tenant isolation
 004_seed_reference_data.sql   ← material catalog + labour categories
+005_drop_duplicate_assignment_table.sql   ← optional, see below
 ```
 
 Do **not** run `001` on Supabase after `002` — `002` already includes
@@ -208,6 +210,31 @@ company 2 → sees only company 2 rows
 no context → 0 rows
 insert with another company's id → rejected
 ```
+
+### 005_drop_duplicate_assignment_table.sql
+
+**Optional, and the only destructive file here.**
+
+There were two tables for one concept. `worker_assignments` is what the
+office writes through `/api/tenders/:id/workers`. `tender_workers` was
+added by `001` because the worker portal queried a table that did not
+exist — creating it stopped the `42P01`, but nothing ever wrote a row, so
+the portal read an empty table and told every worker they were not
+assigned to the site they were standing on.
+
+The portal now reads `worker_assignments`, which leaves `tender_workers`
+with no reader and no writer. This file drops it.
+
+It **only drops the table when it is empty**. If yours has rows, it warns
+and leaves the table alone:
+
+```
+WARNING: tender_workers still holds 3 row(s); leaving it in place.
+         Move them into worker_assignments, then re-run this file.
+```
+
+Skipping this file entirely is fine — an unused table costs nothing but
+the confusion of having it there.
 
 ### 004_seed_reference_data.sql
 
