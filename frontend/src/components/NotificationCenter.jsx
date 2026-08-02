@@ -3,6 +3,29 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatCurrency } from "../utils/currency";
 
+/**
+ * Reduces a link to a safe in-app path.
+ *
+ * Anything that could leave the origin — a scheme, a protocol-relative
+ * "//host", or the backslash form that React Router 7.12–8.2 mishandles —
+ * falls back to the dashboard rather than navigating away.
+ */
+function toInternalPath(value) {
+  const path = String(value || "").trim();
+
+  if (
+    !path.startsWith("/") ||
+    path.startsWith("//") ||
+    path.startsWith("/\\") ||
+    path.includes("\\") ||
+    /^[a-z][a-z0-9+.-]*:/i.test(path)
+  ) {
+    return "/dashboard";
+  }
+
+  return path;
+}
+
 function NotificationCenter({
   tenders = [],
   invoices = [],
@@ -80,7 +103,13 @@ function NotificationCenter({
             {notifications.map((item, index) => (
               <Link
                 key={`${item.type}-${index}`}
-                to={item.path}
+                // Notification links come from the database, so they are
+                // the one place in this app where a route target is not a
+                // literal. React Router 7.12–8.2 has an open-redirect issue
+                // where a backslash-prefixed target escapes the origin, so
+                // the value is constrained to an in-app path here rather
+                // than trusted as-is.
+                to={toInternalPath(item.path)}
                 onClick={() => setOpen(false)}
               >
                 <strong>{item.type}</strong>
