@@ -1,4 +1,6 @@
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -14,6 +16,8 @@ import ExportButtons from "../components/export/ExportButtons";
 
 import {
   updateTender,
+  restoreTender,
+  getTenders,
 } from "../services/tenderService";
 
 import {
@@ -109,6 +113,58 @@ function TendersPage() {
     activeTab,
     setActiveTab,
   ] = useState("running");
+
+  /*
+   * Deleting a project is a soft delete. Until now there was no way to see
+   * one afterwards, so POST /api/tenders/:id/restore could not be reached
+   * and a project removed by mistake was gone as far as anyone using the
+   * app could tell.
+   */
+  const [
+    deletedTenders,
+    setDeletedTenders,
+  ] = useState([]);
+
+  const [
+    restoringId,
+    setRestoringId,
+  ] = useState(null);
+
+  const showingDeleted =
+    activeTab === "deleted";
+
+  const loadDeleted = useCallback(
+    () =>
+      getTenders({ deleted: true })
+        .then(setDeletedTenders)
+        .catch(() => setDeletedTenders([])),
+    []
+  );
+
+  useEffect(() => {
+    if (showingDeleted) {
+      loadDeleted();
+    }
+  }, [showingDeleted, loadDeleted]);
+
+  const handleRestore = async (tender) => {
+    try {
+      setRestoringId(tender.id);
+
+      await restoreTender(tender.id);
+
+      toast.success(`${tender.title} restored.`);
+
+      await Promise.all([
+        loadDeleted(),
+        fetchTenders(),
+      ]);
+    } catch (error) {
+      toast.error(error?.message || "Could not restore that project.");
+    } finally {
+      setRestoringId(null);
+    }
+  };
 
   const [
     searchTerm,
@@ -1972,6 +2028,10 @@ function TendersPage() {
               key: "all",
               label: "All",
             },
+            {
+              key: "deleted",
+              label: "Deleted",
+            },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -2043,7 +2103,10 @@ function TendersPage() {
             </thead>
 
             <tbody>
-              {filteredTenders.map(
+              {(showingDeleted
+                ? deletedTenders
+                : filteredTenders
+              ).map(
                 (tender) => {
                   const projectSites =
                     getProjectSites(
@@ -2169,20 +2232,40 @@ function TendersPage() {
                             Edit
                           </button>
 
-                          <button
-                            type="button"
-                            className="delete-btn"
-                            onClick={() =>
-                              setDeleteTarget(
-                                tender
-                              )
-                            }
-                            disabled={
-                              isBusy
-                            }
-                          >
-                            Delete
-                          </button>
+                          {showingDeleted ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleRestore(
+                                  tender
+                                )
+                              }
+                              disabled={
+                                restoringId ===
+                                tender.id
+                              }
+                            >
+                              {restoringId ===
+                              tender.id
+                                ? "Restoring..."
+                                : "Restore"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="delete-btn"
+                              onClick={() =>
+                                setDeleteTarget(
+                                  tender
+                                )
+                              }
+                              disabled={
+                                isBusy
+                              }
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
