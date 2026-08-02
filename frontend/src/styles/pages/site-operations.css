@@ -293,3 +293,23 @@
     white-space: nowrap;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Approve / reject
+   ---------------------------------------------------------------------------
+   Material entries and supervisor expenses are recorded as pending. The two
+   decision buttons sit together in the last column and wrap rather than
+   widening the row on a phone.
+   ------------------------------------------------------------------------ */
+
+.site-operations-page .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.site-operations-page .row-actions button {
+  padding: 4px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
