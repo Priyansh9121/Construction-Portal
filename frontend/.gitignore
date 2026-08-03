@@ -1,4 +1,20 @@
+# ===========================================================================
+# Frontend ignore rules
+# ===========================================================================
+#
+# Scaffolded by `npm create vite`. The repository root has its own
+# .gitignore covering secrets and build output for both halves of the
+# project; this file only adds the Vite- and editor-specific entries.
+#
+# Patterns without a leading slash match at any depth, so `node_modules`
+# below also covers a nested one.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
 # Logs
+# ---------------------------------------------------------------------------
+# Package managers write crash reports into the working directory. They are
+# machine-specific and useless to anyone else.
 logs
 *.log
 npm-debug.log*
@@ -7,18 +23,34 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# ---------------------------------------------------------------------------
+# Dependencies and build output
+# ---------------------------------------------------------------------------
+# node_modules is reinstalled from package-lock.json by `npm ci`.
 node_modules
+# `vite build` output, deployed by Vercel and regenerated every time.
 dist
+# Server-side render bundle. Unused here, but Vite emits it if SSR is on.
 dist-ssr
+# Vite's convention for machine-local overrides — .env.local, and anything
+# else a developer wants kept off the branch.
 *.local
 
-# Editor directories and files
+# ---------------------------------------------------------------------------
+# Editor and OS
+# ---------------------------------------------------------------------------
+# Ignore VS Code settings, but keep extensions.json so a new developer is
+# still prompted to install the extensions this project expects.
 .vscode/*
 !.vscode/extensions.json
 .idea
+# macOS Finder metadata. Several are already tracked from before this rule
+# existed; `git rm --cached` would be needed to drop them.
 .DS_Store
+# Visual Studio solution and project files.
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
+# Vim swap files (.swp, .swo).
 *.sw?

@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * Filter controls for the finance views.
+ *
+ * Props:
+ * - The current filter values and a change handler
+ *
+ * Rendered by:
+ * - FinanceOverview.jsx, PaymentsPage.jsx
+ *
+ * Important notes:
+ * - Controlled component — holds no filter state of its own.
+ */
+
 function FinanceFilters({
     searchTerm,
     setSearchTerm,

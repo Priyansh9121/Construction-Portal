@@ -1,3 +1,25 @@
+/**
+ * File purpose:
+ * The invoices register.
+ *
+ * API endpoints:
+ * - GET    /invoices
+ * - POST   /invoices
+ * - PUT    /invoices/:id
+ * - DELETE /invoices/:id
+ *
+ * Connected to:
+ * - useInvoices.js -> InvoicesPage.jsx, and the tender Finance tab
+ * - Backed by backend/modules/invoices/, built on createScopedCrud
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - Office-only. An invoice records what was BILLED; money RECEIVED lives
+ * - in payments, and nothing reconciles the two automatically.
+ * - There is no getById call because the backend does not route one (F-10).
+ */
+
 import axiosClient from "../api/axiosClient";
 
 export const getInvoices = async () => {

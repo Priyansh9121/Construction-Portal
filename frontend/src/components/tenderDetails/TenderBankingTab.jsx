@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * Bank guarantees, deposits and EMD held against this tender.
+ *
+ * Props:
+ * - tender, its banking rows, refresh handler
+ *
+ * State:
+ * - Local banking form state
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /tenders/:id/banking
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - Money TIED UP in holding the job, as distinct from money earned from it.
+ * - Also distinct from the supervisor cash float under
+ * - /site-operations/banking.
+ * - These rows carry account_number and this collection IS audited, so the
+ * - figures reach activity_logs. Account numbers are redacted there — see
+ * - F-12.
+ */
+
 import { formatCurrency } from "../../utils/currency";
 function TenderBankingTab({
   banking = [],

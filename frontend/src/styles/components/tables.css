@@ -1,3 +1,14 @@
+/*
+ * File purpose:
+ * Data table styling: headers, rows, sorting affordances, empty states.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Shared by the register pages, FinanceTable and the tender detail tabs.
+ */
+
 .table-wrapper {
   width: 100%;
   min-width: 0;

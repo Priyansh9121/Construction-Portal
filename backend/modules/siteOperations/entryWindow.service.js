@@ -1,3 +1,70 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The backdating rule, defined once for the whole application.
+|
+| Site staff record what happened on a date, and the office needs that to
+| happen promptly — a ledger filled in weeks later is not a record, it is a
+| reconstruction. So entries may be made for today or the recent past, and
+| anything older needs the office to grant access for that specific date.
+|
+| This file owns the whole of that decision: what "today" means, how old an
+| entry is, whether a grant covers it, and whether the grant has been used.
+|
+| Responsibilities:
+|   - Resolve today's date in the configured timezone, not the server's
+|   - Count whole calendar days between a date and today
+|   - Decide whether an entry may be recorded, with a usable reason
+|   - Find and consume access grants
+|
+| Exports:
+|   MODULES                 the five dated modules this applies to
+|   checkEntryWindow()      the decision
+|   consumeGrant()          marks a grant used after the entry is written
+|   daysAgo()               the day-count helper, exported for reuse
+|   todayInCompanyTimezone()  exported for tests
+|
+| Used by:
+|   ./material.controller.js, ./labour.controller.js,
+|   ./banking.controller.js  — the dated site-operations entries
+|   modules/siteLogs/siteLog.controller.js — imports daysAgo() only; see
+|     the note below
+|
+| Depends on:
+|   database/pool.js — for the grant lookup
+|   config/env.js    — SUPERVISOR_EDIT_WINDOW_DAYS,
+|                      SUPERVISOR_BANKING_GRACE_DAYS, DEFAULT_TIMEZONE
+|
+| Database tables touched:
+|   entry_access_requests — SELECT for a usable grant, UPDATE to consume it
+|
+| TIMEZONE — the reason this file exists in the form it does.
+|
+|   "Today" must be the SITE's calendar day, not the host's. A supervisor
+|   in IST recording work at 8pm is already on tomorrow's UTC date;
+|   measured against UTC, their own current day looks like the future and
+|   the entry is refused.
+|
+|   todayInCompanyTimezone resolves the date through Intl, so it is also
+|   correct across daylight-saving transitions — a fixed UTC offset would
+|   be right in one season and wrong in the other.
+|
+|   This was F-13. siteLog.controller.js had its own inline arithmetic
+|   using the server clock and has been migrated to daysAgo(). Covered by
+|   backend/tests/entryWindowTimezone.test.js.
+|
+| Remaining limitation:
+|   checkEntryWindow calls daysAgo() without a timezone, so it resolves
+|   against DEFAULT_TIMEZONE from the environment rather than the
+|   company's own `timezone` column. Correct for a single-region
+|   deployment; wrong for a deployment serving companies in more than one
+|   timezone. Recorded as the remaining action on F-13, and related to
+|   F-04.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const {
@@ -33,6 +100,19 @@ const {
 |
 */
 
+/**
+ * The five modules that record dated activity and therefore honour the
+ * window.
+ *
+ * Frozen, and used as the `module` value on entry_access_requests — a
+ * grant is scoped to one module and one date, so a grant to backdate a
+ * material entry does not also permit a backdated banking expense.
+ *
+ * DAILY_UPDATE is listed here, but note that siteLog.controller.js only
+ * imports daysAgo() rather than going through checkEntryWindow, so daily
+ * updates do not currently participate in the grant mechanism. See the
+ * remaining action on F-13.
+ */
 const MODULES = Object.freeze({
   MATERIAL: "material",
   LABOUR: "labour",
@@ -43,6 +123,16 @@ const MODULES = Object.freeze({
 
 /**
  * Roles allowed to record outside the window without a grant.
+ *
+ * The office. They are the ones who would otherwise be granting the
+ * access, so requiring them to grant it to themselves would be
+ * ceremony rather than control.
+ *
+ * Note siteLog.controller.js applies a NARROWER rule — admin only, read
+ * from users.role — so a manager can backdate a material entry but not a
+ * daily update. That inconsistency is recorded on F-13 and left in place
+ * deliberately: widening it is a decision about who may rewrite site
+ * history, not a bug fix.
  */
 const WINDOW_EXEMPT_ROLES = new Set([
   "admin",
@@ -152,6 +242,33 @@ const daysAgo = (
  *
  * A grant is usable when it is granted, not expired, and not already
  * consumed by an earlier entry.
+ *
+ * Parameters (one options object):
+ * companyId  - the caller's company
+ * userId     - the requester; a grant is personal, not company-wide
+ * module     - one of MODULES
+ * targetDate - the exact date the grant covers
+ *
+ * Returns:
+ * The grant row, or null.
+ *
+ * Side effects:
+ * One SELECT.
+ *
+ * Business rules:
+ * - Scoped to requested_by, so one supervisor's grant does not let
+ *   another backdate an entry.
+ * - Matched on the EXACT target_date. A grant for the 1st does not permit
+ *   an entry on the 2nd; the office authorises a specific day.
+ * - status must be 'granted' — a request that is pending, denied or
+ *   already 'used' does not qualify. That last one is what makes a grant
+ *   single-use, in combination with consumeGrant.
+ * - A null expires_at means no expiry, which is why the condition is
+ *   `IS NULL OR > NOW()` rather than a bare comparison.
+ *
+ * Notes:
+ * ORDER BY id DESC LIMIT 1 takes the most recent grant when several
+ * exist for the same date — a supervisor who asked twice.
  */
 const findUsableGrant = async ({
   companyId,
@@ -290,6 +407,12 @@ const consumeGrant = async (
   accessRequestId,
   companyId
 ) => {
+  /*
+   * Nothing to consume when the entry was allowed on its own merits —
+   * inside the window, or by an exempt role. checkEntryWindow returns
+   * accessRequestId: null in both cases, and callers pass it through
+   * unconditionally rather than branching.
+   */
   if (!accessRequestId) {
     return;
   }

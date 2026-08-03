@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * Workers assigned to this tender.
+ *
+ * Props:
+ * - tender, its worker assignments, the available workers, refresh handler
+ *
+ * State:
+ * - Local assignment form state
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /tenders/:id/workers
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - Assigning is a grant of ACCESS as well as a record: /worker-portal reads
+ * - these rows to decide which tenders a worker can see.
+ * - An active assignment also BLOCKS the tender from being deleted, so the
+ * - Delete button on the overview can fail with 409 until these are cleared.
+ * - The worker picker lists only the caller's company; the backend rejects a
+ * - worker id from another tenant.
+ */
+
 function TenderWorkersTab({
   workers = [],
   assignedWorkers = [],

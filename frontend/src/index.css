@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * The Vite base stylesheet: resets and root-level defaults.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * First stylesheet imported by main.jsx, so everything below can override
+ * it. Holds the CSS custom properties the rest of the sheets read.
+ */
+
 @import "./styles/core/global.css";
 @import "./styles/core/layout.css";
 @import "./styles/core/utilities.css";

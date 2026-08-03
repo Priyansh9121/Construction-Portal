@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * The landing screen for office users: headline figures and recent activity.
+ *
+ * State:
+ * - Mostly derived. Receives the shared collections from App.jsx.
+ *
+ * Hooks and context:
+ * - useFinanceStatistics to derive the finance cards
+ *
+ * API endpoints:
+ * - Reads data already loaded by App.jsx's hooks; calls subcontractorService
+ * - directly for its own counts
+ *
+ * Parent:
+ * - AppLayout, via AppRoutes
+ *
+ * Navigation and children:
+ * - Renders AnimatedStatCard, DashboardHero and FinanceTrendChart.
+ *
+ * Important notes:
+ * - Office-only. Workers and subcontractors land on their portals instead —
+ * - see getHomePath in RoleRoute.jsx.
+ * - Figures here are derived client-side from rows already loaded, so they
+ * - reflect what this session has fetched rather than a server aggregate.
+ */
+
 import { Link } from "react-router-dom";
 import AnimatedStatCard from "../components/AnimatedStatCard";
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";

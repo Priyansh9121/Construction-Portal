@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * Subcontractors engaged on this tender, with scope and agreed amount.
+ *
+ * Props:
+ * - tender, its assignments, the available subcontractors, refresh handler
+ *
+ * State:
+ * - Local assignment form state
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /tenders/:id/subcontractors
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - Assigning grants portal access — /subcontractor-portal reads these rows —
+ * - so removing an assignment revokes the subcontractor's visibility of the
+ * - tender.
+ * - The backend refuses a duplicate assignment of the same subcontractor to
+ * - the same tender; the schema does not enforce it, the service does.
+ * - An active assignment blocks deletion of the tender.
+ */
+
 import { formatCurrency } from "../../utils/currency";
 
 function TenderSubcontractorsTab({

@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * The subcontractor register, including their payment details.
+ *
+ * State:
+ * - Local: search, status filter, the form, the detail modal, export state.
+ *
+ * Hooks and context:
+ * - None; loads through subcontractorService directly
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /subcontractors via subcontractorService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Office-only.
+ * - The edit form, the detail modal and the CSV/PDF export all read bank
+ * - details straight from the LIST response — there is no per-record fetch,
+ * - and the backend does not route one. That is why the list returns full
+ * - account numbers. See F-12 in docs/repository-reference/findings.md before
+ * - changing any of those three.
+ */
+
 import {
   useCallback,
   useMemo,
@@ -13,6 +38,7 @@ import { useAuth } from "../contexts/authContext";
 
 import {
   getSubcontractors,
+  getSubcontractorById,
   createSubcontractor,
   deleteSubcontractor,
   updateSubcontractor,
@@ -35,6 +61,27 @@ const EMPTY_FORM = {
 
 function SubcontractorsPage() {
   const { user } = useAuth();
+
+  /*
+   * Whether this user may see and edit unmasked payment details (F-12).
+   *
+   * Mirrors canSeeFinancialDetails on the backend — administrators only,
+   * from either the account role or the company membership role.
+   *
+   * PRESENTATION ONLY. Hiding the banking inputs stops a manager
+   * overwriting values they cannot read; it is not what protects them. The
+   * backend answers 403 on GET /subcontractors/:id regardless of what this
+   * page renders.
+   */
+  const canEditFinancials = [
+    user?.role,
+    user?.company_role,
+  ].some(
+    (role) =>
+      String(role || "")
+        .trim()
+        .toLowerCase() === "admin"
+  );
 
   const fetchSubcontractorList = useCallback(
     async () => {
@@ -74,6 +121,38 @@ function SubcontractorsPage() {
     selectedSubcontractor,
     setSelectedSubcontractor,
   ] = useState(null);
+
+  /*
+   * The unmasked payment details for whichever record is open (F-12).
+   *
+   * Held SEPARATELY from `subcontractors`, and only ever for one record at
+   * a time, so full account numbers never enter the shared list state.
+   * Cleared by closeDetails whenever the modal or the edit form closes.
+   *
+   *   null      nothing open, or not yet loaded
+   *   object    the full record
+   */
+  const [
+    financialDetails,
+    setFinancialDetails,
+  ] = useState(null);
+
+  // True while GET /subcontractors/:id is in flight.
+  const [
+    loadingFinancials,
+    setLoadingFinancials,
+  ] = useState(false);
+
+  /*
+   * Set when the API answers 403 — the caller is in the right company but
+   * may not see payment details. Distinct from an error: the masked view
+   * is still correct and usable, so the UI shows a note rather than a
+   * failure.
+   */
+  const [
+    financialsDenied,
+    setFinancialsDenied,
+  ] = useState(false);
 
   const [
     searchTerm,
@@ -133,20 +212,17 @@ function SubcontractorsPage() {
           )
       );
 
+    /*
+     * Counted from the has_bank_details flag the list endpoint provides
+     * (F-12), not by inspecting an account number — the raw value is no
+     * longer in the response, so the old test would count zero for every
+     * company.
+     */
     const withBankDetails =
       subcontractors.filter(
         (subcontractor) =>
           Boolean(
-            String(
-              subcontractor.bank_name ||
-                ""
-            ).trim()
-          ) &&
-          Boolean(
-            String(
-              subcontractor.account_number ||
-                ""
-            ).trim()
+            subcontractor.has_bank_details
           )
       );
 
@@ -197,8 +273,13 @@ function SubcontractorsPage() {
             subcontractor.gst_number,
             subcontractor.bank_name,
             subcontractor.account_name,
-            subcontractor.account_number,
-            subcontractor.ifsc_code,
+            /*
+             * account_number and ifsc_code are deliberately absent (F-12).
+             * The list no longer carries them, so including them would
+             * match nothing — and a searchable account number would let
+             * anyone with office access confirm whether a given number is
+             * on file by probing this box.
+             */
             status,
           ]
             .filter(Boolean)
@@ -252,13 +333,22 @@ function SubcontractorsPage() {
       key: "account_name",
       label: "Account Name",
     },
+    /*
+     * Masked, not full (F-12).
+     *
+     * An export leaves the application entirely — it is emailed, saved to
+     * a laptop, attached to a message. A CSV carrying every counterparty's
+     * account number is the same bulk exposure the list endpoint had, just
+     * with a longer life.
+     *
+     * The last four digits are enough for the reconciliation this export
+     * is used for: confirming which account a payment went to. Anyone who
+     * needs the full number can open the record, which requires the
+     * administrator role and is one counterparty at a time.
+     */
     {
-      key: "account_number",
-      label: "Account Number",
-    },
-    {
-      key: "ifsc_code",
-      label: "IFSC / BSB",
+      key: "account_number_masked",
+      label: "Account Number (masked)",
     },
     {
       key: "status",
@@ -288,11 +378,13 @@ function SubcontractorsPage() {
         account_name:
           subcontractor.account_name ||
           "",
-        account_number:
-          subcontractor.account_number ||
-          "",
-        ifsc_code:
-          subcontractor.ifsc_code ||
+        /*
+         * Reads the MASKED field the list endpoint provides. The raw
+         * account_number is no longer present on these rows at all, so
+         * this cannot silently start exporting full values again.
+         */
+        account_number_masked:
+          subcontractor.account_number_masked ||
           "",
         status:
           normaliseStatus(
@@ -330,11 +422,140 @@ function SubcontractorsPage() {
     );
   };
 
+  /*
+   * Loads the unmasked payment details for one subcontractor (F-12).
+   *
+   * Called when the detail modal or the edit form opens. The list has only
+   * masked identifiers, so this is the request that produces the real
+   * values — and it is deliberately made per record rather than once for
+   * the register.
+   *
+   * A 403 is an expected outcome, not a failure: the caller is in the
+   * right company but is not an administrator. The masked view they
+   * already have stays on screen and a note explains why the full number
+   * is absent, so a manager opening a record sees something coherent
+   * rather than an error.
+   */
+  const loadFinancialDetails = useCallback(
+    async (subcontractorId) => {
+      if (!subcontractorId) {
+        return null;
+      }
+
+      setLoadingFinancials(true);
+      setFinancialsDenied(false);
+
+      try {
+        const record =
+          await getSubcontractorById(
+            subcontractorId
+          );
+
+        setFinancialDetails(record);
+
+        return record;
+      } catch (error) {
+        const status =
+          error?.response?.status;
+
+        if (status === 403) {
+          setFinancialsDenied(true);
+        } else if (status !== 404) {
+          toast.error(
+            "Could not load payment details."
+          );
+        }
+
+        setFinancialDetails(null);
+
+        return null;
+      } finally {
+        setLoadingFinancials(false);
+      }
+    },
+    []
+  );
+
+  /*
+   * Drops the full details from memory.
+   *
+   * Called from every path that closes the detail modal or the edit form.
+   * The point of F-12 is that account numbers are fetched for a purpose
+   * and released when that purpose ends — leaving them in state would
+   * reintroduce the bulk exposure one record at a time.
+   */
+  const clearFinancialDetails =
+    useCallback(() => {
+      setFinancialDetails(null);
+      setFinancialsDenied(false);
+      setLoadingFinancials(false);
+    }, []);
+
+  /*
+   * Opens the preview and loads its payment details (F-12).
+   *
+   * The list row is shown immediately so the modal is never blank; the
+   * unmasked identifiers arrive separately and replace the masked ones
+   * when they do.
+   */
+  const openDetails = useCallback(
+    (subcontractor) => {
+      setSelectedSubcontractor(
+        subcontractor
+      );
+
+      loadFinancialDetails(
+        subcontractor?.id
+      );
+    },
+    [loadFinancialDetails]
+  );
+
+  /*
+   * Renders one protected identifier in the preview (F-12).
+   *
+   * Three states, and each says something different to the reader:
+   *
+   *   loading  the fetch is in flight
+   *   denied   this user may not see the value; the masked form is shown
+   *            instead, so the row still confirms details are on file
+   *   loaded   the real value
+   *
+   * The masked fallback matters. A manager who sees "-" cannot tell
+   * whether banking is missing or merely hidden from them, and would go
+   * looking for a record that is already complete.
+   */
+  const renderProtectedValue = (
+    fullValue,
+    maskedValue
+  ) => {
+    if (loadingFinancials) {
+      return "Loading…";
+    }
+
+    if (financialsDenied) {
+      return maskedValue || "-";
+    }
+
+    return fullValue || maskedValue || "-";
+  };
+
+  /*
+   * Closes the preview and releases anything it loaded.
+   */
+  const closeDetails = useCallback(() => {
+    setSelectedSubcontractor(null);
+    clearFinancialDetails();
+  }, [clearFinancialDetails]);
+
   const resetForm = () => {
     setFormData(EMPTY_FORM);
     setEditingSubcontractor(
       null
     );
+
+    // Leaving the form must release the full details it loaded (F-12).
+    clearFinancialDetails();
   };
 
   const startEdit = (
@@ -355,6 +576,40 @@ function SubcontractorsPage() {
       subcontractor
     );
 
+    /*
+     * Fetch the unmasked values and fill the banking inputs once they
+     * arrive (F-12).
+     *
+     * The row from the list carries only masked identifiers, so seeding
+     * the form from it would put "••••9012" in the account-number box —
+     * and saving would then write that literal string over the real
+     * number.
+     *
+     * Until the fetch resolves the banking inputs stay EMPTY rather than
+     * masked, which matters: the factory's COALESCE treats an empty field
+     * as "leave unchanged", so submitting early cannot damage the stored
+     * value.
+     */
+    loadFinancialDetails(subcontractor.id).then(
+      (full) => {
+        if (!full) {
+          return;
+        }
+
+        setFormData((previous) => ({
+          ...previous,
+          bank_name:
+            full.bank_name || "",
+          account_name:
+            full.account_name || "",
+          account_number:
+            full.account_number || "",
+          ifsc_code:
+            full.ifsc_code || "",
+        }));
+      }
+    );
+
     setFormData({
       full_name:
         subcontractor.full_name ||
@@ -369,18 +624,15 @@ function SubcontractorsPage() {
       gst_number:
         subcontractor.gst_number ||
         "",
-      bank_name:
-        subcontractor.bank_name ||
-        "",
-      account_name:
-        subcontractor.account_name ||
-        "",
-      account_number:
-        subcontractor.account_number ||
-        "",
-      ifsc_code:
-        subcontractor.ifsc_code ||
-        "",
+      /*
+       * Blank until loadFinancialDetails resolves. The list row has no
+       * real values to seed from, and an empty banking field means
+       * "unchanged" to the backend — so an early submit is safe.
+       */
+      bank_name: "",
+      account_name: "",
+      account_number: "",
+      ifsc_code: "",
       status:
         normaliseStatus(
           subcontractor.status
@@ -452,14 +704,29 @@ function SubcontractorsPage() {
         formData.business_name.trim(),
       gst_number:
         formData.gst_number.trim(),
-      bank_name:
-        formData.bank_name.trim(),
-      account_name:
-        formData.account_name.trim(),
-      account_number:
-        formData.account_number.trim(),
-      ifsc_code:
-        formData.ifsc_code.trim(),
+      /*
+       * Banking fields are included only when this user may edit them
+       * (F-12).
+       *
+       * Omitting them entirely is what protects the stored values: the
+       * backend's COALESCE reads an absent field as "leave unchanged", so
+       * a manager's edit cannot blank an account number they were never
+       * shown. Sending empty strings would be equivalent today — coerce()
+       * turns "" into null — but relying on that is fragile, and not
+       * sending a field you have no business setting is the clearer rule.
+       */
+      ...(canEditFinancials
+        ? {
+            bank_name:
+              formData.bank_name.trim(),
+            account_name:
+              formData.account_name.trim(),
+            account_number:
+              formData.account_number.trim(),
+            ifsc_code:
+              formData.ifsc_code.trim(),
+          }
+        : {}),
       status:
         normaliseStatus(
           formData.status
@@ -886,6 +1153,19 @@ function SubcontractorsPage() {
               </label>
             </div>
 
+            {/*
+              * Banking inputs are rendered only for a user permitted to
+              * read the values (F-12).
+              *
+              * A manager editing a subcontractor simply does not see this
+              * section, and their submission therefore omits the four
+              * fields — which the backend's COALESCE treats as "leave
+              * unchanged". Without the gate they would see empty inputs
+              * and could blank real account details without ever having
+              * been shown them.
+              */}
+            {canEditFinancials && (
+              <>
             <div className="form-section-title">
               <h3>
                 Banking Details
@@ -963,6 +1243,8 @@ function SubcontractorsPage() {
                 />
               </label>
             </div>
+              </>
+            )}
 
             <div className="form-preview-total">
               Record Preview:{" "}
@@ -1170,11 +1452,7 @@ function SubcontractorsPage() {
             <button
               type="button"
               className="secondary-btn"
-              onClick={() =>
-                setSelectedSubcontractor(
-                  null
-                )
-              }
+              onClick={closeDetails}
               disabled={deleting}
             >
               Close Preview
@@ -1262,16 +1540,20 @@ function SubcontractorsPage() {
                     Account Number
                   </th>
                   <td>
-                    {selectedSubcontractor.account_number ||
-                      "-"}
+                    {renderProtectedValue(
+                      financialDetails?.account_number,
+                      selectedSubcontractor.account_number_masked
+                    )}
                   </td>
                 </tr>
 
                 <tr>
                   <th>IFSC / BSB</th>
                   <td>
-                    {selectedSubcontractor.ifsc_code ||
-                      "-"}
+                    {renderProtectedValue(
+                      financialDetails?.ifsc_code,
+                      selectedSubcontractor.ifsc_code_masked
+                    )}
                   </td>
                 </tr>
               </tbody>
@@ -1329,7 +1611,7 @@ function SubcontractorsPage() {
                         type="button"
                         className="table-link-button"
                         onClick={() =>
-                          setSelectedSubcontractor(
+                          openDetails(
                             subcontractor
                           )
                         }
@@ -1399,7 +1681,7 @@ function SubcontractorsPage() {
                           type="button"
                           className="secondary-btn"
                           onClick={() =>
-                            setSelectedSubcontractor(
+                            openDetails(
                               subcontractor
                             )
                           }

@@ -1,3 +1,16 @@
+/**
+ * File purpose:
+ * Shared colours, fonts and spacing for generated PDF documents.
+ *
+ * Connected to:
+ * - utils/documentExportHelpers.js and templates/subletBillTemplate.js
+ *
+ * Important notes:
+ * - Kept apart from the CSS because these values are consumed by jspdf at
+ *   draw time, not by the browser's cascade — a stylesheet cannot reach
+ *   into a generated PDF.
+ */
+
 import { formatCurrency } from "../utils/currency";
 
 export const BRAND = {

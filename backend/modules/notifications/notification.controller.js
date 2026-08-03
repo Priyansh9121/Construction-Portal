@@ -1,3 +1,43 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The read side of notifications: a user's own queue, and marking items
+| read.
+|
+| Responsibilities:
+|   - List the caller's notifications
+|   - Report the unread count for the header badge
+|   - Mark one, or all, as read
+|
+| Exports:
+|   see module.exports at the foot of the file
+|
+| Used by:
+|   ./notification.routes.js, mounted by server.js at /api/notifications
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|
+| Database tables touched:
+|   notifications  SELECT, UPDATE (read flags)
+|
+| Frontend consumers:
+|   notificationService.js -> NotificationCenter.jsx, polled for the
+|   unread badge in Topbar.jsx
+|
+| Security:
+|   Notifications are PER USER, not per company, so every statement filters
+|   on the authenticated user id as well as the company. That is why this
+|   module is mounted without a role gate — every role has notifications —
+|   and why the user filter is the real access control here.
+|
+|   Marking as read is likewise scoped to the caller, so one user cannot
+|   clear another's queue.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

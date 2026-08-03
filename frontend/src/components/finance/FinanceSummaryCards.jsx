@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * The headline finance figures as cards.
+ *
+ * Props:
+ * - The derived statistics object
+ *
+ * Rendered by:
+ * - FinanceOverview.jsx, DashboardPage.jsx
+ *
+ * Important notes:
+ * - Presentational. Takes figures already computed by useFinanceStatistics.
+ */
+
 import { formatCurrency } from "../../utils/currency";
 
 const money = formatCurrency;

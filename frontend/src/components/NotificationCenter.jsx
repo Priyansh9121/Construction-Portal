@@ -1,3 +1,22 @@
+/**
+ * File purpose:
+ * The notification panel: unread items, and marking them read.
+ *
+ * Props:
+ * - open state and a close handler
+ *
+ * State and hooks:
+ * - Loads and refreshes through notificationService
+ *
+ * Rendered by:
+ * - Topbar.jsx
+ *
+ * Important notes:
+ * - Notifications are PER USER, not per company. The backend filters on the
+ * - authenticated user id, so this only ever shows the caller's own.
+ * - The unread count drives the badge in Topbar; marking read updates both.
+ */
+
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";

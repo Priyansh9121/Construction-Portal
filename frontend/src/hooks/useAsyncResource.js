@@ -1,3 +1,23 @@
+/**
+ * File purpose:
+ * A generic async-fetch hook for single resources, as opposed to
+ * useCollection's role-gated registers.
+ *
+ * Returns:
+ * the resource, its loading and error state, and a reload function.
+ *
+ * Connected to:
+ * - usePaymentSections.js, and other one-off fetches
+ * - Uses react-hot-toast to surface failures to the user
+ *
+ * Important notes:
+ * - Distinct from useCollection: no role gate, no per-identity caching. Use
+ *   this for a resource that is not a company register — the payment
+ *   hierarchy, for instance, which is the same for everyone.
+ * - Failures raise a toast as well as returning an error, so a caller does
+ *   not have to render its own error state for every incidental fetch.
+ */
+
 import {
   useCallback,
   useEffect,

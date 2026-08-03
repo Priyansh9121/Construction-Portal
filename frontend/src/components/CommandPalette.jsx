@@ -1,3 +1,23 @@
+/**
+ * File purpose:
+ * Keyboard-driven navigation and search over the loaded datasets.
+ *
+ * Props:
+ * - The shared collections threaded down from AppLayout, and open state
+ *
+ * State and hooks:
+ * - Local query text and highlighted result index
+ *
+ * Rendered by:
+ * - AppLayout.jsx
+ *
+ * Important notes:
+ * - Searches data ALREADY in memory rather than querying the API, so it is
+ * - instant but only covers what the session has loaded.
+ * - Results respect the current user's role because the underlying hooks
+ * - return nothing for a role that may not load them.
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";

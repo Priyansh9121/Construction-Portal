@@ -1,3 +1,26 @@
+/**
+ * File purpose:
+ * File upload to Supabase Storage, via the API.
+ *
+ * API endpoints:
+ * - POST   /upload
+ * - DELETE /upload
+ *
+ * Connected to:
+ * - The document tabs, the daily update form, receipt fields
+ * - Backed by backend/modules/uploads/upload.controller.js
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - Open to every authenticated role — a supervisor photographs a docket, a
+ * - subcontractor attaches a document.
+ * - Returns a URL; storing it on a record is the calling screen's job.
+ * - The backend enforces a size ceiling, a MIME allow-list cross-checked
+ * - against the file extension, and a folder allow-list.
+ * - Deleting a record does NOT delete its uploaded file from storage.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 /*

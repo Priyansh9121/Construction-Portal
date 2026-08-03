@@ -1,3 +1,21 @@
+/**
+ * File purpose:
+ * The quick-create shortcut in the corner of the shell.
+ *
+ * Props:
+ * - The action set for the current page, and the user for role filtering
+ *
+ * State and hooks:
+ * - Local open state for the action menu
+ *
+ * Rendered by:
+ * - AppLayout.jsx
+ *
+ * Important notes:
+ * - Which actions appear depends on the role, but that is presentation only —
+ * - the endpoints behind them are gated on the backend.
+ */
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";

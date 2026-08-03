@@ -1,3 +1,52 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| Worker allocations: money advanced to a worker against future earnings.
+|
+| An allocation is requested, then approved or rejected by the office. It
+| is the credit side of the worker-money picture; workerExpense.controller
+| records what the money was spent on.
+|
+| Responsibilities:
+|   - List allocations for the caller's company
+|   - Create an allocation
+|   - Update, soft-delete, approve and reject one
+|
+| Exports:
+|   see module.exports at the foot of the file
+|
+| Used by:
+|   ./workerAllocation.routes.js, mounted at /api/worker-allocations
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|   modules/notifications/notification.service.js — the worker is told the
+|     outcome
+|
+| Database tables touched:
+|   worker_allocations  SELECT, INSERT, UPDATE
+|   workers, tenders    SELECT, for ownership checks and display names
+|   notifications       INSERT, via the notification service
+|
+| API surface:
+|   GET/POST/PUT/DELETE /api/worker-allocations, plus approve and reject.
+|   Office-only: server.js mounts this behind requireOffice. A worker sees
+|   their own allocations through /api/worker-portal instead.
+|
+| Frontend consumers:
+|   workerMoneyService.js -> useWorkerMoney.js -> WorkerMoneyPage.jsx
+|
+| Audited:
+|   Yes — workerAllocation.routes.js attaches logActivity to the mutations.
+|
+| Security:
+|   Every statement is company-scoped. The banner below records why that is
+|   stated so insistently.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

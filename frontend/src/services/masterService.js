@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * Reference data: investors, suppliers and clients, plus the investor
+ * statement.
+ *
+ * API endpoints:
+ * - GET    /masters/:master
+ * - POST   /masters/:master
+ * - PUT    /masters/:master/:id
+ * - DELETE /masters/:master/:id     archives rather than deletes
+ * - GET    /masters/investors/:id/statement
+ *
+ * Connected to:
+ * - MastersPage.jsx, and the counterparty pickers on the payment forms
+ * - Backed by backend/modules/masters/master.controller.js
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - The :master segment must be investors, suppliers or clients. The
+ * - backend checks it against an allow-list before it reaches any SQL.
+ * - DELETE sets status to inactive; the row survives so historic payments
+ * - still resolve to a named counterparty.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 /*

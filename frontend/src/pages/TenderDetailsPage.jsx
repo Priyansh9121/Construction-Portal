@@ -1,3 +1,32 @@
+/**
+ * File purpose:
+ * One tender and everything attached to it, across nine tabs.
+ *
+ * State:
+ * - Local: active tab, the per-tab forms and modals.
+ *
+ * Hooks and context:
+ * - None specific; loads its own data on mount
+ *
+ * API endpoints:
+ * - GET /tenders/:id/details for everything in one request, then the
+ * - per-collection endpoints under /tenders/:id/* for writes
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Navigation and children:
+ * - Child components: the nine Tender*Tab components in
+ * - components/tenderDetails/.
+ *
+ * Important notes:
+ * - Office-only.
+ * - The single /details request is why switching tabs needs no network —
+ * - all nine tabs render from one payload loaded on mount.
+ * - After a write the page refetches rather than patching locally, because
+ * - several tabs show derived totals that the server computes.
+ */
+
 import {
   useCallback,
   useEffect,

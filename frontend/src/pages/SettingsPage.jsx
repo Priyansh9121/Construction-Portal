@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * Company profile and the current user's own account settings.
+ *
+ * State:
+ * - Local: the company form, the password form, submitting and error state.
+ *
+ * Hooks and context:
+ * - useAuth for the current user and company
+ *
+ * API endpoints:
+ * - PUT /company, PUT /auth/change-password
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Company editing is admin-only; changing your own password is open to
+ * - every role.
+ * - Changing the password requires the CURRENT one even though the caller is
+ * - already signed in — that is what stops an unattended session being turned
+ * - into permanent ownership of the account. It also signs out every other
+ * - device.
+ * - The company TIMEZONE set here decides what 'today' means for the
+ * - backdating window, so it is not a cosmetic setting.
+ */
+
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 

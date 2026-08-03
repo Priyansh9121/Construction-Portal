@@ -1,3 +1,31 @@
+/**
+ * File purpose:
+ * Sign-in screen.
+ *
+ * State:
+ * - Local: email, password, submitting, error message.
+ *
+ * Hooks and context:
+ * - useAuth for setUser after a successful sign-in
+ *
+ * API endpoints:
+ * - POST /auth/login via services/authService.js
+ *
+ * Parent:
+ * - None — a public route, rendered without AppLayout
+ *
+ * Navigation and children:
+ * - On success, stores the token and user through AuthProvider, then sends
+ * - the user to their role's home page.
+ * - Reads ?next= from the query string so a session that expired mid-task
+ * - returns the user where they were; axiosClient sets that parameter.
+ *
+ * Important notes:
+ * - A 401 here is an expected outcome, not an expired session. axiosClient
+ * - excludes /auth/login from its sign-out handling precisely so this page
+ * - can show 'invalid credentials' instead of being torn down by a reload.
+ */
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 

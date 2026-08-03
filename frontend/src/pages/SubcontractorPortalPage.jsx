@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * A subcontractor's own view of their assigned tenders.
+ *
+ * State:
+ * - Local: selected tender, active section, upload state.
+ *
+ * Hooks and context:
+ * - None; loads through subcontractorPortalService
+ *
+ * API endpoints:
+ * - /subcontractor-portal/* ; /upload for documents
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Subcontractor role (and admin, for support).
+ * - Visibility follows tender_subcontractors: being assigned to a tender is
+ * - what makes it appear here, and removing the assignment revokes access.
+ * - A subcontractor cannot reach /subcontractors, not even their own row —
+ * - their details come from /subcontractor-portal/me.
+ */
+
 import {
   useCallback,
   useEffect,

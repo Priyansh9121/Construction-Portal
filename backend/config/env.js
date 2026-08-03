@@ -1,3 +1,69 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The single place the backend reads process.env. Every other file imports
+| already-parsed, already-validated values from here rather than touching
+| process.env itself.
+|
+| Three things follow from that:
+|
+|   1. A misconfiguration is caught at startup, not at the moment a user
+|      first hits the affected feature. Requiring this module is enough to
+|      fail the boot on a missing JWT_SECRET.
+|
+|   2. Types are settled once. Ports are numbers, flags are booleans, and
+|      origin lists are arrays — no consumer re-parses a string.
+|
+|   3. Defaults live in one readable list, so "what happens if I do not set
+|      this" is answerable by reading one file.
+|
+| Responsibilities:
+|   - Load backend/.env regardless of the working directory
+|   - Parse and bounds-check every variable
+|   - Refuse to start on a missing or unsafe secret in production
+|   - Export one frozen object of settled configuration
+|
+| Structure (in order):
+|   parsing helpers -> environment -> port -> database URL -> JWT ->
+|   CORS -> pool tuning -> rate limits -> supervisor entry windows ->
+|   SMTP -> Supabase storage -> uploads -> application defaults
+|
+| Exports:
+|   one frozen object; see the module.exports at the foot of the file for
+|   the authoritative list of names.
+|
+| Used by:
+|   backend/server.js, database/pool.js, config/mailer.js,
+|   config/supabase.js, middleware/rateLimiter.js,
+|   modules/auth/auth.service.js, modules/siteOperations/
+|   entryWindow.service.js, modules/uploads/*, and the test helpers.
+|
+| Depends on:
+|   dotenv, path — nothing internal, so it can be required first without a
+|   cycle.
+|
+| Documentation:
+|   backend/.env.example documents each variable for an operator: what it
+|   is, whether it is required, its default and its security impact. This
+|   file documents how each is parsed and what the code does with it.
+|
+| Security:
+|   - JWT_SECRET has no default in production; the process exits instead.
+|   - Nothing here is ever logged. Printing this object would print every
+|     credential the service holds.
+|   - Object.freeze stops a later module from mutating shared configuration
+|     at runtime.
+|
+| Note:
+|   Reading process.env directly elsewhere bypasses all of the above. Two
+|   places currently do — utils/requestContext.js and middleware/
+|   errorHandler.js both check NODE_ENV inline — and both are noted where
+|   they occur.
+|
+*/
+
 const path = require("path");
 const dotenv = require("dotenv");
 
@@ -27,6 +93,14 @@ const VALID_NODE_ENVIRONMENTS =
     "production",
   ]);
 
+/**
+ * A trimmed string, or the fallback when the variable is absent or blank.
+ *
+ * Every environment variable arrives as a string or undefined, and an
+ * unset one in a .env file often shows up as "" rather than missing —
+ * `KEY=` with nothing after it. Treating empty as absent is what makes the
+ * fallback fire in that case.
+ */
 const cleanString = (
   value,
   fallback = ""
@@ -44,6 +118,17 @@ const cleanString = (
   return cleaned || fallback;
 };
 
+/**
+ * An integer within bounds, or the fallback.
+ *
+ * Number.isInteger rejects NaN, Infinity and any fractional value in one
+ * test, so "abc", "" and "1.5" all fall back rather than reaching a
+ * setting that expects a whole number.
+ *
+ * The bounds are how a typo is caught at startup instead of at runtime: a
+ * pool size of 1000 or a port of 99999 is refused here rather than
+ * producing a confusing failure later.
+ */
 const parseInteger = (
   value,
   fallback,
@@ -65,6 +150,14 @@ const parseInteger = (
   return parsed;
 };
 
+/**
+ * A boolean from the several spellings people actually write.
+ *
+ * true / 1 / yes / on and false / 0 / no / off, case-insensitive. Anything
+ * unrecognised returns the fallback rather than being coerced, so a typo
+ * like DB_SSL=ture does not silently become false — it keeps the default,
+ * which for DB_SSL is the safer of the two.
+ */
 const parseBoolean = (
   value,
   fallback = false
@@ -98,6 +191,30 @@ const parseBoolean = (
   return fallback;
 };
 
+/**
+ * A comma-separated variable as a deduplicated array of trimmed entries.
+ *
+ * Used for CORS_ORIGINS and ALLOWED_UPLOAD_FOLDERS — the two settings that
+ * are naturally a list but can only be written as one string in a .env
+ * file or a Render dashboard field.
+ *
+ * Parameters:
+ * value    - the raw variable, e.g. "https://a.com, https://b.com"
+ * fallback - returned when the variable is absent or blank
+ *
+ * Returns:
+ * A new array of non-empty trimmed strings, with duplicates removed.
+ *
+ * Notes:
+ * `filter(Boolean)` drops the empty entries a trailing comma or a stray
+ * ", ," would otherwise produce. For CORS that matters: an empty string in
+ * the allow-list would be compared against the Origin header and could
+ * match a request that sends no origin at all.
+ *
+ * The fallback is spread into a fresh array rather than returned directly,
+ * so a caller mutating the result cannot corrupt the shared default for
+ * everyone else.
+ */
 const parseList = (
   value,
   fallback = []
@@ -122,6 +239,31 @@ const parseList = (
   ];
 };
 
+/**
+ * Reads a variable that has no safe default, throwing when it is absent.
+ *
+ * Purpose:
+ * Some settings cannot be guessed. A JWT secret invented at boot would
+ * invalidate every existing session on each restart and differ between
+ * instances behind a load balancer; a database URL has no sensible local
+ * stand-in in production. For those, refusing to start is the correct
+ * behaviour.
+ *
+ * Parameters:
+ * name - the variable name, used both to read and to name it in the error
+ *
+ * Returns:
+ * The trimmed value.
+ *
+ * Throws:
+ * Error when the variable is missing or blank. Thrown at require time, so
+ * it aborts the boot rather than surfacing on a request.
+ *
+ * Security:
+ * This is what makes "no default in production" enforceable. The error
+ * names the variable but never its value, so a crash log cannot leak a
+ * secret that was set but malformed.
+ */
 const requireEnvironmentValue = (
   name
 ) => {
@@ -178,6 +320,15 @@ const DATABASE_URL =
     "DATABASE_URL"
   );
 
+/*
+ * A known placeholder used only when NODE_ENV is not production, so a
+ * developer can clone and run without generating a key first.
+ *
+ * The value is deliberately recognisable: the production guard further
+ * down compares against it by identity, so shipping with this still in
+ * place aborts startup rather than signing real tokens with a secret that
+ * is published in this file.
+ */
 const developmentJwtSecret =
   "construction-portal-development-secret-change-before-production";
 
@@ -200,6 +351,27 @@ const JWT_SECRET =
  * it means no variables reached the process at all, which on a hosted
  * platform means they were never configured in its dashboard. .env is
  * deliberately not committed, so the platform is the only source.
+ */
+/**
+ * Formats the fatal-configuration banner shown when a secret is unusable.
+ *
+ * Purpose:
+ * A boot failure on a hosted platform is read as a wall of log output,
+ * usually by someone who did not write this code and is looking at Render's
+ * log viewer at the time. The message is deliberately long and formatted:
+ * it states the cause, explains why the value is not in the repository, and
+ * gives the exact commands and dashboard path to fix it.
+ *
+ * Parameters:
+ * reason - the specific failure, e.g. "JWT_SECRET is not set"
+ *
+ * Returns:
+ * A multi-line string suitable for `new Error(...)`.
+ *
+ * Security:
+ * Only the length of an offending secret is ever quoted back, never its
+ * content — see the caller below. Startup errors are frequently pasted into
+ * chat threads and issue trackers.
  */
 const missingSecretMessage = (
   reason
@@ -229,6 +401,25 @@ const missingSecretMessage = (
     "",
   ].join("\n");
 
+/*
+|--------------------------------------------------------------------------
+| JWT secret gate
+|--------------------------------------------------------------------------
+|
+| Three checks, run at require time so a bad secret stops the deploy rather
+| than quietly weakening every token the service issues. They escalate:
+| absent, then too short, then still the placeholder.
+|
+| Any token signed with a guessable secret can be forged, and this
+| application puts the user id, company id and role inside the token. A
+| forged one is a login as anybody, in any tenant, at any role — which is
+| why these are hard failures and not warnings.
+|
+*/
+
+// No secret at all is fatal everywhere, including development: there is no
+// meaningful fallback, and starting without one would mean tokens signed
+// with `undefined`.
 if (!JWT_SECRET) {
   throw new Error(
     missingSecretMessage(
@@ -237,6 +428,11 @@ if (!JWT_SECRET) {
   );
 }
 
+// Length is only enforced in production. 32 characters is the floor at
+// which brute-forcing the signing key stops being practical; a short but
+// convenient secret stays allowed locally.
+//
+// The message quotes the length, never the value.
 if (
   IS_PRODUCTION &&
   JWT_SECRET.length < 32
@@ -275,6 +471,12 @@ const JWT_EXPIRES_IN =
 |--------------------------------------------------------------------------
 */
 
+/*
+ * Origins allowed when CORS_ORIGINS is unset, which is only permitted
+ * outside production. These are the Vite dev server's two spellings —
+ * localhost and 127.0.0.1 are different origins to a browser, and which
+ * one appears depends on how the developer opened the page.
+ */
 const defaultDevelopmentOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",

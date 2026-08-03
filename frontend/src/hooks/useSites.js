@@ -1,3 +1,22 @@
+/**
+ * File purpose:
+ * Loads the sites register.
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /sites, via services/siteService.js
+ *
+ * Connected to:
+ * - App.jsx loads this once for the session and threads it down
+ * - TenderSitesTab.jsx, and the site pickers on the payment forms
+ * - Built on useCollection.js
+ *
+ * Important notes:
+ * - Office-only.
+ * - Deleting a site can fail with 409 when daily updates or payments still
+ *   reference it — the calling screen must surface that rather than
+ *   assuming success.
+ */
+
 import { useCallback } from "react";
 
 import {

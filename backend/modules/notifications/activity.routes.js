@@ -1,3 +1,21 @@
+/*
+| FILE PURPOSE
+|
+| URL map for /api/activity — the read side of the audit trail.
+|
+| Mounted by server.js behind authMiddleware only; the admin restriction is
+| applied here in the route file rather than at the mount.
+|
+| Depends on: ./activity.controller.js, middleware/roleMiddleware.js,
+|             utils/asyncHandler.js
+| Tables: activity_logs, users
+| Frontend: ActivityPage.jsx
+|
+| The rows served here were redacted on the way in by utils/activityLog.js,
+| so this endpoint cannot expose a credential or an account number. See
+| F-12.
+*/
+
 const express = require("express");
 
 const roleMiddleware = require("../../middleware/roleMiddleware");

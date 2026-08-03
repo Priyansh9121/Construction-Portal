@@ -1,3 +1,29 @@
+/**
+ * File purpose:
+ * Requests a password-reset link.
+ *
+ * State:
+ * - Local: email, submitting, whether the request was sent.
+ *
+ * Hooks and context:
+ * - None
+ *
+ * API endpoints:
+ * - POST /auth/forgot-password via services/userService.js
+ *
+ * Parent:
+ * - None — public route
+ *
+ * Navigation and children:
+ * - Always shows the same confirmation, whether or not the address is
+ * - registered.
+ *
+ * Important notes:
+ * - That invariant response is deliberate and must be preserved. Showing
+ * - 'no such account' here would let anyone enumerate registered addresses.
+ * - The backend answers identically for the same reason.
+ */
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 

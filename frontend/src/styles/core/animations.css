@@ -1,3 +1,14 @@
+/*
+ * File purpose:
+ * Keyframes and transition classes shared across the application.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Used by PageTransition, AnimatedStatCard and the modal components.
+ */
+
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(22px); }
     to { opacity: 1; transform: translateY(0); }

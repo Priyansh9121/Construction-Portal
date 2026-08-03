@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * Per-tender finance summary card.
+ *
+ * Props:
+ * - The tender and its finance summary
+ *
+ * Rendered by:
+ * - TenderFinanceTab.jsx, TendersPage.jsx
+ *
+ * Important notes:
+ * - Presentational.
+ */
+
 import { money } from "../../utils/financeHelper";
 
 function TenderSummaryCard({ selectedTender, payments = [] }) {

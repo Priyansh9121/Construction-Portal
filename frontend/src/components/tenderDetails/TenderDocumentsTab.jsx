@@ -1,3 +1,26 @@
+/**
+ * File purpose:
+ * Contracts, drawings, permits and photographs attached to this tender.
+ *
+ * Props:
+ * - tender, its documents, refresh handler
+ *
+ * State:
+ * - Local upload and document form state
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /tenders/:id/documents; POST /upload for the file
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - Two steps per document: the file goes to /upload, which returns a URL,
+ * - and only that URL is stored on the tender document row.
+ * - Deleting a document row does NOT delete the stored file. It remains at
+ * - its URL, reachable by anyone holding the link.
+ */
+
 function TenderDocumentsTab({
   documents = [],
   documentForm,

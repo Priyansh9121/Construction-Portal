@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * The audit trail.
+ *
+ * State:
+ * - Local: filters for module, action, user and date range.
+ *
+ * Hooks and context:
+ * - None; loads through notificationService
+ *
+ * API endpoints:
+ * - GET /activity via services/notificationService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Admin-only.
+ * - The column is labelled 'Details' rather than 'Change' deliberately: the
+ * - backend records what a record BECAME, not what it was before, so there
+ * - is no before/after to show. See F-05.
+ * - Credentials and account numbers are redacted before storage, so they
+ * - cannot appear here even if a payload contained them.
+ */
+
 import {
   useCallback,
   useMemo,

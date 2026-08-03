@@ -1,3 +1,77 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The data-access layer for tenders and all their child collections. Every
+| SQL statement the tenders module issues lives here.
+|
+| The module is layered:
+|
+|   tender.routes.js      URLs, roles, audit
+|   tender.controller.js  HTTP — request in, response out
+|   tender.service.js     business rules and orchestration
+|   tenderQueries.js      SQL and nothing else          <- this file
+|   tenderValidation.js   payload shape and value rules
+|
+| Nothing here reads `req` or writes `res`, and nothing here decides policy.
+| Each function takes plain arguments — usually including companyId — runs
+| one statement, and returns rows. That separation is what lets the service
+| compose several queries inside one transaction without any of them
+| knowing about HTTP.
+|
+| Responsibilities:
+|   - Hold the shared SELECT fragments that define a tender's shape
+|   - Build the filtered list query from user-supplied search criteria
+|   - Read, insert, update, soft-delete and restore tenders
+|   - The same for sites, documents, materials, banking, subcontractor
+|     assignments, worker assignments and finance records
+|
+| Exports:
+|   see module.exports at the foot of the file — around forty query
+|   functions, grouped by the collection they act on
+|
+| Used by:
+|   ./tender.service.js — the only consumer. The controller never imports
+|   this file directly.
+|
+| Depends on:
+|   database/pool.js
+|
+| Database tables touched:
+|   tenders, sites, clients, tender_documents, tender_materials,
+|   tender_banking, tender_subcontractors, worker_assignments,
+|   tender_finance_records, workers, subcontractors
+|
+| Conventions every function in this file follows:
+|
+|   companyId is a required argument, not an option. It appears in the
+|   WHERE clause of EVERY statement, including all eight child-collection
+|   reads, so a query cannot reach another tenant even when called with a
+|   tender or child id that exists elsewhere.
+|
+|   Five of those reads were unscoped until F-17 and relied on their
+|   callers; they are now self-defending. backend/tests/
+|   tenderCrossTenant.test.js calls each one directly with a mismatched
+|   companyId to prove it.
+|
+|   Most take an optional `client` defaulting to the pool, so the service
+|   can run them inside a transaction.
+|
+|   Soft deletes are guarded with COALESCE(is_deleted, FALSE) = FALSE,
+|   because rows predating the column hold NULL there.
+|
+|   All values are bound parameters. The only interpolation is of SQL
+|   fragments defined as constants in this file — never of anything from a
+|   request.
+|
+| Note:
+|   At ~2,800 lines this is the largest file in the backend. It is
+|   organised by collection, in the same order as the route table in
+|   tender.routes.js.
+|
+*/
+
 const pool = require("../../database/pool");
 
 /*
@@ -10,6 +84,32 @@ const pool = require("../../database/pool");
 |
 */
 
+/*
+ * Aggregates a tender's sites into a single JSON array column.
+ *
+ * Why aggregate in SQL rather than issue a second query per tender: the
+ * list endpoint returns many tenders, each with its sites, and fetching
+ * them separately would be one query per row. Building the array in
+ * Postgres keeps it to one statement however many tenders come back.
+ *
+ * Three details, each doing real work:
+ *
+ *   FILTER (WHERE s.id IS NOT NULL ...) — the join is LEFT, so a tender
+ *   with no sites produces one row with every s.* column NULL. Without the
+ *   filter, jsonb_agg would faithfully aggregate that phantom into an array
+ *   containing a single object of nulls. The filter also repeats the
+ *   soft-delete guard, so a deleted site cannot slip into the array.
+ *
+ *   COALESCE(..., '[]'::jsonb) — jsonb_agg over zero rows returns NULL, not
+ *   an empty array. Without this the frontend would need to guard every
+ *   `tender.sites.map(...)`.
+ *
+ *   ORDER BY s.id ASC — inside the aggregate, so the array order is stable
+ *   between requests rather than whatever the planner happens to produce.
+ *
+ * The field list is spelled out rather than using row_to_json, so adding a
+ * column to `sites` does not silently widen every tender payload.
+ */
 const TENDER_SITE_JSON = `
   COALESCE(
     jsonb_agg(
@@ -48,6 +148,30 @@ const TENDER_SITE_JSON = `
   )
 `;
 
+/*
+ * The canonical projection for a tender.
+ *
+ * Shared by the list query, the single-tender read and the post-write
+ * re-read, so all three return the identical shape. That matters more than
+ * it looks: the frontend renders a tender from a list row and from a detail
+ * response with the same components, and a field present in one but not the
+ * other shows up as an intermittently blank field rather than an error.
+ *
+ * Beyond the tender's own columns it carries:
+ *
+ *   linked_client_name / client_email / client_phone
+ *     from the clients table, so a tender displays its client's details
+ *     without a second lookup. Note tenders ALSO has its own client_name
+ *     free-text column — see the comment on the alias below.
+ *
+ *   sites        the aggregated JSON array
+ *   site_count   the same count as an integer, so the UI can show "3 sites"
+ *                without measuring the array
+ *
+ * The COUNT repeats the FILTER conditions rather than reusing the array,
+ * because a count over the raw join would include the phantom NULL row from
+ * the LEFT JOIN and report 1 for a tender with no sites.
+ */
 const TENDER_BASE_SELECT = `
   SELECT
     t.id,
@@ -75,6 +199,12 @@ const TENDER_BASE_SELECT = `
     t.updated_at,
 
     -- The clients table column is "name", not "client_name".
+    --
+    -- Aliased to linked_client_name rather than client_name because
+    -- tenders has a client_name column of its own, holding free text
+    -- typed before the client was a record. Both are returned: the
+    -- free-text one is what older tenders have, the linked one is
+    -- authoritative where client_id is set.
     c.name AS linked_client_name,
     c.email AS client_email,
     c.phone AS client_phone,
@@ -90,6 +220,19 @@ const TENDER_BASE_SELECT = `
     )::INTEGER AS site_count
 `;
 
+/*
+ * The FROM and JOIN clauses shared by every tender read.
+ *
+ * Both joins are LEFT: a tender need not have a client, and need not have
+ * sites. INNER joins would make such tenders vanish from the register
+ * entirely — the kind of bug that looks like data loss.
+ *
+ * Both joins also carry `company_id = t.company_id`. Belt and braces, since
+ * the caller's company is already filtered in the WHERE clause, but it
+ * means a mislinked client_id or a site row pointing across tenants
+ * resolves to NULL rather than leaking another company's data into the
+ * response.
+ */
 const TENDER_BASE_FROM = `
   FROM public.tenders t
 
@@ -109,6 +252,20 @@ const TENDER_BASE_FROM = `
    ) = FALSE
 `;
 
+/*
+ * Required by the aggregates in TENDER_BASE_SELECT.
+ *
+ * The sites join multiplies each tender by its number of sites, and
+ * jsonb_agg / COUNT collapse those rows back down — which means every
+ * non-aggregated column must be grouped.
+ *
+ * Grouping by t.id alone is enough for the tender's own columns, because
+ * it is the primary key and Postgres recognises the functional dependency.
+ * The client columns need naming explicitly: they come from a joined table,
+ * where that inference does not apply. c.id is listed first for the same
+ * reason — it makes c.name, c.email and c.phone functionally dependent, and
+ * they are then named anyway for clarity.
+ */
 const TENDER_GROUP_BY = `
   GROUP BY
     t.id,
@@ -124,12 +281,67 @@ const TENDER_GROUP_BY = `
 |--------------------------------------------------------------------------
 */
 
+/**
+ * Assembles the WHERE conditions and bound values for a tender search.
+ *
+ * Purpose:
+ * The tender register supports ten filters plus free-text search, in any
+ * combination. Building that clause by hand in each of the three callers —
+ * list, count and statistics — would guarantee they eventually disagree,
+ * and a count that does not match its list is a paging bug.
+ *
+ * Parameters (one options object):
+ * companyId - the caller's company; always $1
+ * filters   - the parsed filter object from the service. Recognised keys:
+ *               deleted        show soft-deleted tenders instead of live
+ *               search         free text across five columns
+ *               status, tender_type, priority, risk_level, client_id
+ *                              exact matches
+ *               minimum_value, maximum_value   bounds on estimated_value
+ *               due_from, due_to               bounds on due_date
+ *
+ * Returns:
+ * { values, conditions, addValue }
+ *   values      the bound parameters, in placeholder order
+ *   conditions  the WHERE fragments, to be joined with AND
+ *   addValue    the same closure, returned so a caller can append further
+ *               parameters (LIMIT and OFFSET) and keep the numbering
+ *               consistent
+ *
+ * Side effects:
+ * None — it builds strings and an array; it issues no query.
+ *
+ * Security:
+ * Every filter value goes through addValue and becomes a bound parameter.
+ * No filter value is ever interpolated into the SQL text, so a search term
+ * containing a quote is data.
+ *
+ * The company condition is seeded first and unconditionally, occupying $1.
+ * Nothing a caller passes in `filters` can remove or displace it.
+ *
+ * Note:
+ * Returning addValue is the subtle part. The placeholder numbers depend on
+ * how many filters were applied, so a caller appending LIMIT must use the
+ * same counter rather than guessing $12. See listTenders.
+ */
 const buildTenderFilterQuery = ({
   companyId,
   filters,
 }) => {
   const values = [companyId];
 
+  /*
+   * Two conditions that are always present.
+   *
+   * The company scope is $1 and is seeded before any filter, so it can
+   * never be displaced.
+   *
+   * The soft-delete condition is a switch, not a guard: `deleted: true`
+   * shows ONLY deleted tenders rather than adding them to the live ones.
+   * That is what backs the recycle-bin view, and what makes
+   * POST /:id/restore reachable — a deleted tender has to be findable
+   * before it can be restored.
+   */
   const conditions = [
     "t.company_id = $1",
     filters.deleted
@@ -137,12 +349,39 @@ const buildTenderFilterQuery = ({
       : "COALESCE(t.is_deleted, FALSE) = FALSE",
   ];
 
+  /*
+   * Binds a value and returns its placeholder.
+   *
+   * The counter is the array's own length, so pushing and numbering cannot
+   * drift apart — which is the failure mode when placeholders are written
+   * by hand and a filter is later inserted in the middle.
+   */
   const addValue = (value) => {
     values.push(value);
 
     return `$${values.length}`;
   };
 
+  /*
+   * Free-text search across the five fields a tender is actually looked up
+   * by: its title, either form of the client name, the contract number and
+   * the description.
+   *
+   * One bound value reused in five places — note searchParameter is
+   * captured once and interpolated repeatedly, rather than calling addValue
+   * five times. Same pattern as the masters search.
+   *
+   * ILIKE rather than lower(...) LIKE: Postgres's own case-insensitive
+   * match, which reads better and avoids wrapping every column in a
+   * function.
+   *
+   * COALESCE on the four nullable columns. `NULL ILIKE pattern` is NULL,
+   * not false, so without it a tender with no description would be dropped
+   * from the OR rather than simply not matching on that field.
+   *
+   * Both client name columns are searched because a tender may carry either
+   * — free text on older rows, a linked client on newer ones.
+   */
   if (filters.search) {
     const searchParameter = addValue(
       `%${filters.search}%`
@@ -215,6 +454,19 @@ const buildTenderFilterQuery = ({
     );
   }
 
+  /*
+   * The value bounds test against null explicitly, unlike the filters
+   * above which test truthiness.
+   *
+   * They have to: a minimum_value of 0 is a meaningful filter, and
+   * `if (filters.minimum_value)` would discard it. The service normalises
+   * an absent bound to null precisely so this check can distinguish
+   * "no bound" from "a bound of zero".
+   *
+   * COALESCE(estimated_value, 0) means a tender with no estimated value
+   * counts as zero rather than dropping out of the comparison — so it
+   * appears under a minimum of 0 and is excluded by any higher one.
+   */
   if (
     filters.minimum_value !==
     null
@@ -272,6 +524,40 @@ const buildTenderFilterQuery = ({
 |--------------------------------------------------------------------------
 */
 
+/**
+ * Reads one tender in the canonical shape.
+ *
+ * Purpose:
+ * The single-tender read, and also the re-read after a create or update —
+ * which is why it must produce exactly the shape the list produces.
+ *
+ * Parameters (one options object):
+ * tenderId       - the tender
+ * companyId      - the caller's company; part of the WHERE clause
+ * client         - pool or transaction client. A caller inside
+ *                  withTransaction must pass its client, or this reads
+ *                  outside the transaction and will not see uncommitted
+ *                  rows.
+ * includeDeleted - when true, soft-deleted tenders are returned too. Used
+ *                  by the restore path, which by definition addresses a
+ *                  deleted record.
+ *
+ * Returns:
+ * The tender row with its client details, sites array and site_count, or
+ * null when nothing matches.
+ *
+ * Side effects:
+ * One SELECT.
+ *
+ * Security:
+ * companyId is bound as $2 and is not optional. A tender id belonging to
+ * another company returns null, indistinguishable from a non-existent id —
+ * which is what lets the controller answer 404 for both without leaking
+ * whether the record exists.
+ *
+ * includeDeleted is a caller-chosen boolean, never derived from a request,
+ * so the string it selects is safe to interpolate.
+ */
 const getTenderById = async ({
   tenderId,
   companyId,
@@ -310,6 +596,44 @@ const getTenderById = async ({
   return result.rows[0] || null;
 };
 
+/**
+ * Reads a tender's own columns and locks the row for the transaction.
+ *
+ * Purpose:
+ * The read half of a read-modify-write. The update path needs the current
+ * values to merge a partial payload against, and needs them to still be
+ * current when it writes.
+ *
+ * Parameters (one options object):
+ * tenderId  - the tender
+ * companyId - the caller's company
+ * client    - REQUIRED, and deliberately has no pool default. FOR UPDATE
+ *             outside a transaction locks nothing useful: the lock is
+ *             released the moment the statement completes, so the caller
+ *             would get the syntax of safety with none of the effect.
+ *
+ * Returns:
+ * The tender's own columns, or null. No client join, no sites array —
+ * this is for merging, not for returning to a user.
+ *
+ * Side effects:
+ * One SELECT, and a row-level lock held until the transaction ends.
+ *
+ * Concurrency:
+ * FOR UPDATE is what serialises two simultaneous edits of the same tender.
+ * Without it both would read the same before-state, both would merge their
+ * partial payload onto it, and the second write would silently discard the
+ * first user's changes. With it, the second transaction blocks until the
+ * first commits and then reads the updated row.
+ *
+ * The flip side is that a long transaction holding this lock blocks every
+ * other writer of the same tender — keep the work between this call and
+ * the COMMIT short.
+ *
+ * Notes:
+ * Excludes soft-deleted tenders, so an update cannot resurrect one by
+ * accident. Restoring goes through restoreTender instead.
+ */
 const getTenderRecordForUpdate =
   async ({
     tenderId,
@@ -364,6 +688,37 @@ const getTenderRecordForUpdate =
     return result.rows[0] || null;
   };
 
+/**
+ * One page of the tender register, filtered and ordered.
+ *
+ * Purpose:
+ * Backs GET /api/tenders and therefore TendersPage.jsx.
+ *
+ * Parameters (one options object):
+ * companyId - the caller's company
+ * filters   - the parsed filter object, including limit and offset
+ * client    - pool or transaction client
+ *
+ * Returns:
+ * An array of tenders in the canonical shape, each with its sites and
+ * client details.
+ *
+ * Side effects:
+ * One SELECT.
+ *
+ * Notes:
+ * Paired with countTenders, which must use the same filters to produce a
+ * matching total — the two share buildTenderFilterQuery for exactly that
+ * reason. Note this differs from the scopedCrud registers, which get their
+ * total from a COUNT(*) OVER () window in the same statement; here the
+ * GROUP BY makes that awkward, so it is a second query.
+ *
+ * LIMIT and OFFSET go through the same addValue counter as the filters, so
+ * their placeholder numbers adjust to however many filters were applied.
+ *
+ * Ordered newest first, with the id as a tie-break so two tenders created
+ * in the same instant do not swap places between pages.
+ */
 const listTenders = async ({
   companyId,
   filters,
@@ -408,6 +763,38 @@ const listTenders = async ({
   return result.rows;
 };
 
+/**
+ * How many tenders match the same filters, ignoring paging.
+ *
+ * Purpose:
+ * Supplies the total for the register's pagination. Shares
+ * buildTenderFilterQuery with listTenders so the two cannot disagree about
+ * what is being counted — a total that does not match the list is how
+ * paging ends up with a phantom last page.
+ *
+ * Parameters (one options object):
+ * companyId - the caller's company
+ * filters   - the same filter object passed to listTenders. limit and
+ *             offset are present but deliberately unused here.
+ * client    - pool or transaction client
+ *
+ * Returns:
+ * A number. Zero when nothing matches, never null.
+ *
+ * Side effects:
+ * One SELECT.
+ *
+ * Notes:
+ * COUNT(DISTINCT t.id) rather than COUNT(*). This query has no GROUP BY,
+ * so if the sites join were present each tender would be counted once per
+ * site. The sites join is in fact omitted below — only the clients join is
+ * kept, because the search filter can reference c.name — so DISTINCT is
+ * belt and braces against that join being re-added later.
+ *
+ * The `::INTEGER` cast matters: COUNT returns BIGINT, which node-pg hands
+ * back as a string to avoid precision loss. Without the cast the frontend
+ * would receive "42" and arithmetic on it would concatenate.
+ */
 const countTenders = async ({
   companyId,
   filters,
@@ -447,6 +834,39 @@ const countTenders = async ({
   );
 };
 
+/**
+ * Headline counts and total value across a company's live tenders.
+ *
+ * Purpose:
+ * Backs GET /api/tenders/statistics and the dashboard cards.
+ *
+ * Parameters (one options object):
+ * companyId - the caller's company
+ * client    - pool or transaction client
+ *
+ * Returns:
+ * One row: total_tenders, total_tender_value, and a count per status
+ * (running, pending, completed, passed).
+ *
+ * Side effects:
+ * One SELECT.
+ *
+ * Notes:
+ * Every figure comes from a single pass over the table using FILTER
+ * clauses, rather than four separate COUNT queries. Postgres evaluates all
+ * six aggregates while scanning once.
+ *
+ * COALESCE on the SUM because SUM over zero rows is NULL, not 0 — a company
+ * with no tenders would otherwise show a blank total rather than zero.
+ *
+ * The status strings are hard-coded here rather than read from
+ * config/constants.js, so a new status added there would not appear in the
+ * statistics until this query is updated too. Worth knowing; not changed.
+ *
+ * Unlike listTenders this takes no filters — the statistics are always
+ * across all live tenders in the company, regardless of what the register
+ * is currently filtered to.
+ */
 const getTenderStatistics =
   async ({
     companyId,
@@ -499,12 +919,70 @@ const getTenderStatistics =
 |--------------------------------------------------------------------------
 */
 
+/**
+ * Confirms a client belongs to the caller's company.
+ *
+ * Purpose:
+ * Called before a tender is created or updated with a client_id, so a
+ * tender cannot be linked to another tenant's client.
+ *
+ * Parameters (one options object):
+ * clientId  - the client to check; optional on a tender
+ * companyId - the caller's company
+ * client    - pool or transaction client
+ *
+ * Returns:
+ * true when the client belongs to the company, or when no clientId was
+ * supplied at all — a tender without a client is valid, so there is
+ * nothing to reject.
+ *
+ * Side effects:
+ * One SELECT.
+ *
+ * Security:
+ * This is the guard that stops a tender being linked to another tenant's
+ * client. company_id is bound as $2 and is not optional.
+ *
+ * Fixed — F-16.
+ *
+ * This query previously also filtered `COALESCE(is_deleted, FALSE) = FALSE`.
+ * The clients table has no such column — it carries `status` instead — so
+ * the statement failed with 42703 and every tender create or update that
+ * named a client returned a 500. Tenders without a client were unaffected,
+ * because the `!clientId` guard below returns before the query runs, which
+ * is why it went unnoticed.
+ *
+ * The same mistake was made twice more in this file, on the joins in
+ * TENDER_BASE_FROM and countTenders; both were corrected by dropping the
+ * condition, and their comments still record why. This is the third
+ * occurrence, fixed the same way.
+ *
+ * Deliberately NOT replaced with `status = 'active'`:
+ *
+ *   - The function checks OWNERSHIP, as its name says. Whether a client is
+ *     archived is a lifecycle question, and no caller asks this function
+ *     that.
+ *   - Adding the filter would be new behaviour, not a restoration of lost
+ *     behaviour: the condition never once evaluated successfully, so there
+ *     is no prior semantics to preserve.
+ *   - It would break a real workflow. The frontend sends the whole tender
+ *     on update, client_id included, so editing any field of a tender whose
+ *     client had since been archived would start failing with 404.
+ *
+ *   If archived clients should be un-selectable for NEW tenders, that
+ *   belongs in the create path as a separate rule, not in an ownership
+ *   check shared with update.
+ *
+ * Regression coverage: backend/tests/tenderClientValidation.test.js
+ */
 const validateClientOwnership =
   async ({
     clientId,
     companyId,
     client = pool,
   }) => {
+    // A tender need not have a client, so "no client" is valid rather than
+    // a failed check.
     if (!clientId) {
       return true;
     }
@@ -515,10 +993,6 @@ const validateClientOwnership =
       FROM public.clients
       WHERE id = $1
         AND company_id = $2
-        AND COALESCE(
-          is_deleted,
-          FALSE
-        ) = FALSE
       LIMIT 1
       `,
       [
@@ -774,6 +1248,41 @@ const restoreTender = async ({
 |--------------------------------------------------------------------------
 | Tender sites
 |--------------------------------------------------------------------------
+|
+| Sites are the first of seven child collections, and the only one whose
+| rows also live in a top-level register (/api/sites). The others exist
+| solely as children of a tender.
+|
+| THE SHARED CONTRACT — every child-collection function below follows it:
+|
+|   Reads   getTenderX({ tenderId, companyId, client })
+|           Filtered on BOTH the parent tender and the company. The
+|           company filter is not redundant: a caller who guessed a tender
+|           id from another tenant would otherwise read its children.
+|
+|   Writes  insertTenderX / updateTenderX / softDeleteTenderX
+|           Take companyId and write it onto the row, so a child can never
+|           end up in a different tenant from its parent.
+|
+|   Delete  Always soft. Every one of these tables carries is_deleted, and
+|           every read guards it with COALESCE(is_deleted, FALSE) = FALSE
+|           because rows predating the column hold NULL.
+|
+|   Scoping A child id that exists under ANOTHER tender matches nothing,
+|           because tender_id is in the WHERE clause alongside the child's
+|           own id. That is what makes the nesting real rather than
+|           cosmetic, and it is asserted in
+|           backend/tests/tenderChildResources.test.js.
+|
+| Only the deviations from this contract are documented individually
+| below. Where a function is a straight instance of the pattern, the
+| pattern is the documentation.
+|
+| Sites specifically:
+|   softDeleteAllTenderSites and restoreAllTenderSites exist because
+|   deleting a tender must take its sites with it, and restoring must bring
+|   them back. See the notes on those two.
+|
 */
 
 const getTenderSites = async ({
@@ -1085,6 +1594,36 @@ const softDeleteTenderSites =
     return result.rows;
   };
 
+/**
+ * Soft-deletes every live site under a tender.
+ *
+ * Purpose:
+ * The cascade half of deleting a tender. Sites are the one child
+ * collection with a life of their own — they appear in /api/sites, carry
+ * daily logs and payments, and are selectable elsewhere in the UI — so
+ * leaving them live after their tender is deleted would strand them in
+ * every site picker with no parent to explain them.
+ *
+ * Parameters (one options object):
+ * tenderId  - the parent being deleted
+ * companyId - the caller's company
+ * deletedBy - the acting user, recorded on each row
+ * client    - should be the transaction client; the tender and its sites
+ *             must be deleted atomically
+ *
+ * Returns:
+ * The affected site rows. The caller uses the count for its response, and
+ * the rows are what restoreAllTenderSites has to be able to reverse.
+ *
+ * Side effects:
+ * One UPDATE affecting zero or more rows.
+ *
+ * Notes:
+ * The `is_deleted = FALSE` condition makes this idempotent and, more
+ * importantly, makes the restore correct: a site that was ALREADY deleted
+ * on its own before the tender went is not touched here, so restoring the
+ * tender will not resurrect it. See restoreAllTenderSites.
+ */
 const softDeleteAllTenderSites =
   async ({
     tenderId,
@@ -1120,6 +1659,41 @@ const softDeleteAllTenderSites =
     return result.rows;
   };
 
+/**
+ * Restores every soft-deleted site under a tender.
+ *
+ * Purpose:
+ * The counterpart to softDeleteAllTenderSites, run when a tender is
+ * restored through POST /api/tenders/:id/restore.
+ *
+ * Parameters (one options object):
+ * tenderId  - the tender being restored
+ * companyId - the caller's company
+ * client    - the transaction client
+ *
+ * Returns:
+ * The restored site rows.
+ *
+ * Side effects:
+ * One UPDATE. Clears is_deleted, deleted_at and deleted_by together, so a
+ * restored row carries no stale deletion metadata.
+ *
+ * Known limitation — this over-restores.
+ *
+ * It brings back every deleted site under the tender, including any that
+ * were deleted individually BEFORE the tender was. There is no record of
+ * which deletion each site belonged to, so the two cases are
+ * indistinguishable by the time this runs.
+ *
+ * The delete side is careful not to touch already-deleted sites precisely
+ * so this could be made accurate, but distinguishing them would need a
+ * marker — a deleted_with_tender flag, or comparing deleted_at against the
+ * tender's — and neither exists.
+ *
+ * In practice deleting a tender is rare and restoring one rarer, so a site
+ * unexpectedly reappearing is a mild surprise rather than data loss. Worth
+ * knowing before relying on restore to reproduce an exact prior state.
+ */
 const restoreAllTenderSites =
   async ({
     tenderId,
@@ -1157,10 +1731,24 @@ const restoreAllTenderSites =
 |--------------------------------------------------------------------------
 | Tender documents
 |--------------------------------------------------------------------------
+|
+| Contracts, drawings, permits and photographs. Rows hold a name and a
+| storage URL — the file itself goes to Supabase Storage through
+| /api/upload, and only its location is recorded here.
+|
+| A straight instance of the shared child contract described under Tender
+| sites: read by tender + company, write with company, soft delete.
+|
+| Note the consequence of soft deletion for uploads: removing a document
+| row does NOT remove the object from storage. The file remains at its URL,
+| reachable by anyone holding the link. Deleting the stored object would
+| need a storage call in the same path, and is not done.
+|
 */
 
 const getTenderDocuments = async ({
   tenderId,
+  companyId,
   client = pool,
 }) => {
   const result = await client.query(
@@ -1182,6 +1770,7 @@ const getTenderDocuments = async ({
       ON u.id = td.uploaded_by
 
     WHERE td.tender_id = $1
+      AND td.company_id = $2
       AND COALESCE(
         td.is_deleted,
         FALSE
@@ -1191,7 +1780,7 @@ const getTenderDocuments = async ({
       td.created_at DESC,
       td.id DESC
     `,
-    [tenderId]
+    [tenderId, companyId]
   );
 
   return result.rows;
@@ -1320,10 +1909,22 @@ const softDeleteTenderDocument =
 |--------------------------------------------------------------------------
 | Tender materials
 |--------------------------------------------------------------------------
+|
+| What the job needs and what it is expected to cost: quantities, rates and
+| suppliers, planned at tender level.
+|
+| Distinct from the material entries under /api/site-operations, which
+| record deliveries a supervisor actually received on site. This collection
+| is the plan; that one is the record of what arrived. Nothing reconciles
+| the two.
+|
+| A straight instance of the shared child contract.
+|
 */
 
 const getTenderMaterials = async ({
   tenderId,
+  companyId,
   client = pool,
 }) => {
   const result = await client.query(
@@ -1345,6 +1946,7 @@ const getTenderMaterials = async ({
     FROM public.tender_materials
 
     WHERE tender_id = $1
+      AND company_id = $2
       AND COALESCE(
         is_deleted,
         FALSE
@@ -1354,7 +1956,7 @@ const getTenderMaterials = async ({
       created_at DESC,
       id DESC
     `,
-    [tenderId]
+    [tenderId, companyId]
   );
 
   return result.rows;
@@ -1504,10 +2106,25 @@ const softDeleteTenderMaterial =
 |--------------------------------------------------------------------------
 | Tender banking
 |--------------------------------------------------------------------------
+|
+| Bank guarantees, security deposits and EMD held against a tender — money
+| tied up in winning and holding the job, as opposed to money earned from
+| it.
+|
+| Distinct again from the supervisor banking float under
+| /api/site-operations, which tracks cash issued to a site.
+|
+| A straight instance of the shared child contract, with one thing worth
+| knowing: these rows carry account_number, and this collection IS audited
+| (logActivity("tender_banking", ...) in tender.routes.js). Account numbers
+| were therefore being written to activity_logs until account_number was
+| added to REDACTED_KEYS in utils/activityLog.js — see F-12.
+|
 */
 
 const getTenderBanking = async ({
   tenderId,
+  companyId,
   client = pool,
 }) => {
   const result = await client.query(
@@ -1529,6 +2146,7 @@ const getTenderBanking = async ({
     FROM public.tender_banking
 
     WHERE tender_id = $1
+      AND company_id = $2
       AND COALESCE(
         is_deleted,
         FALSE
@@ -1538,7 +2156,7 @@ const getTenderBanking = async ({
       payment_date DESC NULLS LAST,
       id DESC
     `,
-    [tenderId]
+    [tenderId, companyId]
   );
 
   return result.rows;
@@ -1688,6 +2306,27 @@ const softDeleteTenderBanking =
 |--------------------------------------------------------------------------
 | Tender subcontractors
 |--------------------------------------------------------------------------
+|
+| Which subcontractors are engaged on a tender, for what scope and what
+| agreed amount.
+|
+| Unlike documents, materials and banking, these rows are ASSIGNMENTS — a
+| join between two records that both already exist. That brings two extra
+| functions the other collections do not need:
+|
+|   subcontractorBelongsToCompany  the subcontractor being assigned must be
+|                                  the caller's, or the assignment would
+|                                  reference another tenant's record
+|   tenderSubcontractorExists      guards against assigning the same
+|                                  subcontractor to the same tender twice
+|
+| Both run before the insert. The first is a tenant check; the second is a
+| uniqueness check the schema does not enforce.
+|
+| These rows are also what /api/subcontractor-portal reads to decide which
+| tenders a subcontractor may see, so an assignment is a grant of access as
+| well as a commercial record.
+|
 */
 
 const getTenderSubcontractors =
@@ -1931,6 +2570,25 @@ const softDeleteTenderSubcontractor =
 |--------------------------------------------------------------------------
 | Tender worker assignments
 |--------------------------------------------------------------------------
+|
+| Which workers are on a tender, in what role and over what dates.
+|
+| The mirror of tender subcontractors, with the same two extra guards for
+| the same reasons:
+|
+|   workerBelongsToCompany   the worker must be the caller's
+|   workerAssignmentExists   no duplicate assignment of one worker to one
+|                            tender
+|
+| Written to the worker_assignments table — note the name does not follow
+| the tender_* convention of the other collections, which is why the audit
+| entries in tender.routes.js use "worker_assignments" as their module
+| while the rest use the URL segment.
+|
+| These rows drive two things beyond the tender page: /api/worker-portal
+| reads them to decide which tenders a worker can see, and the worker-money
+| screens use them to attribute allocations and expenses to a job.
+|
 */
 
 const getTenderWorkers = async ({
@@ -2205,11 +2863,24 @@ const softDeleteTenderWorker =
 |--------------------------------------------------------------------------
 | Tender finance
 |--------------------------------------------------------------------------
+|
+| Government bills, GST returns, company charges, TDS, investor and
+| subcontractor entries recorded against a tender. The one child collection
+| with real arithmetic behind it: utils/financeCalculations.js derives the
+| totals and outstanding balances from whatever the client supplies, and
+| getTenderFinanceSummary below aggregates them by type.
+|
+| Follows the shared child contract, including company scoping on both
+| reads. getTenderFinanceRecords and getTenderFinanceSummary previously
+| filtered on tender_id alone and depended on the caller — that was F-17,
+| fixed; both now take companyId.
+|
 */
 
 const getTenderFinanceRecords =
   async ({
     tenderId,
+    companyId,
     client = pool,
   }) => {
     const result = await client.query(
@@ -2241,6 +2912,7 @@ const getTenderFinanceRecords =
       FROM public.tender_finance_records
 
       WHERE tender_id = $1
+        AND company_id = $2
         AND COALESCE(
           is_deleted,
           FALSE
@@ -2250,7 +2922,7 @@ const getTenderFinanceRecords =
         record_date DESC NULLS LAST,
         id DESC
       `,
-      [tenderId]
+      [tenderId, companyId]
     );
 
     return result.rows;
@@ -2448,9 +3120,62 @@ const softDeleteTenderFinanceRecord =
     return result.rows[0] || null;
   };
 
+/**
+ * Totals a tender's finance records by record type.
+ *
+ * Purpose:
+ * Backs GET /api/tenders/:id/finance/summary and the finance figures on
+ * the tender detail page. Aggregating in SQL means the frontend receives
+ * settled numbers rather than a list it has to sum itself — which also
+ * stops the page and any export from disagreeing.
+ *
+ * Parameters (one options object):
+ * tenderId - the tender to total
+ * client   - pool or transaction client
+ *
+ * Returns:
+ * One row of named totals: investor_total, government_bill_total,
+ * subcontractor_total, office_total, tds_total, gst_total and the
+ * remaining GST/company-charge figures.
+ *
+ * Side effects:
+ * One SELECT.
+ *
+ * Security:
+ * Scoped on BOTH tender_id and company_id, so a tender id from another
+ * tenant returns zeroes rather than that tenant's totals.
+ *
+ * This query used to take no companyId and filter on tender_id alone. It
+ * was safe only because its single caller ran prepareChildOperation first
+ * — the guarantee lived in the CALL SITE rather than here, so a new caller
+ * could have opened a cross-tenant read with no visible change to this
+ * function. That was F-17, now fixed.
+ *
+ * The ownership check in the service is retained as well. It is not
+ * redundant: it produces the 404 that tells a caller the tender is not
+ * theirs, whereas this filter alone would return an empty result that
+ * reads as "no finance records".
+ *
+ * Regression coverage: backend/tests/tenderCrossTenant.test.js, which
+ * calls this directly with a mismatched companyId.
+ *
+ * Notes:
+ * Each total is a SUM over a CASE, so all of them come from one pass over
+ * the table rather than one query per record type.
+ *
+ * COALESCE on every SUM because SUM over zero rows is NULL, not 0 — a
+ * tender with no finance records would otherwise return nulls and render
+ * as blanks instead of zeros.
+ *
+ * Note tds_total sums the tds_amount column while the others sum amount:
+ * a TDS record's headline amount and its deducted figure are the same
+ * value, derived in utils/financeCalculations.js, but the dedicated column
+ * is the authoritative one.
+ */
 const getTenderFinanceSummary =
   async ({
     tenderId,
+    companyId,
     client = pool,
   }) => {
     const result = await client.query(
@@ -2592,12 +3317,13 @@ const getTenderFinanceSummary =
       FROM public.tender_finance_records
 
       WHERE tender_id = $1
+        AND company_id = $2
         AND COALESCE(
           is_deleted,
           FALSE
         ) = FALSE
       `,
-      [tenderId]
+      [tenderId, companyId]
     );
 
     return result.rows[0];
@@ -2607,6 +3333,16 @@ const getTenderFinanceSummary =
 |--------------------------------------------------------------------------
 | Tender daily updates
 |--------------------------------------------------------------------------
+|
+| Read-only here. Daily site logs belong to modules/siteLogs, which owns
+| their creation and the backdating rules; this query exists so the tender
+| detail page can show progress on the job without a second round trip.
+|
+| Rows come denormalised with the site, worker and subcontractor names, and
+| the joins repeat the company_id condition — so a log carrying another
+| company's worker_id (see F-14) resolves to a null name rather than
+| leaking it.
+|
 */
 
 const getTenderDailyUpdates =
@@ -2668,12 +3404,67 @@ const getTenderDailyUpdates =
 |--------------------------------------------------------------------------
 */
 
+/**
+ * Loads a tender and every child collection in one call.
+ *
+ * Purpose:
+ * Backs GET /api/tenders/:id/details, which populates TenderDetailsPage
+ * and all nine of its tabs. Without it the page would fire eight parallel
+ * requests on open; with it, switching tabs needs no network at all.
+ *
+ * Parameters (one options object):
+ * tenderId  - the tender
+ * companyId - the caller's company
+ * client    - pool or transaction client
+ *
+ * Returns:
+ * The tender with documents, materials, banking, subcontractors, workers,
+ * finance records, a finance summary and daily updates attached. Null when
+ * the tender does not exist or is not the caller's.
+ *
+ * Side effects:
+ * Nine SELECTs — one for the tender, then eight in parallel.
+ *
+ * Security:
+ * Two independent layers, and both are wanted.
+ *
+ * The tender is fetched FIRST and the function returns null if that misses,
+ * so a tender belonging to another company yields nothing and no child
+ * query runs at all. That produces the 404 the caller needs.
+ *
+ * Every child query is ALSO company-scoped in its own right — all eight
+ * now take companyId. Five of them did not until F-17; the early return
+ * was the only thing protecting them, which made the ordering below
+ * load-bearing in a way nothing stated. It is still the right order, but
+ * it is no longer the only defence.
+ *
+ * Performance:
+ * The eight child queries run concurrently via Promise.all, so the cost is
+ * roughly the slowest one rather than their sum. All eight share one pooled
+ * connection when a transaction client is passed — node-pg serialises
+ * statements on a single client, so in that case they are effectively
+ * sequential. Called through the pool (the normal path) they genuinely run
+ * in parallel across connections.
+ *
+ * The response is large. A tender with many daily updates returns all of
+ * them, unpaginated.
+ */
 const getCompleteTenderDetails =
   async ({
     tenderId,
     companyId,
     client = pool,
   }) => {
+    /*
+     * Fetched first and awaited before any child query runs.
+     *
+     * If this returns nothing the tender either does not exist or is not
+     * the caller's — indistinguishable on purpose — and no child data is
+     * read at all. This is what turns a cross-tenant request into a clean
+     * 404 rather than an empty payload.
+     *
+     * The child queries are independently scoped too, since F-17.
+     */
     const tender =
       await getTenderById({
         tenderId,
@@ -2697,16 +3488,19 @@ const getCompleteTenderDetails =
     ] = await Promise.all([
       getTenderDocuments({
         tenderId,
+        companyId,
         client,
       }),
 
       getTenderMaterials({
         tenderId,
+        companyId,
         client,
       }),
 
       getTenderBanking({
         tenderId,
+        companyId,
         client,
       }),
 
@@ -2724,11 +3518,13 @@ const getCompleteTenderDetails =
 
       getTenderFinanceRecords({
         tenderId,
+        companyId,
         client,
       }),
 
       getTenderFinanceSummary({
         tenderId,
+        companyId,
         client,
       }),
 

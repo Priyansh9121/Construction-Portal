@@ -1,3 +1,19 @@
+/**
+ * File purpose:
+ * PDF generation for document-style output — bills and statements, as
+ * opposed to plain tables.
+ *
+ * Connected to:
+ * - components/export/DocumentExportButtons.jsx
+ * - Uses templates/brandedExportTheme.js for styling and
+ *   templates/subletBillTemplate.js for the sublet bill layout
+ *
+ * Important notes:
+ * - Renders in the browser through jspdf and html2canvas.
+ * - Distinct from exportHelpers.js: that one produces data dumps, this one
+ *   produces documents intended to be sent to someone.
+ */
+
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";

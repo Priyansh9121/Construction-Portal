@@ -1,3 +1,26 @@
+/**
+ * File purpose:
+ * The multi-step Add Payment form.
+ *
+ * Props:
+ * - The section structure from usePaymentSections, plus submit handlers
+ *
+ * State and hooks:
+ * - Local step index and accumulated form values across steps
+ *
+ * Rendered by:
+ * - PaymentsPage.jsx
+ *
+ * Important notes:
+ * - The step structure comes from the SERVER's payment hierarchy rather than
+ * - being hard-coded, so the form cannot offer a direction/scope/sub-type
+ * - combination that payment.service.js would reject.
+ * - Each sub-type has its own required fields — see REQUIRED_BY_SUB_TYPE on
+ * - the backend — which is why the later steps differ by path taken.
+ * - Totals shown as the user types are for display: the backend recalculates
+ * - every money figure on submit and stores its own.
+ */
+
 import PaymentTabs from "../payments/PaymentTabs";
 import TenderSummaryCard from "./TenderSummaryCard";
 import { money } from "../../utils/financeHelper";

@@ -1,3 +1,17 @@
+/*
+ * File purpose:
+ * Breakpoint overrides for tablet and mobile.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Imported LAST in main.jsx, and that position is load-bearing: these
+ * media queries must be able to override every component and page rule
+ * above them. Moving this import earlier silently breaks the mobile
+ * layout.
+ */
+
 @media (max-width: 1250px) {
   .cards,
   .dashboard-cards {

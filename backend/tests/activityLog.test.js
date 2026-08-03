@@ -100,6 +100,68 @@ describe("redaction", () => {
     expect(cleaned.list[0].token).toBe("[redacted]");
   });
 
+  /*
+   * F-12 regression.
+   *
+   * REDACTED_KEYS previously listed only the ENCRYPTED worker column names
+   * (encrypted_account_number, encrypted_bsb, encrypted_tfn). The
+   * plain-text equivalents were absent, so a payload carrying one reached
+   * activity_logs verbatim.
+   *
+   * That was live, not theoretical: tender_banking is audited via
+   * logActivity in tender.routes.js and its rows carry account_number.
+   */
+  it("strips plain-text payment identifiers", () => {
+    const cleaned = redact({
+      bank_name: "Test Bank",
+      account_name: "Acme Pty Ltd",
+      account_number: "123456789",
+      ifsc_code: "TEST0001234",
+      bsb: "062-000",
+      tfn: "123456782",
+    });
+
+    expect(cleaned.account_number).toBe("[redacted]");
+    expect(cleaned.ifsc_code).toBe("[redacted]");
+    expect(cleaned.bsb).toBe("[redacted]");
+    expect(cleaned.tfn).toBe("[redacted]");
+
+    /*
+     * Deliberately still visible. Neither is usable without the
+     * identifiers above, and "the bank was changed from X to Y" is
+     * precisely what the audit trail exists to answer — over-redacting
+     * would make it useless for the case it is most needed in.
+     */
+    expect(cleaned.bank_name).toBe("Test Bank");
+    expect(cleaned.account_name).toBe("Acme Pty Ltd");
+  });
+
+  /*
+   * The realistic shape: a diff of a tender banking record, which is the
+   * audited path that was actually leaking.
+   */
+  it("strips payment identifiers from a before/after diff", () => {
+    const result = diff(
+      {
+        id: 7,
+        bank_name: "Old Bank",
+        account_number: "111111111",
+      },
+      {
+        id: 7,
+        bank_name: "New Bank",
+        account_number: "222222222",
+      }
+    );
+
+    expect(result.old.account_number).toBe("[redacted]");
+    expect(result.new.account_number).toBe("[redacted]");
+
+    // The change is still legible without exposing the number.
+    expect(result.old.bank_name).toBe("Old Bank");
+    expect(result.new.bank_name).toBe("New Bank");
+  });
+
   it("keeps timestamps readable", () => {
     // node-pg hands back Date objects. Walking into one the way a plain
     // object is walked yields {} and loses the value entirely.

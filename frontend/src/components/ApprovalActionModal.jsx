@@ -1,3 +1,24 @@
+/**
+ * File purpose:
+ * Confirmation dialog for approving or rejecting a submitted record.
+ *
+ * Props:
+ * - isOpen, action (approve or reject), onConfirm, onCancel, and an
+ * - optional comment field
+ *
+ * State and hooks:
+ * - Local comment text
+ *
+ * Rendered by:
+ * - DailyUpdateApprovalsPage.jsx, and the site-operations approval flows
+ *
+ * Important notes:
+ * - The comment is optional for an approval and meaningful for a rejection —
+ * - the submitter is notified of the outcome, so the text is the only
+ * - explanation they receive.
+ * - Confirmation is deliberate: approvals are audited and not easily undone.
+ */
+
 function ApprovalActionModal({
     open,
     title,

@@ -1,3 +1,20 @@
+/**
+ * File purpose:
+ * Shared derivations for the finance views: totals, balances and the
+ * groupings the summary cards display.
+ *
+ * Connected to:
+ * - useFinanceStatistics.js, FinanceOverview.jsx and the finance tables
+ *
+ * Important notes:
+ * - Client-side derivation over rows already loaded. The server computes
+ *   the same figures in SQL for /payments/summary; where the two differ,
+ *   the server is authoritative because it sees the full set.
+ * - Mirrors the intent of backend/utils/financeCalculations.js but is NOT
+ *   the same code. The backend one is what actually gets stored; this is
+ *   for display.
+ */
+
 import { formatCurrency } from "./currency";
 
 export const money = formatCurrency;

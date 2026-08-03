@@ -1,3 +1,53 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| Worker expenses: what an allocated advance was actually spent on.
+|
+| The debit side of the worker-money picture. Each expense hangs off a
+| worker allocation, so the two together answer "we advanced this much, and
+| here is what became of it".
+|
+| Responsibilities:
+|   - List expenses for the caller's company
+|   - Create an expense against an allocation
+|   - Update, soft-delete, approve and reject one
+|
+| Exports:
+|   see module.exports at the foot of the file
+|
+| Used by:
+|   ./workerExpense.routes.js, mounted at /api/worker-expenses
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|   modules/notifications/notification.service.js
+|
+| Database tables touched:
+|   worker_expenses     SELECT, INSERT, UPDATE
+|   worker_allocations  SELECT, to resolve and verify the parent
+|   workers             SELECT, for display names
+|   notifications       INSERT, via the notification service
+|
+| API surface:
+|   GET/POST/PUT/DELETE /api/worker-expenses, plus approve and reject.
+|   Office-only at the mount.
+|
+| Frontend consumers:
+|   workerMoneyService.js -> useWorkerMoney.js -> WorkerMoneyPage.jsx
+|
+| Audited:
+|   Yes — logActivity is attached in the route file.
+|
+| Security:
+|   Two levels. The expense is company-scoped directly, and its parent
+|   allocation is resolved through a company-scoped lookup rather than
+|   trusted from the body — so an expense cannot be attached to another
+|   tenant's allocation.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

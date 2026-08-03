@@ -1,3 +1,29 @@
+/**
+ * File purpose:
+ * Exportable reports across payments, tenders and workers.
+ *
+ * State:
+ * - Local: report selection, date range, export state.
+ *
+ * Hooks and context:
+ * - Reads the shared collections from App.jsx
+ *
+ * API endpoints:
+ * - None of its own; derives from data already loaded
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Navigation and children:
+ * - Uses ExportButtons and the export helpers in utils/.
+ *
+ * Important notes:
+ * - Office-only.
+ * - Reports are derived CLIENT-SIDE from rows already in memory, so they
+ * - cover what this session has loaded rather than the full dataset. Worth
+ * - knowing if a register is ever paginated server-side.
+ */
+
 import { useCallback, useMemo, useState } from "react";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
@@ -753,10 +779,15 @@ function ReportsPage({
             activeSubcontractors,
           "GST Registered":
             gstRegisteredSubcontractors,
+          /*
+           * Counted from has_bank_details, the flag the subcontractors
+           * list endpoint provides (F-12). The raw account_number is no
+           * longer in that response, so testing it here would report zero
+           * for every company.
+           */
           "Bank Details Available":
             filteredSubcontractors.filter(
-              (item) =>
-                item.bank_name && item.account_number
+              (item) => item.has_bank_details
             ).length,
         },
       },

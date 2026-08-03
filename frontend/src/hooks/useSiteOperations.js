@@ -1,3 +1,31 @@
+/**
+ * File purpose:
+ * The whole supervisor surface in one hook: materials, labour, banking and
+ * access requests, each with its own list and mutations.
+ *
+ * Returns:
+ * per-area collections, loading and error state, and the action functions
+ * the page binds to its controls.
+ *
+ * API endpoints:
+ * - /site-operations/materials, /labour, /banking, /access-requests
+ *   via services/siteOperationsService.js
+ *
+ * Connected to:
+ * - SiteOperationsPage.jsx, its only consumer
+ * - Backed by backend/modules/siteOperations/
+ *
+ * Important notes:
+ * - Does NOT use useCollection, unlike the register hooks. It manages four
+ *   related datasets that refresh together after an approval, which the
+ *   single-collection shape cannot express.
+ * - Not office-gated: supervisors are the primary users here. The backend
+ *   applies role checks per route — recording is open, approving is not.
+ * - Actions that change approval state refresh the affected list, because
+ *   the server decides the resulting state and a locally patched guess
+ *   could disagree with it.
+ */
+
 import { useState, useCallback, useEffect } from "react";
 
 import siteOperationsService from "../services/siteOperationsService";

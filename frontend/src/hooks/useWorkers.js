@@ -1,3 +1,21 @@
+/**
+ * File purpose:
+ * Loads the workers register.
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /workers, via services/workerService.js
+ *
+ * Connected to:
+ * - App.jsx loads this once for the session and threads it down
+ * - WorkersPage.jsx, TenderWorkersTab.jsx, the WorkerMoney pickers
+ * - Built on useCollection.js
+ *
+ * Important notes:
+ * - Office-only. A worker reads their own record through the worker portal.
+ * - Create and update must send name, phone, salary, role AND status —
+ *   the backend requires all five, so a partial payload is rejected.
+ */
+
 import { useCallback } from "react";
 
 import {

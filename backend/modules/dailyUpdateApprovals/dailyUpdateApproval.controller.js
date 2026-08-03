@@ -1,3 +1,61 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The office's approval queue for daily site updates submitted by workers
+| and supervisors through the worker portal.
+|
+| The two ways a daily update reaches the system are deliberately
+| different:
+|
+|   /api/worker-portal      a worker submits; it lands here for approval
+|   /api/site-logs          the office records directly; no approval
+|
+| So this module is the control on updates the office did not write
+| itself.
+|
+| Responsibilities:
+|   - List pending and decided updates for the caller's company
+|   - Approve or reject an update, recording who decided and when
+|   - Notify the submitter of the outcome
+|
+| Exports:
+|   see module.exports at the foot of the file
+|
+| Used by:
+|   ./dailyUpdateApproval.routes.js, mounted at
+|   /api/daily-update-approvals
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|   modules/notifications/notification.service.js
+|
+| Database tables touched:
+|   daily_site_logs  SELECT, UPDATE (approval state)
+|   sites, workers, tenders  joined for display names
+|   notifications    INSERT, via the notification service
+|
+| API surface:
+|   Office-only. server.js gates the mount on admin and manager, spelled
+|   out inline there rather than reusing requireOffice — see the note in
+|   server.js for why.
+|
+| Frontend consumers:
+|   dailyUpdateApprovalService.js -> DailyUpdateApprovalsPage.jsx
+|
+| Audited:
+|   Yes — logActivity is attached in the route file. Approvals are exactly
+|   the kind of decision the audit trail exists to record.
+|
+| Security:
+|   Every statement is company-scoped. The role gate is what enforces the
+|   separation that gives approval its meaning: the person who submitted an
+|   update cannot be the person who approves it, because submitting happens
+|   in the worker portal and approving happens here.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

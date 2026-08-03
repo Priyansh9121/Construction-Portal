@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * The supervisor surface: materials, labour, banking and access requests.
+ *
+ * API endpoints:
+ * - GET/POST/DELETE /site-operations/materials, plus approve and reject
+ * - GET/POST/PUT/DELETE /site-operations/labour and its entries
+ * - GET/POST /site-operations/banking receipts and expenses
+ * - GET/POST /site-operations/access-requests, plus grant and deny
+ *
+ * Connected to:
+ * - useSiteOperations.js -> SiteOperationsPage.jsx
+ * - Backed by backend/modules/siteOperations/
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - The one area the office and site staff share. Recording is open to any
+ * - authenticated user; approving, granting and issuing funds are
+ * - office-only, enforced per route on the backend.
+ * - Dated entries are subject to the backdating window; an entry older than
+ * - the window needs a granted access request for that exact date.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 /*

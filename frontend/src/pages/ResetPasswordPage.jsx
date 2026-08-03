@@ -1,3 +1,29 @@
+/**
+ * File purpose:
+ * Completes a password reset from an emailed link.
+ *
+ * State:
+ * - Local: new password, confirmation, submitting, error.
+ *
+ * Hooks and context:
+ * - None
+ *
+ * API endpoints:
+ * - POST /auth/reset-password via services/userService.js
+ *
+ * Parent:
+ * - None — public route
+ *
+ * Navigation and children:
+ * - Reads the token from the ?token= query parameter of the emailed link and
+ * - posts it with the new password. On success, sends the user to login.
+ *
+ * Important notes:
+ * - The token IS the authentication here — there is no session yet. It is
+ * - single-use and short-lived; the backend clears it on success, so a
+ * - second submission of the same link fails.
+ */
+
 import { useState } from "react";
 import {
   Link,

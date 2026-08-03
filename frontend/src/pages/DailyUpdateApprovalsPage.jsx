@@ -1,3 +1,29 @@
+/**
+ * File purpose:
+ * The office's queue for updates submitted by workers.
+ *
+ * State:
+ * - Local: filters, the decision modal, comment text.
+ *
+ * Hooks and context:
+ * - None; loads through dailyUpdateApprovalService
+ *
+ * API endpoints:
+ * - GET /daily-update-approvals, plus approve and reject
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Navigation and children:
+ * - Renders ApprovalActionModal for the decision.
+ *
+ * Important notes:
+ * - Office-only, and that gate is what gives approval its meaning:
+ * - submitting happens in the worker portal, approving here, so the two
+ * - cannot be the same person.
+ * - Every decision is audited on the backend.
+ */
+
 import {
   useCallback,
   useMemo,

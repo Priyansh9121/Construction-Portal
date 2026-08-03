@@ -1,3 +1,63 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The worker's own view of the system. Everything a labourer or site
+| supervisor can see about themselves and nothing else.
+|
+| This is a scoped mirror of data the office reads through the full
+| registers. A worker has no access to /api/workers, /api/payments or any
+| other commercial surface; this module is their entire read surface, plus
+| the ability to submit their own daily updates.
+|
+| Responsibilities:
+|   - Resolve the logged-in user to their worker record
+|   - Serve their assignments, daily updates and money
+|   - Accept a daily update from them, routed into the approval queue
+|
+| Exports:
+|   see module.exports at the foot of the file
+|
+| Used by:
+|   ./workerPortal.routes.js, mounted at /api/worker-portal
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|
+| Database tables touched:
+|   workers             resolve the caller's own record
+|   worker_assignments  which tenders they are on
+|   daily_site_logs     their updates
+|   worker_allocations, worker_expenses  their money
+|   tenders, sites      display names
+|
+| API surface:
+|   /api/worker-portal/*, gated at the mount to admin and worker.
+|   Manager is deliberately absent — a manager has the full registers and
+|   no reason to act through the worker portal. Admin is retained for
+|   support.
+|
+| Frontend consumers:
+|   workerPortalService.js -> WorkerPortalPage.jsx
+|
+| SECURITY — the load-bearing idea in this module:
+|
+|   The role gate at the mount only establishes that the caller is a
+|   worker. It does NOT establish WHICH worker. Every query here must
+|   additionally resolve the caller's own worker record from their user id
+|   and filter on it, or one worker would read another's pay.
+|
+|   That is what the profile helper below is for, and why it runs first in
+|   every handler. Company scoping alone is not sufficient here, unlike
+|   every office-facing module.
+|
+| Related:
+|   modules/dailyUpdateApprovals/ — where updates submitted here are
+|   approved or rejected by the office.
+|
+*/
+
 const pool = require("../../database/pool");
 
 /*

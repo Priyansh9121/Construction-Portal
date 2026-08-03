@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * The auth context object and its useAuth hook, kept separate from the
+ * provider component.
+ *
+ * Responsibilities:
+ * - Create the React context
+ * - Expose useAuth(), which throws if used outside the provider
+ *
+ * Connected to:
+ * - AuthProvider.jsx supplies the value
+ * - Consumed by RoleRoute, AppLayout, Sidebar, Topbar, LoginPage,
+ *   RegisterPage, SettingsPage and every page needing the current user
+ *
+ * Important notes:
+ * - The split from AuthProvider.jsx is not stylistic — see the banner
+ *   below. A module exporting both a component and other values cannot be
+ *   hot-reloaded on its own, so keeping the provider component alone in
+ *   its file is what preserves fast refresh.
+ * - useAuth throws rather than returning null for a missing provider. A
+ *   clear error at the point of misuse beats a null-reference crash three
+ *   components deeper.
+ */
+
 import {
   createContext,
   useContext,

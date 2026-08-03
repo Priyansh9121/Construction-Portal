@@ -1,3 +1,38 @@
+/**
+ * File purpose:
+ * The frontend routing table. Maps every URL to a page, and wraps each in
+ * the role guard and layout it needs.
+ *
+ * Responsibilities:
+ * - Declare the public routes (login, register, password reset)
+ * - Declare the protected routes, each behind RoleRoute
+ * - Wrap protected pages in AppLayout
+ * - Pass the shared data from App.jsx down to the pages that expect it
+ *
+ * Route groups:
+ * - Public          /login, /register, /forgot-password, /reset-password
+ * - Office          dashboard, payments, tenders, workers, invoices,
+ *                   subcontractors, reports, masters, activity, users
+ * - Site operations shared between office and supervisors
+ * - Worker portal   /worker-portal, worker role
+ * - Subcontractor   /subcontractor-portal, subcontractor role
+ *
+ * Connected to:
+ * - Rendered by App.jsx
+ * - Uses RoleRoute for guarding and AppLayout for the shell
+ * - Mirrors the backend's mount table in server.js; the two should agree
+ *   about which roles reach which area, though the backend is the one that
+ *   enforces it
+ *
+ * Important notes:
+ * - The role lists here are a UI convenience. RoleRoute decides which
+ *   screen renders; roleMiddleware on the backend decides what data comes
+ *   back. A mismatch shows as a page that loads and then fails its
+ *   requests, which is the safe direction.
+ * - Each role has a different landing page — see getHomePath in
+ *   RoleRoute.jsx — so "/" means something different per role.
+ */
+
 import {
   Navigate,
   Route,

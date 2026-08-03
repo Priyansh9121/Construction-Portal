@@ -1,3 +1,26 @@
+/**
+ * File purpose:
+ * Worker advances and the expenses recorded against them.
+ *
+ * State:
+ * - Local: the allocation and expense forms, filters, modal state.
+ *
+ * Hooks and context:
+ * - useWorkerMoney, which loads both datasets together
+ *
+ * API endpoints:
+ * - /worker-allocations and /worker-expenses via workerMoneyService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Office-only.
+ * - Allocations are the credit side, expenses the debit side; an expense
+ * - belongs to an allocation, so both refresh together after an approval or
+ * - the totals shown would not reconcile.
+ */
+
 import {
   useMemo,
   useState,

@@ -1,3 +1,25 @@
+/*
+| FILE PURPOSE
+|
+| URL map for /api/notifications — a user's own notification queue.
+|
+|   GET  /            list the caller's notifications
+|   GET  /unread-count  the header badge figure
+|   PUT  /:id/read    mark one read
+|   PUT  /read-all    mark all read
+|
+| Mounted by server.js behind authMiddleware with NO role gate: every role
+| has notifications. Access control is by USER, applied in the controller —
+| every statement filters on the authenticated user id, so one user cannot
+| read or clear another's queue.
+|
+| Depends on: ./notification.controller.js, utils/asyncHandler.js
+| Tables: notifications
+| Frontend: notificationService.js -> NotificationCenter.jsx, Topbar.jsx
+|
+| See the route declarations below for the authoritative list of paths.
+*/
+
 const express = require("express");
 
 const notificationController = require("./notification.controller");

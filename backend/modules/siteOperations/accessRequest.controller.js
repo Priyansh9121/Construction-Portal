@@ -1,3 +1,59 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The escape hatch for the backdating window.
+|
+| From the notes: "To add a bill with a date older than 2 days you have to
+| call the company and take access." This module is that call, made a
+| record — a supervisor requests permission for one specific date and
+| module, and the office grants or denies it.
+|
+| A granted request is then checked by entryWindow.service.js when the late
+| entry is finally submitted, and CONSUMED at that point, so one grant
+| authorises one entry rather than opening the date indefinitely.
+|
+| Responsibilities:
+|   - List access requests for the caller's company
+|   - Create a request for a date and module
+|   - Grant or deny a request (office only)
+|   - Notify the office that a request is waiting
+|
+| Exports (all Express handlers):
+|   getRequests, createRequest, grantRequest, denyRequest
+|
+| Used by:
+|   ./siteOperations.routes.js
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|   ./entryWindow.service.js — the MODULES vocabulary
+|   modules/notifications/notification.service.js — this is the one
+|     site-operations controller that raises notifications, because a
+|     request nobody sees is a supervisor blocked indefinitely
+|
+| Database tables touched:
+|   entry_access_requests  SELECT, INSERT, UPDATE
+|   notifications          INSERT, via the notification service
+|
+| API surface:
+|   GET    /api/site-operations/access-requests
+|   POST   /api/site-operations/access-requests
+|   POST   /api/site-operations/access-requests/:id/grant   office only
+|   POST   /api/site-operations/access-requests/:id/deny     office only
+|
+| Frontend consumers:
+|   siteOperationsService.js -> SiteOperationsPage.jsx, and the
+|   NotificationCenter component for the office side
+|
+| Security:
+|   Requesting is open; granting is office-only, which is the entire point
+|   of the mechanism. A grant is scoped to the requesting user, one module
+|   and one exact date — see findUsableGrant in entryWindow.service.js.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

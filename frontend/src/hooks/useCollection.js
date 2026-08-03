@@ -1,3 +1,34 @@
+/**
+ * File purpose:
+ * The shared implementation behind every "load a register once the user is
+ * ready" hook. Handles role gating, request racing, per-identity caching
+ * and local patching in one place.
+ *
+ * Returns:
+ * { items, loading, error, refresh, patch }
+ *
+ * Parameters:
+ * - user     the signed-in user; nothing loads without one
+ * - options  { fetcher, label, officeOnly }
+ *
+ * Connected to:
+ * - Wrapped by useWorkers, useSites, useTenders, useInvoices, usePayments,
+ *   useSiteLogs and useWorkerMoney
+ * - Uses utils/roleAccess.js to decide whether this user may load at all
+ *
+ * Important notes:
+ * - officeOnly defaults to TRUE. That default is the fix described in the
+ *   banner below: hooks that only checked "is there a user" were firing
+ *   office endpoints for worker and subcontractor logins, which the API
+ *   now answers with 403.
+ * - Rows are stored alongside the identity that loaded them, so a caller
+ *   never sees the previous user's data after an account switch and
+ *   nothing needs clearing on sign-out.
+ * - `loading` is DERIVED from that pairing rather than held as its own
+ *   state — one less thing to keep in step.
+ * - The ticket ref discards out-of-order responses; see the comment there.
+ */
+
 import {
   useCallback,
   useEffect,

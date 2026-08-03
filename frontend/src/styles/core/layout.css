@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * The application shell: sidebar, top bar, content area, page grid.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Styles the structure AppLayout.jsx renders. Page sheets position content
+ * within these regions rather than redefining them.
+ */
+
 .app-layout {
   min-height: 100vh;
 }

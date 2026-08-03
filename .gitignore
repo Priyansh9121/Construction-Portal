@@ -1,25 +1,50 @@
+# ===========================================================================
+# Repository ignore rules
+# ===========================================================================
+#
+# Added after `backend/.env` was found committed to a public repository from
+# the very first commit. Removing a file from the index does not un-publish
+# it, so the four credentials it held still need rotating — see HANDOVER.md.
+#
+# This file covers both halves of the project. frontend/.gitignore adds the
+# Vite-specific entries on top.
+# ===========================================================================
+
 # ---------------------------------------------------------------------------
 # Secrets — never commit these
 # ---------------------------------------------------------------------------
+# Real configuration: database password, JWT signing key, Supabase service
+# role key, SMTP credentials.
 .env
+# Every variant: .env.local, .env.production, .env.development ...
 .env.*
+# ... except the checked-in template, which holds names and no values. A
+# leading `!` re-includes a file an earlier pattern excluded, so this line
+# has to come after `.env.*` to have any effect.
 !.env.example
+# TLS private keys and certificates, e.g. a database CA bundle kept locally.
 *.pem
 *.key
 
 # ---------------------------------------------------------------------------
 # Dependencies
 # ---------------------------------------------------------------------------
+# Reinstalled from the lock files by `npm ci`. Roughly 300 MB across the two
+# halves, and fully reproducible, so it has no business in version control.
 node_modules/
+# Yarn Plug'n'Play artefacts. Not used here; ignored in case anyone tries.
 .pnp
 .pnp.js
 
 # ---------------------------------------------------------------------------
 # Build output
 # ---------------------------------------------------------------------------
+# `vite build` output. Vercel runs the build itself on deploy.
 dist/
 build/
+# Vite's on-disk dependency pre-bundling cache.
 .vite/
+# TypeScript incremental build metadata. No TypeScript here yet.
 *.tsbuildinfo
 
 # ---------------------------------------------------------------------------
@@ -27,6 +52,7 @@ build/
 # ---------------------------------------------------------------------------
 logs/
 *.log
+# Crash reports written into the working directory by the package managers.
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -35,22 +61,33 @@ pnpm-debug.log*
 # ---------------------------------------------------------------------------
 # Editor / OS
 # ---------------------------------------------------------------------------
+# macOS Finder metadata, written into every directory it browses. Several
+# are still tracked from before this rule existed.
 .DS_Store
+# The Windows equivalent.
 Thumbs.db
 .idea/
+# Ignore personal VS Code settings but keep the shared extension
+# recommendations, so a new developer still gets the right tooling prompt.
 .vscode/*
 !.vscode/extensions.json
+# Vim swap files.
 *.swp
 *.swo
 
 # ---------------------------------------------------------------------------
 # Test / coverage
 # ---------------------------------------------------------------------------
+# Vitest coverage reports, regenerated on every run.
 coverage/
 .nyc_output/
 
 # ---------------------------------------------------------------------------
 # Local database dumps
 # ---------------------------------------------------------------------------
+# pg_dump custom-format backups — the ones DEPLOYMENT.md tells you to take
+# before running a migration. These contain real data.
 *.dump
+# A developer's own snapshot, alongside the tracked
+# database/snapshots/schema-production.sql.
 backend/database/snapshots/*.local.sql

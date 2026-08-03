@@ -1,3 +1,63 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| File upload to Supabase Storage. Takes the buffer multer produced, puts
+| it in the bucket, and returns the URL for a caller to store on a record.
+|
+| Nothing here writes to the database. An upload produces a URL; attaching
+| that URL to a tender document, a site log or a receipt is the job of
+| whichever module owns that record.
+|
+| Responsibilities:
+|   - Accept a validated file from upload.middleware
+|   - Choose a storage path within an allow-listed folder
+|   - Upload to Supabase and return the public URL
+|   - Delete a previously uploaded object
+|
+| Exports:
+|   see module.exports at the foot of the file
+|
+| Used by:
+|   ./upload.routes.js, mounted at /api/upload
+|
+| Depends on:
+|   config/supabase.js — the storage client
+|   config/env.js      — SUPABASE_BUCKET, ALLOWED_UPLOAD_FOLDERS,
+|                        STORAGE_CONFIGURED
+|   utils/asyncHandler.js, utils/requestContext.js
+|
+| Database tables touched:
+|   none.
+|
+| API surface:
+|   /api/upload, open to every authenticated role. That is deliberate — a
+|   supervisor photographs a delivery docket, a subcontractor attaches a
+|   document — and the controls are the folder allow-list here plus the
+|   size and MIME checks in upload.middleware.js.
+|
+| Frontend consumers:
+|   uploadService.js, used by the document tabs, the daily update form and
+|   the receipt fields.
+|
+| Security:
+|   The folder allow-list is what stops a caller writing anywhere in the
+|   bucket. Filenames are generated rather than taken from the client, so
+|   a name like "../../secret" cannot escape its folder.
+|
+|   Uploaded objects are NOT removed when the record referencing them is
+|   deleted — a soft-deleted tender document leaves its file in the bucket,
+|   still reachable by anyone holding the URL. Noted on the documents
+|   section of tenderQueries.js.
+|
+| Note:
+|   Storage is optional. When SUPABASE_* is unconfigured the readiness
+|   probe reports "degraded" rather than "unhealthy", and these endpoints
+|   fail while the rest of the application continues to work.
+|
+*/
+
 const crypto = require("crypto");
 const path = require("path");
 

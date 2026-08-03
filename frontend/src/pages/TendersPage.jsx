@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * The tender register: list, filter, create and edit.
+ *
+ * State:
+ * - Local: filters, search, the create/edit form, modal visibility.
+ *
+ * Hooks and context:
+ * - useTenders for the register
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /tenders via services/tenderService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Navigation and children:
+ * - Navigates to TenderDetailsPage on selecting a tender.
+ *
+ * Important notes:
+ * - Office-only.
+ * - A tender needs at least one site on create; the form enforces that
+ * - before submitting, and the backend rejects it otherwise.
+ * - Deleting can fail with 409 while workers or subcontractors are still
+ * - assigned — the page surfaces that message rather than assuming success.
+ */
+
 import {
   useCallback,
   useEffect,

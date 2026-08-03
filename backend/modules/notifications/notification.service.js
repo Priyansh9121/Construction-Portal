@@ -1,3 +1,42 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The write side of notifications. Other modules call these helpers when
+| something happens that a person needs to know about.
+|
+| Responsibilities:
+|   - Define the notification type vocabulary
+|   - Insert notification rows for one or many recipients
+|   - Never let a failed notification break the action that caused it
+|
+| Exports:
+|   TYPES  the notification type vocabulary
+|   plus the per-event dispatch helpers — see module.exports below
+|
+| Used by:
+|   modules/siteOperations/accessRequest.controller.js — a request waiting
+|   modules/dailyUpdateApprovals/  — an approval waiting, and its result
+|   modules/workerMoney/           — allocation and expense outcomes
+|
+| Depends on:
+|   database/pool.js
+|
+| Database tables touched:
+|   notifications  INSERT only. Reading is notification.controller.js.
+|
+| Frontend surface:
+|   the rows written here are what NotificationCenter.jsx displays, via
+|   notificationService.js.
+|
+| Error handling:
+|   Like utils/activityLog.js, failures are swallowed and logged. A missed
+|   notification is bad; failing an approval because the notification
+|   insert failed is worse.
+|
+*/
+
 const pool = require("../../database/pool");
 
 /*

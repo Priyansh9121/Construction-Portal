@@ -1,3 +1,20 @@
+/**
+ * File purpose:
+ * Loads the invoices register and exposes create, update and delete.
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /invoices, via services/invoiceService.js
+ *
+ * Connected to:
+ * - InvoicesPage.jsx, and the tender Finance tab
+ * - Built on useCollection.js, so it inherits the office-only gate,
+ *   per-identity caching and race handling
+ *
+ * Important notes:
+ * - Office-only. Returns empty for a worker or subcontractor rather than
+ *   firing a request the API would refuse.
+ */
+
 import { useCallback } from "react";
 
 import {

@@ -1,3 +1,27 @@
+/*
+|--------------------------------------------------------------------------
+| PostgreSQL connection pool
+|--------------------------------------------------------------------------
+|
+| The single database entry point. Every module imports this file; nothing
+| else constructs a Pool, so connection limits, TLS settings and type
+| parsers are decided once.
+|
+| Exported as the pool itself, with helpers hung off it:
+|
+|     const pool = require("../../database/pool");
+|     await pool.query("SELECT 1");
+|     await pool.withTenant(companyId, async (client) => { ... });
+|
+| That shape exists because most call sites predate the tenant helpers and
+| use the pool directly. Assigning to module.exports first and then adding
+| properties keeps both styles working.
+|
+| Note this talks to PostgreSQL directly through node-postgres. Supabase is
+| used for file storage only and issues no queries.
+|
+*/
+
 const { Pool, types } = require("pg");
 
 /*
@@ -97,6 +121,28 @@ const buildSslConfig = () => {
   };
 };
 
+/*
+ * The pool.
+ *
+ * Two of these settings are easy to confuse:
+ *
+ *   statement_timeout   enforced by PostgreSQL. The server cancels the
+ *                       query, so the connection is freed even if the
+ *                       client has stopped listening.
+ *   query_timeout       enforced by node-postgres. The client gives up,
+ *                       but the server may still be executing.
+ *
+ * Both are set, because each covers a case the other does not.
+ *
+ * keepAlive stops a managed load balancer or NAT from silently dropping an
+ * idle TCP connection, which otherwise surfaces much later as a confusing
+ * ECONNRESET on the first query after a quiet period.
+ *
+ * allowExitOnIdle is enabled under test only: it lets Node exit once no
+ * query is in flight, so a Vitest worker does not hang on an idle pooled
+ * connection at the end of a suite. In production the pool is meant to stay
+ * up, and shutdown goes through closeDatabasePool.
+ */
 const pool = new Pool({
   connectionString:
     DATABASE_URL,
@@ -131,6 +177,19 @@ const pool = new Pool({
 /**
  * Runs once whenever PostgreSQL creates a new physical
  * connection for the pool.
+ *
+ * Pins the session to UTC so a TIMESTAMPTZ is interpreted the same way
+ * regardless of the host's timezone — a deploy host on UTC and a laptop on
+ * IST must not disagree about what an instant means.
+ *
+ * This does not affect DATE columns, which the parser above keeps as
+ * strings, nor the company-local "today" the entry-window rules use: that
+ * is computed from the company's own timezone in JavaScript, not here.
+ *
+ * A failure is logged and swallowed rather than thrown, because throwing
+ * inside this listener would take down the process. A connection that
+ * failed to set its timezone still works; it is just misconfigured, and the
+ * log says so.
  */
 pool.on("connect", (client) => {
   client
@@ -166,9 +225,20 @@ pool.on("error", (error) => {
 });
 
 /**
- * Verifies database connectivity.
+ * Verifies database connectivity and reports what was connected to.
  *
- * Call this during backend startup before accepting requests.
+ * Called by server.js before it binds the port, so a misconfigured
+ * DATABASE_URL fails at startup rather than on the first request.
+ *
+ * The fields it returns are the ones worth seeing in a boot log:
+ *
+ *   database_user   the role in use. This is the one to check when
+ *                   row-level security appears not to work — as `postgres`
+ *                   every policy is bypassed, and only `construction_app`
+ *                   makes them live.
+ *   database_schema whether the search path resolves as expected.
+ *   database_time   the server's clock, for spotting a skew against the
+ *                   application host.
  */
 const checkDatabaseConnection =
   async () => {
@@ -195,9 +265,14 @@ const checkDatabaseConnection =
   };
 
 /**
- * Closes all database clients.
+ * Closes every pooled client.
  *
- * This must be called during graceful backend shutdown.
+ * Called from the SIGTERM and SIGINT handlers in server.js. Render sends
+ * SIGTERM on redeploy, and draining the pool lets in-flight queries finish
+ * instead of being cut off mid-transaction.
+ *
+ * The pool cannot be reused afterwards — a query against an ended pool
+ * throws — so this is genuinely shutdown-only.
  */
 const closeDatabasePool =
   async () => {

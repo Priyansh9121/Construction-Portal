@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * Daily site updates recorded against this tender.
+ *
+ * Props:
+ * - tender, and its daily updates
+ *
+ * State:
+ * - Local filter state
+ *
+ * API endpoints:
+ * - Read from the /tenders/:id/details payload; writes go through
+ * - /site-logs
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - READ-ONLY here. Creating and deleting daily updates belongs to
+ * - DailySiteUpdatesPage and the worker portal; this tab shows progress on
+ * - the job without duplicating that surface.
+ * - Worker and subcontractor names come back null when the underlying log
+ * - references another company's record — see F-14.
+ */
+
 function TenderDailyProgressTab({ dailyUpdates = [] }) {
   const dateOnly = (value) => (value ? String(value).slice(0, 10) : "");
 

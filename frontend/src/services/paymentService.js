@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * The money ledger.
+ *
+ * API endpoints:
+ * - GET    /payments
+ * - GET    /payments/summary
+ * - GET    /payments/hierarchy
+ * - GET    /payments/investor-interest
+ * - POST   /payments
+ * - PUT    /payments/:id
+ * - DELETE /payments/:id
+ *
+ * Connected to:
+ * - usePayments.js, usePaymentManager.js, usePaymentSections.js
+ * - PaymentsPage.jsx, the finance components, dashboard cards
+ * - Backed by backend/modules/payments/payment.controller.js
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - /hierarchy returns the Add Payment tree from the server rather than
+ * - the form hard-coding its options, so the two cannot drift.
+ * - Derived money figures sent in a payload are RECALCULATED server-side.
+ * - The client's totals are for display only.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 /*
