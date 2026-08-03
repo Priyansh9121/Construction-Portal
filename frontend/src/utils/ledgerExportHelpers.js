@@ -1,3 +1,19 @@
+/**
+ * File purpose:
+ * Export helpers for ledger-style output: running balances across payments
+ * and worker money.
+ *
+ * Connected to:
+ * - The payments and worker-money screens, and ReportsPage.jsx
+ *
+ * Important notes:
+ * - Reads several possible field names for the same concept — see the
+ *   payment_mode / bank_name / mode fallback below — because ledger rows
+ *   come from more than one source shape.
+ * - Balances are computed over the rows supplied, so a filtered or
+ *   paginated set produces a running total for that set only.
+ */
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";

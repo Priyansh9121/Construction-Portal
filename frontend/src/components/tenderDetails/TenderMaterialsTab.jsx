@@ -1,3 +1,25 @@
+/**
+ * File purpose:
+ * Materials planned for this tender: quantities, rates and suppliers.
+ *
+ * Props:
+ * - tender, its materials, refresh handler
+ *
+ * State:
+ * - Local material form state
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /tenders/:id/materials
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - These are the PLAN, priced when the job was won. What actually arrived
+ * - on site is recorded separately under /site-operations/materials, and
+ * - nothing reconciles the two.
+ */
+
 import { formatCurrency } from "../../utils/currency";
 function TenderMaterialsTab({
   materials = [],

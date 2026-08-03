@@ -1,3 +1,35 @@
+/**
+ * File purpose:
+ * Holds the signed-in user for the whole application and keeps that copy
+ * honest against the server.
+ *
+ * Responsibilities:
+ * - Restore a cached session from localStorage on load
+ * - Re-verify it against GET /auth/me and replace it with the server's copy
+ * - Keep React state and localStorage in step
+ * - Expose user, setUser, logout, isLoading and isAuthenticated
+ *
+ * Provides context to:
+ * - RoleRoute, which decides which screens a role may see
+ * - AppLayout, Sidebar and Topbar, for the user menu and navigation
+ * - LoginPage and RegisterPage, which call setUser after authenticating
+ * - SettingsPage, and any page that needs the current user or company
+ *
+ * Connected to:
+ * - GET /api/auth/me — backend/modules/auth/auth.controller.js
+ * - Writes the "token" and "user" keys that axiosClient reads and clears
+ * - Mounted in main.jsx, above App
+ *
+ * Important notes:
+ * - The cached user is a RENDERING convenience, never a source of truth.
+ *   Anyone can edit localStorage and set their own role to admin. That
+ *   changes what the UI draws and nothing else — the backend re-reads the
+ *   role from the database on every request. See the note on the effect.
+ * - isLoading exists so route guards do not redirect before the real role
+ *   is known. Without it a legitimate admin would be bounced off an admin
+ *   page for the moment between mount and the /auth/me response.
+ */
+
 import {
   useState,
   useEffect,

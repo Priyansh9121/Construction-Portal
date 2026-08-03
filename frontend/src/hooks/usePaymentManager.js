@@ -1,3 +1,21 @@
+/**
+ * File purpose:
+ * Local UI state for the payment add/edit workflow — which form is open,
+ * what is being edited, and the filters applied to the list.
+ *
+ * Returns:
+ * the current selection and filter state plus the setters that change it.
+ *
+ * Connected to:
+ * - PaymentsPage.jsx and the payment form components
+ * - Pairs with usePayments.js, which owns the DATA; this hook owns only
+ *   the interaction state around it
+ *
+ * Important notes:
+ * - Deliberately holds no server data and issues no requests. Keeping the
+ *   two apart means the list does not refetch when a modal opens.
+ */
+
 import { useMemo, useState } from "react";
 
 export function usePaymentManager({

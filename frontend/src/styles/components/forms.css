@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * Form layout and control styling.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Shared by every create and edit form. Page sheets adjust placement, not
+ * the controls themselves.
+ */
+
 button,
 .primary-btn,
 .login-box button,

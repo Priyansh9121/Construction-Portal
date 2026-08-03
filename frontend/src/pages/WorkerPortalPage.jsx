@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * A worker's own view: assignments, updates and money.
+ *
+ * State:
+ * - Local: active section, the daily update form, photo upload state.
+ *
+ * Hooks and context:
+ * - None; loads through workerPortalService
+ *
+ * API endpoints:
+ * - /worker-portal/* via workerPortalService.js; /upload for photos
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Worker role (and admin, for support). A worker's entire surface — they
+ * - cannot reach /workers, /payments or any other register.
+ * - The backend resolves the caller's own worker record from their user id
+ * - and filters everything on it. The role gate establishes that the caller
+ * - is a worker, not WHICH worker.
+ * - A daily update submitted here goes to the office approval queue.
+ */
+
 import {
   useCallback,
   useEffect,

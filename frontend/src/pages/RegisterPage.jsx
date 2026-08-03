@@ -1,3 +1,29 @@
+/**
+ * File purpose:
+ * Self-service signup: creates a company and its first administrator.
+ *
+ * State:
+ * - Local: the form fields, submitting, validation errors.
+ *
+ * Hooks and context:
+ * - useAuth for setUser after registration
+ *
+ * API endpoints:
+ * - POST /auth/register via services/authService.js
+ *
+ * Parent:
+ * - None — public route
+ *
+ * Navigation and children:
+ * - On success the user is signed in immediately and lands on the dashboard,
+ * - rather than being sent back to the login screen.
+ *
+ * Important notes:
+ * - The registrant always becomes the company OWNER and an admin. The form
+ * - cannot request another role — a signup producing a worker would create a
+ * - company nobody could administer.
+ */
+
 import { useState } from "react";
 import {
   Link,

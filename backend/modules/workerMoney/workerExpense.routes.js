@@ -1,3 +1,17 @@
+/*
+| FILE PURPOSE
+|
+| URL map for /api/worker-expenses — what an advance was spent on.
+|
+| The debit side to workerAllocation's credit side. Office-only at the
+| mount, and every mutation audited, for the same reasons.
+|
+| Depends on: ./workerExpense.controller.js, utils/asyncHandler.js,
+|             utils/activityLog.js
+| Tables: worker_expenses, worker_allocations, workers, notifications
+| Frontend: workerMoneyService.js -> useWorkerMoney.js -> WorkerMoneyPage
+*/
+
 const express = require("express");
 const router = express.Router();
 

@@ -1,3 +1,11 @@
+/*
+ * File purpose:
+ * SettingsPage: the company profile and account forms.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ */
+
 .settings-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

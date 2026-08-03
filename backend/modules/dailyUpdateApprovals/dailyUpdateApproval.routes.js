@@ -1,3 +1,22 @@
+/*
+| FILE PURPOSE
+|
+| URL map for /api/daily-update-approvals — the office's approval queue for
+| daily updates submitted through the worker portal.
+|
+| Office-only: server.js gates the mount on admin and manager, spelled out
+| inline there rather than reusing requireOffice. That gate is what gives
+| approval its meaning — submitting happens in the worker portal, approving
+| happens here, so the two cannot be the same person.
+|
+| Every decision is audited via logActivity.
+|
+| Depends on: ./dailyUpdateApproval.controller.js, utils/asyncHandler.js,
+|             utils/activityLog.js
+| Tables: daily_site_logs, sites, workers, tenders, notifications
+| Frontend: dailyUpdateApprovalService.js -> DailyUpdateApprovalsPage.jsx
+*/
+
 const express = require("express");
 const router = express.Router();
 

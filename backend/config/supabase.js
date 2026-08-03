@@ -1,3 +1,31 @@
+/*
+|--------------------------------------------------------------------------
+| Supabase Storage
+|--------------------------------------------------------------------------
+|
+| File storage only. The database is reached directly through node-postgres
+| in database/pool.js — this client never issues a query, and Supabase's
+| PostgREST layer is not used at all.
+|
+| Authenticates with the SERVICE ROLE key, which bypasses row-level
+| security completely. That is acceptable here because the key never leaves
+| the server and every caller has already been authenticated and
+| company-scoped by the upload module before reaching these functions. It
+| is also why that key must never appear in a VITE_ variable: anything
+| prefixed VITE_ is compiled into public JavaScript.
+|
+| Storage is optional. A local or test environment with no Supabase project
+| still boots; the functions here throw a 503 with a user-facing message
+| the moment something actually tries to store a file, rather than failing
+| at startup.
+|
+| Every failure is rethrown as a 502 carrying `publicMessage`, which the
+| global error handler shows the user, and `storageError`, which it does
+| not. 502 rather than 500 because the fault is in an upstream service, not
+| in this API.
+|
+*/
+
 const {
     createClient,
   } = require(
@@ -11,10 +39,20 @@ const {
     STORAGE_CONFIGURED,
   } = require("./env");
   
+  /*
+   * Module-level singleton. Created on first use and reused thereafter, so
+   * one HTTP agent and connection pool serve every upload rather than a new
+   * client per request.
+   */
   let supabaseClient = null;
   
   /**
    * Returns whether Supabase Storage is fully configured.
+   *
+   * STORAGE_CONFIGURED is computed in config/env.js and is true only when
+   * the URL, the service-role key and the bucket name are all present.
+   * Callers use this to degrade gracefully — the health endpoint reports
+   * storage as unavailable rather than erroring.
    */
   const isStorageConfigured = () =>
     STORAGE_CONFIGURED;
@@ -64,7 +102,10 @@ const {
   };
   
   /**
-   * Returns the configured storage bucket.
+   * Returns the configured storage bucket name.
+   *
+   * Separate from getSupabaseClient because the client can be valid while
+   * the bucket name is missing, and the two produce different diagnostics.
    */
   const getStorageBucket = () => {
     if (!SUPABASE_BUCKET) {
@@ -83,7 +124,10 @@ const {
   };
   
   /**
-   * Returns a reference to the configured Supabase Storage bucket.
+   * A bucket-scoped storage handle — supabase.storage.from(bucket).
+   *
+   * Every operation below goes through this rather than reaching for the
+   * raw client, so the bucket name is resolved and validated in one place.
    */
   const getStorageBucketClient =
     () => {
@@ -99,9 +143,21 @@ const {
     };
   
   /**
-   * Checks whether the configured storage bucket is accessible.
+   * Checks whether the configured storage bucket is actually reachable.
    *
-   * This can be used by a health-check route or during diagnostics.
+   * Unlike the functions below this never throws: it reports. Three
+   * outcomes, so a health check can tell them apart —
+   *
+   *   configured: false               storage was never set up
+   *   configured: true, available: false   set up but the call failed,
+   *                                        e.g. a wrong key or a deleted
+   *                                        bucket; `error` says which
+   *   available: true                 reachable, with the bucket's limits
+   *
+   * The returned file_size_limit and allowed_mime_types are Supabase's own
+   * server-side limits, which sit behind this API's MAX_UPLOAD_SIZE_MB and
+   * MIME allowlist. Worth comparing if an upload is rejected upstream
+   * despite passing local validation.
    */
   const checkStorageConnection =
     async () => {
@@ -156,7 +212,24 @@ const {
     };
   
   /**
-   * Uploads a file buffer to the configured bucket.
+   * Uploads a buffer to the bucket and returns its public URL.
+   *
+   * The buffer comes from multer's memory storage — nothing is written to
+   * local disk, which matters on a host with an ephemeral filesystem.
+   *
+   * filePath is the key within the bucket. The upload module builds it with
+   * the company id as the leading segment, so one tenant's files cannot
+   * collide with or overwrite another's.
+   *
+   * upsert defaults to false, so an upload to an existing key fails rather
+   * than silently replacing a file.
+   *
+   * cacheControl is seconds, passed to the CDN in front of the bucket. One
+   * hour by default.
+   *
+   * The content type falls back to application/octet-stream, which makes a
+   * browser download the file rather than try to render it — the safe
+   * default for something whose type could not be determined.
    */
   const uploadStorageFile =
     async ({
@@ -248,7 +321,17 @@ const {
     };
   
   /**
-   * Deletes one or more files from the configured bucket.
+   * Removes one or more files from the bucket.
+   *
+   * Accepts a single path or an array, and drops falsy entries — so a
+   * caller mapping over records where some have no stored file does not
+   * have to filter first.
+   *
+   * An empty list is a no-op rather than an error, which keeps "delete the
+   * attachments for this record" working when there are none.
+   *
+   * Note Supabase's remove() does not report a missing key as an error, so
+   * a successful return does not prove the files existed.
    */
   const deleteStorageFiles =
     async (filePaths) => {
@@ -304,7 +387,14 @@ const {
     };
   
   /**
-   * Creates a signed URL for a private stored file.
+   * Creates a time-limited URL for a file in a private bucket.
+   *
+   * Only meaningful when the bucket is private — for a public bucket the
+   * permanent URL from uploadStorageFile is already readable by anyone.
+   *
+   * expiresIn is seconds; one hour by default. The link carries its own
+   * signature, so anyone holding it has access for that window regardless
+   * of whether they are signed in.
    */
   const createSignedFileUrl =
     async ({

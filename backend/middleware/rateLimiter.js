@@ -1,3 +1,52 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The two rate limiters, mounted in server.js.
+|
+| Responsibilities:
+|   - apiLimiter   a generous ceiling across the whole API
+|   - authLimiter  a tight limit on the credential endpoints
+|
+| Exports:
+|   { apiLimiter, authLimiter }
+|
+| Used by:
+|   backend/server.js — apiLimiter on /api, authLimiter in front of
+|   /api/auth
+|
+| Depends on:
+|   express-rate-limit
+|   config/env.js — RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX,
+|                   AUTH_RATE_LIMIT_MAX, IS_TEST
+|
+| Database tables touched:
+|   none. Counters are held in memory.
+|
+| Security:
+|   authLimiter is the important one. Login verifies with bcrypt at cost
+|   12, which is expensive by design — without a limit that same property
+|   turns an unauthenticated endpoint into a cheap way to saturate the CPU,
+|   quite apart from letting an attacker try passwords indefinitely.
+|
+|   Counting is per IP, which depends on server.js setting `trust proxy` in
+|   production. Without that every request behind the load balancer appears
+|   to come from one address, and the first user to trip the limit locks
+|   out everybody.
+|
+| Note:
+|   In-memory counters mean the limit is PER PROCESS. Scaled to several
+|   instances, the effective ceiling is the configured value multiplied by
+|   the instance count, and a restart clears the counters. A shared store
+|   would be needed for a strict global limit; for blunting abuse this is
+|   adequate.
+|
+|   Limits are disabled under IS_TEST so the integration suite is not
+|   throttled by its own fixtures.
+|
+*/
+
 const rateLimit = require("express-rate-limit");
 
 const {

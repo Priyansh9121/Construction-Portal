@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * The card surfaces used across dashboards, registers and detail views.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Shared by AnimatedStatCard, FinanceSummaryCards, TenderSummaryCard and
+ * the page-level panels.
+ */
+
 .cards,
 .summary-cards,
 .dashboard-cards {

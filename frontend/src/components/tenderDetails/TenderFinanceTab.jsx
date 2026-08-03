@@ -1,3 +1,31 @@
+/**
+ * File purpose:
+ * Government bills, GST returns, company charges and TDS for this tender.
+ *
+ * Props:
+ * - tender, its finance records and summary, refresh handler
+ *
+ * State:
+ * - Local finance form state, and the selected record type
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /tenders/:id/finance
+ * - GET /tenders/:id/finance/summary
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - The most involved tab, because a finance record's required fields depend
+ * - on its record type.
+ * - Figures the form derives as the user types are recalculated server-side
+ * - by utils/financeCalculations.js — a record type implies its own GST,
+ * - company-charge and TDS figures, and the outstanding balances are always
+ * - recomputed rather than trusted.
+ * - The summary is aggregated in SQL and refreshed after every write, so it
+ * - cannot drift from the rows above it.
+ */
+
 import {
   useMemo,
   useState,

@@ -1,3 +1,26 @@
+/**
+ * File purpose:
+ * Loads the Add Payment hierarchy and turns it into the sections the
+ * payment form renders.
+ *
+ * Returns:
+ * the section structure, plus loading and error state.
+ *
+ * API endpoints:
+ * - GET /payments/hierarchy
+ *
+ * Connected to:
+ * - PaymentTabs.jsx, FinanceWizard.jsx and the payment forms
+ * - Built on useAsyncResource.js
+ * - Backed by backend/modules/payments/payment.hierarchy.js
+ *
+ * Important notes:
+ * - The hierarchy comes from the SERVER rather than being hard-coded here.
+ *   That is deliberate: payment.service.js validates submissions against
+ *   the same structure, so a form built from it cannot offer a combination
+ *   the backend will reject.
+ */
+
 import {
   useCallback,
   useMemo,

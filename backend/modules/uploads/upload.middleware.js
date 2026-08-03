@@ -1,3 +1,54 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| Multer configuration and file validation for /api/upload. Everything that
+| decides whether a file is acceptable happens here, before the upload
+| controller sees it.
+|
+| Responsibilities:
+|   - Hold files in memory rather than on disk
+|   - Enforce the size ceiling from config/env.js
+|   - Accept only allow-listed MIME types, cross-checked against the
+|     file extension
+|
+| Exports:
+|   the configured multer middleware — see the foot of the file
+|
+| Used by:
+|   ./upload.routes.js, in front of upload.controller.js
+|
+| Depends on:
+|   multer
+|   config/env.js — MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB
+|
+| Database tables touched:
+|   none. This layer never reaches the database.
+|
+| Security — this is a security boundary, and worth reading as one:
+|
+|   MIME type alone is not trustworthy. It is supplied by the client and
+|   can say anything, which is why MIME_EXTENSION_MAP cross-checks it
+|   against the filename extension: a file claiming to be a PDF but named
+|   .exe is rejected. Neither check alone would be sufficient.
+|
+|   The size limit bounds memory use. Files are buffered in memory rather
+|   than written to disk, so an unbounded upload would be a direct route to
+|   exhausting the process.
+|
+|   Memory storage also means no file is ever written to the server's
+|   filesystem, which removes path traversal as a category — there is no
+|   path to traverse. The buffer goes straight to Supabase Storage.
+|
+| Note:
+|   The upload endpoint is open to every authenticated role, because a
+|   supervisor photographing a docket and a subcontractor attaching a
+|   document are both legitimate. The controls are these, plus the folder
+|   allow-list in config/env.js.
+|
+*/
+
 const multer = require("multer");
 
 const {

@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * TenderDetailsPage and its nine tabs.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * The largest page sheet, because each tab has its own table and form
+ * layout within the shared tab shell.
+ */
+
 .tender-details-page {
     display: flex;
     flex-direction: column;

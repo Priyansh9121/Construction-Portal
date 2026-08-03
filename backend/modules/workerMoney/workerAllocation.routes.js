@@ -1,3 +1,20 @@
+/*
+| FILE PURPOSE
+|
+| URL map for /api/worker-allocations — money advanced to workers.
+|
+| Office-only: server.js mounts this behind authMiddleware and
+| requireOffice, which is why neither appears here. A worker sees their own
+| allocations through /api/worker-portal instead.
+|
+| Every mutation is audited via logActivity — these are money records.
+|
+| Depends on: ./workerAllocation.controller.js, utils/asyncHandler.js,
+|             utils/activityLog.js
+| Tables: worker_allocations, workers, tenders, notifications
+| Frontend: workerMoneyService.js -> useWorkerMoney.js -> WorkerMoneyPage
+*/
+
 const express = require("express");
 const router = express.Router();
 

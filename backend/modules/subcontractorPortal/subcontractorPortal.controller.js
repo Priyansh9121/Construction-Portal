@@ -1,3 +1,58 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The subcontractor's own view: the tenders they are assigned to and the
+| documents attached to them.
+|
+| The mirror of the worker portal, and it works the same way — a scoped
+| view of data the office reads through the full registers. A subcontractor
+| cannot reach /api/subcontractors, not even to read their own row.
+|
+| Responsibilities:
+|   - Resolve the logged-in user to their subcontractor record
+|   - List the tenders they are assigned to
+|   - Serve one tender's detail, if they are assigned to it
+|
+| Exports:
+|   see module.exports at the foot of the file
+|
+| Used by:
+|   ./subcontractorPortal.routes.js, mounted at /api/subcontractor-portal
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|
+| Database tables touched:
+|   subcontractors          resolve the caller's own record
+|   tender_subcontractors   which tenders they are assigned to
+|   tenders, tender_documents  the assigned tenders and their files
+|
+| API surface:
+|   /api/subcontractor-portal/*, gated at the mount to admin and
+|   subcontractor.
+|
+| Frontend consumers:
+|   subcontractorPortalService.js -> SubcontractorPortalPage.jsx
+|
+| SECURITY:
+|
+|   Same principle as the worker portal, and the same trap. The mount
+|   proves the caller is a subcontractor; it does not say which one. Every
+|   query resolves their own subcontractor record from the user id first,
+|   then filters through tender_subcontractors — so a tender they are not
+|   assigned to is invisible even within their own company.
+|
+|   Assignment IS the access grant. Removing a tender_subcontractors row
+|   through /api/tenders/:id/subcontractors revokes visibility here.
+|
+|   Note this controller selects account_number and ifsc_code when serving
+|   the caller their own record. That is legitimate — it is their own bank
+|   detail — but see F-12 for the broader handling of those columns.
+|
+*/
+
 const pool = require("../../database/pool");
 
 async function getSubcontractorByLoggedInUser(userId) {

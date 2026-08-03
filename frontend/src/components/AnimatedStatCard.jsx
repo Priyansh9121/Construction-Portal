@@ -1,3 +1,22 @@
+/**
+ * File purpose:
+ * A dashboard statistic card with an animated count-up value.
+ *
+ * Props:
+ * - label, value, icon and styling variant
+ *
+ * State and hooks:
+ * - Local animation frame state for the count-up
+ *
+ * Rendered by:
+ * - DashboardPage.jsx
+ *
+ * Important notes:
+ * - Presentational. Takes an already-computed figure and does not fetch.
+ * - The animation is decorative — the final value is always the prop, so a
+ * - re-render mid-animation lands on the correct number.
+ */
+
 import {
     motion,
     useMotionValue,

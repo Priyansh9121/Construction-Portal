@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * Reference data: investors, suppliers and clients.
+ *
+ * State:
+ * - Local: which master is selected, search, the form, modal state.
+ *
+ * Hooks and context:
+ * - None; loads through masterService
+ *
+ * API endpoints:
+ * - /masters/:master, and /masters/investors/:id/statement
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Office-only.
+ * - One screen serves all three registers — the selected tab becomes the
+ * - :master path segment, which the backend checks against an allow-list.
+ * - Delete ARCHIVES rather than removes, so historic payments still resolve
+ * - to a named counterparty.
+ */
+
 import {
   useCallback,
   useMemo,

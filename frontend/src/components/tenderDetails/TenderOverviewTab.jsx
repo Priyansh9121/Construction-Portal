@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * The tender's own record: title, client, dates, value and status.
+ *
+ * Props:
+ * - tender, and an update handler
+ *
+ * State:
+ * - Local edit-form state
+ *
+ * API endpoints:
+ * - PUT /tenders/:id
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - Office-only, like the whole detail page.
+ * - Editing the tender here does NOT touch its child collections — each tab
+ * - owns its own writes.
+ * - Selecting a client sends client_id; the backend verifies it belongs to
+ * - the caller's company. That check was broken until recently — see F-16.
+ */
+
 import { formatCurrency } from "../../utils/currency";
 
 function TenderOverviewTab({

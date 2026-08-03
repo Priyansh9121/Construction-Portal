@@ -1,3 +1,24 @@
+/**
+ * File purpose:
+ * Worker allocations and the expenses recorded against them.
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /worker-allocations, plus approve and reject
+ * - GET/POST/PUT/DELETE /worker-expenses, plus approve and reject
+ *
+ * Connected to:
+ * - useWorkerMoney.js -> WorkerMoneyPage.jsx
+ * - Backed by backend/modules/workerMoney/
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - Office-only. A worker sees their own money through /worker-portal.
+ * - Allocations are the credit side (money advanced), expenses the debit
+ * - side (what it was spent on). An expense hangs off an allocation.
+ * - Every mutation is audited on the backend.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 /*

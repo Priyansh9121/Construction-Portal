@@ -1,3 +1,62 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| Material received on site: what arrived, how much, at what rate, on which
+| bill, with an optional photo of the docket.
+|
+| Distinct from the tender materials under /api/tenders/:id/materials,
+| which are the PLAN priced when the job was won. These are the record of
+| what actually turned up. Nothing reconciles the two.
+|
+| Responsibilities:
+|   - Serve the material catalog a supervisor picks names from
+|   - List and summarise entries for a site
+|   - Record a new delivery, subject to the entry window
+|   - Soft-delete an entry
+|   - Approve or reject an entry (office only)
+|
+| Exports (all Express handlers):
+|   getCatalog, getSummary, getEntries, createEntry, deleteEntry,
+|   approveEntry, rejectEntry
+|
+| Used by:
+|   ./siteOperations.routes.js
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|   ./entryWindow.service.js — the backdating rule
+|
+| Database tables touched:
+|   material_entries   SELECT, INSERT, UPDATE (approval and soft delete)
+|   material_catalog   SELECT
+|   sites, tenders     SELECT, for ownership checks
+|
+| API surface:
+|   GET    /api/site-operations/materials/catalog
+|   GET    /api/site-operations/materials/summary
+|   GET    /api/site-operations/materials
+|   POST   /api/site-operations/materials
+|   DELETE /api/site-operations/materials/:id
+|   POST   /api/site-operations/materials/:id/approve   office only
+|   POST   /api/site-operations/materials/:id/reject    office only
+|
+| Frontend consumers:
+|   siteOperationsService.js -> useSiteOperations.js -> SiteOperationsPage
+|
+| Security:
+|   Recording is open to any authenticated user; approving is office-only,
+|   so the person who records a delivery cannot also sign it off. Every
+|   statement is company-scoped, and site_id is checked against the
+|   caller's company before an entry is attached to it.
+|
+| Note:
+|   material_catalog carries both `name` and `name_local` (Gujarati). See
+|   F-06 for the inconsistency between that and the labour tables.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

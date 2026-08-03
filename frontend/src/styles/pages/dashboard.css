@@ -1,3 +1,11 @@
+/*
+ * File purpose:
+ * DashboardPage layout: hero, stat cards, chart area.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ */
+
 .dashboard-cards {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

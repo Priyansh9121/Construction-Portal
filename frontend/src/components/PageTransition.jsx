@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * Animates the transition between pages.
+ *
+ * Props:
+ * - children
+ *
+ * Rendered by:
+ * - AppLayout.jsx
+ *
+ * Important notes:
+ * - Presentational. Wraps the routed page so navigation does not snap.
+ */
+
 import { motion } from "framer-motion";
 
 function PageTransition({ children }) {

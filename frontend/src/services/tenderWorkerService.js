@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * Worker assignments on a tender.
+ *
+ * API endpoints:
+ * - GET    /tenders/:id/workers
+ * - POST   /tenders/:id/workers
+ * - PUT    /tenders/:id/workers/:assignmentId
+ * - DELETE /tenders/:id/workers/:assignmentId
+ *
+ * Connected to:
+ * - TenderWorkersTab.jsx
+ * - Backed by backend/modules/tenders/tender.controller.js
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - Split out from tenderDetailsService because worker assignments are read
+ * - by more than the detail page.
+ * - Assigning is a grant of ACCESS as well as a record: /worker-portal
+ * - reads these rows to decide which tenders a worker can see.
+ * - An active assignment also blocks the tender from being deleted.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 /*

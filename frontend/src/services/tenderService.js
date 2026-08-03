@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * The tender register.
+ *
+ * API endpoints:
+ * - GET    /tenders
+ * - GET    /tenders/statistics
+ * - GET    /tenders/:id
+ * - POST   /tenders
+ * - PUT    /tenders/:id
+ * - DELETE /tenders/:id
+ * - POST   /tenders/:id/restore
+ *
+ * Connected to:
+ * - useTenders.js -> TendersPage.jsx
+ * - Backed by backend/modules/tenders/tender.controller.js
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - Office-only. A tender needs at least one site on create.
+ * - DELETE is soft and refuses with 409 while workers or subcontractors are
+ * - still assigned; /restore is the undo.
+ * - This file normalises the several response shapes the API returns a
+ * - tender under — see normaliseTenderResponse below.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 const getErrorMessage = (

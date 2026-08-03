@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * The layout of a sublet bill PDF — the document issued to a
+ * subcontractor for work completed.
+ *
+ * Connected to:
+ * - utils/documentExportHelpers.js
+ * - Styled from templates/brandedExportTheme.js
+ *
+ * Important notes:
+ * - An outward-facing document, so its figures are what a counterparty
+ *   sees. It renders values passed to it and computes nothing itself.
+ */
+
 export function n(value) {
     return Number(value || 0);
   }

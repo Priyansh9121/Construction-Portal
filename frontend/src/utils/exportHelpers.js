@@ -1,3 +1,21 @@
+/**
+ * File purpose:
+ * CSV and PDF generation for tabular exports.
+ *
+ * Connected to:
+ * - components/export/ExportButtons.jsx
+ * - ReportsPage.jsx and the register pages
+ *
+ * Important notes:
+ * - Everything renders in the BROWSER via jspdf. No data is sent anywhere
+ *   to be formatted, which is why jspdf and html2canvas are the two large
+ *   chunks in the build.
+ * - Exports the rows it is given, so a filtered table exports the filtered
+ *   set.
+ * - The subcontractor export includes bank details. See F-12 before
+ *   widening what any export carries.
+ */
+
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";

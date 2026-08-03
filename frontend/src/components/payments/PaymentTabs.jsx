@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * Tab navigation across the payment views.
+ *
+ * Props:
+ * - The active tab and a change handler
+ *
+ * Rendered by:
+ * - PaymentsPage.jsx
+ *
+ * Important notes:
+ * - Presentational.
+ */
+
 function PaymentTabs({
   mainTab,
   activeSections = [],

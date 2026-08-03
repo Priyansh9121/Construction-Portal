@@ -1,3 +1,20 @@
+/**
+ * File purpose:
+ * The main finance table with sorting and row actions.
+ *
+ * Props:
+ * - rows, columns, and the action handlers
+ *
+ * State and hooks:
+ * - Local sort state
+ *
+ * Rendered by:
+ * - PaymentsPage.jsx, TenderFinanceTab.jsx
+ *
+ * Important notes:
+ * - Sorting is client-side over the loaded rows.
+ */
+
 import { useMemo, useState } from "react";
 import { getFinanceName, getTenderTitle, money } from "../../utils/financeHelper";
 import FinanceFilters from "./FinanceFilters";

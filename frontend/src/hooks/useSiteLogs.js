@@ -1,3 +1,21 @@
+/**
+ * File purpose:
+ * Loads daily site updates from the office side.
+ *
+ * API endpoints:
+ * - GET/POST/DELETE /site-logs, via services/siteLogService.js
+ *
+ * Connected to:
+ * - DailySiteUpdatesPage.jsx, TenderDailyProgressTab.jsx
+ * - Built on useCollection.js
+ *
+ * Important notes:
+ * - Office-only. A worker's own updates come from useWorkerPortal territory
+ *   instead.
+ * - There is no update operation: correcting a log means deleting it and
+ *   adding another, so the history shows both acts.
+ */
+
 import { useCallback } from "react";
 
 import {

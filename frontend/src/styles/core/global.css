@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * Global element styling: typography, colours, base form controls.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Imported second, after index.css. Sets the visual baseline every page
+ * inherits.
+ */
+
 :root {
   --primary: #0f172a;
   --primary-light: #1e293b;

@@ -1,3 +1,26 @@
+/**
+ * File purpose:
+ * The header bar: user menu and notification badge.
+ *
+ * Props:
+ * - user, and the logout handler
+ *
+ * State and hooks:
+ * - Local menu open state; renders NotificationCenter
+ *
+ * Rendered by:
+ * - AppLayout.jsx
+ *
+ * Renders:
+ * - NotificationCenter.jsx
+ *
+ * Important notes:
+ * - Logout clears the token and user through AuthProvider. It does not call
+ * - the API — there is no server-side session to end, since auth is a bearer
+ * - token. The token remains technically valid until it expires, which is
+ * - why a password change bumps token_version to invalidate it properly.
+ */
+
 import { useAuth } from "../contexts/authContext";
 
 import NotificationCenter from "./NotificationCenter";

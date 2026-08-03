@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * Single-purpose utility classes: spacing, alignment, visibility.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Deliberately loaded before the component and page sheets, so a component
+ * rule can still win over a utility where it needs to.
+ */
+
 .flex-between {
   display: flex;
   justify-content: space-between;

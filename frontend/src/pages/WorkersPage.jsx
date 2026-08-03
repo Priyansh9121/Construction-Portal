@@ -1,3 +1,25 @@
+/**
+ * File purpose:
+ * The worker roster: list, create, edit and remove.
+ *
+ * State:
+ * - Local: search, filters, the worker form, modal state.
+ *
+ * Hooks and context:
+ * - useWorkers
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /workers via services/workerService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Office-only. A worker views their own record through the worker portal.
+ * - Create and edit must send name, phone, salary, role AND status — the
+ * - backend requires all five, so the form cannot submit a partial update.
+ */
+
 import {
   useMemo,
   useState,

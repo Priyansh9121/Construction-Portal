@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * Currency and number formatting for display.
+ *
+ * Connected to:
+ * - Used across the finance components, tables and exports
+ * - The currency code comes from the company record loaded by AuthProvider
+ *
+ * Important notes:
+ * - Formatting only. Never use these for arithmetic — money figures arrive
+ *   from node-pg as STRINGS, and the backend recalculates every derived
+ *   total anyway.
+ */
+
 const CURRENCY_CONFIG = {
     INR: {
       locale: "en-IN",

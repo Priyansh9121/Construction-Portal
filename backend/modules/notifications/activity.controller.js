@@ -1,3 +1,48 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The READ side of the audit trail. Writing is utils/activityLog.js,
+| attached as middleware to the mutating routes.
+|
+| Responsibilities:
+|   - List activity_logs rows for the caller's company
+|   - Apply the allow-listed filters (module, action, user, date range)
+|   - Join user names so the trail reads as people rather than ids
+|
+| Exports:
+|   getActivity (and any siblings listed at the foot of the file)
+|
+| Used by:
+|   ./activity.routes.js, mounted by server.js at /api/activity
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|
+| Database tables touched:
+|   activity_logs  SELECT
+|   users          joined for the actor's name
+|
+| Frontend consumers:
+|   frontend/src/pages/ActivityPage.jsx
+|
+| Security:
+|   Scoped to the caller's company, so one tenant cannot read another's
+|   history. This is an office view — the admin restriction is applied on
+|   the route, not here.
+|
+|   The rows themselves were redacted on the way IN by activityLog.js, so
+|   this endpoint cannot expose a password hash or an account number even
+|   if one were somehow written. See F-12.
+|
+| Note:
+|   old_data is empty for creates and updates, because logActivity can only
+|   observe the response. The Activity page column is labelled "Details"
+|   rather than "Change" to avoid overclaiming. See F-05.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

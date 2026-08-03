@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * The dashboard's greeting banner and headline summary.
+ *
+ * Props:
+ * - user, and the summary figures to display
+ *
+ * Rendered by:
+ * - DashboardPage.jsx
+ *
+ * Important notes:
+ * - Presentational.
+ */
+
 import { motion } from "framer-motion";
 import { formatCurrency } from "../utils/currency";
 

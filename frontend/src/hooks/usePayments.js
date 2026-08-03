@@ -1,3 +1,22 @@
+/**
+ * File purpose:
+ * Loads the payment ledger and exposes the mutations against it.
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /payments, via services/paymentService.js
+ *
+ * Connected to:
+ * - PaymentsPage.jsx, the finance components, DashboardPage
+ * - Built on useCollection.js
+ * - Pairs with usePaymentManager.js, which holds the UI state
+ *
+ * Important notes:
+ * - Office-only, checked through canLoadAdminData before any request.
+ * - Money figures displayed here are whatever the server returned. The
+ *   backend recalculates them on write, so a client-side total is never
+ *   what gets stored.
+ */
+
 import { useCallback } from "react";
 
 import {

@@ -1,3 +1,25 @@
+/**
+ * File purpose:
+ * The invoices register.
+ *
+ * State:
+ * - Local: filters, the invoice form, modal state.
+ *
+ * Hooks and context:
+ * - useInvoices
+ *
+ * API endpoints:
+ * - GET/POST/PUT/DELETE /invoices via services/invoiceService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Office-only.
+ * - An invoice records what was BILLED. Money RECEIVED lives in payments,
+ * - and nothing reconciles the two — an invoice's status is set by hand.
+ */
+
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 

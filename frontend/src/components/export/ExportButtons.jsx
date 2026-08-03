@@ -1,3 +1,21 @@
+/**
+ * File purpose:
+ * Export controls for tabular output (CSV and PDF).
+ *
+ * Props:
+ * - The rows, the column definitions, and a filename
+ *
+ * Rendered by:
+ * - The register pages and ReportsPage.jsx
+ *
+ * Important notes:
+ * - Uses utils/exportHelpers.js.
+ * - Exports whatever rows were passed, so a filtered table exports the
+ * - filtered set — which is usually what the user means, and worth knowing
+ * - when a total does not match the full register.
+ * - Note the subcontractor export includes bank details; see F-12.
+ */
+
 import { useState } from "react";
 import {
   exportToCSV,

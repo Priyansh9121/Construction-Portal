@@ -1,3 +1,16 @@
+/**
+ * File purpose:
+ * Per-tender derived figures — progress, margins and site counts — for the
+ * tender list and detail views.
+ *
+ * Connected to:
+ * - TendersPage.jsx, TenderSummaryCard.jsx, TenderOverviewTab.jsx
+ *
+ * Important notes:
+ * - Display-side only. estimated_margin and actual_margin are stored
+ *   columns; anything computed here is presentation on top of them.
+ */
+
 
   
   

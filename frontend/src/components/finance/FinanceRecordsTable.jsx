@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * Tabular list of finance records.
+ *
+ * Props:
+ * - The records, and row action handlers
+ *
+ * Rendered by:
+ * - TenderFinanceTab.jsx
+ *
+ * Important notes:
+ * - Presentational.
+ */
+
 import { formatCurrency } from "../../utils/currency";
 
 const money = formatCurrency;

@@ -1,3 +1,38 @@
+/**
+ * File purpose:
+ * The application shell for every authenticated screen: sidebar, top bar,
+ * background, page transition and the floating action button.
+ *
+ * Props:
+ * - children    the page being rendered
+ * - activePage  which nav item to highlight
+ * - user        the signed-in user, for the menu and role-based nav
+ * - plus the shared collections App.jsx threads through for the command
+ *   palette and any header counters
+ *
+ * Child components:
+ * - Sidebar               role-filtered navigation
+ * - Topbar                user menu, notifications
+ * - AppBackground         decorative layer
+ * - PageTransition        animates between pages
+ * - FloatingActionButton  quick-create shortcut
+ * - CommandPalette        keyboard-driven navigation and search
+ *
+ * Context used:
+ * - Reads the user via props rather than the context directly, since
+ *   App.jsx already has it
+ *
+ * Connected to:
+ * - Wraps protected routes in AppRoutes.jsx
+ * - Public pages (login, register, reset) render WITHOUT this shell
+ *
+ * Important notes:
+ * - getRole normalises the role for the nav filtering below, so a stored
+ *   value with different casing still matches. Which nav items appear is a
+ *   presentation decision only — the backend gates the endpoints behind
+ *   them regardless.
+ */
+
 import {
   useMemo,
 } from "react";

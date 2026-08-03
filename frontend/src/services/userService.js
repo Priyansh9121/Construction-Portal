@@ -1,3 +1,33 @@
+/**
+ * File purpose:
+ * Company user management and the password flows.
+ *
+ * API endpoints:
+ * - GET  /auth/users
+ * - POST /auth/users
+ * - PUT  /auth/users/:userId
+ * - PUT  /auth/users/:userId/disable
+ * - PUT  /auth/users/:userId/enable
+ * - PUT  /auth/change-password
+ * - POST /auth/forgot-password
+ * - POST /auth/reset-password
+ *
+ * Connected to:
+ * - UsersPage.jsx, SettingsPage.jsx
+ * - ForgotPasswordPage.jsx, ResetPasswordPage.jsx
+ * - Backed by backend/modules/auth/auth.controller.js
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - User management is admin-only, and creating or promoting an ADMIN
+ * - additionally requires being the company owner.
+ * - forgot-password always reports success, whether or not the address is
+ * - registered — the response deliberately reveals nothing.
+ * - Disabling a user bumps token_version, so their existing sessions stop
+ * - working immediately rather than at token expiry.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 export const getUsers = async () => {

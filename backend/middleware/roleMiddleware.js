@@ -1,8 +1,40 @@
+/*
+|--------------------------------------------------------------------------
+| Role middleware
+|--------------------------------------------------------------------------
+|
+| Authorisation. authMiddleware establishes *who* the caller is; this
+| decides whether that person may reach the route.
+|
+| A user carries two roles, and which one applies depends on the route:
+|
+|   users.role          their role across the product
+|   company_users.role  their role within the company they are acting for,
+|                       surfaced by authMiddleware as company_role
+|
+| The `source` option chooses between them — "user", "company", or "either",
+| which passes if the role matches on one side or the other. Most routes use
+| "either", because the two are the same value in practice today; keeping
+| the distinction means a future membership model can diverge without
+| revisiting every route.
+|
+| server.js mounts this at the mount point rather than per route for the
+| office registers, so a route added inside one of those modules inherits
+| the restriction instead of having to remember it.
+|
+*/
+
 const {
   USER_ROLES,
   COMPANY_ROLES,
 } = require("../config/constants");
 
+/*
+ * The recognised roles, as Sets for O(1) membership tests.
+ *
+ * Built from the constants rather than written out again, so adding a role
+ * in one place cannot leave this list behind.
+ */
 const VALID_USER_ROLES = new Set(
   Object.values(USER_ROLES)
 );
@@ -11,6 +43,16 @@ const VALID_COMPANY_ROLES = new Set(
   Object.values(COMPANY_ROLES)
 );
 
+/**
+ * Lowercases and trims a role for comparison.
+ *
+ * Roles are stored as plain text rather than a PostgreSQL enum, so "Admin"
+ * and "admin " are both possible in the column. Comparing normalised
+ * values means a stray capital cannot silently deny someone access.
+ *
+ * A non-string — null for a user with no company membership — becomes "",
+ * which matches no allowed role and therefore denies.
+ */
 const normaliseRole = (value) =>
   typeof value === "string"
     ? value.trim().toLowerCase()

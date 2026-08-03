@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * The supervisor surface: materials, labour, banking, access requests.
+ *
+ * State:
+ * - Local: active area, the per-area forms, upload state.
+ *
+ * Hooks and context:
+ * - useSiteOperations, which owns all four datasets
+ *
+ * API endpoints:
+ * - /site-operations/* via siteOperationsService.js; /upload for dockets
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - The one screen office staff and supervisors share.
+ * - Recording is open to any authenticated user; approving, granting access
+ * - and issuing banking funds are office-only, enforced per route by the
+ * - backend. The page hides those controls for non-office users, but the
+ * - backend is what actually refuses them.
+ * - Dated entries are subject to the backdating window.
+ */
+
 import { useState, useEffect, useMemo, useRef } from "react";
 import toast from "react-hot-toast";
 

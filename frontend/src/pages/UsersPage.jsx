@@ -1,3 +1,28 @@
+/**
+ * File purpose:
+ * Company user management.
+ *
+ * State:
+ * - Local: the user form, role selection, modal and confirmation state.
+ *
+ * Hooks and context:
+ * - useAuth, to know whether the current user is the company owner
+ *
+ * API endpoints:
+ * - /auth/users and its enable/disable endpoints via userService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Admin-only.
+ * - Creating or promoting an ADMIN additionally requires being the company
+ * - OWNER — the page disables those controls for a non-owner admin, and the
+ * - backend refuses them with 403 regardless.
+ * - Disabling is not deleting: the account survives so records that name it
+ * - stay resolvable, but its sessions stop working immediately.
+ */
+
 import {
   useCallback,
   useMemo,

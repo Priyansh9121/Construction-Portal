@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * Confirmation dialog for a destructive action, requiring the user to type
+ * a confirmation value.
+ *
+ * Props:
+ * - isOpen, the record label, the expected confirmation text, onConfirm,
+ * - onCancel
+ *
+ * State and hooks:
+ * - Local typed-confirmation text
+ *
+ * Rendered by:
+ * - The register pages, before deleting a tender, worker, site or payment
+ *
+ * Important notes:
+ * - Typing the name rather than clicking once is deliberate friction. Most
+ * - deletes here are soft and recoverable, but a few cascade — deleting a
+ * - tender takes its sites with it — and several cannot be undone from the
+ * - UI at all.
+ * - The backend applies its own guards regardless: a site with activity
+ * - against it answers 409, and a tender with people assigned does too.
+ */
+
 import { useState } from "react";
 
 /*

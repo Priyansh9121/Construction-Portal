@@ -1,3 +1,21 @@
+<!--
+  File purpose:
+  The SPA shell. The only HTML file in the project — every screen is
+  rendered by React into #root.
+
+  Connected to:
+  - Vite's entry point. `vite build` injects the fingerprinted script and
+    stylesheet tags into a copy of this file and writes it to dist/.
+  - Loads src/main.jsx, which mounts React, the router and AuthProvider.
+
+  Important notes:
+  - #root must exist and keep that id; main.jsx throws a clear error rather
+    than failing silently if it is missing.
+  - Because this is a single-page app, the server must serve this file for
+    every path. frontend/vercel.json has the rewrite that does it —
+    without it, a hard refresh on /tenders would 404.
+  - The favicon is referenced from public/ and copied verbatim at build.
+-->
 <!doctype html>
 <html lang="en">
   <head>

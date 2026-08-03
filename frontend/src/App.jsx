@@ -1,3 +1,41 @@
+/**
+ * File purpose:
+ * The root component. Loads the shared datasets several screens depend on
+ * and hands them, with the auth state, to AppRoutes.
+ *
+ * Responsibilities:
+ * - Read the current user from the auth context
+ * - Call the shared collection hooks once, at the top of the tree
+ * - Hold the legacy login form state (see the note below)
+ * - Render AppRoutes with the data it distributes
+ *
+ * State:
+ * - email, password, message — leftovers from an inline login form that
+ *   LoginPage has since replaced. Still declared here and threaded down.
+ * - Everything else comes from the hooks, each owning its own loading and
+ *   error state.
+ *
+ * Hooks used:
+ * - useAuth for the session
+ * - usePayments, useSites, useTenders, useInvoices, useSiteLogs,
+ *   useWorkerMoney, useWorkers — each fetches from its own service
+ *
+ * Connected to:
+ * - Rendered by main.jsx, inside BrowserRouter and AuthProvider
+ * - Renders routes/AppRoutes.jsx, which distributes this data to pages
+ *
+ * Important notes:
+ * - Fetching here means these collections load ONCE for the session rather
+ *   than per page, so navigating between screens does not refetch. The
+ *   cost is that every one of these requests fires on load regardless of
+ *   which page the user actually opened.
+ * - Each hook takes `user` and returns empty until it is present, which is
+ *   what stops them firing before authentication.
+ * - This is prop-drilling by design rather than a global store. Worth
+ *   knowing before adding another dataset here — the alternative is for a
+ *   page to call its own hook, as several already do.
+ */
+
 import { useState } from "react";
 
 import { useAuth } from "./contexts/authContext";

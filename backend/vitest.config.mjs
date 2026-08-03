@@ -1,3 +1,17 @@
+/**
+ * File purpose:
+ * Vitest configuration for the backend test suite. `npm test` runs this.
+ *
+ * Connected to:
+ * - backend/tests/ — the eleven test files it discovers
+ * - backend/tests/helpers/testDb.js, which seeds and tears down fixtures
+ * - Requires a reachable PostgreSQL database; these are integration tests,
+ *   not unit tests with a mocked driver
+ *
+ * Important notes:
+ * - Every setting below is load-bearing. See the inline comments.
+ */
+
 import { defineConfig } from "vitest/config";
 
 /*

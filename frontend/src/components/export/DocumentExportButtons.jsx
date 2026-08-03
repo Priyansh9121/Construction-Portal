@@ -1,3 +1,19 @@
+/**
+ * File purpose:
+ * Export controls for document-style output (PDF).
+ *
+ * Props:
+ * - The data to export, a filename and a title
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx and the finance components
+ *
+ * Important notes:
+ * - Uses utils/documentExportHelpers.js. Rendering happens in the browser via
+ * - jspdf and html2canvas — the two large chunks in the build output — so no
+ * - data leaves for a server to render it.
+ */
+
 import { useState } from "react";
 import {
   exportSubletBillExcel,

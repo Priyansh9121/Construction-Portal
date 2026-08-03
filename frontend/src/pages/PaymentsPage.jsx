@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * The money ledger: list, filter and record payments.
+ *
+ * State:
+ * - Local UI state lives in usePaymentManager; the rows in usePayments.
+ *
+ * Hooks and context:
+ * - usePayments for data, usePaymentManager for interaction state,
+ * - usePaymentSections for the Add Payment form structure
+ *
+ * API endpoints:
+ * - /payments and /payments/hierarchy via services/paymentService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Navigation and children:
+ * - Renders PaymentTabs and the finance components.
+ *
+ * Important notes:
+ * - Office-only.
+ * - The Add Payment form is built from the SERVER's hierarchy rather than a
+ * - hard-coded list, so it cannot offer a combination the backend rejects.
+ * - Totals typed into the form are recalculated server-side on submit.
+ */
+
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 

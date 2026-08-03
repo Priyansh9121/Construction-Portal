@@ -1,3 +1,23 @@
+/**
+ * File purpose:
+ * Loads worker allocations and expenses together, since the two are read
+ * as one picture.
+ *
+ * API endpoints:
+ * - /worker-allocations and /worker-expenses, via
+ *   services/workerMoneyService.js
+ *
+ * Connected to:
+ * - WorkerMoneyPage.jsx
+ * - App.jsx loads this once for the session
+ *
+ * Important notes:
+ * - Office-only. A worker sees their own money through the worker portal.
+ * - Allocations are the credit side, expenses the debit side; an expense
+ *   belongs to an allocation, so the two must be refreshed together after
+ *   any approval or the totals shown will not reconcile.
+ */
+
 import { useCallback } from "react";
 
 import {

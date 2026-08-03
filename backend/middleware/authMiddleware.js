@@ -1,3 +1,44 @@
+/*
+|--------------------------------------------------------------------------
+| Authentication middleware
+|--------------------------------------------------------------------------
+|
+| Establishes WHO the caller is. Deciding what they may do is
+| roleMiddleware's job, and the two are always used in that order.
+|
+| Mounted once per route group in server.js. Route files must not apply it
+| again — doing so verifies the token and re-runs the query below twice per
+| request, which is exactly what dailyUpdateApproval.routes.js used to do.
+|
+| The flow, and why it is not just jwt.verify:
+|
+|   1. Read the Bearer token from the Authorization header.
+|   2. Verify the signature and expiry. This proves the token was issued by
+|      this server and has not been tampered with.
+|   3. Load the user, their company membership and the company from the
+|      database — on every request.
+|   4. Check the token generation, the account status and the membership.
+|   5. Rebuild req.user from what the database says, not from the token.
+|
+| Step 3 costs a query per request, and it is the point of the design. A
+| JWT is a snapshot of the moment it was signed; it says nothing about what
+| has happened in the seven days since. Without this lookup, demoting an
+| admin, disabling an account or removing someone from a company would have
+| no effect until their token expired.
+|
+| Step 5 matters for the same reason: reading `role` or `company_id` from
+| the token would mean acting on values that may since have changed. The
+| token is used for one thing only — the user id — and everything else is
+| re-read.
+|
+| Failure codes are deliberate. 401 means "we do not know who you are, sign
+| in again" and the frontend's axios interceptor clears storage and
+| redirects on it. 403 means "we know exactly who you are and the answer is
+| still no", which must not trigger that redirect — an inactive account
+| would otherwise land in a sign-in loop.
+|
+*/
+
 const jwt = require("jsonwebtoken");
 
 const pool = require("../database/pool");
@@ -8,6 +49,14 @@ const {
 
 /**
  * Reads a Bearer token from the Authorization header.
+ *
+ * Expects `Authorization: Bearer <token>`. Split on one-or-more whitespace
+ * rather than a single space, so an extra space does not produce a
+ * confusing 401. The scheme is compared case-insensitively because the
+ * standard treats it that way.
+ *
+ * Returns null rather than throwing for anything malformed, leaving the
+ * caller to answer with a single consistent message.
  */
 const getBearerToken = (req) => {
   const authorization =
@@ -96,6 +145,13 @@ const authMiddleware = async (
       });
     }
 
+    /*
+     * The only claim trusted from the token.
+     *
+     * Coerced and range-checked before it reaches the query: a signed
+     * token with a non-numeric id would otherwise be passed to Postgres as
+     * a parameter and produce a 22P02 rather than a clean 401.
+     */
     const userId = Number(
       decoded?.id
     );
@@ -113,6 +169,22 @@ const authMiddleware = async (
       });
     }
 
+    /*
+     * The per-request refresh.
+     *
+     * Both joins are LEFT joins so a user with no company membership still
+     * returns a row — that case is answered with a specific 403 below
+     * rather than the "user no longer exists" 401 an INNER join would give.
+     *
+     * ORDER BY cu.id ASC with LIMIT 1 picks the oldest membership. A user
+     * belongs to one company today; this makes the choice deterministic if
+     * that ever changes, rather than depending on Postgres row order.
+     *
+     * cu.role is aliased to company_role because u.role is also selected
+     * and the two would otherwise collide. Every other query in the
+     * codebase uses the same alias — notification.service.js selected
+     * cu.company_role directly for a while, and silently returned nobody.
+     */
     const userResult =
       await pool.query(
         `
@@ -187,6 +259,11 @@ const authMiddleware = async (
       });
     }
 
+    /*
+     * A disabled account. 403 rather than 401 — the credentials were
+     * valid, so signing in again will not help, and the frontend must not
+     * bounce them to the login screen over it.
+     */
     if (
       String(
         user.status || ""
@@ -200,6 +277,11 @@ const authMiddleware = async (
       });
     }
 
+    /*
+     * No company membership. Every table in this system is scoped by
+     * company_id, so a user without one has nothing they could read or
+     * write and would otherwise hit confusing failures deeper in.
+     */
     if (!user.company_id) {
       return res.status(403).json({
         success: false,
@@ -208,6 +290,11 @@ const authMiddleware = async (
       });
     }
 
+    /*
+     * The membership points at a company row that is gone — a deleted
+     * company whose company_users rows outlived it. Distinguished from the
+     * case above so the message is accurate.
+     */
     if (!user.company_name) {
       return res.status(403).json({
         success: false,
@@ -263,6 +350,12 @@ const authMiddleware = async (
 
     return next();
   } catch (error) {
+    /*
+     * Only reached if the database query itself fails — every
+     * authentication outcome above returns its own response. Forwarded to
+     * the global error handler so a connection failure is reported as a
+     * 503 rather than being mistaken for a rejected credential.
+     */
     return next(error);
   }
 };

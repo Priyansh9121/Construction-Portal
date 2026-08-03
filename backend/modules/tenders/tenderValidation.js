@@ -1,3 +1,67 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| Payload validation for the tenders module. Every request body that
+| reaches tender.service.js has been through a function in this file
+| first.
+|
+| Its job is narrow and worth stating precisely: this file decides whether
+| a payload is well-FORMED, not whether it is permitted. It knows nothing
+| about companies, ownership or roles. "Is this a valid tender status" is
+| answered here; "is this the caller's client" is answered in the service
+| by a database query.
+|
+| Layering:
+|   tender.routes.js      URLs, roles, audit
+|   tender.controller.js  HTTP
+|   tender.service.js     business rules, calls these validators
+|   tenderQueries.js      SQL
+|   tenderValidation.js   payload shape and value rules      <- this file
+|
+| Responsibilities:
+|   - Coerce loose JSON into the types the database columns expect
+|   - Reject values outside the enumerations in config/constants.js
+|   - Apply cross-field rules such as start_date <= due_date
+|   - Return a clean, allow-listed object the service can pass to a query
+|
+| The allow-list property is the important one. Each validator builds a
+| NEW object from named fields rather than passing the request body
+| through, so a key the client invents — id, company_id, is_deleted,
+| created_at — simply does not survive. That is what makes mass assignment
+| impossible on this module's write paths.
+|
+| Exports:
+|   validateCreateTender, validateUpdateTender, validateTenderFilters
+|   validateTenderDocument, validateTenderMaterial, validateTenderBanking
+|   validateTenderSubcontractor, validateTenderWorker
+|   validateTenderFinanceRecord
+|
+| Used by:
+|   ./tender.service.js — the only consumer
+|
+| Depends on:
+|   config/constants.js      every allowed-value set
+|   utils/requestContext.js  the shared coercion helpers
+|
+| Database tables touched:
+|   none. This file issues no queries and has no database import.
+|
+| Error convention:
+|   createValidationError attaches statusCode 400 and publicMessage, so
+|   errorHandler.js can safely show the text to the user. Messages name the
+|   field and say what was expected.
+|
+| Note on the enumerations:
+|   The VALID_* sets are derived from config/constants.js with
+|   Object.values rather than retyped, so adding a status there makes it
+|   acceptable here automatically. The database stores these as plain
+|   VARCHAR with no CHECK constraints, which means these sets are the only
+|   thing preventing a typo being persisted.
+|
+*/
+
 const {
     TENDER_STATUS,
     TENDER_TYPES,
@@ -82,6 +146,32 @@ const {
   /**
    * Uses the submitted value when the property exists.
    * Otherwise, it falls back to the existing database value.
+   *
+   * Purpose:
+   * The mechanism that makes PUT a partial update. On create `existing` is
+   * undefined and every field comes from the payload; on update the stored
+   * row fills in whatever the client did not send.
+   *
+   * Parameters:
+   * payload  - the request body
+   * existing - the stored row, or undefined on create
+   * key      - the field name
+   *
+   * Returns:
+   * The submitted value if the key is PRESENT, otherwise the stored one.
+   *
+   * Notes:
+   * hasOwnProperty rather than a truthiness or `!== undefined` check, and
+   * the distinction is the whole point: it separates "the client did not
+   * mention this field" from "the client explicitly sent null or empty".
+   *
+   * Only the second should clear a stored value. A `payload[key] ||
+   * existing[key]` shortcut would make it impossible to blank a field —
+   * every attempt would silently restore the old value.
+   *
+   * Called through Object.prototype rather than as payload.hasOwnProperty,
+   * so a request body containing its own "hasOwnProperty" key cannot
+   * subvert the check.
    */
   const getPayloadValue = (
     payload,
@@ -95,6 +185,44 @@ const {
       ? payload[key]
       : existing?.[key];
   
+  /**
+   * Validates an optional date and returns it in a storage-safe form.
+   *
+   * Purpose:
+   * Tender dates — start, due, completion — are calendar dates, not
+   * instants. A site starts "on the 3rd", not "at 00:00 UTC on the 3rd",
+   * and the distinction matters because the two are not the same day for
+   * most of the world.
+   *
+   * Parameters:
+   * value - the raw field; may be a bare YYYY-MM-DD or a full timestamp
+   * label - the field name for the error message, e.g. "Start date"
+   *
+   * Returns:
+   * The date as a string, or null when absent. A date-only input is
+   * returned UNCHANGED rather than converted.
+   *
+   * Throws:
+   * 400 when the value is present but not a real date.
+   *
+   * Business rules:
+   * - Absent, null and empty string all mean "no date", not an error.
+   *   Every date on a tender is optional.
+   * - A YYYY-MM-DD input is passed straight through. Parsing it into a
+   *   Date and re-serialising would shift it by the server's offset and
+   *   store the wrong day — the same class of bug as F-13.
+   *
+   * Notes:
+   * The round-trip comparison catches JavaScript's silent date rollover:
+   * `new Date("2026-02-31T00:00:00.000Z")` does not throw, it quietly
+   * becomes 2026-03-03. Comparing the re-serialised value against the
+   * input is the only way to detect that, and without it a typo would be
+   * stored as a real but wrong date.
+   *
+   * The T00:00:00.000Z suffix forces UTC interpretation. Without it,
+   * `new Date("2026-02-31")` is parsed in the server's local zone and the
+   * comparison above would fail for legitimate dates west of Greenwich.
+   */
   const normaliseOptionalDate = (
     value,
     label
@@ -216,6 +344,44 @@ const {
       maximum: 100,
     });
   
+  /**
+   * Constrains a value to one of a fixed set.
+   *
+   * Purpose:
+   * Every status, type, priority and risk level on a tender is a VARCHAR
+   * with no CHECK constraint behind it. This is the only thing standing
+   * between a request body and a nonsense value being persisted — and a
+   * persisted typo is worse than a rejected one, because every later
+   * comparison against it silently fails to match.
+   *
+   * Parameters:
+   * value   - the raw field
+   * options - { label, allowedValues, fallback, caseInsensitive }
+   *             allowedValues   a Set, normally one of the VALID_* sets
+   *             fallback        used when the value is blank; omitting it
+   *                             makes the field effectively required
+   *             caseInsensitive lowercases before comparing, for the
+   *                             enumerations stored in lower case
+   *
+   * Returns:
+   * The validated value, or the fallback.
+   *
+   * Throws:
+   * 400 "Invalid {label}." for anything not in the set.
+   *
+   * Notes:
+   * `cleaned || fallback` means an empty string takes the fallback rather
+   * than failing — an untouched form field submits "" and should behave as
+   * "not supplied".
+   *
+   * When no fallback is given, a blank value leaves selectedValue falsy
+   * and the first half of the guard rejects it. That is how a required
+   * enumeration is expressed: pass no fallback.
+   *
+   * caseInsensitive is opt-in rather than default because some of these
+   * enumerations are stored in title case ("Personal Tender") and
+   * lowercasing them would break every comparison. See config/constants.js.
+   */
   const normaliseEnum = (
     value,
     {
@@ -330,6 +496,39 @@ const {
     return id;
   };
   
+  /**
+   * Rejects a pair of dates that are the wrong way round.
+   *
+   * Purpose:
+   * The one cross-field rule in this file. A tender due before it starts,
+   * or a site finishing before it began, is a data-entry error the
+   * database has no way to catch.
+   *
+   * Parameters:
+   * earlierDate - the date that should come first
+   * laterDate   - the date that should come second
+   * message     - the full user-facing message, supplied by the caller so
+   *               it can name the actual fields
+   *
+   * Returns:
+   * Nothing. Throws on failure.
+   *
+   * Throws:
+   * 400 with the supplied message.
+   *
+   * Notes:
+   * Both dates must be present for the check to apply — either being null
+   * short-circuits it, because an optional date that was not supplied
+   * cannot be out of order.
+   *
+   * Equal dates pass: a job that starts and finishes on the same day is
+   * normal, so the comparison is strictly less-than.
+   *
+   * Comparing `new Date(a) < new Date(b)` on two YYYY-MM-DD strings is
+   * safe here — both are parsed as UTC midnight, so the offset is
+   * identical on each side and cancels out. It would NOT be safe if one
+   * side were a date and the other a timestamp.
+   */
   const validateDateOrder = (
     earlierDate,
     laterDate,
@@ -349,6 +548,15 @@ const {
   |--------------------------------------------------------------------------
   | Tender validation
   |--------------------------------------------------------------------------
+  |
+  | normaliseTenderPayload does the work for both create and update. The
+  | difference between them is the `existing` argument: create passes
+  | nothing and every required field must be present, update passes the
+  | stored row so an omitted field keeps its current value.
+  |
+  | That is what makes PUT a partial update without a separate code path,
+  | and why updateTender in the service loads the tender BEFORE validating.
+  |
   */
   
   const normaliseTenderPayload = (
@@ -570,6 +778,18 @@ const {
   |--------------------------------------------------------------------------
   | Tender site validation
   |--------------------------------------------------------------------------
+  |
+  | Sites arrive nested inside the tender payload rather than as their own
+  | request, so they are validated here rather than in a sites module.
+  |
+  | normaliseTenderSites enforces that a tender has at least one site on
+  | create — a tender with nowhere to work is not a usable record.
+  |
+  | A submitted site carrying an `id` is an edit of an existing row; one
+  | without is a new site. The service acts on that distinction in
+  | synchroniseTenderSites, and checks the id really belongs to this tender
+  | before touching it.
+  |
   */
   
   const normaliseTenderSite = (
@@ -819,6 +1039,49 @@ const {
   |--------------------------------------------------------------------------
   */
   
+  /**
+   * Parses and allow-lists the tender register's query string.
+   *
+   * Purpose:
+   * GET /api/tenders forwards req.query wholesale from the controller.
+   * This is where it becomes trustworthy — the filter object returned here
+   * is what buildTenderFilterQuery turns into SQL.
+   *
+   * Parameters:
+   * query - req.query, or {} when absent
+   *
+   * Returns:
+   * A filter object with a fixed set of keys: search, status, tender_type,
+   * priority, risk_level, client_id, minimum_value, maximum_value,
+   * due_from, due_to, deleted, limit and offset. Anything else in the
+   * query string is discarded.
+   *
+   * Throws:
+   * 400 naming the offending filter.
+   *
+   * Security:
+   * The allow-list is the protection. Only keys named here reach the query
+   * builder, so a client cannot filter on an arbitrary column — including
+   * company_id, which would be an attempt to look into another tenant.
+   * Every value that does get through is bound as a parameter, never
+   * interpolated.
+   *
+   * Business rules:
+   * - Every filter is optional; an absent one is simply not applied.
+   * - The enumerated filters are validated against the same VALID_* sets
+   *   the write paths use, so a filter cannot ask for a status that could
+   *   never have been stored.
+   * - The value bounds are normalised to null when absent rather than 0,
+   *   which is what lets buildTenderFilterQuery distinguish "no minimum"
+   *   from "a minimum of zero". See the note there.
+   * - limit and offset are clamped, so one request cannot ask for the
+   *   whole table.
+   *
+   * Notes:
+   * Rejects an invalid filter rather than ignoring it. Silently dropping
+   * one would show the user an unfiltered list that looks filtered, which
+   * is worse than an error — they would act on the wrong figures.
+   */
   const validateTenderFilters = (
     query = {}
   ) => {
@@ -1025,6 +1288,10 @@ const {
   |--------------------------------------------------------------------------
   | Tender document validation
   |--------------------------------------------------------------------------
+  |
+  | Name and storage URL. The file itself is uploaded separately through
+  | /api/upload; only its location is recorded on the tender.
+  |
   */
   
   const validateTenderDocument = (
@@ -1056,6 +1323,11 @@ const {
   |--------------------------------------------------------------------------
   | Tender material validation
   |--------------------------------------------------------------------------
+  |
+  | Quantities and rates, so the numeric coercion matters here more than
+  | in the other child collections — a quantity arriving as a string would
+  | otherwise concatenate rather than add wherever it is totalled.
+  |
   */
   
   const validateTenderMaterial = (
@@ -1130,6 +1402,11 @@ const {
   |--------------------------------------------------------------------------
   | Tender banking validation
   |--------------------------------------------------------------------------
+  |
+  | Guarantees, deposits and EMD. These payloads carry account_number,
+  | which is why the audit redaction in utils/activityLog.js matters on
+  | this path — see F-12.
+  |
   */
   
   const validateTenderBanking = (
@@ -1213,6 +1490,11 @@ const {
   |--------------------------------------------------------------------------
   | Tender subcontractor validation
   |--------------------------------------------------------------------------
+  |
+  | An assignment payload: which subcontractor, what scope, what amount.
+  | The subcontractor_id is validated for SHAPE here; whether it belongs to
+  | the caller's company is checked in the service, which needs a query.
+  |
   */
   
   const validateTenderSubcontractor = (
@@ -1265,6 +1547,10 @@ const {
   |--------------------------------------------------------------------------
   | Tender worker validation
   |--------------------------------------------------------------------------
+  |
+  | The mirror of subcontractor validation. Same split: shape here,
+  | ownership in the service.
+  |
   */
   
   const validateTenderWorker = (
@@ -1342,6 +1628,15 @@ const {
   |--------------------------------------------------------------------------
   | Tender finance validation
   |--------------------------------------------------------------------------
+  |
+  | The most involved of the child validators, because a finance record's
+  | required fields depend on its record_type.
+  |
+  | Note the division of labour with utils/financeCalculations.js: this
+  | file checks that the supplied figures are well-formed numbers within
+  | range, and that file then DERIVES the ones the record type implies.
+  | Validation does not compute anything.
+  |
   */
   
   const validateTenderFinanceRecord = (

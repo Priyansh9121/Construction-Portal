@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * Modal and overlay styling.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * Shared by ApprovalActionModal, DeleteVerificationModal, CommandPalette
+ * and the page-level create/edit dialogs.
+ */
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

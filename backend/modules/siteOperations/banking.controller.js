@@ -1,3 +1,72 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The supervisor's cash float: money the office issues to them, and what
+| they spend it on.
+|
+| Two sides, deliberately recorded by different people:
+|
+|   receipts   money IN to the supervisor. Office-only to create — a
+|              supervisor who could record their own incoming funds could
+|              account for any expenditure.
+|   expenses   money OUT, recorded by the supervisor, then approved or
+|              rejected by the office.
+|
+| That asymmetry IS the reconciliation. The summary is the difference
+| between the two.
+|
+| Responsibilities:
+|   - Summarise the float: received, spent, outstanding
+|   - List and create receipts (creation office-only)
+|   - List and create expenses
+|   - Approve or reject an expense (office only)
+|
+| Exports (all Express handlers):
+|   getSummary, getReceipts, createReceipt, getExpenses, createExpense,
+|   approveExpense, rejectExpense
+|
+| Used by:
+|   ./siteOperations.routes.js
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|   ./entryWindow.service.js
+|
+| Database tables touched:
+|   supervisor_banking  SELECT, INSERT
+|   banking_expenses    SELECT, INSERT, UPDATE (approval)
+|   sites, tenders      SELECT, for ownership checks
+|
+| API surface:
+|   GET    /api/site-operations/banking/summary
+|   GET    /api/site-operations/banking/receipts
+|   POST   /api/site-operations/banking/receipts        office only
+|   GET    /api/site-operations/banking/expenses
+|   POST   /api/site-operations/banking/expenses
+|   POST   /api/site-operations/banking/expenses/:id/approve  office only
+|   POST   /api/site-operations/banking/expenses/:id/reject   office only
+|
+| Frontend consumers:
+|   siteOperationsService.js -> useSiteOperations.js -> SiteOperationsPage
+|
+| Entry window:
+|   Banking gets a LONGER window than the other modules —
+|   SUPERVISOR_EDIT_WINDOW_DAYS plus SUPERVISOR_BANKING_GRACE_DAYS —
+|   because the notes allow one extra day for it. checkEntryWindow applies
+|   that automatically for MODULES.BANKING.
+|
+| Security:
+|   Every statement is company-scoped. The separation between who records
+|   receipts and who records expenses is enforced at the route, not here.
+|
+| Note:
+|   Distinct from tender banking under /api/tenders/:id/banking, which
+|   tracks guarantees and deposits rather than site cash.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

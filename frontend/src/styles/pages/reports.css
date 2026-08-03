@@ -1,3 +1,11 @@
+/*
+ * File purpose:
+ * ReportsPage: report selection, previews and export controls.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ */
+
 .report-chart {
   display: flex;
   flex-direction: column;

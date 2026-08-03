@@ -1,3 +1,27 @@
+/**
+ * File purpose:
+ * Daily site updates, from the office side.
+ *
+ * State:
+ * - Local: filters, the update form, photo upload state.
+ *
+ * Hooks and context:
+ * - useSiteLogs
+ *
+ * API endpoints:
+ * - GET/POST/DELETE /site-logs via services/siteLogService.js
+ *
+ * Parent:
+ * - AppLayout
+ *
+ * Important notes:
+ * - Office-only.
+ * - An update created here BYPASSES the approval queue, unlike one submitted
+ * - through the worker portal — that difference is the point of having both.
+ * - The backdating window applies: an update older than the configured
+ * - window is refused for non-admins.
+ */
+
 import {
   useEffect,
   useMemo,

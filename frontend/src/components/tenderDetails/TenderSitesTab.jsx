@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * The sites belonging to this tender: add, edit and remove.
+ *
+ * Props:
+ * - tender, its sites, and a refresh handler
+ *
+ * State:
+ * - Local site form state, and the working set of sites being edited
+ *
+ * API endpoints:
+ * - PUT /tenders/:id — sites are submitted nested inside the tender payload
+ *
+ * Rendered by:
+ * - TenderDetailsPage.jsx, as one of its nine tabs
+ *
+ * Important notes:
+ * - Sites are NOT a separate endpoint here. The tab sends the COMPLETE
+ * - intended set of sites inside the tender update, and the backend
+ * - reconciles: rows with an id are updated, rows without are created, and
+ * - anything previously present but now absent is DELETED.
+ * - That means a partial submission would delete the omitted sites. The tab
+ * - must always send the full list — see synchroniseTenderSites in
+ * - backend/modules/tenders/tender.service.js.
+ * - Removing a site fails when daily updates or payments reference it.
+ */
+
 import {
     useMemo,
     useState,

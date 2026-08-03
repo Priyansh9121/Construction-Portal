@@ -1,3 +1,11 @@
+/*
+ * File purpose:
+ * TendersPage: the register list, filters and forms.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ */
+
 .tenders-page {
     display: flex;
     flex-direction: column;

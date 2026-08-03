@@ -1,3 +1,24 @@
+/**
+ * File purpose:
+ * The main navigation, filtered by role.
+ *
+ * Props:
+ * - user, activePage
+ *
+ * State and hooks:
+ * - Reads the role to decide which sections to show
+ *
+ * Rendered by:
+ * - AppLayout.jsx
+ *
+ * Important notes:
+ * - Role filtering here is PRESENTATION only. Hiding a link does not protect
+ * - the endpoint behind it — RoleRoute decides which screen renders, and
+ * - roleMiddleware on the backend decides what data comes back.
+ * - The three role groups map to the backend's mount table in server.js:
+ * - office, worker portal, subcontractor portal.
+ */
+
 import { NavLink } from "react-router-dom";
 
 function Sidebar({ user }) {

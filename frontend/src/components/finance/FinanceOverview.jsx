@@ -1,3 +1,25 @@
+/**
+ * File purpose:
+ * The finance summary view: cards, chart and filters together.
+ *
+ * Props:
+ * - The payment rows and the active filters
+ *
+ * State and hooks:
+ * - useFinanceStatistics to derive the figures
+ *
+ * Rendered by:
+ * - PaymentsPage.jsx, DashboardPage.jsx
+ *
+ * Renders:
+ * - FinanceSummaryCards, FinanceTrendChart, FinanceFilters
+ *
+ * Important notes:
+ * - Figures are derived client-side from loaded rows. GET /payments/summary
+ * - aggregates the same thing in SQL; if the two disagree, the server figure
+ * - is authoritative because it sees rows this page may not have loaded.
+ */
+
 import { money } from "../../utils/financeHelper";
 
 function FinanceOverview({ totals = {} }) {

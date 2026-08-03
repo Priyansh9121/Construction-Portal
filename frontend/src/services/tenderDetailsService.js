@@ -1,3 +1,30 @@
+/**
+ * File purpose:
+ * The tender detail page and its six child collections.
+ *
+ * API endpoints:
+ * - GET /tenders/:id/details      everything in one request
+ * - GET/POST/PUT/DELETE /tenders/:id/documents
+ * - GET/POST/PUT/DELETE /tenders/:id/materials
+ * - GET/POST/PUT/DELETE /tenders/:id/banking
+ * - GET/POST/PUT/DELETE /tenders/:id/subcontractors
+ * - GET/POST/PUT/DELETE /tenders/:id/workers
+ * - GET/POST/PUT/DELETE /tenders/:id/finance
+ *
+ * Connected to:
+ * - TenderDetailsPage.jsx and its nine tabs
+ * - Backed by backend/modules/tenders/tender.controller.js
+ * - Uses api/axiosClient.js, which attaches the bearer token and
+ *   signs the user out on a 401.
+ *
+ * Important notes:
+ * - Every child path is NESTED under its tender. That is not cosmetic: the
+ * - backend verifies the parent belongs to the caller's company before
+ * - touching a child, so a child id from another tender answers 404.
+ * - An earlier flat shape — /tender-details/materials — could not express
+ * - that parentage and no router served it. See the banner below.
+ */
+
 import axiosClient from "../api/axiosClient";
 
 /*

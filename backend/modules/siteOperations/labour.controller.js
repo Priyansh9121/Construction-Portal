@@ -1,3 +1,68 @@
+/*
+|==========================================================================
+| FILE PURPOSE
+|==========================================================================
+|
+| The labour ledger: the people or gangs working a site, and the daily
+| entries recorded against each.
+|
+| A two-level structure, unlike materials. A `labour` row is the labourer
+| or gang; `labour_entries` are the days they worked. The ledger view puts
+| the two together into a running account — days worked, amount due,
+| amount paid.
+|
+| Responsibilities:
+|   - Serve the labour category reference list
+|   - List labour records for a site
+|   - Create, update and soft-delete a labour record
+|   - Record a day's work against one labour record
+|   - Produce the per-labour ledger
+|
+| Exports (all Express handlers):
+|   getCategories, getLabour, createLabour, getLedger, createWorkEntry,
+|   updateLabour, deleteLabour
+|
+| Used by:
+|   ./siteOperations.routes.js
+|
+| Depends on:
+|   database/pool.js, utils/asyncHandler.js, utils/requestContext.js
+|   ./entryWindow.service.js — applied to work entries, which are dated
+|
+| Database tables touched:
+|   labour             SELECT, INSERT, UPDATE
+|   labour_entries     SELECT, INSERT
+|   labour_categories  SELECT
+|   sites, tenders     SELECT, for ownership checks
+|
+| API surface:
+|   GET    /api/site-operations/labour/categories
+|   GET    /api/site-operations/labour
+|   POST   /api/site-operations/labour
+|   GET    /api/site-operations/labour/:id/ledger
+|   POST   /api/site-operations/labour/:id/entries
+|   PUT    /api/site-operations/labour/:id
+|   DELETE /api/site-operations/labour/:id
+|
+| Frontend consumers:
+|   siteOperationsService.js -> useSiteOperations.js -> SiteOperationsPage
+|
+| Security:
+|   Every statement is company-scoped. A labour id from another company
+|   matches nothing, so the ledger and the work-entry endpoints cannot be
+|   pointed at another tenant's records.
+|
+| Note:
+|   This is the one site-operations area with NO approve/reject workflow.
+|   A supervisor records and amends labour directly, bounded only by the
+|   entry window — unlike materials and banking expenses, which the office
+|   signs off.
+|
+|   `labour` carries a `category_local` column that the seed data leaves
+|   null, filling labour_categories.name_local instead. See F-06.
+|
+*/
+
 const pool = require("../../database/pool");
 
 const asyncHandler = require("../../utils/asyncHandler");

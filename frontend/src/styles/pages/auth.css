@@ -1,3 +1,15 @@
+/*
+ * File purpose:
+ * The public screens: login, register, forgot and reset password.
+ *
+ * Loaded by:
+ * - src/main.jsx, which imports every stylesheet in cascade order.
+ *
+ * Notes:
+ * These pages render WITHOUT AppLayout, so this sheet provides their whole
+ * layout rather than only their content.
+ */
+
 .login-shell {
     min-height: 100vh;
     display: grid;

@@ -1,3 +1,21 @@
+/**
+ * File purpose:
+ * Line chart of income and expense over time.
+ *
+ * Props:
+ * - The payment rows to plot, and a date range
+ *
+ * State and hooks:
+ * - Derives its series with useMemo
+ *
+ * Rendered by:
+ * - DashboardPage.jsx, FinanceOverview.jsx
+ *
+ * Important notes:
+ * - Plots rows already loaded rather than querying an aggregate endpoint, so
+ * - it reflects what the session has fetched.
+ */
+
 import {
     AreaChart,
     Area,
