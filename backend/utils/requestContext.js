@@ -62,6 +62,14 @@
 
 const pool = require("../database/pool");
 
+const {
+  getTenantCompanyId,
+} = require("../database/tenantContext");
+
+const {
+  assertCompanyId,
+} = pool;
+
 /**
  * Converts a value to trimmed text.
  *
@@ -720,6 +728,31 @@ const withTransaction =
       await client.query(
         "BEGIN"
       );
+
+      /*
+       * Carry the request's company into the transaction.
+       *
+       * pool.query does this for itself, but a caller holding its own client
+       * bypasses that wrapper entirely — which is how tender creation came
+       * to fail with 42501 once the API connected as construction_app. The
+       * INSERT was correct and passed its company_id; the connection simply
+       * never said which company it was, so the policy matched nothing.
+       *
+       * SET LOCAL is scoped to this transaction and reverts on COMMIT or
+       * ROLLBACK, so the next borrower of this pooled connection starts
+       * clean. The value is an integer checked by assertCompanyId, because
+       * SET LOCAL cannot take a bind parameter.
+       */
+      const companyId =
+        getTenantCompanyId();
+
+      if (companyId !== null) {
+        await client.query(
+          `SET LOCAL app.company_id = '${assertCompanyId(
+            companyId
+          )}'`
+        );
+      }
 
       const result =
         await callback(client);
