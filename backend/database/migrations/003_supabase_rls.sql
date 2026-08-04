@@ -243,9 +243,13 @@ CREATE POLICY company_bootstrap_insert ON public.companies
 -- withTenant() in database/pool.js. The exposure if that ever slipped is
 -- company names and settings, not tenant data — every table holding real
 -- records keeps the strict policy.
-CREATE POLICY company_bootstrap_select ON public.companies
-    FOR SELECT
-    USING (public.current_company_id() IS NULL);
+DROP POLICY IF EXISTS company_bootstrap_select
+ON public.companies;
+
+CREATE POLICY company_bootstrap_select
+ON public.companies
+FOR SELECT
+USING (public.current_company_id() IS NULL);
 
 
 -- ---------------------------------------------------------------------------
