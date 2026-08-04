@@ -24,6 +24,10 @@
 
 const { Pool, types } = require("pg");
 
+const {
+  getTenantCompanyId,
+} = require("./tenantContext");
+
 /*
 |--------------------------------------------------------------------------
 | Date handling
@@ -174,6 +178,21 @@ const pool = new Pool({
     IS_TEST,
 });
 
+/*
+ * Whether queries need to carry a tenant context.
+ *
+ * Set by checkDatabaseConnection at startup from the connected role's actual
+ * attributes. It stays false until then, and false means every query runs
+ * exactly as it did before this wrapper existed — which is what migrations,
+ * scripts and the test suite want, and what a superuser connection wants
+ * too, since the policies do not apply to it anyway.
+ *
+ * Guessing wrong in this direction is cheap: the application's own WHERE
+ * clauses still scope every query. Guessing wrong in the other direction is
+ * not, so it is never assumed true.
+ */
+let tenantScopingEnabled = false;
+
 /**
  * Runs once whenever PostgreSQL creates a new physical
  * connection for the pool.
@@ -239,6 +258,14 @@ pool.on("error", (error) => {
  *   database_schema whether the search path resolves as expected.
  *   database_time   the server's clock, for spotting a skew against the
  *                   application host.
+ *   rls_enforced    whether the connected role is actually subject to the
+ *                   migration 003 policies.
+ *
+ * Deciding rls_enforced here is what switches the tenant wrapper below on
+ * and off. It is asked of the database rather than inferred from the role
+ * name or an environment variable, because the only thing that genuinely
+ * matters is whether PostgreSQL will apply the policies to this connection,
+ * and pg_roles is the one place that knows.
  */
 const checkDatabaseConnection =
   async () => {
@@ -258,10 +285,37 @@ const checkDatabaseConnection =
         ) AS server_version,
 
         NOW()
-          AS database_time
+          AS database_time,
+
+        NOT (
+          rolsuper OR rolbypassrls
+        ) AS rls_enforced
+
+      FROM pg_roles
+      WHERE rolname = current_user
     `);
 
-    return result.rows[0];
+    const row = result.rows[0];
+
+    tenantScopingEnabled = Boolean(
+      row && row.rls_enforced
+    );
+
+    if (tenantScopingEnabled) {
+      console.log(
+        "[database] Connected as a role subject to row-level security. " +
+          "Every request-scoped query will carry its company context."
+      );
+    } else {
+      console.warn(
+        "[database] Connected as a role that BYPASSES row-level security " +
+          `(${row && row.database_user}). The migration 003 policies have no ` +
+          "effect; tenant isolation rests entirely on the WHERE clauses in " +
+          "the application."
+      );
+    }
+
+    return row;
   };
 
 /**
@@ -398,6 +452,60 @@ const tenantQuery = (
     (client) =>
       client.query(text, params)
   );
+
+/*
+|--------------------------------------------------------------------------
+| The choke point
+|--------------------------------------------------------------------------
+|
+| Every module in this codebase already calls pool.query. Rather than
+| rewriting 139 call sites to remember withTenant, pool.query itself supplies
+| the context when there is one to supply.
+|
+| A bare pool.query runs in autocommit, and SET LOCAL outside a transaction
+| affects nothing, so a scoped query has to become a transaction. That costs
+| two extra round trips per query, which is why it only happens when the
+| connected role is genuinely subject to the policies — under postgres the
+| original fast path is used unchanged.
+|
+| Deliberately left alone:
+|
+|   client.query   a caller holding its own client from pool.connect() has
+|                  taken responsibility for its own transaction. withTenant
+|                  and withTransaction are the two that do, and both set the
+|                  context themselves.
+|
+|   callback style pool.query(text, params, cb) resolves through a callback
+|                  rather than a promise. Nothing here uses it, and quietly
+|                  changing its semantics would be worse than not covering
+|                  it, so it passes straight through.
+|
+*/
+const unscopedQuery =
+  pool.query.bind(pool);
+
+pool.query = (...args) => {
+  const companyId =
+    getTenantCompanyId();
+
+  const isCallbackStyle =
+    typeof args[args.length - 1] ===
+    "function";
+
+  if (
+    !tenantScopingEnabled ||
+    companyId === null ||
+    isCallbackStyle
+  ) {
+    return unscopedQuery(...args);
+  }
+
+  return withTenant(
+    companyId,
+    (client) =>
+      client.query(...args)
+  );
+};
 
 module.exports = pool;
 

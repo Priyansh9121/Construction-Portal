@@ -44,6 +44,10 @@ const jwt = require("jsonwebtoken");
 const pool = require("../database/pool");
 
 const {
+  runWithTenant,
+} = require("../database/tenantContext");
+
+const {
   JWT_SECRET,
 } = require("../config/env");
 
@@ -348,7 +352,28 @@ const authMiddleware = async (
         user.industry || null,
     };
 
-    return next();
+    /*
+     * Bind the company to the rest of this request.
+     *
+     * Everything downstream — controllers, services, queries — now runs
+     * inside an AsyncLocalStorage context that database/pool.js reads when
+     * it issues a query, so the row-level security policies from migration
+     * 003 can see which tenant is asking without any call site passing it
+     * along. See database/tenantContext.js for why it is stored this way.
+     *
+     * It goes here rather than earlier because this is the first point at
+     * which the company is known to be genuine: req.user was just rebuilt
+     * from the database, not read from the token. Routes in front of this
+     * middleware (login, register, password reset) run with no context, and
+     * must, because no company has been established yet.
+     *
+     * next is called inside run(), so the context covers every await that
+     * follows it.
+     */
+    return runWithTenant(
+      user.company_id,
+      next
+    );
   } catch (error) {
     /*
      * Only reached if the database query itself fails — every
