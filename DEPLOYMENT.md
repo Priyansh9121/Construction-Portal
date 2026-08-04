@@ -2,22 +2,52 @@
 
 ## Why your Render deploy is failing
 
+The boot sequence fails in two stages, and you clear them in order.
+
+### Stage 1 — no configuration (fixed once the variables are set)
+
 ```
 ◇ injected env (0) from .env
 Error: JWT_SECRET must contain at least 32 characters in production
 ```
 
-`injected env (0)` is the important line — **no environment variables
-reached the process at all.**
-
 `.env` used to be committed to the repository, which is how Render got its
 configuration. It has been removed, because it was published in a public
 repo along with the database password, the Supabase service-role key and
-the JWT secret.
+the JWT secret. Set the variables in the dashboard instead — see below.
 
-So the app is behaving correctly: it refuses to start rather than run with
-no secret. You just need to give Render the configuration that used to come
-from the committed file.
+Note that `injected env (0)` is printed by `dotenv` and is **not** an error
+on Render. Render puts variables straight into the process environment, so
+there is no `.env` file for `dotenv` to find and the count is legitimately
+zero. The line stays in the log after everything is working.
+
+### Stage 2 — TLS verification
+
+```
+Backend startup failed: Error: self-signed certificate in certificate chain
+    at .../database/pool.js:175
+  code: 'SELF_SIGNED_CERT_IN_CHAIN'
+```
+
+This one means the configuration arrived and the app got as far as opening
+the database connection. Supabase does not use a publicly trusted
+certificate. Its Postgres endpoint presents:
+
+```
+  leaf          CN=*.pooler.supabase.com
+  intermediate  CN=Supabase Intermediate 2021 CA
+  root          CN=Supabase Root 2021 CA      <- self-signed, not in any
+                                                 public trust store
+```
+
+`DB_SSL=true` with no `DB_SSL_CA` verifies against the system trust store,
+which does not contain that root, so the chain is rejected. **The fix is to
+set `DB_SSL_CA`** — see step 2 below.
+
+There is deliberately no escape hatch: `DB_SSL_REJECT_UNAUTHORIZED=false`
+throws at startup when `NODE_ENV=production`, because an unverified TLS
+connection is encrypted but not authenticated, and the whole point of
+running TLS to the database is that it is both.
 
 ---
 
@@ -29,7 +59,34 @@ from the committed file.
 openssl rand -base64 48
 ```
 
-### 2. Set the variables in Render
+### 2. Get the Supabase CA certificate
+
+Supabase Dashboard → **Project Settings** → **Database** → **SSL
+Configuration** → **Download certificate**. You get `prod-ca-2021.crt`,
+which is the `Supabase Root 2021 CA` PEM.
+
+Check you have the right file before pasting it anywhere:
+
+```bash
+openssl x509 -in prod-ca-2021.crt -noout -subject -dates -fingerprint -sha256
+```
+
+Expected:
+
+```
+subject=C=US, ST=Delware, L=New Castle, O=Supabase Inc, CN=Supabase Root 2021 CA
+notBefore=Apr 28 10:56:53 2021 GMT
+notAfter=Apr 26 10:56:53 2031 GMT
+sha256 Fingerprint=80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA
+```
+
+Only the root is needed — the server sends the intermediate itself.
+
+That certificate expires **26 April 2031**. Nothing warns you; the deploy
+just starts failing with the same `SELF_SIGNED_CERT_IN_CHAIN` error, so if
+Supabase rotates the root before then, re-download and update the variable.
+
+### 3. Set the variables in Render
 
 Dashboard → your service → **Environment** → **Add Environment Variable**.
 
@@ -41,7 +98,12 @@ The minimum to boot:
 | `JWT_SECRET` | the string from step 1 |
 | `DATABASE_URL` | your PostgreSQL connection string |
 | `DB_SSL` | `true` |
+| `DB_SSL_CA` | the **entire** contents of `prod-ca-2021.crt` from step 2, `BEGIN`/`END` lines included |
 | `CORS_ORIGINS` | your frontend URL, e.g. `https://your-app.vercel.app` |
+
+`DB_SSL_CA` is multi-line. Paste it into the value box as-is — Render keeps
+the newlines. Do not convert them to `\n`; the PEM is handed to Node's TLS
+layer verbatim and an escaped one will not parse.
 
 Add these too, or the matching features stay broken:
 
@@ -53,7 +115,7 @@ Add these too, or the matching features stay broken:
 
 `backend/.env.example` documents every supported variable.
 
-### 3. Set the service root
+### 4. Set the service root
 
 Render must build from `backend/`, not the repository root:
 
@@ -62,16 +124,19 @@ Render must build from `backend/`, not the repository root:
 - **Start Command**: `node server.js`
 - **Health Check Path**: `/api/health`
 
-### 4. Redeploy
+### 5. Redeploy
 
 Manual Deploy → **Clear build cache & deploy**.
 
 You should see:
 
 ```
+◇ injected env (0) from .env
 Database connected: { database: '...', ... }
 Construction Portal API running on port 10000
 ```
+
+The `injected env (0)` line is expected and harmless — see Stage 1 above.
 
 ---
 
@@ -160,6 +225,7 @@ days. Neither matters for testing; both matter before real users.
 
 - [ ] All four exposed credentials rotated
 - [ ] Render environment variables set, service boots
+- [ ] `DB_SSL_CA` holds the Supabase root CA, fingerprint checked
 - [ ] Root directory is `backend`, health check is `/api/health`
 - [ ] Migrations applied
 - [ ] `DATABASE_URL` uses `construction_app` (so RLS is live)
