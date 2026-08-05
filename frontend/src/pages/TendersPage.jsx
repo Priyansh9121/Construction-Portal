@@ -63,7 +63,7 @@ const createEmptySite = () => ({
   progress_percent: 0,
 });
 
-const createEmptyProjectForm = () => ({
+const createEmptyTenderForm = () => ({
   title: "",
   client_name: "",
   tender_type: "Personal Tender",
@@ -90,11 +90,11 @@ const normaliseSites = (sites) => {
   );
 };
 
-const getProjectSites = (tender) =>
+const getTenderSites = (tender) =>
   normaliseSites(tender?.sites);
 
-const getProjectSiteNames = (tender) => {
-  const names = getProjectSites(tender)
+const getTenderSiteNames = (tender) => {
+  const names = getTenderSites(tender)
     .map((site) => site.site_name)
     .filter(Boolean);
 
@@ -116,14 +116,14 @@ function TendersPage() {
     addForm,
     setAddForm,
   ] = useState(
-    createEmptyProjectForm
+    createEmptyTenderForm
   );
 
   const [
     editForm,
     setEditForm,
   ] = useState(
-    createEmptyProjectForm
+    createEmptyTenderForm
   );
 
   const [
@@ -142,9 +142,9 @@ function TendersPage() {
   ] = useState("running");
 
   /*
-   * Deleting a project is a soft delete. Until now there was no way to see
+   * Deleting a tender is a soft delete. Until now there was no way to see
    * one afterwards, so POST /api/tenders/:id/restore could not be reached
-   * and a project removed by mistake was gone as far as anyone using the
+   * and a tender removed by mistake was gone as far as anyone using the
    * app could tell.
    */
   const [
@@ -187,7 +187,7 @@ function TendersPage() {
         fetchTenders(),
       ]);
     } catch (error) {
-      toast.error(error?.message || "Could not restore that project.");
+      toast.error(error?.message || "Could not restore that tender.");
     } finally {
       setRestoringId(null);
     }
@@ -354,13 +354,13 @@ function TendersPage() {
       [tenders]
     );
 
-  const totalProjectSites =
+  const totalTenderSites =
     useMemo(
       () =>
         tenders.reduce(
           (sum, tender) =>
             sum +
-            getProjectSites(
+            getTenderSites(
               tender
             ).length,
           0
@@ -401,7 +401,7 @@ function TendersPage() {
                   activeTab;
 
           const sites =
-            getProjectSites(
+            getTenderSites(
               tender
             );
 
@@ -476,7 +476,7 @@ function TendersPage() {
   const tenderExportColumns = [
     {
       key: "title",
-      label: "Project",
+      label: "Tender",
     },
     {
       key: "client_name",
@@ -484,7 +484,7 @@ function TendersPage() {
     },
     {
       key: "tender_type",
-      label: "Project Type",
+      label: "Tender Type",
     },
     {
       key: "site_count",
@@ -523,8 +523,8 @@ function TendersPage() {
   const tenderExportRows =
     filteredTenders.map(
       (tender) => {
-        const projectSites =
-          getProjectSites(
+        const tenderSites =
+          getTenderSites(
             tender
           );
 
@@ -543,10 +543,10 @@ function TendersPage() {
             "",
 
           site_count:
-            projectSites.length,
+            tenderSites.length,
 
           site_names:
-            getProjectSiteNames(
+            getTenderSiteNames(
               tender
             ),
 
@@ -584,11 +584,11 @@ function TendersPage() {
     );
 
   const tenderExportSummary = {
-    "Total Projects":
+    "Total Tenders":
       tenders.length,
 
     "Total Sites":
-      totalProjectSites,
+      totalTenderSites,
 
     Running:
       runningTenders.length,
@@ -602,12 +602,12 @@ function TendersPage() {
     "Due Soon":
       dueSoonTenders.length,
 
-    "Total Project Value":
+    "Total Tender Value":
       money(
         totalTenderValue
       ),
 
-    "Filtered Projects":
+    "Filtered Tenders":
       filteredTenders.length,
 
     "Filtered Value":
@@ -621,7 +621,7 @@ function TendersPage() {
   ) => {
     if (!payload.title) {
       toast.error(
-        "Project title is required."
+        "Tender title is required."
       );
 
       return false;
@@ -638,7 +638,7 @@ function TendersPage() {
       )
     ) {
       toast.error(
-        "Select a valid project status."
+        "Select a valid tender status."
       );
 
       return false;
@@ -668,7 +668,7 @@ function TendersPage() {
         100
     ) {
       toast.error(
-        "Project progress must be between 0 and 100."
+        "Tender progress must be between 0 and 100."
       );
 
       return false;
@@ -682,7 +682,7 @@ function TendersPage() {
         0
     ) {
       toast.error(
-        "At least one project site is required."
+        "At least one tender site is required."
       );
 
       return false;
@@ -906,7 +906,7 @@ function TendersPage() {
         1
       ) {
         toast.error(
-          "A project must contain at least one site."
+          "A tender must contain at least one site."
         );
 
         return previous;
@@ -940,7 +940,7 @@ function TendersPage() {
         "function"
       ) {
         toast.error(
-          "Add project function is unavailable."
+          "Add tender function is unavailable."
         );
 
         return;
@@ -967,15 +967,15 @@ function TendersPage() {
         );
 
         setAddForm(
-          createEmptyProjectForm()
+          createEmptyTenderForm()
         );
 
         toast.success(
-          "Project and sites created successfully."
+          "Tender and sites created successfully."
         );
       } catch (error) {
         console.error(
-          "Failed to add project:",
+          "Failed to add tender:",
           error?.response?.data ||
             error
         );
@@ -984,7 +984,7 @@ function TendersPage() {
           error?.response?.data
             ?.message ||
             error?.message ||
-            "Failed to create project."
+            "Failed to create tender."
         );
       } finally {
         setAdding(false);
@@ -1003,7 +1003,7 @@ function TendersPage() {
     }
 
     const tenderSites =
-      getProjectSites(
+      getTenderSites(
         tender
       );
 
@@ -1103,7 +1103,7 @@ function TendersPage() {
     setEditingTender(null);
 
     setEditForm(
-      createEmptyProjectForm()
+      createEmptyTenderForm()
     );
   };
 
@@ -1155,15 +1155,15 @@ function TendersPage() {
         setEditingTender(null);
 
         setEditForm(
-          createEmptyProjectForm()
+          createEmptyTenderForm()
         );
 
         toast.success(
-          "Project and sites updated successfully."
+          "Tender and sites updated successfully."
         );
       } catch (error) {
         console.error(
-          "Failed to update project:",
+          "Failed to update tender:",
           error?.response?.data ||
             error
         );
@@ -1172,7 +1172,7 @@ function TendersPage() {
           error?.response?.data
             ?.message ||
             error?.message ||
-            "Failed to update project."
+            "Failed to update tender."
         );
       } finally {
         setUpdating(false);
@@ -1193,7 +1193,7 @@ function TendersPage() {
         "function"
       ) {
         toast.error(
-          "Delete project function is unavailable."
+          "Delete tender function is unavailable."
         );
 
         return;
@@ -1219,7 +1219,7 @@ function TendersPage() {
           );
 
           setEditForm(
-            createEmptyProjectForm()
+            createEmptyTenderForm()
           );
         }
 
@@ -1228,11 +1228,11 @@ function TendersPage() {
         );
 
         toast.success(
-          "Project and associated sites deleted successfully."
+          "Tender and associated sites deleted successfully."
         );
       } catch (error) {
         console.error(
-          "Failed to delete project:",
+          "Failed to delete tender:",
           error?.response?.data ||
             error
         );
@@ -1241,7 +1241,7 @@ function TendersPage() {
           error?.response?.data
             ?.message ||
             error?.message ||
-            "Failed to delete project."
+            "Failed to delete tender."
         );
       } finally {
         setDeleting(false);
@@ -1324,12 +1324,12 @@ function TendersPage() {
       <div className="section-title-row">
         <div>
           <h3>
-            Project Sites
+            Tender Sites
           </h3>
 
           <p className="muted-text">
             Add every physical site
-            belonging to this project.
+            belonging to this tender.
           </p>
         </div>
 
@@ -1589,21 +1589,21 @@ function TendersPage() {
         <div className="section-title-row">
           <div>
             <h2>
-              Projects Management
+              Tenders Management
             </h2>
 
             <p className="muted-text">
               Manage construction
-              projects, project values,
+              tenders, tender values,
               deadlines and multiple
               physical sites.
             </p>
           </div>
 
           <ExportButtons
-            filename="projects"
-            title="Projects Report"
-            subtitle="Construction Portal project and site register"
+            filename="tenders"
+            title="Tenders Report"
+            subtitle="Construction Portal tender and site register"
             rows={
               tenderExportRows
             }
@@ -1619,7 +1619,7 @@ function TendersPage() {
 
       <section className="summary-cards">
         <div className="card">
-          <p>Total Projects</p>
+          <p>Total Tenders</p>
 
           <h2>
             {tenders.length}
@@ -1630,7 +1630,7 @@ function TendersPage() {
           <p>Total Sites</p>
 
           <h2>
-            {totalProjectSites}
+            {totalTenderSites}
           </h2>
         </div>
 
@@ -1670,7 +1670,7 @@ function TendersPage() {
 
         <div className="card">
           <p>
-            Total Project Value
+            Total Tender Value
           </p>
 
           <h2>
@@ -1696,14 +1696,14 @@ function TendersPage() {
           <div>
             <h2>
               {editingTender
-                ? "Edit Project"
-                : "Create Project"}
+                ? "Edit Tender"
+                : "Create Tender"}
             </h2>
 
             <p className="muted-text">
               {editingTender
-                ? "Update project information and synchronise its attached sites."
-                : "Create one project with one or more construction sites."}
+                ? "Update tender information and synchronise its attached sites."
+                : "Create one tender with one or more construction sites."}
             </p>
           </div>
 
@@ -1731,7 +1731,7 @@ function TendersPage() {
         >
           <div className="form-grid">
             <label>
-              Project Title
+              Tender Title
 
               <input
                 name="title"
@@ -1741,7 +1741,7 @@ function TendersPage() {
                 onChange={
                   currentChangeHandler
                 }
-                placeholder="Enter project title"
+                placeholder="Enter tender title"
                 disabled={
                   editingTender
                     ? updating
@@ -1772,7 +1772,7 @@ function TendersPage() {
             </label>
 
             <label>
-              Project Type
+              Tender Type
 
               <select
                 name="tender_type"
@@ -1799,7 +1799,7 @@ function TendersPage() {
             </label>
 
             <label>
-              Project Status
+              Tender Status
 
               <select
                 name="status"
@@ -1898,7 +1898,7 @@ function TendersPage() {
             </label>
 
             <label>
-              Project Progress %
+              Tender Progress %
 
               <input
                 name="progress_percent"
@@ -1922,7 +1922,7 @@ function TendersPage() {
           </div>
 
           <label>
-            Project Description
+            Tender Description
 
             <textarea
               name="description"
@@ -1932,7 +1932,7 @@ function TendersPage() {
               onChange={
                 currentChangeHandler
               }
-              placeholder="Enter project description"
+              placeholder="Enter tender description"
               disabled={
                 editingTender
                   ? updating
@@ -1947,7 +1947,7 @@ function TendersPage() {
               currentForm.estimated_value
             )}
             {" | "}
-            Project Sites:{" "}
+            Tender Sites:{" "}
             {
               currentForm.sites
                 .length
@@ -1978,10 +1978,10 @@ function TendersPage() {
               {editingTender
                 ? updating
                   ? "Saving..."
-                  : "Save Project Changes"
+                  : "Save Tender Changes"
                 : adding
                   ? "Creating..."
-                  : "Create Project"}
+                  : "Create Tender"}
             </button>
 
             {editingTender && (
@@ -2006,12 +2006,12 @@ function TendersPage() {
         <div className="section-title-row">
           <div>
             <h2>
-              Project Filters
+              Tender Filters
             </h2>
 
             <p className="muted-text">
-              Search projects by title,
-              client, project type,
+              Search tenders by title,
+              client, tender type,
               site, address, status,
               value or date.
             </p>
@@ -2084,7 +2084,7 @@ function TendersPage() {
         <input
           className="search-input"
           type="search"
-          placeholder="Search projects and sites..."
+          placeholder="Search tenders and sites..."
           value={searchTerm}
           onChange={(event) =>
             setSearchTerm(
@@ -2099,11 +2099,11 @@ function TendersPage() {
         <div className="section-title-row">
           <div>
             <h2>
-              Projects Register
+              Tenders Register
             </h2>
 
             <p className="muted-text">
-              Open a project to manage
+              Open a tender to manage
               its sites, finance,
               documents, materials,
               workers and
@@ -2116,7 +2116,7 @@ function TendersPage() {
           <table>
             <thead>
               <tr>
-                <th>Project</th>
+                <th>Tender</th>
                 <th>Client</th>
                 <th>Sites</th>
                 <th>Status</th>
@@ -2135,8 +2135,8 @@ function TendersPage() {
                 : filteredTenders
               ).map(
                 (tender) => {
-                  const projectSites =
-                    getProjectSites(
+                  const tenderSites =
+                    getTenderSites(
                       tender
                     );
 
@@ -2166,7 +2166,7 @@ function TendersPage() {
 
                         <p className="muted-text">
                           {tender.tender_type ||
-                            "Project"}
+                            "Tender"}
                         </p>
                       </td>
 
@@ -2178,17 +2178,17 @@ function TendersPage() {
                       <td>
                         <strong>
                           {
-                            projectSites.length
+                            tenderSites.length
                           }{" "}
                           Site
-                          {projectSites.length ===
+                          {tenderSites.length ===
                           1
                             ? ""
                             : "s"}
                         </strong>
 
                         <p className="muted-text">
-                          {getProjectSiteNames(
+                          {getTenderSiteNames(
                             tender
                           ) ||
                             "No active sites"}
@@ -2307,7 +2307,7 @@ function TendersPage() {
                     colSpan="8"
                     className="empty-table-message"
                   >
-                    No projects found.
+                    No tenders found.
                   </td>
                 </tr>
               )}
@@ -2340,13 +2340,13 @@ function TendersPage() {
 
         {filteredTenders.map(
           (tender) => {
-            const projectSites =
-              getProjectSites(
+            const tenderSites =
+              getTenderSites(
                 tender
               );
 
             if (
-              projectSites.length ===
+              tenderSites.length ===
               0
             ) {
               return null;
@@ -2354,19 +2354,19 @@ function TendersPage() {
 
             return (
               <details
-                key={`project-sites-${tender.id}`}
+                key={`tender-sites-${tender.id}`}
                 className="panel"
               >
                 <summary>
                   {tender.title ||
                     tender.tender_name ||
-                    `Project ${tender.id}`}{" "}
+                    `Tender ${tender.id}`}{" "}
                   —{" "}
                   {
-                    projectSites.length
+                    tenderSites.length
                   }{" "}
                   Site
-                  {projectSites.length ===
+                  {tenderSites.length ===
                   1
                     ? ""
                     : "s"}
@@ -2395,7 +2395,7 @@ function TendersPage() {
                     </thead>
 
                     <tbody>
-                      {projectSites.map(
+                      {tenderSites.map(
                         (site) => (
                           <tr
                             key={
@@ -2458,7 +2458,7 @@ function TendersPage() {
         itemName={
           deleteTarget?.title ||
           deleteTarget?.tender_name ||
-          "project"
+          "tender"
         }
         onCancel={() => {
           if (!deleting) {
