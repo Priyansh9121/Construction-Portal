@@ -77,8 +77,19 @@ function App() {
     sites = [],
   } = useSites(user);
 
+  /*
+   * One instance for the whole session. TendersPage used to call this hook
+   * a second time, which gave the register its own copy of the list: adding
+   * a tender there refreshed that copy only, so Finance, Dashboard, Reports
+   * and Daily Site Updates kept showing the list as it stood at login until
+   * the browser was reloaded. Creating and deleting go through the same
+   * instance the other pages read, so a change is visible everywhere.
+   */
   const {
     tenders = [],
+    addTender,
+    removeTender,
+    fetchTenders,
   } = useTenders(user);
 
   const {
@@ -657,6 +668,13 @@ function App() {
       sites={sites}
       tenders={tenders}
       invoices={invoices}
+
+      /* Tender register */
+      addTender={addTender}
+      removeTender={removeTender}
+      fetchTenders={
+        fetchTenders
+      }
 
       /* Daily site updates */
       siteLogs={siteLogs}

@@ -35,7 +35,7 @@ export default function useTenders(user) {
     refresh,
   } = useCollection(user, {
     fetcher: getTenders,
-    label: "projects",
+    label: "tenders",
   });
 
   const addTender = useCallback(
