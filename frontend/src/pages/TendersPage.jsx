@@ -5,8 +5,12 @@
  * State:
  * - Local: filters, search, the create/edit form, modal visibility.
  *
+ * Props:
+ * - tenders, addTender, removeTender, fetchTenders — all from the single
+ *   useTenders instance in App.jsx, threaded through AppRoutes.
+ *
  * Hooks and context:
- * - useTenders for the register
+ * - useAuth for the signed-in user's company_id
  *
  * API endpoints:
  * - GET/POST/PUT/DELETE /tenders via services/tenderService.js
@@ -52,8 +56,6 @@ import {
 } from "../utils/currency";
 
 import { useAuth,  } from "../contexts/authContext";
-
-import useTenders from "../hooks/useTenders";
 
 const createEmptySite = () => ({
   site_name: "",
@@ -101,16 +103,22 @@ const getTenderSiteNames = (tender) => {
   return names.join(", ");
 };
 
-function TendersPage() {
+/*
+ * The register does NOT load its own tenders. It used to call useTenders
+ * here, which meant a second copy of the list: creating a tender refreshed
+ * this copy while the one App.jsx hands to Finance, Dashboard, Reports and
+ * Daily Site Updates stayed as it was at login, so a new tender was missing
+ * from the finance picker until the browser was reloaded. The list and its
+ * mutators now arrive as props from that single App.jsx instance.
+ */
+function TendersPage({
+  tenders = [],
+  addTender,
+  removeTender,
+  fetchTenders,
+}) {
   const navigate = useNavigate();
   const { user } = useAuth();
-
-  const {
-    tenders = [],
-    addTender,
-    removeTender,
-    fetchTenders,
-  } = useTenders(user);
 
   const [
     addForm,

@@ -166,6 +166,15 @@ function AppRoutes({
   invoices = [],
 
   /*
+   * Tender register. These come from the same App.jsx hook instance that
+   * produces `tenders` above, so creating or deleting on TendersPage
+   * updates the list every other page reads.
+   */
+  addTender,
+  removeTender,
+  fetchTenders,
+
+  /*
    * Daily site updates
    */
   siteLogs = [],
@@ -322,7 +331,16 @@ function AppRoutes({
             activePage="Tenders"
             user={user}
           >
-            <TendersPage />
+            <TendersPage
+              tenders={tenders}
+              addTender={addTender}
+              removeTender={
+                removeTender
+              }
+              fetchTenders={
+                fetchTenders
+              }
+            />
           </AdminManagerLayout>
         }
       />
