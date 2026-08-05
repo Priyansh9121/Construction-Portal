@@ -319,7 +319,7 @@ function AppRoutes({
         path="/tenders"
         element={
           <AdminManagerLayout
-            activePage="Projects"
+            activePage="Tenders"
             user={user}
           >
             <TendersPage />

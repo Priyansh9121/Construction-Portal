@@ -395,6 +395,35 @@ above are worth re-running after any routing change.
 **RLS is not live until `DATABASE_URL` uses `construction_app`.** As long as
 the API connects as `postgres`, the policies in migration 003 do nothing.
 
+**Repointing `DATABASE_URL` is not a one-line switch — verify it first.**
+The policies compare every row against the `app.company_id` session
+variable, so something has to set it on the connection running the query.
+That now happens automatically: `authMiddleware` binds the company into an
+`AsyncLocalStorage` context (`database/tenantContext.js`), and `pool.query`
+and `withTransaction` read it back and issue `SET LOCAL`. Nothing at a call
+site has to remember anything.
+
+It did not always work that way, and the failure mode is worth knowing
+because `npm test` cannot see it. `withTenant` was written as "the only
+supported way" to set that variable and then never called — all 139
+`pool.query` sites and 11 `withTransaction` blocks ran with no context. The
+moment the API connected as `construction_app`, every policy failed closed:
+writes raised `42501` and reads silently returned **zero rows** rather than
+erroring. Add Tender was simply the first screen to say so out loud.
+
+The test suite passes either way, because the local database has never had
+003 applied and connects as a superuser, which bypasses every policy. So
+before any deploy that repoints `DATABASE_URL`:
+
+```bash
+node scripts/verifyTenantContext.js
+```
+
+It builds a scratch database with 003's policy shape, drives the real query
+paths as a role that cannot bypass RLS, and exits non-zero if the context
+is not arriving. A silent zero-row read is the one database failure this
+application cannot detect on its own.
+
 **Dates are calendar dates.** `DATE` columns come back as `"YYYY-MM-DD"`
 strings on purpose — see the parser in `database/pool.js`. Do not convert
 them to `Date` objects on the way out.

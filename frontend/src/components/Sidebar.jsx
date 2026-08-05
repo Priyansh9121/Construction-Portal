@@ -37,8 +37,8 @@ function Sidebar({ user }) {
       : []),
 
     // Sites are managed inside the tender that owns them, so this points
-    // at the project register rather than the removed standalone page.
-    { label: "Projects", path: "/tenders" },
+    // at the tender register rather than the removed standalone page.
+    { label: "Tenders", path: "/tenders" },
 
     { label: "Site Updates", path: "/daily-site-updates" },
 
