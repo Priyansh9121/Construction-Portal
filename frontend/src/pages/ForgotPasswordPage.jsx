@@ -25,7 +25,7 @@
  */
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import AuthShell, { AuthLink } from "../components/auth/AuthShell";
 
 import { forgotPassword } from "../services/userService";
 
@@ -83,28 +83,35 @@ function ForgotPasswordPage() {
   };
 
   return (
-    <div className="login-shell">
-      <section className="login-brand">
-        <p className="dashboard-hero-eyebrow">
-          Account Recovery
-        </p>
-
-        <h1>Forgot Password</h1>
-
-        <p>
-          Enter your registered email address to begin resetting access to
-          your construction portal account.
-        </p>
-      </section>
-
-      <section className="login-box">
+    <AuthShell
+      eyebrow="Account Recovery"
+      title="Forgot password"
+      intro="Enter your registered email address to begin resetting access to your construction portal account."
+      heading="Reset access"
+      subheading="Enter the email address linked to your account."
+      footer={<AuthLink to="/login">Back to sign in</AuthLink>}
+    >
         <form onSubmit={handleSubmit}>
-          <h2>Reset Access</h2>
+          {/* Feedback above the field, so it is never below the fold. */}
+          {message && (
+            <p
+              className="auth-success"
+              role="status"
+            >
+              {message}
+            </p>
+          )}
 
-          <p className="muted-text">
-            Enter the email address linked to your account.
-          </p>
+          {error && (
+            <p
+              className="error"
+              role="alert"
+            >
+              {error}
+            </p>
+          )}
 
+          <div className="auth-field">
           <label htmlFor="forgot-password-email">
             Email
           </label>
@@ -126,33 +133,17 @@ function ForgotPasswordPage() {
             disabled={submitting}
             required
           />
+          </div>
 
           <button
             type="submit"
+            className="auth-submit"
             disabled={submitting}
           >
             {submitting
-              ? "Sending..."
-              : "Send Reset Instructions"}
+              ? "Sending…"
+              : "Send reset instructions"}
           </button>
-
-          {message && (
-            <p
-              className="success-message"
-              role="status"
-            >
-              {message}
-            </p>
-          )}
-
-          {error && (
-            <p
-              className="error"
-              role="alert"
-            >
-              {error}
-            </p>
-          )}
 
           {import.meta.env.DEV && resetToken && (
             <div className="reset-token-box">
@@ -162,26 +153,19 @@ function ForgotPasswordPage() {
 
               <code>{resetToken}</code>
 
-              <div className="login-links">
-                <Link
+              <div className="auth-links">
+                <AuthLink
                   to={`/reset-password?token=${encodeURIComponent(
                     resetToken
                   )}`}
                 >
-                  Continue to Reset Password
-                </Link>
+                  Continue to reset password
+                </AuthLink>
               </div>
             </div>
           )}
-
-          <div className="login-links">
-            <Link to="/login">
-              Back to Login
-            </Link>
-          </div>
         </form>
-      </section>
-    </div>
+    </AuthShell>
   );
 }
 

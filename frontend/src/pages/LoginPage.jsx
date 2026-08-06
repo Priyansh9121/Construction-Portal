@@ -27,7 +27,7 @@
  */
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import AuthShell, { AuthLink } from "../components/auth/AuthShell";
 
 function LoginPage({
   email,
@@ -90,20 +90,14 @@ function LoginPage({
     localError || message || "";
 
   return (
-    <div className="login-shell">
-      <section className="login-brand">
-        <p className="dashboard-hero-eyebrow">
-          Secure Construction Management
-        </p>
-
-        <h1>Construction Portal</h1>
-
-        <p>
-          Access the projects, finance, workforce and
-          progress tools assigned to your account.
-        </p>
-
-        <div className="login-feature-list">
+    <AuthShell
+      eyebrow="Secure Construction Management"
+      title="Construction Portal"
+      intro="Access the projects, finance, workforce and progress tools assigned to your account."
+      heading="Sign in"
+      subheading="Enter your registered account details."
+      aside={
+        <div className="auth-brand-list">
           <div>
             <strong>Administrators</strong>
 
@@ -131,16 +125,36 @@ function LoginPage({
             </span>
           </div>
         </div>
-      </section>
+      }
+      footer={
+        <>
+          <AuthLink to="/forgot-password">
+            Forgot password?
+          </AuthLink>
 
-      <section className="login-box">
+          <AuthLink to="/register">
+            Create account
+          </AuthLink>
+        </>
+      }
+    >
         <form onSubmit={handleSubmit}>
-          <h2>Sign In</h2>
+          {/*
+            The error sits ABOVE the fields, not below the submit button.
+            A failure that renders under a full-width button on a phone is
+            frequently below the fold — the user sees nothing happen and
+            presses Sign in again. role="alert" announces it either way.
+          */}
+          {displayedError && (
+            <p
+              className="error"
+              role="alert"
+            >
+              {displayedError}
+            </p>
+          )}
 
-          <p className="muted-text">
-            Enter your registered account details.
-          </p>
-
+          <div className="auth-field">
           <label htmlFor="login-email">
             Email
           </label>
@@ -162,7 +176,9 @@ function LoginPage({
             disabled={submitting}
             required
           />
+          </div>
 
+          <div className="auth-field">
           <label htmlFor="login-password">
             Password
           </label>
@@ -209,37 +225,19 @@ function LoginPage({
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
+          </div>
 
           <button
             type="submit"
+            className="auth-submit"
             disabled={submitting}
           >
             {submitting
-              ? "Signing In..."
-              : "Sign In"}
+              ? "Signing in…"
+              : "Sign in"}
           </button>
-
-          {displayedError && (
-            <p
-              className="error"
-              role="alert"
-            >
-              {displayedError}
-            </p>
-          )}
-
-          <div className="login-links">
-            <Link to="/forgot-password">
-              Forgot Password?
-            </Link>
-
-            <Link to="/register">
-              Create Account
-            </Link>
-          </div>
         </form>
-      </section>
-    </div>
+    </AuthShell>
   );
 }
 

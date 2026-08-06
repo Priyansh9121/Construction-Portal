@@ -33,6 +33,7 @@ import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useEffect, useState } from "react";
 import { getSubcontractors } from "../services/subcontractorService";
+import { useAuth } from "../contexts/authContext";
 
 function DashboardPage({
   payments = [],
@@ -41,6 +42,10 @@ function DashboardPage({
   tenders = [],
   invoices = [],
 }) {
+  // Presentation only — the greeting needs a name. No permission or data
+  // decision is taken from this.
+  const { user } = useAuth();
+
   const money = formatCurrency;
 
   const dateOnly = (value) =>
@@ -632,11 +637,24 @@ function DashboardPage({
   return (
     <>
   
+      {/*
+        The opening block now leads with what needs a decision rather than
+        with the product's own name. Every figure below is already computed
+        above for the stat cards — nothing new is derived here, and the
+        finance totals it used to duplicate are left to the cards that own
+        them.
+
+        `pendingTenders` is already a count; the invoice and deadline lists
+        are arrays, hence `.length`.
+      */}
       <DashboardHero
-        totalIncome={totalIncome}
-        totalExpense={totalExpense}
-        netProfit={netProfit}
-        runningTenders={runningTenders}
+        userName={user?.full_name || ""}
+        overdueInvoices={overdueInvoices.length}
+        overdueInvoiceTotal={overdueInvoiceTotal}
+        overdueTenders={overdueTenders.length}
+        dueSoonTenders={dueSoonTenders.length}
+        pendingInvoices={pendingInvoices.length}
+        pendingTenders={pendingTenders}
       />
 
       <section className="panel">
@@ -1133,7 +1151,7 @@ function DashboardPage({
             <Link to="/payments">View all</Link>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -1204,7 +1222,7 @@ function DashboardPage({
             <Link to="/tenders">View all</Link>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -1278,7 +1296,7 @@ function DashboardPage({
             <Link to="/invoices">View all</Link>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -1343,7 +1361,7 @@ function DashboardPage({
             <Link to="/tenders">View all</Link>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -1415,7 +1433,7 @@ function DashboardPage({
             <Link to="/workers">View all</Link>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -1475,7 +1493,7 @@ function DashboardPage({
             <Link to="/sites">View all</Link>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -1540,7 +1558,7 @@ function DashboardPage({
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper" tabIndex={0}>
           <table>
             <thead>
               <tr>

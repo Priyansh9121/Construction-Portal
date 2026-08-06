@@ -1,0 +1,356 @@
+/**
+ * ===========================================================================
+ * DESIGN TOKENS — the single source of truth for every visual decision
+ * ===========================================================================
+ *
+ * File purpose:
+ * Every colour, space, size, radius, shadow, duration and breakpoint the
+ * portal uses. Nothing else in the codebase should invent a raw value.
+ *
+ * Why this exists:
+ * The portal had a partial token set in global.css (14 colours, 5 radii, 2
+ * shadows) and then ~2,850 lines of CSS across 21 files that mostly ignored
+ * it — hard-coded hexes, one-off paddings, six different max-width
+ * breakpoints chosen ad hoc (430, 600, 768, 900, 1050, 1250). Site
+ * Operations used a different naming convention again. The result read as
+ * several applications sharing a URL.
+ *
+ * Naming:
+ *   --color-*      raw palette, rarely used directly
+ *   --bg-*         page and surface backgrounds
+ *   --text-*       text hierarchy
+ *   --border-*     dividers and outlines
+ *   --space-*      the 4px spacing scale
+ *   --font-size-*  the type scale
+ *   --radius-*     corner radii
+ *   --shadow-*     elevation
+ *   --dur-*        motion
+ *   --z-*          stacking order
+ *
+ * Legacy aliases at the foot of this file keep the old variable names
+ * working so the 2,850 lines of existing CSS did not all have to change at
+ * once. They are marked and can be retired file by file.
+ *
+ * Identity:
+ * Industrial slate as the neutral spine, with amber as the accent — the
+ * colour of hi-vis and site plant, which keeps this reading as a
+ * construction product rather than a generic SaaS dashboard.
+ */
+
+:root {
+  /* =======================================================================
+   * 1. PALETTE
+   * ===================================================================== */
+
+  /* Slate — the structural neutral. */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  /* Amber — the construction accent. Used sparingly: it must stay a signal. */
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+
+  /* Status families. */
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+
+  --color-white: #ffffff;
+
+  /* =======================================================================
+   * 2. SEMANTIC COLOUR
+   * ===================================================================== */
+
+  --bg-page: var(--color-slate-100);
+  --bg-surface: var(--color-white);
+  --bg-surface-raised: var(--color-white);
+  --bg-surface-sunken: var(--color-slate-50);
+  --bg-hover: var(--color-slate-100);
+  --bg-active: var(--color-slate-200);
+  --bg-inverse: var(--color-slate-900);
+
+  /* ---------------------------------------------------------------------
+   * Text hierarchy.
+   *
+   * `--text-muted` was slate-500 (#64748b). axe measured it at **4.34:1**
+   * against the page background — under the 4.5:1 floor for normal text, and
+   * it is the colour used for every page subtitle, table meta line and
+   * helper string in the product, so it accounted for the majority of the
+   * contrast failures.
+   *
+   * Each step is now one slate stop darker. Measured against `--bg-page`
+   * (#f1f5f9): muted ≈ 6.6:1, secondary ≈ 10.0:1, primary ≈ 15.6:1 — all
+   * comfortably AA, and the three levels remain visually distinct, which a
+   * naive "make it darker" fix would have collapsed.
+   * ------------------------------------------------------------------- */
+  --text-primary: var(--color-slate-900);
+  --text-secondary: var(--color-slate-700);
+  --text-muted: var(--color-slate-600);
+  --text-inverse: var(--color-white);
+  --text-on-accent: var(--color-slate-950);
+
+  --border-subtle: var(--color-slate-200);
+  --border-default: var(--color-slate-300);
+  --border-strong: var(--color-slate-400);
+
+  /* ---------------------------------------------------------------------
+   * Interactive — construction blue.
+   *
+   * This replaced slate-900 as the primary action colour, for two reasons.
+   *
+   * 1. A semantic collision. `--accent-brand` and `--status-warning-border`
+   *    were BOTH amber-500, so the brand accent and the "needs attention"
+   *    state were literally the same colour. In a portal where amber means
+   *    overdue, pending or unsafe, that is a real hazard, not a nitpick.
+   *    Amber is now reserved for warning; the construction identity is
+   *    carried by `--identity-mark` in exactly one place (the sidebar mark).
+   *
+   * 2. With slate-900 as the primary action, a filled button was
+   *    indistinguishable from the sidebar and from ordinary dark text, so
+   *    "what do I click" had no colour answer. UI/UX Pro Max's SaaS palette
+   *    (`--domain color "saas enterprise professional trust"`) returns
+   *    #2563EB "trust blue" for exactly this product class.
+   * ------------------------------------------------------------------- */
+  --accent: var(--color-blue-600);
+  --accent-hover: var(--color-blue-700);
+  --accent-text: var(--color-white);
+  --accent-subtle: var(--color-blue-50);
+
+  /* Construction identity. Deliberately NOT a semantic role: amber means
+   * warning everywhere else. Used only on the sidebar brand mark. */
+  --identity-mark: var(--color-amber-500);
+
+  /* Retained so existing sheets that reference the old brand names keep
+   * working; both now resolve to the interactive blue rather than amber. */
+  --accent-brand: var(--accent);
+  --accent-brand-hover: var(--accent-hover);
+  --accent-brand-subtle: var(--accent-subtle);
+
+  /* Status. `-fg` values are all >= 4.5:1 on their `-bg` pair. */
+  --status-success-bg: var(--color-green-100);
+  --status-success-fg: var(--color-green-700);
+  --status-success-border: var(--color-green-500);
+
+  --status-warning-bg: var(--color-amber-100);
+  --status-warning-fg: var(--color-amber-700);
+  --status-warning-border: var(--color-amber-500);
+
+  --status-danger-bg: var(--color-red-100);
+  --status-danger-fg: var(--color-red-700);
+  --status-danger-border: var(--color-red-500);
+
+  --status-info-bg: var(--color-blue-100);
+  --status-info-fg: var(--color-blue-700);
+  --status-info-border: var(--color-blue-500);
+
+  --status-neutral-bg: var(--color-slate-200);
+  --status-neutral-fg: var(--color-slate-700);
+  --status-neutral-border: var(--color-slate-400);
+
+  --focus-ring: var(--color-blue-600);
+
+  /* =======================================================================
+   * 3. SPACING — 4px base
+   * ===================================================================== */
+
+  --space-0: 0;
+  --space-1: 0.25rem; /*  4px */
+  --space-2: 0.5rem;  /*  8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem;    /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem;  /* 24px */
+  --space-8: 2rem;    /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem;   /* 48px */
+  --space-16: 4rem;   /* 64px */
+
+  /* Page gutter. Grows with the viewport instead of jumping at a
+   * breakpoint, which is what removed most of the old edge-to-edge
+   * crowding on phones. */
+  --page-gutter: clamp(var(--space-4), 3vw, var(--space-8));
+  --section-gap: clamp(var(--space-4), 2.5vw, var(--space-6));
+
+  /* =======================================================================
+   * 4. TYPOGRAPHY
+   * ===================================================================== */
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Fluid where it matters, fixed where consistency matters more.
+   * Body stays 16px minimum: iOS zooms any input under 16px on focus. */
+  --font-size-xs: 0.75rem;   /* 12px — table meta, timestamps */
+  --font-size-sm: 0.8125rem; /* 13px — secondary text */
+  --font-size-base: 0.9375rem; /* 15px — body */
+  --font-size-md: 1rem;      /* 16px — inputs (iOS zoom floor) */
+  --font-size-lg: 1.125rem;  /* 18px — card titles */
+  --font-size-xl: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  --font-size-2xl: clamp(1.375rem, 1.15rem + 1vw, 1.75rem);
+  --font-size-3xl: clamp(1.625rem, 1.3rem + 1.5vw, 2.25rem);
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.35;
+  --line-height-normal: 1.55;
+  --line-height-relaxed: 1.7;
+
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
+  --letter-spacing-caps: 0.06em;
+
+  /* =======================================================================
+   * 5. RADII
+   * ===================================================================== */
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+
+  /* =======================================================================
+   * 6. ELEVATION
+   * ===================================================================== */
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06),
+    0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.07),
+    0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.10),
+    0 4px 8px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 24px 48px rgba(15, 23, 42, 0.14);
+
+  /* =======================================================================
+   * 7. MOTION
+   * ===================================================================== */
+
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-normal: 220ms;
+  --dur-slow: 320ms;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --transition-base: var(--dur-fast) var(--ease-out);
+
+  /* =======================================================================
+   * 8. Z-INDEX — every layer, declared once and in order
+   * ===================================================================== */
+
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 100;
+  --z-sidebar: 200;
+  --z-drawer-scrim: 290;
+  --z-drawer: 300;
+  --z-modal-scrim: 390;
+  --z-modal: 400;
+  --z-toast: 500;
+
+  /* =======================================================================
+   * 9. LAYOUT
+   * ===================================================================== */
+
+  --sidebar-width: 250px;
+  --topbar-height: 60px;
+  --content-max: 1600px;
+  --content-max-narrow: 820px;
+
+  /* WCAG 2.2 target size. 44px is the floor for anything tappable. */
+  --touch-target: 44px;
+
+  /* =======================================================================
+   * 10. BREAKPOINTS (documentation — CSS cannot use vars in media queries)
+   * =======================================================================
+   *   --bp-xs   375px   large phone
+   *   --bp-sm   640px   phone landscape
+   *   --bp-md   768px   tablet portrait
+   *   --bp-lg   1024px  tablet landscape / small laptop
+   *   --bp-xl   1280px  desktop
+   *   --bp-2xl  1536px  wide desktop
+   *
+   * Mobile-first: base styles target 320px, media queries only ever use
+   * min-width. The old sheets mixed six arbitrary max-widths.
+   * ===================================================================== */
+
+  /* =======================================================================
+   * 11. LEGACY ALIASES
+   * =======================================================================
+   * The pre-existing 2,850 lines reference these names. Mapped onto the new
+   * tokens so old and new rules stay visually consistent during migration.
+   * Retire per file; do not use in new code.
+   * ===================================================================== */
+
+  --primary: var(--accent);
+
+  --danger: var(--color-red-600);
+
+  --success-light: var(--color-green-100);
+
+
+  --blue-light: var(--color-blue-100);
+  --blue-dark: var(--color-blue-700);
+
+  --panel-bg: var(--bg-surface);
+
+  --text: var(--text-primary);
+  --muted: var(--text-muted);
+  --border: var(--border-subtle);
+  --input-border: var(--border-default);
+
+  --shadow-panel: var(--shadow-md);
+}
+
+/* ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * Collapsing the duration tokens is enough to neutralise every transition
+ * and animation that uses them, without hunting through component files.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-normal: 0ms;
+    --dur-slow: 0ms;
+  }
+}

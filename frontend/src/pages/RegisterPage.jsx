@@ -25,10 +25,9 @@
  */
 
 import { useState } from "react";
-import {
-  Link,
-  useNavigate,
-} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+import AuthShell, { AuthLink } from "../components/auth/AuthShell";
 
 import { registerUser } from "../services/authService";
 import { useAuth } from "../contexts/authContext";
@@ -207,31 +206,23 @@ function RegisterPage() {
   };
 
   return (
-    <div className="login-shell">
-      <section className="login-brand">
-        <p className="dashboard-hero-eyebrow">
-          Construction Portal Access
-        </p>
-
-        <h1>Create Account</h1>
-
-        <p>
-          Register as a worker or
-          subcontractor to access
-          assignments, site updates and
-          project information.
-        </p>
-      </section>
-
-      <section className="login-box">
+    <AuthShell
+      eyebrow="Construction Portal Access"
+      title="Create account"
+      intro="Register as a worker or subcontractor to access assignments, site updates and project information."
+      heading="Create account"
+      subheading="Enter your account details."
+      footer={<AuthLink to="/login">Back to sign in</AuthLink>}
+    >
         <form
           onSubmit={handleRegister}
         >
-          <h2>Register</h2>
-
-          <p className="muted-text">
-            Enter your account details.
-          </p>
+          {/* Feedback above the fields, so it is never below the fold. */}
+          {message && (
+            <p className="error" role="alert">
+              {message}
+            </p>
+          )}
 
           <label htmlFor="register-full-name">
             Full Name
@@ -356,30 +347,16 @@ function RegisterPage() {
 
           <button
             type="submit"
+            className="auth-submit"
             disabled={loading}
           >
             {loading
-              ? "Creating..."
-              : "Create Account"}
+              ? "Creating…"
+              : "Create account"}
           </button>
 
-          {message && (
-            <p
-              className="error"
-              role="alert"
-            >
-              {message}
-            </p>
-          )}
-
-          <div className="login-links">
-            <Link to="/login">
-              Back to Login
-            </Link>
-          </div>
         </form>
-      </section>
-    </div>
+    </AuthShell>
   );
 }
 

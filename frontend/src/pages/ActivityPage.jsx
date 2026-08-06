@@ -30,6 +30,7 @@ import {
 } from "react";
 
 import ExportButtons from "../components/export/ExportButtons";
+import ActivityStream from "../components/activity/ActivityStream";
 
 import useAsyncResource from "../hooks/useAsyncResource";
 
@@ -275,58 +276,21 @@ function ActivityPage() {
           </p>
         )}
 
-        {rows.length > 0 && (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Who</th>
-                  <th>Action</th>
-                  <th>Module</th>
-                  <th>Record</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
+        {/*
+          The audit trail is a date-grouped stream, not a table.
 
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      {new Date(row.created_at).toLocaleString()}
-                    </td>
+          It is read chronologically — "what happened, newest first" — and
+          nothing on it benefits from column alignment, which is the only
+          thing a table buys. The old six-column layout also had to squeeze
+          onto a phone, and its Details column held a run-on string
+          ("salary: 24000 → 26000 · status: active") that is the least
+          readable possible form for structured data. That data is now a
+          proper key/value list behind a keyboard-accessible disclosure.
 
-                    <td>
-                      {row.user_name || "—"}
-
-                      {row.user_email && (
-                        <>
-                          <br />
-                          <small className="muted-text">
-                            {row.user_email}
-                          </small>
-                        </>
-                      )}
-                    </td>
-
-                    <td>
-                      <span className={`badge badge--${row.action}`}>
-                        {row.action}
-                      </span>
-                    </td>
-
-                    <td>{row.module.replace(/_/g, " ")}</td>
-                    <td>{row.record_id ?? "—"}</td>
-
-                    <td>
-                      <small>{describeChange(row)}</small>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          The same component serves both widths — the stream is already
+          one column, so there is no separate mobile markup to drift.
+        */}
+        {rows.length > 0 && <ActivityStream rows={rows} />}
       </section>
     </>
   );

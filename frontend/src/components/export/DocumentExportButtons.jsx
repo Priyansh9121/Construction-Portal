@@ -61,11 +61,11 @@ function DocumentExportButtons({ type = "sublet-bill", data }) {
       {open && (
         <div className="export-menu-dropdown">
           <button type="button" onClick={handlePDF}>
-            📄 PDF
+            PDF
           </button>
 
           <button type="button" onClick={handleExcel}>
-            📊 Excel
+            Excel
           </button>
         </div>
       )}

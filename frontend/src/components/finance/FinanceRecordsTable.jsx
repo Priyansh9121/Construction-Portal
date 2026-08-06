@@ -52,7 +52,7 @@ const money = formatCurrency;
           </div>
         </div>
   
-        <div className="table-wrapper">
+        <div className="table-wrapper" tabIndex={0}>
           <table>
             <thead>
               <tr>

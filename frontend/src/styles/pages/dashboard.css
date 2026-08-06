@@ -6,84 +6,153 @@
  * - src/main.jsx, which imports every stylesheet in cascade order.
  */
 
-.dashboard-cards {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+/*
+ * AUD-008 G06. Removed: a byte-identical restatement of
+ * `.dashboard-cards { grid-template-columns: repeat(4, minmax(0, 1fr)) }`,
+ * already declared in components/cards.css. Same value, later in the
+ * cascade — a pure redundancy with nothing overriding between them.
+ */
+
+/* ===========================================================================
+ * PAGE INTRO
+ * =======================================================================
+ * Replaces `.dashboard-hero` — a full-bleed gradient banner that set the
+ * product's own name at clamp(36px, 5vw, 58px) over glassmorphic tiles.
+ *
+ * Its grid was `minmax(0, 1.2fr) minmax(300px, 0.8fr)`. That 300px minimum
+ * is what broke the phone layout: two tracks with a 300px floor cannot fit
+ * a 375px viewport once padding is counted, so the text column was squeezed
+ * to a few pixels and every word wrapped one letter per line.
+ *
+ * There is no fixed minimum here at all — the intro is plain text and the
+ * strip below uses auto-fit, so both reflow with no breakpoint.
+ * ======================================================================== */
+
+.page-intro {
+  margin-bottom: var(--space-4);
 }
 
-.dashboard-hero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
-  gap: 28px;
-  overflow: hidden;
-  padding: 30px;
-  margin-bottom: 22px;
-  border-radius: var(--radius-xl);
-  color: #ffffff;
-  background:
-    radial-gradient(
-      circle at top right,
-      rgba(37, 99, 235, 0.72),
-      transparent 38%
-    ),
-    linear-gradient(135deg, #0f172a, #1e3a8a);
-  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
-}
-
-.dashboard-hero > * {
-  position: relative;
-  z-index: 1;
-}
-
-.dashboard-hero-eyebrow {
-  margin: 0 0 10px;
-  color: #bfdbfe;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.dashboard-hero h1 {
+.page-intro-greeting {
   margin: 0;
-  font-size: clamp(36px, 5vw, 58px);
-  line-height: 1.02;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--text-primary);
 }
 
-.dashboard-hero-subtitle {
-  max-width: 650px;
-  margin: 16px 0 0;
-  color: #cbd5e1;
-  font-size: 16px;
-  line-height: 1.6;
+.page-intro-summary {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
 }
 
-.dashboard-hero-stats {
+/* ===========================================================================
+ * ATTENTION STRIP
+ * =======================================================================
+ * Only rendered when something is actually wrong — see DashboardHero.jsx.
+ * ======================================================================== */
+
+.attention-strip {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  /* auto-fit + minmax collapses to one column with no media query. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--section-gap);
 }
 
-.dashboard-hero-stats div {
+.attention-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  /* The tone is carried by a left bar as well as the icon colour, so the
+   * severity is never communicated by colour alone. */
+  border-inline-start: 3px solid var(--border-default);
+  border-radius: var(--radius-md);
+
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.attention-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.attention-card[data-tone="danger"] {
+  border-inline-start-color: var(--status-danger-border);
+}
+
+.attention-card[data-tone="warning"] {
+  border-inline-start-color: var(--status-warning-border);
+}
+
+.attention-card[data-tone="info"] {
+  border-inline-start-color: var(--status-info-border);
+}
+
+.attention-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+
+.attention-card[data-tone="danger"] .attention-icon {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
+}
+
+.attention-card[data-tone="warning"] .attention-icon {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+}
+
+.attention-card[data-tone="info"] .attention-icon {
+  background: var(--status-info-bg);
+  color: var(--status-info-fg);
+}
+
+.attention-body {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
+  flex: 1 1 auto;
 }
 
-.dashboard-hero-stats span {
-  display: block;
-  margin-bottom: 7px;
-  color: #cbd5e1;
-  font-size: 12px;
-  font-weight: 750;
+.attention-count {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  /* Tabular figures so a column of counts does not jitter. */
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 
-.dashboard-hero-stats strong {
-  display: block;
-  font-size: 23px;
+.attention-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.attention-detail {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.attention-chevron {
+  flex: 0 0 auto;
+  color: var(--text-muted);
 }
 
 .quick-actions {

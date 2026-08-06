@@ -501,7 +501,7 @@ function MastersPage() {
           )}
 
           {filtered.length > 0 && (
-            <div className="table-wrapper">
+            <div className="table-wrapper" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
@@ -642,7 +642,7 @@ function MastersPage() {
           )}
 
           {statement?.entries?.length > 0 && (
-            <div className="table-wrapper">
+            <div className="table-wrapper" tabIndex={0}>
               <table>
                 <thead>
                   <tr>

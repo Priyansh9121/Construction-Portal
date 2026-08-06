@@ -9,6 +9,8 @@ Companion documents:
 |---|---|
 | `HANDOVER.md` | What was wrong historically and what was fixed. Analytical history. Some counts are stale — see *Stale Code & Technical Debt*. |
 | `STALE_UNUSED_CODE_AUDIT.md` | Full 249-file audit of stale, unused and duplicated code, with evidence. **Partly superseded** — see the banner at its top. |
+| `UI_UX_AUDIT.md` | The frontend design system, CSS architecture and what was redesigned. |
+| `RESPONSIVE_TEST_MATRIX.md` | Per-route responsive verification status. |
 | `FIX_IMPLEMENTATION_TRACKER.md` | **Current status of every audit finding** — fixed, retained or blocked. Read this before acting on the audit. |
 | `docs/repository-reference/findings.md` | Numbered findings F-01…F-17 from the earlier documentation pass. |
 
@@ -829,3 +831,348 @@ curl -s https://<api>/ | head                                          # env + t
 
 *Last verified 2026-08-05 against commit `a6c8a01`. Frontend lint and build
 pass; backend tests 214/215.*
+
+
+---
+
+# UI / UX System
+
+Full detail in `UI_UX_AUDIT.md`. This is the operating summary.
+
+## CSS architecture
+
+`frontend/src/index.css` is the **only** stylesheet entry point. Cascade
+order is the mechanism — general to specific:
+
+```
+1 core/tokens.css       118 design tokens. No selectors.
+2 core/foundation.css   reset + shared primitives (panel, card, button,
+                        table, form, badge, tabs, alert)
+3 core/shell.css        sidebar, topbar, drawer, page container
+4 core/utilities.css, core/animations.css, components/*.css
+5 pages/*.css           genuinely page-specific rules only
+6 core/responsive.css   cross-cutting, last so it wins
+```
+
+`main.jsx` imports `index.css` and nothing else. It previously re-imported
+all 18 sheets, so each was parsed twice and one page's sheet
+(`site-operations.css`) was loaded *only* from there — which is how that
+page drifted into its own visual conventions.
+
+## Design tokens
+
+Everything visual comes from `core/tokens.css`. **Do not write a raw hex,
+pixel padding or duration in a component.**
+
+| Group | Prefix | Example |
+|---|---|---|
+| Backgrounds | `--bg-*` | `--bg-surface` |
+| Text | `--text-*` | `--text-muted` |
+| Borders | `--border-*` | `--border-subtle` |
+| Status | `--status-*` | `--status-success-bg` |
+| Spacing | `--space-*` | `--space-4` (16px, 4px scale) |
+| Type | `--font-size-*` | `--font-size-base` |
+| Radii | `--radius-*` | `--radius-md` |
+| Elevation | `--shadow-*` | `--shadow-sm` |
+| Motion | `--dur-*` | `--dur-fast` |
+| Layers | `--z-*` | `--z-modal` |
+
+Legacy aliases (`--primary`, `--bg`, `--muted`) still resolve, for sheets
+not yet migrated. Do not use them in new code.
+
+**Two rules that are load-bearing:**
+
+- Inputs must stay at `--font-size-md` (16px). Anything smaller makes iOS
+  Safari zoom on focus, which leaves the page scrolled sideways.
+- `--touch-target` (44px) is the floor for anything tappable. A browser test
+  enforces it.
+
+## Responsive breakpoints
+
+Mobile-first. Base rules target **320px**; queries are `min-width`.
+
+| Breakpoint | Purpose |
+|---|---|
+| 480px | Summary tiles go multi-column |
+| 640px | Form grids and toolbars go inline |
+| 768px | Table card-transform boundary |
+| 900px | Auth two-column split |
+| 1024px | **Sidebar becomes permanent**; drawer retired |
+| 1280px | Tile density increases |
+
+## Navigation
+
+Below 1024px the sidebar is an off-canvas drawer behind a menu button; at
+and above 1024px it is permanent and the toggle is hidden. State lives in
+`AppLayout.jsx`, which also provides Escape-to-close, a focus trap, focus
+restore, body scroll lock, and close-on-route-change.
+
+## Accessibility conventions
+
+- Skip link is the first tab stop on every authenticated page.
+- `:focus-visible` ring on everything; never remove an outline without one.
+- Status is never colour alone — badges keep their text label.
+- Icon-only controls carry `aria-label`.
+- Reduced motion is handled globally by zeroing the duration tokens.
+
+## Adding a new page consistently
+
+1. Use the existing primitives: `.panel`, `.card`, `.summary-cards`,
+   `.section-title-row`, `.form-grid`, `.table-wrapper`, `.badge`,
+   `.muted-text`. They are already styled and responsive.
+2. Do not add a page stylesheet unless the page has genuinely unique
+   layout. If you do, add it to section 5 of `index.css`.
+3. Use tokens for every value.
+4. Register the route in `AppRoutes.jsx` with `lazy()` — the entry bundle
+   depends on it.
+
+## Adding mobile behaviour to a table
+
+Default is horizontal scroll (`.table-wrapper`) — right for dense financial
+tables. For a table read one record at a time:
+
+```jsx
+<div className="table-wrapper table-wrapper--cards">
+  <table>
+    <thead>...</thead>
+    <tbody>
+      <tr>
+        <td data-label="Tender">{row.title}</td>
+        <td data-label="Status"><span className="badge green">{row.status}</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+Below 768px each row becomes a card using `data-label` as the field name.
+A table without `data-label` still renders correctly, so this can be
+adopted per page.
+
+## How the UI/UX skill is installed
+
+```bash
+npx ui-ux-pro-max-cli@latest init --ai claude   # from the repo root
+```
+
+Installs 146 files into `.claude/skills/`. Query it with:
+
+```bash
+python3 .claude/skills/ui-ux-pro-max/scripts/search.py "data table" --domain ux
+```
+
+Update with `npx ui-ux-pro-max-cli@latest update`. Requires Python 3.
+
+## How 21st.dev is used
+
+Wired in as an **MCP server** (see `.mcp.json`). It authenticates
+interactively, so connect it from an interactive session with `/mcp` in
+Claude Code, or `claude mcp` from a shell. A headless or cron run will not
+have it.
+
+### Quota — this matters
+
+The account is **free tier**. Check before planning work:
+
+- `mcp__21st__search`, `search_picker`, `get_inspiration` and every list /
+  metadata tool are **free and unmetered**.
+- `mcp__21st__get_component` (the actual component code) is limited to
+  **2 retrievals per day**. `mcp__21st__get_usage` reports what is left.
+
+**Compare search metadata and previews first; spend a retrieval only when a
+component is genuinely going to be adapted.** The last full UI pass ran 13
+searches across ~80 components and spent zero retrievals — the metadata was
+enough to classify every candidate.
+
+### Why its code is adapted, never installed
+
+The registry is **shadcn/ui + Tailwind CSS**. This project is React 19 +
+Vite with hand-written CSS: no `tailwind.config`, no `components.json`, no
+Radix. Running the `npx shadcn@latest add …` command shown in a search
+result would pull in a second, conflicting design system.
+
+The workflow is:
+
+1. Search, and read the metadata, preview image and video.
+2. Classify: *adapt to this stack* / *visual reference only* / *reject*.
+3. For anything worth taking, re-implement the **pattern** — the layout,
+   the interaction, the accessibility behaviour — against the tokens in
+   `DESIGN_SYSTEM.md`.
+4. Never add a dependency for appearance alone.
+
+**A full Tailwind or shadcn migration requires explicit owner approval.**
+
+### No secrets
+
+The `installCommand` in search results contains a literal
+`?api_key=$API_KEY_21ST` placeholder. Do not expand it, commit it, or paste
+a real key into source. Credentials belong in the MCP server config only.
+
+## Shared presentation components
+
+| Component | Where | Use for |
+|---|---|---|
+| `ui/Icon` | `components/ui/Icon.jsx` | All 28 glyphs. Inline SVG, no dependency. Never use an emoji as an icon. |
+| `ui/ResponsiveTable` | `components/ui/ResponsiveTable.jsx` | Every data table. Pick `mobile="cards"` or `mobile="scroll"` — see DESIGN_SYSTEM.md §5. |
+| `activity/ActivityStream` | `components/activity/ActivityStream.jsx` | Date-grouped audit trails with expandable metadata. |
+| `auth/AuthShell` + `AuthLink` | `components/auth/AuthShell.jsx` | All four unauthenticated screens. See DESIGN_SYSTEM.md §15. |
+| `portal/PortalPrimitives` | `components/portal/PortalPrimitives.jsx` | Both field-user portals: `PortalHeader`, `CurrentAssignmentCard` (worker), `CurrentProjectCard` (subcontractor), `RequiredActionsPanel`, `PortalSummaryCard`, `PortalSection`. See DESIGN_SYSTEM.md §17. |
+| `siteOperations/SiteOpsContext` | `components/siteOperations/SiteOpsContext.jsx` | Site Operations date context card and module tabs. See DESIGN_SYSTEM.md §16. |
+
+**Portal verification.** Both portals need their local fixtures (see below)
+and are covered by `tests/portals-and-tables.spec.js` at all nine widths,
+including role-guard checks that an admin is rejected and — for the
+Subcontractor Portal — that the caller's own `account_number`/`ifsc_code` are
+never rendered in any section.
+
+Not yet extracted, and deliberately so: `PageHeader`, `StatusBadge`,
+`EmptyState`, `Modal`, `ConfirmDialog`, `Pagination`, `FilterBar`. The two
+portals now give several of these a genuine second consumer, so that
+extraction is the natural next piece of work — it was deliberately not started
+in the portal sessions.
+
+## Responsive verification
+
+Two suites. Both drive a real browser; neither may ever point at production.
+
+```bash
+cd frontend
+npm run dev                                    # terminal 1
+npx playwright test                            # terminal 2 — both suites
+npx playwright test tests/responsive.spec.js   # public routes only
+```
+
+| Suite | Covers | Assertions |
+|---|---|---|
+| `tests/responsive.spec.js` | 4 public routes × 8 widths, touch targets, focus | 35 |
+| `tests/authenticated.spec.js` | 16 authenticated routes × 9 widths, touch targets, drawer keyboard behaviour, `aria-current` | 164 |
+
+### Running the authenticated suite
+
+It needs a signed-in user, so create a **local-only** fixture first:
+
+```bash
+cd backend
+BREAK_GLASS_ADMIN_EMAIL="$LOCAL_ADMIN_FIXTURE_EMAIL" \
+BREAK_GLASS_ADMIN_PASSWORD="$LOCAL_ADMIN_FIXTURE_PASSWORD" \
+BREAK_GLASS_ADMIN_COMPANY_ID=1 \
+node scripts/createBreakGlassAdmin.js
+```
+
+Use an address that does not already exist — the script upserts on email and
+will otherwise **overwrite that user's password and promote them to admin**.
+
+Then start the backend with the rate limiter raised:
+
+```bash
+cd backend
+RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=100000 npm start
+```
+
+This is not optional. The suite makes ~150 page loads; at the default limit
+the backend starts returning 429 partway through, the registers render
+empty, and the layout assertions silently stop measuring anything real.
+
+### Safety
+
+`tests/authenticated.spec.js` **refuses to start** unless both
+`E2E_BASE_URL` and `E2E_API_URL` are localhost origins — it signs in as an
+admin and walks the whole application. It only reads: no form is submitted
+and nothing is created, edited or deleted.
+
+Neither suite runs in CI, which does lint and build only. Both need a live
+backend and a seeded login.
+
+### Local portal fixtures
+
+`/worker-portal` and `/subcontractor-portal` are role-gated and need a user
+whose `user_id` links to a real `workers` / `subcontractors` row.
+`createBreakGlassAdmin.js` cannot make one — it hard-codes `role = 'admin'`.
+
+```bash
+cd backend
+
+# create (passwords generated and printed once if not supplied)
+LOCAL_WORKER_FIXTURE_PASSWORD='…' \
+LOCAL_SUBCONTRACTOR_FIXTURE_PASSWORD='…' \
+node scripts/createLocalPortalFixtures.js
+
+# remove everything it created
+node scripts/createLocalPortalFixtures.js --cleanup
+```
+
+Creates `worker-fixture@local.test` and `subcontractor-fixture@local.test`,
+each with a `users` row, a `company_users` membership and the linked
+`workers` / `subcontractors` record the portal controllers require.
+
+**Guards.** It refuses to run when `NODE_ENV=production` or when
+`DATABASE_URL` is not a localhost host, and it will only ever modify its own
+two fixture addresses — unlike `createBreakGlassAdmin.js`, it cannot seize a
+real account. No password is committed; values come from the environment or
+are generated with `crypto.randomBytes`.
+
+`--cleanup` deletes in FK-safe order (linked record → membership → user) and
+touches nothing else.
+
+## Accessibility testing
+
+```bash
+cd frontend
+npm run test:a11y
+```
+
+Runs axe-core (`@axe-core/playwright`, a **devDependency** — it ships nothing
+to users) against **22 routes × 2 widths**, tagged `wcag2a wcag2aa wcag21a
+wcag21aa`. Needs the admin fixture *and* both portal fixtures.
+
+Currently **44/44 pass with zero exceptions**.
+
+`DOCUMENTED_EXCEPTIONS` at the top of `tests/a11y.spec.js` is deliberately
+empty. Do not add to it to make a build green — every entry must name the
+rule, the element, the reason and the remediation plan, and have an owner.
+axe catches roughly a third of WCAG issues; a pass is a floor, not a
+certificate.
+
+## Mobile table strategy
+
+Every data table must declare one. Use `ResponsiveTable`:
+
+```jsx
+import ResponsiveTable from "../components/ui/ResponsiveTable";
+
+// One row = one entity → cards on a phone
+<ResponsiveTable mobile="cards">
+  <table>…</table>
+</ResponsiveTable>
+
+// Financial matrix → keep the columns, scroll sideways
+<ResponsiveTable mobile="scroll" label="Finance records">
+  <table>…</table>
+</ResponsiveTable>
+```
+
+`data-label` is derived from the `<thead>` automatically — **do not hand-write
+it**. Cells with `colSpan > 1` are skipped. See `DESIGN_SYSTEM.md` §5 for
+how to choose between the four strategies, and `UI_UX_AUDIT.md` §8 for the
+per-table decisions already made.
+
+## Site Operations conventions
+
+The page is **company-and-date scoped**. It has a date-only context card,
+scrollable module navigation covering all four modules (Material, Labour,
+Banking, Access Requests), and one-column forms below 768px.
+
+**Do not add a tender or site selector.** Site Operations records carry no
+tender/site attribution: the API accepts `tender_id`/`site_id` on a material
+create (both default to `null`) and offers tender filters on labour and
+banking, but the frontend has never sent or filtered by either — every row in
+`site_material_entries` has both columns null.
+
+Adding selectors would start writing attribution on new rows only, so any
+tender-filtered report would silently exclude all pre-change data, and
+material `approval_status` routing could shift. That is a data-migration
+decision, not a layout one.
+
+Tracked as **SITE-OPS-DATA-01** in `UI_UX_AUDIT.md` §8d. A test in
+`tests/portals-and-tables.spec.js` asserts the selectors stay absent and names
+the ticket in its failure message, so the guard explains itself.

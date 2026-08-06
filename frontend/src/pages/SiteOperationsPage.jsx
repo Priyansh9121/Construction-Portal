@@ -28,6 +28,7 @@ import toast from "react-hot-toast";
 
 import { useAuth } from "../contexts/authContext";
 import { useSiteOperations, useLabourLedger } from "../hooks/useSiteOperations";
+import SiteOpsContextCard, { ModuleTabs } from "../components/siteOperations/SiteOpsContext";
 import { formatCurrency } from "../utils/currency";
 import uploadService from "../services/uploadService";
 import siteOperationsService from "../services/siteOperationsService";
@@ -52,10 +53,10 @@ import { getCompanyMembers } from "../services/companyService";
 */
 
 const TABS = [
-  { key: "material", label: "Material" },
-  { key: "labour", label: "Labour" },
-  { key: "banking", label: "Banking" },
-  { key: "access", label: "Access Requests" },
+  { key: "material", label: "Material", icon: "inbox" },
+  { key: "labour", label: "Labour", icon: "workers" },
+  { key: "banking", label: "Banking", icon: "money" },
+  { key: "access", label: "Access Requests", icon: "approvals" },
 ];
 
 /**
@@ -78,6 +79,9 @@ function SiteOperationsPage() {
   // Set when the API refuses a backdated entry, so the UI can offer to
   // request access for that exact date.
   const [blockedEntry, setBlockedEntry] = useState(null);
+
+  const activeTab =
+    TABS.find((entry) => entry.key === tab) ?? TABS[0];
 
   const isOffice = useMemo(
     () =>
@@ -137,20 +141,28 @@ function SiteOperationsPage() {
         </p>
       </header>
 
-      <nav className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={tab === t.key}
-            className={`tab ${tab === t.key ? "tab--active" : ""}`}
-            onClick={() => setTab(t.key)}
-            type="button"
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      {/*
+        Date-only context card.
+
+        There is deliberately no tender or site selector here — Site
+        Operations records carry no tender or site attribution today, and
+        adding selectors would change what gets written rather than how it
+        looks. Tracked as SITE-OPS-DATA-01; see UI_UX_AUDIT.md §8d.
+
+        This is presentational: it does not filter the register and does not
+        set the value any module submits. Each module keeps its own
+        `entry_date` field untouched.
+      */}
+      <SiteOpsContextCard
+        workingDate={todayLocal()}
+        activeModule={activeTab.label}
+      />
+
+      <ModuleTabs
+        tabs={TABS}
+        active={tab}
+        onChange={setTab}
+      />
 
       {ops.error && (
         <div className="alert alert--error" role="alert">
@@ -186,7 +198,14 @@ function SiteOperationsPage() {
         />
       )}
 
-      <div className="tab-panel">
+      {/* Labelled by its tab, so the panel is announced as belonging to it. */}
+      <div
+        className="tab-panel ops-workspace"
+        id={`ops-panel-${tab}`}
+        role="tabpanel"
+        aria-labelledby={`ops-tab-${tab}`}
+        tabIndex={-1}
+      >
         {tab === "material" && (
           <MaterialTab
             ops={ops}
@@ -486,6 +505,7 @@ function MaterialTab({ ops, onBlocked, isOffice }) {
           <input
             ref={cameraRef}
             type="file"
+            aria-label="Take a photo with the camera"
             accept="image/*"
             capture="environment"
             hidden
@@ -495,6 +515,7 @@ function MaterialTab({ ops, onBlocked, isOffice }) {
           <input
             ref={galleryRef}
             type="file"
+            aria-label="Choose a photo from the gallery"
             accept="image/*"
             hidden
             onChange={(e) => pickPhoto(e, "gallery")}

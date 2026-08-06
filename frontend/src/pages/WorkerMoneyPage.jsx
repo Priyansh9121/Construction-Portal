@@ -34,6 +34,7 @@ import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import {
   formatCurrency,
 } from "../utils/currency";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 function WorkerMoneyPage({
   workers = [],
@@ -1727,7 +1728,7 @@ function WorkerMoneyPage({
           </span>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -1843,7 +1844,7 @@ function WorkerMoneyPage({
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       {activeView ===
@@ -1873,7 +1874,7 @@ function WorkerMoneyPage({
             </div>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -2095,7 +2096,7 @@ function WorkerMoneyPage({
             </div>
           </div>
 
-          <div className="table-wrapper">
+          <ResponsiveTable mobile="cards">
             <table>
               <thead>
                 <tr>
@@ -2232,7 +2233,7 @@ function WorkerMoneyPage({
                 </tfoot>
               )}
             </table>
-          </div>
+          </ResponsiveTable>
         </section>
       )}
 

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:responsive": "playwright test tests/responsive.spec.js tests/authenticated.spec.js tests/portals-and-tables.spec.js",
+    "test:a11y": "playwright test tests/a11y.spec.js"
   },
   "dependencies": {
     "axios": "^1.16.1",
@@ -22,7 +24,9 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",

@@ -39,46 +39,16 @@ import App from "./App.jsx";
 import { AuthProvider } from "./contexts/AuthProvider";
 
 /*
- * Base Vite/global stylesheet.
+ * The one stylesheet entry point.
+ *
+ * index.css imports every sheet in cascade order (tokens -> foundation ->
+ * shell -> components -> pages -> responsive). This file used to re-import
+ * the same ~18 sheets itself, which meant each was parsed twice and the
+ * effective cascade order depended on which list came last. One page
+ * (site-operations.css) was imported ONLY here, which is how it drifted
+ * into its own visual conventions.
  */
 import "./index.css";
-
-/*
- * Core styles.
- */
-import "./styles/core/global.css";
-import "./styles/core/layout.css";
-import "./styles/core/utilities.css";
-import "./styles/core/animations.css";
-
-/*
- * Shared component styles.
- */
-import "./styles/components/cards.css";
-import "./styles/components/forms.css";
-import "./styles/components/tables.css";
-import "./styles/components/tabs.css";
-import "./styles/components/modal.css";
-
-/*
- * Page-specific styles.
- */
-import "./styles/pages/auth.css";
-import "./styles/pages/dashboard.css";
-import "./styles/pages/payments.css";
-import "./styles/pages/tenders.css";
-import "./styles/pages/tender-details.css";
-import "./styles/pages/worker-portal.css";
-import "./styles/pages/subcontractor-portal.css";
-import "./styles/pages/reports.css";
-import "./styles/pages/settings.css";
-import "./styles/pages/site-operations.css";
-
-/*
- * Responsive rules remain last so they can override desktop
- * component and page styling at smaller screen widths.
- */
-import "./styles/core/responsive.css";
 
 const rootElement =
   document.getElementById("root");

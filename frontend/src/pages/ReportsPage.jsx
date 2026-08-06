@@ -1067,7 +1067,7 @@ function ReportsPage({
             </span>
           </div>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <tbody>
                 {Object.entries(selectedReport.summary).map(
@@ -1165,7 +1165,7 @@ function ReportsPage({
           />
         </div>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper" tabIndex={0}>
           <table>
             <thead>
               <tr>

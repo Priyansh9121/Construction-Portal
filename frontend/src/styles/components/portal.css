@@ -1,0 +1,432 @@
+/*
+ * ===========================================================================
+ * FIELD-USER PORTALS — Worker and Subcontractor
+ * ===========================================================================
+ *
+ * File purpose:
+ * Layout and surfaces for the two portals a field user opens on a phone.
+ * See components/portal/PortalPrimitives.jsx for the markup.
+ *
+ * Density is deliberately lower than the office pages. Consistency here
+ * means a shared design language — the same tokens, status scale, radii and
+ * focus treatment — not the same information density. A supervisor scanning
+ * a register at a desk and a worker checking their site on a phone in
+ * daylight are not the same reader.
+ *
+ * Everything is flat: no gradients, no shine, no hover lift. A wash that
+ * fades to white is close to unreadable outdoors, which is exactly where
+ * these screens are used.
+ */
+
+/* ===========================================================================
+ * HEADER
+ * ======================================================================== */
+
+.portal-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  margin-bottom: var(--section-gap);
+}
+
+.portal-header-identity {
+  min-width: 0;
+}
+
+.portal-header-identity h1 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.portal-header-identity p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.portal-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ===========================================================================
+ * CURRENT ASSIGNMENT
+ * =======================================================================
+ * The first thing on the screen: which site am I on today. Given the accent
+ * left bar so it reads as "your current context", the same signal the Site
+ * Operations context card uses.
+ */
+
+.portal-assignment {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+
+  padding: var(--space-4);
+  margin-bottom: var(--section-gap);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.portal-assignment--empty {
+  border-inline-start-color: var(--border-default);
+}
+
+.portal-assignment-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.portal-assignment--empty .portal-assignment-icon {
+  background: var(--bg-surface-sunken);
+  color: var(--text-muted);
+}
+
+.portal-assignment-body {
+  min-width: 0;
+}
+
+.portal-assignment-label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* The site name is the headline — it is what the worker travels to. Long
+ * site names wrap rather than truncate: a half-shown site is worse than a
+ * tall card. */
+.portal-assignment h2 {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-snug);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.portal-assignment-project {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.portal-assignment p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.portal-assignment-more,
+.portal-assignment-more:hover:not(:disabled) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+
+  min-height: var(--touch-target);
+  padding: 0;
+  margin-top: var(--space-1);
+
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.portal-assignment-more:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+/* ===========================================================================
+ * REQUIRED ACTIONS
+ * ======================================================================== */
+
+.portal-actions {
+  margin-bottom: var(--section-gap);
+}
+
+.portal-actions-heading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.portal-actions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.portal-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+
+  padding: var(--space-3) var(--space-4);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-inline-start: 3px solid var(--status-warning-border);
+  border-radius: var(--radius-md);
+}
+
+.portal-action[data-tone="danger"] {
+  border-inline-start-color: var(--status-danger-border);
+}
+
+.portal-action[data-tone="info"] {
+  border-inline-start-color: var(--status-info-border);
+}
+
+.portal-action-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+}
+
+.portal-action[data-tone="danger"] .portal-action-icon {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
+}
+
+.portal-action[data-tone="info"] .portal-action-icon {
+  background: var(--status-info-bg);
+  color: var(--status-info-fg);
+}
+
+.portal-action-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.portal-action-body strong {
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+}
+
+.portal-action-body span {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.portal-action-btn {
+  flex: 0 0 auto;
+}
+
+/* ===========================================================================
+ * SUMMARY TILES
+ * ======================================================================== */
+
+.portal-summaries {
+  display: grid;
+  /* min() keeps a 240px minimum from overflowing a 320px phone. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--section-gap);
+}
+
+.portal-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+
+  padding: var(--space-4);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* A tone tints the surface AND adds a left bar; the card always carries a
+ * text detail line too, so the state is never colour alone. */
+.portal-summary[data-tone="success"] {
+  background: var(--status-success-bg);
+  border-inline-start: 3px solid var(--status-success-border);
+}
+
+.portal-summary[data-tone="warning"] {
+  background: var(--status-warning-bg);
+  border-inline-start: 3px solid var(--status-warning-border);
+}
+
+.portal-summary[data-tone="danger"] {
+  background: var(--status-danger-bg);
+  border-inline-start: 3px solid var(--status-danger-border);
+}
+
+.portal-summary-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/*
+ * The figure is a <strong>, not an <h2>.
+ *
+ * The portals used `<div class="card"><p>label</p><h2>3</h2></div>`, which
+ * gives a screen reader a heading called "3" and puts a number in the
+ * document outline.
+ */
+.portal-summary-value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.portal-summary-value--money {
+  font-variant-numeric: tabular-nums;
+  /* Large amounts stay on one line where they can, and shrink rather than
+   * clip when they cannot. */
+  font-size: clamp(1.125rem, 1rem + 1.4vw, 1.5rem);
+}
+
+.portal-summary-detail {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/*
+ * AUD-007. The `.portal-section*` rules were removed with the `PortalSection`
+ * component: it was exported but imported by nothing, and these selectors had
+ * no consumer outside it. Neither portal uses the pattern — both compose
+ * sections from `.panel` directly.
+ */
+
+
+
+
+
+
+
+
+
+/* ===========================================================================
+ * TABLET AND DESKTOP
+ * =======================================================================
+ * The portal stays worker-first at every width — this widens the reading
+ * measure and lets the assignment and actions sit side by side. It does not
+ * turn into an office dashboard, and it never adds office navigation.
+ */
+
+@media (min-width: 768px) {
+  .portal-assignment {
+    align-items: center;
+  }
+
+  .portal-assignment h2 {
+    font-size: var(--font-size-xl);
+  }
+}
+
+@media (min-width: 1024px) {
+  /*
+   * The page content is capped well below the office `--content-max`. A
+   * worker's portal stretched across a 1920px monitor is a line length
+   * nobody reads; the office registers need the width, this does not.
+   */
+  .worker-portal-page,
+  .subcontractor-portal-page {
+    max-width: 1100px;
+    margin-inline: auto;
+  }
+
+  /* Assignment and required actions share a row: "where am I" and "what do
+   * I owe" answered together, above the fold. */
+  .portal-context-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .portal-context-row > * {
+    margin-bottom: 0;
+  }
+}
+
+/* ===========================================================================
+ * CURRENT PROJECT FACTS
+ * =======================================================================
+ * The subcontractor's card carries more than the worker's: site, contract
+ * value and due date sit under the project name. Presented as a definition
+ * list so each figure is labelled — a bare row of numbers on a contract is
+ * exactly the kind of thing that gets misread.
+ */
+
+.portal-project-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: var(--space-2) 0 0;
+}
+
+.portal-project-facts div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.portal-project-facts dt {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.portal-project-facts dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.portal-project-money {
+  font-variant-numeric: tabular-nums;
+}

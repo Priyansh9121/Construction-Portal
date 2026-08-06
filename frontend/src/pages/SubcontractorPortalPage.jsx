@@ -37,6 +37,12 @@ import { formatCurrency } from "../utils/currency";
 
 import ExportButtons from "../components/export/ExportButtons";
 
+import PortalHeader, {
+  CurrentProjectCard,
+  RequiredActionsPanel,
+  PortalSummaryCard,
+} from "../components/portal/PortalPrimitives";
+
 import {
   getSubcontractorProfile,
   getSubcontractorTenders,
@@ -274,6 +280,17 @@ function SubcontractorPortalPage({
     setUpdatePhoto(null);
     setUpdatePhotoPreview("");
   };
+
+  /*
+   * The project shown in the header card.
+   *
+   * Prefers whatever the subcontractor has selected, falling back to the
+   * first assigned tender so the card is populated on arrival. Derived only —
+   * it selects from `tenders`, it does not fetch, reorder or change what any
+   * form submits.
+   */
+  const currentProject =
+    selectedTender || tenders[0] || null;
 
   const totals = useMemo(() => {
     const runningTenders =
@@ -1366,7 +1383,7 @@ function SubcontractorPortalPage({
 
             <button
               type="button"
-              className="delete-btn"
+              className="secondary-btn"
               onClick={
                 handleLogout
               }
@@ -1386,130 +1403,112 @@ function SubcontractorPortalPage({
 
   return (
     <main className="subcontractor-portal-page">
-      <header className="worker-header">
-        <div>
-          <p className="muted-text">
-            Subcontractor Portal
-          </p>
+      {/*
+        Compact header, matching the Worker Portal. The old one spent three
+        lines on a greeting plus a sentence re-explaining the portal to
+        someone who opens it every week. Export and logout are preserved;
+        logout stays neutral because ending a session destroys nothing.
+      */}
+      <PortalHeader
+        name={
+          subcontractor?.business_name ||
+          subcontractor?.full_name ||
+          user?.full_name ||
+          user?.email ||
+          "Subcontractor"
+        }
+        context="Subcontractor"
+        actions={
+          <>
+            <ExportButtons
+              filename={currentExport.filename}
+              title={currentExport.title}
+              rows={currentExport.rows}
+              columns={currentExport.columns}
+              summary={currentExport.summary}
+            />
 
-          <h1>
-            Welcome back,{" "}
-            {subcontractor?.business_name ||
-              subcontractor?.full_name ||
-              user?.full_name ||
-              user?.email ||
-              "Subcontractor"}
-          </h1>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? "Logging out…" : "Log out"}
+            </button>
+          </>
+        }
+      />
 
-          <p className="muted-text">
-            View assigned tenders, submit progress updates and manage project documents.
-          </p>
-        </div>
+      {/*
+        Which project am I on, and what do I still owe — answered together,
+        above everything else. Previously the page opened with SEVEN office
+        KPI tiles and the project itself was only reachable through a tab.
+      */}
+      <div className="portal-context-row">
+        <CurrentProjectCard
+          project={currentProject}
+          count={tenders.length}
+          onViewAll={() => setActiveSection("tenders")}
+          money={formatCurrency}
+        />
 
-        <div className="report-actions">
-          <ExportButtons
-            filename={
-              currentExport.filename
-            }
-            title={
-              currentExport.title
-            }
-            rows={
-              currentExport.rows
-            }
-            columns={
-              currentExport.columns
-            }
-            summary={
-              currentExport.summary
-            }
-          />
-
-          <button
-            type="button"
-            className="delete-btn"
-            onClick={
-              handleLogout
-            }
-            disabled={
-              loggingOut
-            }
-          >
-            {loggingOut
-              ? "Logging out..."
-              : "Logout"}
-          </button>
-        </div>
-      </header>
-
-      <section className="summary-cards">
-        <div className="card">
-          <p>My Tenders</p>
-
-          <h2>
-            {tenders.length}
-          </h2>
-        </div>
-
-        <div className="card highlight-success">
-          <p>Running Tenders</p>
-
-          <h2>
+        <RequiredActionsPanel
+          items={[
             {
-              totals.runningTenders
-            }
-          </h2>
-        </div>
+              key: "updates",
+              tone: "warning",
+              icon: "updates",
+              count: totals.pendingUpdates,
+              label:
+                totals.pendingUpdates === 1
+                  ? "update awaiting approval"
+                  : "updates awaiting approval",
+              detail: "Submitted, not yet approved",
+              actionLabel: "View",
+              onAction: () => setActiveSection("updates"),
+            },
+          ]}
+        />
+      </div>
 
-        <div className="card">
-          <p>Completed Tenders</p>
+      {/*
+        Reduced from seven office KPI tiles to four figures a subcontractor
+        actually acts on. Running/completed counts and the document count moved
+        into the sections that own them — a tile that only reports a number,
+        with no action attached, is a dashboard habit rather than a contractor
+        need.
 
-          <h2>
-            {
-              totals.completedTenders
-            }
-          </h2>
-        </div>
+        Figures are <strong>, not <h2>: an <h2> containing "3" gives a screen
+        reader a heading called "3".
+      */}
+      <section className="portal-summaries">
+        <PortalSummaryCard
+          label="My projects"
+          value={tenders.length}
+          detail={
+            totals.runningTenders > 0
+              ? `${totals.runningTenders} running`
+              : null
+          }
+        />
 
-        <div className="card">
-          <p>Assigned Value</p>
+        <PortalSummaryCard
+          label="Assigned value"
+          value={formatCurrency(totals.assignedValue)}
+          money
+        />
 
-          <h2>
-            {formatCurrency(
-              totals.assignedValue
-            )}
-          </h2>
-        </div>
+        <PortalSummaryCard
+          label="Approved updates"
+          value={totals.approvedUpdates}
+          tone={totals.approvedUpdates > 0 ? "success" : null}
+        />
 
-        <div className="card highlight-warning">
-          <p>Pending Updates</p>
-
-          <h2>
-            {
-              totals.pendingUpdates
-            }
-          </h2>
-        </div>
-
-        <div className="card highlight-success">
-          <p>Approved Updates</p>
-
-          <h2>
-            {
-              totals.approvedUpdates
-            }
-          </h2>
-        </div>
-
-        <div className="card">
-          <p>
-            Selected Tender Documents
-          </p>
-
-          <h2>
-            {documents.length}
-          </h2>
-        </div>
+        <PortalSummaryCard
+          label="Completed projects"
+          value={totals.completedTenders}
+        />
       </section>
 
       <section className="panel">
@@ -1775,7 +1774,7 @@ function SubcontractorPortalPage({
                 </div>
               </div>
 
-              <div className="table-wrapper">
+              <div className="table-wrapper" tabIndex={0}>
                 <table>
                   <thead>
                     <tr>
@@ -1844,7 +1843,7 @@ function SubcontractorPortalPage({
                 My Assigned Tenders
               </h2>
 
-              <div className="table-wrapper">
+              <div className="table-wrapper" tabIndex={0}>
                 <table>
                   <thead>
                     <tr>
@@ -2048,7 +2047,7 @@ function SubcontractorPortalPage({
               My Daily Updates
             </h2>
 
-            <div className="table-wrapper">
+            <div className="table-wrapper" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
@@ -2262,7 +2261,7 @@ function SubcontractorPortalPage({
                 My Tender Documents
               </h2>
 
-              <div className="table-wrapper">
+              <div className="table-wrapper" tabIndex={0}>
                 <table>
                   <thead>
                     <tr>
@@ -2332,7 +2331,7 @@ function SubcontractorPortalPage({
         <section className="panel">
           <h2>My Profile</h2>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <tbody>
                 <tr>

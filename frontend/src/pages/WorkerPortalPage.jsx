@@ -41,6 +41,12 @@ import { formatCurrency } from "../utils/currency";
 
 import ExportButtons from "../components/export/ExportButtons";
 
+import PortalHeader, {
+  CurrentAssignmentCard,
+  RequiredActionsPanel,
+  PortalSummaryCard,
+} from "../components/portal/PortalPrimitives";
+
 import {
   getWorkerProfile,
   getWorkerAssignments,
@@ -285,6 +291,19 @@ function WorkerPortalPage({
       assignments,
       selectedAssignmentId,
     ]);
+
+  /*
+   * The assignment shown in the header card.
+   *
+   * Prefers whatever the worker has picked in the update form, so the card
+   * and the form agree; falls back to the first assignment the API returned
+   * so the card is populated on arrival, before anything is selected.
+   *
+   * Derived only — it selects from `assignments`, it does not fetch or
+   * reorder, and it never changes what the form submits.
+   */
+  const currentAssignment =
+    selectedAssignment || assignments[0] || null;
 
   const allocationSummary =
     useMemo(() => {
@@ -1461,7 +1480,7 @@ function WorkerPortalPage({
 
             <button
               type="button"
-              className="delete-btn"
+              className="secondary-btn"
               onClick={
                 handleLogout
               }
@@ -1481,113 +1500,139 @@ function WorkerPortalPage({
 
   return (
     <main className="worker-portal-page">
-      <header className="worker-header">
-        <div>
-          <p className="muted-text">
-            Worker Portal
-          </p>
+      {/*
+        Compact header. The old one spent three lines on a greeting plus a
+        sentence explaining what the portal is for — text a worker who opens
+        this every morning does not need to read again. Export and logout are
+        preserved; logout stays neutral because ending a session destroys
+        nothing.
+      */}
+      <PortalHeader
+        name={
+          worker?.full_name ||
+          user?.full_name ||
+          user?.email ||
+          "Worker"
+        }
+        context={worker?.role || "Worker"}
+        actions={
+          <>
+            <ExportButtons
+              filename={currentExport.filename}
+              title={currentExport.title}
+              rows={currentExport.rows}
+              columns={currentExport.columns}
+              summary={currentExport.summary}
+            />
 
-          <h1>
-            Welcome back,{" "}
-            {worker?.full_name ||
-              user?.full_name ||
-              user?.email ||
-              "Worker"}
-          </h1>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? "Logging out…" : "Log out"}
+            </button>
+          </>
+        }
+      />
 
-          <p className="muted-text">
-            View assigned projects,
-            submit progress updates and
-            manage work expenses.
-          </p>
-        </div>
+      {/*
+        Where the worker is today — the question the portal previously would
+        not answer. The site and project were only reachable inside a <select>
+        in the update form; the header showed a *count* of assignments.
+      */}
+      {/*
+        Assignment and required actions share a row from 1024px up: "where am
+        I" and "what do I owe" answered together, above the fold. They stack
+        on a phone.
+      */}
+      <div className="portal-context-row">
+        <CurrentAssignmentCard
+          assignment={currentAssignment}
+          count={assignments.length}
+          onViewAll={() => setActiveSection("projects")}
+        />
 
-        <div className="report-actions">
-          <ExportButtons
-            filename={
-              currentExport.filename
-            }
-            title={
-              currentExport.title
-            }
-            rows={
-              currentExport.rows
-            }
-            columns={
-              currentExport.columns
-            }
-            summary={
-              currentExport.summary
-            }
-          />
+      {/*
+        What the worker still owes. Both figures already existed as KPI tiles;
+        they are now actionable and disappear when there is nothing pending,
+        because a panel that always reads "0" stops being read.
+      */}
+      <RequiredActionsPanel
+        items={[
+          {
+            key: "updates",
+            tone: "warning",
+            icon: "updates",
+            count: totals.pendingUpdates,
+            label:
+              totals.pendingUpdates === 1
+                ? "update awaiting approval"
+                : "updates awaiting approval",
+            detail: "Submitted, not yet approved",
+            actionLabel: "View",
+            onAction: () => setActiveSection("updates"),
+          },
+          {
+            key: "expenses",
+            tone: "warning",
+            icon: "money",
+            count: totals.pendingExpenses,
+            label:
+              totals.pendingExpenses === 1
+                ? "expense awaiting approval"
+                : "expenses awaiting approval",
+            detail: "Submitted, not yet approved",
+            actionLabel: "View",
+            onAction: () => setActiveSection("money"),
+          },
+        ]}
+        />
+      </div>
 
-          <button
-            type="button"
-            className="delete-btn"
-            onClick={
-              handleLogout
-            }
-            disabled={
-              loggingOut
-            }
-          >
-            {loggingOut
-              ? "Logging out..."
-              : "Logout"}
-          </button>
-        </div>
-      </header>
+      <section className="portal-summaries">
+        <PortalSummaryCard
+          label="My projects"
+          value={assignments.length}
+        />
 
-      <section className="summary-cards">
-        <div className="card">
-          <p>My Projects</p>
+        {/*
+          The success tone only applies when there is something to celebrate.
+          A green "0" reads as "all good" when it actually means "nothing
+          approved yet" — the opposite.
+        */}
+        <PortalSummaryCard
+          label="Approved updates"
+          value={totals.approvedUpdates}
+          tone={totals.approvedUpdates > 0 ? "success" : null}
+        />
 
-          <h2>
-            {assignments.length}
-          </h2>
-        </div>
+        <PortalSummaryCard
+          label="Allocated"
+          value={formatCurrency(totals.totalAllocated)}
+          money
+        />
 
-        <div className="card highlight-warning">
-          <p>
-            Pending Updates
-          </p>
-
-          <h2>
-            {
-              totals.pendingUpdates
-            }
-          </h2>
-        </div>
-
-        <div className="card highlight-warning">
-          <p>
-            Pending Expenses
-          </p>
-
-          <h2>
-            {
-              totals.pendingExpenses
-            }
-          </h2>
-        </div>
-
-        <div
-          className={
-            totals.remaining >= 0
-              ? "card highlight-success"
-              : "card highlight-danger"
+        {/*
+          Balance carries a tone, but the sign is also in the formatted value
+          and the label says which way is which — never colour alone.
+        */}
+        <PortalSummaryCard
+          label="Available balance"
+          value={formatCurrency(totals.remaining)}
+          detail={
+            totals.remaining >= 0 ? "Available to spend" : "Overspent"
           }
-        >
-          <p>
-            Available Balance
-          </p>
-
-          <h2>
-            {formatCurrency(
-              totals.remaining
-            )}
-          </h2>
-        </div>
+          tone={
+            totals.remaining > 0
+              ? "success"
+              : totals.remaining < 0
+                ? "danger"
+                : null
+          }
+          money
+        />
       </section>
 
       <section className="panel">
@@ -1835,7 +1880,7 @@ function WorkerPortalPage({
               </div>
             </div>
 
-            <div className="table-wrapper">
+            <div className="table-wrapper" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
@@ -1911,7 +1956,7 @@ function WorkerPortalPage({
               My Assigned Projects
             </h2>
 
-            <div className="table-wrapper">
+            <div className="table-wrapper" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
@@ -2011,7 +2056,7 @@ function WorkerPortalPage({
                 Loading documents...
               </p>
             ) : (
-              <div className="table-wrapper">
+              <div className="table-wrapper" tabIndex={0}>
                 <table>
                   <thead>
                     <tr>
@@ -2088,7 +2133,7 @@ function WorkerPortalPage({
             My Daily Updates
           </h2>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -2406,7 +2451,7 @@ function WorkerPortalPage({
                 Recent Expenses
               </h2>
 
-              <div className="table-wrapper">
+              <div className="table-wrapper" tabIndex={0}>
                 <table>
                   <thead>
                     <tr>
@@ -2470,7 +2515,7 @@ function WorkerPortalPage({
               Allocation Details
             </h2>
 
-            <div className="table-wrapper">
+            <div className="table-wrapper" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
@@ -2552,7 +2597,7 @@ function WorkerPortalPage({
         <section className="panel">
           <h2>My Profile</h2>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <tbody>
                 <tr>

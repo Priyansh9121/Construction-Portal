@@ -1,23 +1,11 @@
-/*
- * File purpose:
- * Form layout and control styling.
- *
- * Loaded by:
- * - src/main.jsx, which imports every stylesheet in cascade order.
- *
- * Notes:
- * Shared by every create and edit form. Page sheets adjust placement, not
- * the controls themselves.
- */
 
 button,
-.primary-btn,
-.login-box button,
-.topbar button,
-.payment-form button,
-.action-row button {
-  min-height: 42px;
-  padding: 10px 16px;
+.login-box button:not(.password-toggle-btn),
+.payment-form button {
+  /* 44px floor (WCAG 2.2 target size). Was 42px, which the browser
+   * touch-target check flagged on the auth screens. */
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
   border: none;
   border-radius: var(--radius-md);
   background: var(--primary);
@@ -34,24 +22,63 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/*
+ * These two used to set min-height 42px and 38px, silently undercutting the
+ * 44px floor that `button` in foundation.css establishes — they were the
+ * most common touch-target failure in the audit, appearing on 15 of 16
+ * routes. They now defer to the floor rather than restating a smaller one.
+ *
+ * The gradient and weight-800 have gone too: the approved direction rules
+ * out gradients on ordinary controls, and 800 on a secondary action gave it
+ * more visual weight than the primary action beside it.
+ */
 .secondary-btn {
-  min-height: 42px;
-  padding: 10px 16px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: #64748b;
-  color: #ffffff;
-  font-weight: 800;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 
 .delete-btn {
-  min-height: 38px;
-  padding: 9px 13px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--danger);
-  color: #ffffff;
-  font-weight: 800;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-red-600);
+  color: var(--color-white);
+  font-weight: var(--font-weight-medium);
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: var(--color-red-700);
+}
+
+/*
+ * An inline label stacked above its control, for use inside a filter grid.
+ *
+ * Filter toolbars mostly get away with `aria-label`, because a select showing
+ * "All Types" already describes itself on screen. A bare date input does not:
+ * two of them side by side leave a sighted user guessing which end of the
+ * range they are editing. Those get a real visible label, and this is it.
+ */
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
 }
 
 .payment-form {
@@ -168,14 +195,27 @@ textarea:focus {
   flex: 0 0 auto;
 }
 
+/*
+ * Export is a secondary action, so it now reads as one.
+ *
+ * It was a pill with a slate-to-blue gradient and a 24px drop shadow, which
+ * made it the loudest control on pages whose real primary action ("Create
+ * Tender", "Add Worker") sat beside it in plain blue. Gradient and heavy
+ * shadow both go against the approved direction; the 42px height also broke
+ * the touch floor.
+ */
 .export-menu-button {
-  min-width: 118px;
-  min-height: 42px;
-  padding: 10px 17px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #0f172a, #2563eb);
-  color: #ffffff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.export-menu-button:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 
 .export-menu-dropdown {

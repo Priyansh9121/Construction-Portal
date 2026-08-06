@@ -28,6 +28,7 @@ import {
 } from "../services/notificationService";
 
 import useAsyncResource from "../hooks/useAsyncResource";
+import Icon from "./ui/Icon";
 
 /*
 |--------------------------------------------------------------------------
@@ -150,7 +151,14 @@ function NotificationCenter() {
             : "Notifications"
         }
       >
-        🔔
+        {/*
+          An SVG rather than the 🔔 emoji this used to render. An emoji is
+          font-dependent, renders differently on every platform, cannot take
+          the surrounding colour, and is announced as "bell" by screen
+          readers on top of the button's own label.
+        */}
+        <Icon name="bell" size={20} />
+
         {unreadCount > 0 && <span>{unreadCount}</span>}
       </button>
 

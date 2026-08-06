@@ -1,0 +1,717 @@
+/**
+ * ===========================================================================
+ * FOUNDATION — reset, base elements, and the shared primitives every page
+ * relies on (panels, buttons, tables, forms, badges, page headers).
+ * ===========================================================================
+ *
+ * File purpose:
+ * One place where the shapes shared by all 22 routes are defined. Because
+ * every page already used `.panel`, `.card`, `table`, `.badge` and the bare
+ * `button` element, restyling them here propagates the new design system
+ * across the whole portal without touching page markup.
+ *
+ * Ordering matters: this file loads after tokens.css and before the
+ * component and page sheets, so a page can still override a primitive
+ * without an `!important`.
+ *
+ * Mobile-first throughout. Base rules target 320px; every media query is
+ * min-width. The previous sheets used six different max-width breakpoints
+ * chosen independently of one another.
+ */
+
+/* ===========================================================================
+ * RESET
+ * ======================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* The single most effective guard against the horizontal scrolling this
+   * app had on phones: a long tender name or a wide table could push the
+   * body wider than the viewport. */
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--text-primary);
+
+  /* Long unbroken strings — tender titles, emails — must wrap rather than
+   * widen their container. */
+  overflow-wrap: anywhere;
+}
+
+h1 { font-size: var(--font-size-2xl); }
+h2 { font-size: var(--font-size-xl); }
+h3 { font-size: var(--font-size-lg); }
+h4 { font-size: var(--font-size-md); }
+
+p { margin: 0; }
+
+/* Media never overflows its column. */
+img, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ===========================================================================
+ * FOCUS — visible, consistent, keyboard-only
+ * =======================================================================
+ * `:focus-visible` rather than `:focus` so a mouse click does not leave a
+ * ring, but Tab always does. The old sheets removed outlines in places
+ * with no replacement, which made keyboard navigation untrackable.
+ */
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Only remove the default ring where we provide our own above. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ===========================================================================
+ * TYPOGRAPHY HELPERS
+ * ======================================================================== */
+
+.muted-text {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.section-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+/* On a phone the action under a heading should span the width rather than
+ * sit in a cramped 90px column beside it. */
+.section-title-row > * {
+  min-width: 0;
+}
+
+/*
+ * A bare "View all" link beside a section heading.
+ *
+ * Measured at 23px tall on the dashboard, where four of them sit at the top
+ * right of four panels. They are standalone navigation controls, not links
+ * inside a sentence, so the 44px floor applies. inline-flex + the floor
+ * gives a real target without changing where the link sits.
+ */
+.section-title-row > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ===========================================================================
+ * PANELS AND CARDS
+ * ======================================================================== */
+
+.panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin-bottom: var(--section-gap);
+  box-shadow: var(--shadow-sm);
+
+  /* Panels must never be the thing that widens the page. */
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .panel {
+    padding: var(--space-6);
+  }
+}
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-xs);
+  min-width: 0;
+}
+
+.card p {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.card h2 {
+  font-size: var(--font-size-2xl);
+  font-variant-numeric: tabular-nums;
+
+  /* Large currency values must shrink rather than overflow the tile. */
+  overflow-wrap: anywhere;
+}
+
+/* Summary tiles. One column at 320px, then as many as genuinely fit —
+ * `auto-fit` with a min track means no fixed column count to maintain. */
+.summary-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--section-gap);
+}
+
+@media (min-width: 480px) {
+  .summary-cards {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+}
+
+.card.highlight-success { border-left: 3px solid var(--status-success-border); }
+.card.highlight-warning { border-left: 3px solid var(--status-warning-border); }
+.card.highlight-danger  { border-left: 3px solid var(--status-danger-border); }
+
+/* ===========================================================================
+ * BUTTONS
+ * =======================================================================
+ * Styled on the bare element because every page already writes plain
+ * <button>. Minimum height is the 44px touch target.
+ */
+
+button {
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-text);
+
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base);
+
+  /* Stops a long label stretching a toolbar past the viewport. */
+  max-width: 100%;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.delete-btn {
+  background: var(--color-red-600);
+  color: var(--color-white);
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: var(--color-red-700);
+}
+
+/* A button that reads as a link inside a table cell. Still a real button,
+ * so it keeps keyboard and screen-reader semantics. */
+/*
+ * Measured at 17px tall in the audit — the worst touch target in the portal,
+ * and it is the control that opens a record from a register, so it is one of
+ * the most-tapped things in the product.
+ *
+ * It keeps the full 44px floor rather than taking WCAG 2.2's inline-link
+ * exemption: this is a standalone action in a table cell, not a link inside
+ * a sentence, and the people tapping it are often on a phone on site. The
+ * cost is a slightly taller row, which is the right trade here.
+ */
+.table-link-button {
+  display: inline-flex;
+  align-items: center;
+
+  background: none;
+  border: none;
+  padding: var(--space-1) 0;
+  min-height: var(--touch-target);
+
+  color: var(--color-blue-700);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.table-link-button:hover:not(:disabled) {
+  background: none;
+  color: var(--color-blue-600);
+}
+
+.table-actions,
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ===========================================================================
+ * FORMS
+ * ======================================================================== */
+
+label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+
+  /* 16px floor. Anything smaller makes iOS Safari zoom the page on focus,
+   * which then leaves the layout scrolled sideways — a large part of the
+   * app's apparent "horizontal overflow on mobile". */
+  font-size: var(--font-size-md);
+
+  display: block;
+  width: 100%;
+  min-height: var(--touch-target);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: var(--line-height-normal);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--bg-surface-sunken);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* One column on a phone, then as many as fit. Replaces several
+ * page-specific grid definitions that each picked their own column count. */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+.search-input {
+  margin-top: 0;
+}
+
+.form-preview-total {
+  padding: var(--space-3);
+  margin: var(--space-4) 0;
+  background: var(--bg-surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+/* ===========================================================================
+ * BADGES
+ * =======================================================================
+ * Status must not be carried by colour alone (WCAG 1.4.1), so the badge
+ * always shows its text label too. Colour is reinforcement.
+ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+
+  padding: var(--space-1) var(--space-2);
+
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+  text-transform: capitalize;
+  white-space: nowrap;
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-fg);
+}
+
+.badge.green  { background: var(--status-success-bg); color: var(--status-success-fg); }
+.badge.yellow { background: var(--status-warning-bg); color: var(--status-warning-fg); }
+.badge.red    { background: var(--status-danger-bg);  color: var(--status-danger-fg); }
+.badge.blue   { background: var(--status-info-bg);    color: var(--status-info-fg); }
+
+/* ===========================================================================
+ * TABLES
+ * =======================================================================
+ * Every table scrolls inside its own wrapper rather than widening the page.
+ * `-webkit-overflow-scrolling` keeps momentum scrolling on iOS.
+ */
+
+.table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+
+  /* Hairline that tells the user there is more to the right. */
+  background-image: linear-gradient(to right, transparent, rgba(15, 23, 42, 0.04));
+  background-position: right center;
+  background-size: 24px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, scroll;
+}
+
+/*
+ * Any actionable control inside a table cell gets the touch floor.
+ *
+ * The dashboard renders bare `<Link>Open</Link>` in its priority tables;
+ * those measured 17px tall. Rather than chase each one as it appears, the
+ * rule is stated once for the place the problem keeps coming from: a cell
+ * action is never prose, so the WCAG 2.2 inline-link exemption never
+ * applies to it.
+ */
+td a,
+td button:not(.table-link-button) {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+}
+
+/*
+ * Eyebrow label — small uppercase text above a heading.
+ *
+ * The name is historical: it was defined in dashboard.css alongside the
+ * dashboard's gradient hero. That hero is gone, but the class is used by
+ * FIVE other screens — all four auth pages and the Tender Details header —
+ * where it sits on a dark panel. Deleting it with the hero would have
+ * silently unstyled those five, so it moved here as a shared primitive
+ * instead.
+ *
+ * The light-blue is deliberate and unchanged: every remaining consumer
+ * renders it on a dark navy surface, where a muted grey would fail contrast.
+ */
+.dashboard-hero-eyebrow {
+  margin: 0 0 var(--space-2);
+  color: var(--color-blue-100);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+/*
+ * The 640px floor applies ONLY to a table inside a scrolling wrapper.
+ *
+ * It used to be on the bare `table` selector, which was the single largest
+ * source of horizontal overflow in the audit: 19 tables across 11 routes are
+ * NOT inside a `.table-wrapper`, and each one forced a 640px-wide box into
+ * whatever container it sat in. On a 375px phone that is a 265px page
+ * overflow; at 1440px the register pages still overflowed by 74px.
+ *
+ * Below this the columns become unreadable, so the wrapper scrolls instead.
+ */
+.table-wrapper table {
+  min-width: 640px;
+}
+
+/*
+ * Safety net for a table that has no wrapper.
+ *
+ * `:where()` contributes no specificity, so this cannot accidentally
+ * outrank a page rule. Making the table itself the scroll container is the
+ * standard technique for this and keeps the internal table layout intact.
+ *
+ * This is a floor, not a licence: a table meant for small screens should
+ * still be given an explicit mobile strategy. It exists so that a table
+ * added later without a wrapper degrades to "scrolls inside itself" rather
+ * than "breaks the whole page sideways".
+ */
+table:not(:where(.table-wrapper *)) {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+
+  padding: var(--space-3);
+  text-align: left;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  background: var(--bg-surface-sunken);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+tbody td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: var(--bg-surface-sunken);
+}
+
+tfoot td {
+  padding: var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  background: var(--bg-surface-sunken);
+  border-top: 1px solid var(--border-default);
+}
+
+.amount-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.empty-table-message {
+  padding: var(--space-10) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ===========================================================================
+ * TABS
+ * =======================================================================
+ * Horizontally scrollable on a phone rather than wrapping into three rows
+ * or overflowing the page.
+ */
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-1);
+
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tabs button {
+  flex: 0 0 auto;
+
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tabs button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tabs button.active-tab {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  border-bottom-color: var(--accent-brand);
+  background: none;
+}
+
+/* ===========================================================================
+ * ALERTS
+ * =======================================================================
+ * Site Operations invented `.alert--error` / `.alert--warning` while the
+ * rest of the portal used `.badge`. Both conventions are honoured here so
+ * the two look like the same product.
+ */
+
+.alert {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+
+  border: 1px solid var(--border-subtle);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+
+  font-size: var(--font-size-sm);
+  background: var(--bg-surface-sunken);
+  color: var(--text-secondary);
+}
+
+.alert--error {
+  background: var(--status-danger-bg);
+  border-left-color: var(--status-danger-border);
+  color: var(--status-danger-fg);
+}
+
+.alert--warning {
+  background: var(--status-warning-bg);
+  border-left-color: var(--status-warning-border);
+  color: var(--status-warning-fg);
+}
+
+/* ===========================================================================
+ * DETAILS / SUMMARY
+ * ======================================================================== */
+
+details.panel > summary {
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-1) 0;
+  min-height: var(--touch-target);
+  display: flex;
+  align-items: center;
+}
+
+details.panel > summary:hover {
+  color: var(--accent-brand-hover);
+}
+
+/* ===========================================================================
+ * ACCESSIBILITY UTILITIES
+ * ======================================================================== */
+
+/* Visible only to assistive technology. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link — first tab stop, visible only when focused. */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-toast);
+
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+
+  transform: translateY(-200%);
+  transition: transform var(--transition-base);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}

@@ -38,6 +38,7 @@ import { updateWorker } from "../services/workerService";
 import { formatCurrency } from "../utils/currency";
 
 import { useAuth } from "../contexts/authContext";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 const EMPTY_EDIT_FORM = {
   full_name: "",
@@ -1076,7 +1077,7 @@ function WorkersPage({
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -1198,7 +1199,7 @@ function WorkersPage({
               </tfoot>
             )}
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <DeleteVerificationModal

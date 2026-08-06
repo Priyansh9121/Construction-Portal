@@ -45,6 +45,7 @@ import {
 } from "../services/subcontractorService";
 
 import useAsyncResource from "../hooks/useAsyncResource";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 const EMPTY_FORM = {
   full_name: "",
@@ -1516,7 +1517,7 @@ function SubcontractorsPage() {
             </div>
           </section>
 
-          <div className="table-wrapper">
+          <div className="table-wrapper" tabIndex={0}>
             <table>
               <tbody>
                 <tr>
@@ -1583,7 +1584,7 @@ function SubcontractorsPage() {
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -1726,7 +1727,7 @@ function SubcontractorsPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <DeleteVerificationModal

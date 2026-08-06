@@ -45,6 +45,7 @@ import {
 } from "../services/userService";
 
 import useAsyncResource from "../hooks/useAsyncResource";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 const EMPTY_FORM = {
   full_name: "",
@@ -1374,7 +1375,7 @@ function UsersPage() {
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -1543,7 +1544,7 @@ function UsersPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <DeleteVerificationModal
