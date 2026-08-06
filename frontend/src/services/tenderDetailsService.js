@@ -48,7 +48,14 @@ import axiosClient from "../api/axiosClient";
 |
 */
 
-const tenderPath = (tenderId, suffix = "") => {
+/**
+ * Builds a path under a tender, validating the id first.
+ *
+ * Exported because tenderWorkerService needs the same rule. It previously
+ * carried its own copy with identical validation and the same error
+ * message, so a change to id handling had to be made in two places.
+ */
+export const tenderPath = (tenderId, suffix = "") => {
   const id = Number(tenderId);
 
   if (!id || Number.isNaN(id)) {

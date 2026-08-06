@@ -88,6 +88,7 @@ coverage/
 # pg_dump custom-format backups — the ones DEPLOYMENT.md tells you to take
 # before running a migration. These contain real data.
 *.dump
-# A developer's own snapshot, alongside the tracked
-# database/snapshots/schema-production.sql.
+# A developer's own schema snapshot. Nothing under snapshots/ is tracked —
+# an earlier version of this comment referred to a checked-in
+# schema-production.sql that no longer exists in the repository.
 backend/database/snapshots/*.local.sql

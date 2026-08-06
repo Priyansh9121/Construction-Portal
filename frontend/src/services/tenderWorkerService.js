@@ -23,6 +23,7 @@
  */
 
 import axiosClient from "../api/axiosClient";
+import { tenderPath } from "./tenderDetailsService";
 
 /*
 |--------------------------------------------------------------------------
@@ -39,25 +40,24 @@ import axiosClient from "../api/axiosClient";
 |
 */
 
-const tenderPath = (tenderId, suffix = "") => {
-  const id = Number(tenderId);
-
-  if (!id || Number.isNaN(id)) {
-    throw new Error("A valid tender ID is required.");
-  }
-
-  return `/tenders/${id}/workers${suffix}`;
-};
+/*
+ * Composed from the canonical helper in tenderDetailsService rather than
+ * redefined. This file used to carry a byte-identical copy of the id
+ * validation — same Number()/Number.isNaN guard, same error message — with
+ * only "/workers" baked in, so the rule lived in two places.
+ */
+const workerPath = (tenderId, suffix = "") =>
+  tenderPath(tenderId, `/workers${suffix}`);
 
 export const getTenderWorkers = async (tenderId) => {
-  const response = await axiosClient.get(tenderPath(tenderId));
+  const response = await axiosClient.get(workerPath(tenderId));
 
   return response.data;
 };
 
 export const assignWorkerToTender = async ({ tender_id, ...payload }) => {
   const response = await axiosClient.post(
-    tenderPath(tender_id),
+    workerPath(tender_id),
     payload
   );
 
@@ -67,7 +67,7 @@ export const assignWorkerToTender = async ({ tender_id, ...payload }) => {
 
 export const removeTenderWorker = async (tenderId, assignmentId) => {
   const response = await axiosClient.delete(
-    tenderPath(tenderId, `/${assignmentId}`)
+    workerPath(tenderId, `/${assignmentId}`)
   );
 
   return response.data;

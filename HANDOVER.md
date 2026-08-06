@@ -3,6 +3,14 @@
 Written at the end of the hardening and build-out pass. Start with **Do
 this first**; the rest is reference.
 
+> **Later documents supersede parts of this one.** This is a point-in-time
+> record of that pass, kept for its reasoning rather than its counts.
+>
+> - `DEPLOYMENT.md` — how to run, deploy and maintain the project now
+> - `STALE_UNUSED_CODE_AUDIT.md` — full 249-file stale/unused audit
+> - `FIX_IMPLEMENTATION_TRACKER.md` — status of every audit finding
+> - `backend/database/migrations/README.md` — migration order and RLS
+
 ---
 
 ## Do this first
@@ -28,7 +36,8 @@ from the committed `.env`. See **DEPLOYMENT.md** — it takes five minutes.
 ### 3. Run the migrations
 
 `backend/database/migrations/README.md` says which files to run for a local
-database versus a fresh Supabase project.
+database versus a fresh Supabase project, and why migration 005 must run
+even on a fresh install.
 
 ---
 
@@ -117,8 +126,9 @@ having them.
 
 ### Database
 
-Four migration files in `backend/database/migrations/`, each executed and
-verified rather than just written:
+Five migration files in `backend/database/migrations/`, each executed and
+verified rather than just written (005 is described under *Still
+outstanding* below):
 
 - **001** — the two missing tables, `company_id` on eight tables that lacked
   it, payments extended for the Add Payment hierarchy, and seven new
@@ -176,7 +186,10 @@ password reset, `.gitignore`, `.env.example`, security headers in
 
 ### Tests
 
-143 passing. `npm test` in `backend/`.
+222 passing. `npm test` in `backend/`.
+
+(Was 143 at the time of the original hand-over; the suite has grown with
+each subsequent pass.)
 
 - `tenantIsolation.test.js` — seeds two companies, asserts neither can read
   or touch the other through any endpoint. This is the test that found the
@@ -283,7 +296,7 @@ the same class of fault kept reappearing:
 | INSERTs missing a NOT NULL `company_id` | 6 | 0 |
 | SQL naming a column that does not exist | 3 | 0 |
 | ESLint problems | 47 | 0 |
-| Dead exports | 30 | 0 |
+| Dead exports | 30 | see note |
 | `className` with no CSS rule | 9 | 0 |
 | Orphan files | 14 | 0 |
 

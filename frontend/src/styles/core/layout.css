@@ -143,3 +143,21 @@
 .mobile-page-nav {
   display: none;
 }
+/*
+ * Suspense fallback for lazily loaded pages.
+ *
+ * Every authenticated page is code-split (see routes/AppRoutes.jsx), so
+ * there is a brief moment between a route change and its chunk arriving.
+ * Centred and muted rather than a spinner: on a normal connection this is
+ * visible for a fraction of a second, and a flashing spinner reads as a
+ * fault where a quiet word does not.
+ */
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem;
+  font-size: 0.95rem;
+  opacity: 0.6;
+}
