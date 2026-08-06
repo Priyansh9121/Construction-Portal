@@ -219,156 +219,220 @@ every static-analysis finding against source before deleting anything.*
 
 ---
 
-### AUD-013 — Site Operations references design tokens that do not exist
+### AUD-013 — Site Operations referenced design tokens that do not exist
 
 | Field | Value |
 |---|---|
 | **Category** | Design System |
-| **Severity** | Low |
+| **Severity** | Medium (raised from Low — two pairs were failing WCAG AA) |
 | **Files** | `frontend/src/styles/pages/site-operations.css` |
-| **Description** | Surfaced while classifying AUD-008 groups G22–G24. Rules use `var(--success-bg, #dcfce7)`, `var(--warning-bg, #fef3c7)`, `var(--surface-muted, #f4f5f7)`, `var(--text-muted, #6b7280)` and `var(--primary-color, #2563eb)`. |
-| **Evidence** | `--success-bg`, `--warning-bg`, `--surface-muted` and `--primary-color` are **not declared anywhere** in `tokens.css`. Every one of these resolves to its hard-coded hex fallback, so the file is effectively using raw colour values while appearing token-compliant. `--text-muted` does exist, so that one resolves correctly — its fallback is dead but harmless. |
-| **Risk** | These colours do not follow the palette. `#a16207` and `#6b7280` are not in the slate/amber/green/red families, so Site Operations badges drift from the product's status scale, and a future token change will not reach them. |
-| **Recommended fix** | Replace with the canonical `--status-*-bg` / `--status-*-fg` pairs and drop the fallbacks. |
-| **Fix applied** | **None.** |
-| **Status** | **Needs Manual Decision** — this is a visible colour change to Site Operations status badges, so it needs before/after screenshots at the affected widths rather than a blind token swap. Also resolves AUD-008 G21–G24 once done. |
+| **Scope correction** | The finding recorded **4** missing tokens. A repo-wide scan for `var(--x, …)` where `--x` is undeclared found **16 missing tokens across 42 references** — including an entire parallel spacing scale (`--space-xs/sm/md/lg`) that never existed. All 42 were in this one file; no other stylesheet had any. |
+| **False positive** | `--danger` (3 refs) was initially reported missing. It **is** declared at `tokens.css:325`; the scanner's BEM guard (`\.[\w-]*--danger:`) wrongly excluded it. Verified and discounted. |
 
----|---|
-| **Category** | Duplicate CSS |
-| **Severity** | Medium |
-| **Files** | 28 duplicate bodies across the 24 stylesheets |
-| **Description** | 28 declaration bodies (>40 characters) appear under two or more distinct selectors. |
-| **Evidence** | Analyser normalises each block (sorted declarations, whitespace-collapsed) and groups identical bodies. |
-| **Risk** | A change made in one place and not the other is the classic source of visual drift. |
-| **Recommended fix** | Consolidate where the selectors genuinely share intent; leave alone where two components coincidentally share a body but would diverge under change. |
-| **Fix applied** | None this pass. |
-| **Verification** | n/a |
-| **Status** | **Blocked** — consolidating requires deciding, per pair, whether the shared body is intent or coincidence. That judgement needs per-pair review with visual verification, which did not fit this pass. Recorded in §Remaining technical debt with the full list available from the analyser output. |
+#### The accessibility defect
 
----
+Two of the hard-coded fallback pairs were **below the 4.5:1 AA floor**. The
+canonical tokens fix both:
 
-### AUD-009 — No TODO / FIXME / HACK markers
+| Pair | Before | After | Verdict |
+|---|---|---|---|
+| `status--pending` / `badge--gallery` | `#a16207` on `#fef3c7` = **4.42:1** ❌ | `#b45309` on `#fef3c7` = **4.51:1** | now AA |
+| `status--used` / `badge--unknown` | `#6b7280` on `#f4f5f7` = **4.43:1** ❌ | `#475569` on `#f8fafc` = **7.24:1** | now AA, comfortably |
+| `status--approved` / `badge--camera` | 4.57:1 | 4.57:1 | unchanged |
+| `status--denied` / `alert--error` | 5.30:1 | 5.30:1 | unchanged |
 
-| Field | Value |
-|---|---|
-| **Category** | Technical Debt |
-| **Severity** | None |
-| **Evidence** | Analyser scanned every line of all `.js`, `.jsx`, `.css` under `frontend/src` and `frontend/tests` for `TODO`, `FIXME`, `HACK`, `XXX`. **Zero matches.** |
-| **Status** | **Resolved** — nothing to do. Recorded so the absence is a measured result, not an assumption. |
+#### Migration
 
----
+| Missing token | Fallback | Canonical replacement | Uses |
+|---|---|---|---:|
+| `--space-xs` / `--space-sm` / `--space-md` / `--space-lg` | 4/8/16/24px | `--space-1` / `--space-2` / `--space-4` / `--space-6` | 16 |
+| `--success-bg` / `--success-text` | `#dcfce7` / `#15803d` | `--status-success-bg` / `-fg` | 4 |
+| `--warning-bg` / `--warning-text` / `--warning-border` | `#fef3c7` / `#a16207` / `#fde68a` | `--status-warning-bg` / `-fg` / `-border` | 7 |
+| `--danger-bg` / `--danger-text` | `#fee2e2` / `#b91c1c` | `--status-danger-bg` / `-fg` | 4 |
+| `--surface-muted` | `#f4f5f7` | `--bg-surface-sunken` | 4 |
+| `--text-color` | `#1f2430` | `--text-primary` | 2 |
+| `--border-color` | `#e6e8ec` | `--border-subtle` | 3 |
+| `--primary-color` / `--primary-bg` | `#2563eb` / `#eff6ff` | `--accent` / `--accent-subtle` | 2 |
 
-### AUD-010 — Dead `.login-*` rule set (found by reading, not by the analyser)
+**No new aliases were created.** The old names were migrated away from
+entirely, per the instruction to prefer canonical names.
 
-| Field | Value |
-|---|---|
-| **Category** | Unused CSS / Dead Code |
-| **Severity** | Medium |
-| **Files** | `frontend/src/styles/core/animations.css` |
-| **Description** | Six rules targeting `.login-brand`, `.login-brand::after`, `.login-brand h1/p` and `.login-box form` — including an infinite `floatTiny` animation and a radial-gradient overlay. The auth screens were rebuilt on `.auth-*` classes, so none of these selectors match anything. |
-| **Evidence** | `grep -rF login-brand frontend/src \| grep -v '\.css:'` returns exactly **one** hit — an explanatory comment inside `AuthShell.jsx`. No JSX uses the class. |
-| **Risk** | 20 lines of dead CSS including a permanently-running animation, shipped to every user. |
-| **Fix applied** | All six rules removed. `animations.css` 691 → 671 lines. |
-| **Verification** | lint clean · build passes · 300 responsive + 44 axe assertions pass · CSS bundle 73.28 → 72.62 kB. |
-| **Status** | **Resolved** |
+Additionally, **11 dead fallbacks** on tokens that *do* exist
+(`var(--text-muted, #6b7280)`, `var(--radius-sm, 6px)`) were stripped. These
+could never apply — and `#6b7280` is not even `--text-muted`'s value
+(slate-600 `#475569`), so it would have silently mis-coloured the page if the
+token were ever renamed.
 
-*Worth noting how this was found: the analyser did not flag it, because
-`.login-brand` appears in a source comment and my class-usage check treats any
-textual occurrence as a reference. Reading the file caught what the tool
-missed — a caution against trusting either method alone.*
+#### Verification
 
----
-
-### AUD-011 — Anti-pattern motion on cards, badges and navigation
-
-| Field | Value |
-|---|---|
-| **Category** | Animations / Design System |
-| **Severity** | Medium |
-| **Files** | `frontend/src/styles/core/animations.css` |
-| **Description** | Decorative motion contradicting DESIGN_SYSTEM.md §7 and §14 was live across authenticated routes. |
-| **Evidence (runtime, not static)** | A Playwright probe measured computed styles on 7 routes at 1440px. **Gradient `::before` sweep active on 60 elements** — Dashboard 34, Tenders 15, Subcontractor 4, Worker 3, SiteOps 2, Activity 2. **Infinite `pulseGlow` running on 3 routes** (`button.active-tab` on Tenders, Worker Portal, Subcontractor Portal). Card and badge `transition` both declared `transform`, the vector for the 7px lift. |
-| **Risk** | A 7px hover lift moves the target the user is aiming at — the same mis-click risk already fixed for buttons. Two permanently-running animations carry continuous compositing cost on every authenticated page. |
-| **Fix applied** | Removed: the `.card/.panel/.stat-card::before` gradient sweep and its `:hover::before` reveal; the `.card/.stat-card:hover` 7px lift + 60px shadow; the `.badge/.tender-status-badge:hover` lift; `.sidebar a.active` pulseGlow (**dead** — nav uses `.active-link`); `.tabs .active-tab` pulseGlow (**live**); the now-dead `transform` vectors from card and row transitions; `animation: softPop` on every card (34 on Dashboard alone); `animation: rowEnter` on every table row; `animation: fadeDown` on `.page-header`. Orphaned keyframes `pulseGlow`, `fadeDown`, `rowEnter`, `floatTiny` deleted. |
-| **Interaction feedback preserved** | `.active-tab` retains a solid background fill (`tabs.css:31`) plus weight change and underline (`foundation.css:620`) — verified, no state indication lost. Modal fade/scale and alert entry animations **retained**: DESIGN_SYSTEM.md §7 explicitly permits them. |
-| **Verification** | Runtime probe re-run: **infinite animations 0/7 routes** (was 3), **gradient `::before` 0** (was 60). 21 before/after screenshots at 390/768/1440 across 7 routes: **18 byte-identical**; the 2 with deltas (Worker/Subcon @1440) are exactly where `pulseGlow` was mid-cycle; 1 differs by 78 bytes. Visual inspection of Worker@1440 confirms no regression. lint clean · build passes · 300 responsive + 44 axe pass. |
-| **Status** | **Resolved** |
-
----
-
-### AUD-012 — `borderFlow` infinite animation on `.report-bar-fill`
-
-| Field | Value |
-|---|---|
-| **Category** | Animations / Performance |
-| **Severity** | Low–Medium |
-| **Files** | `frontend/src/styles/core/animations.css`, `frontend/src/styles/pages/reports.css` |
-| **Description** | `.report-bar-fill` declared a 3-stop gradient plus `animation: borderFlow 3s linear infinite`. |
-| **Correction to the previous entry** | The earlier revision recorded this as **Blocked**, on the grounds that `/reports` rendered zero `.report-bar-fill` elements. **That was the wrong route.** The class is used 7 times, none of them in `ReportsPage.jsx`: `TenderOverviewTab` ×2, `TenderSitesTab` ×2, `FinanceOverview` ×2, `TenderSummaryCard` ×1. The class name is a leftover from a removed reports implementation; the styling migrated to tender and finance views. |
-| **Evidence (runtime)** | Measured **2 live elements on `/tenders/229` AND 2 on `/payments`**, each reporting `animationName: "borderFlow"`, `animationIterationCount: "infinite"`, `backgroundImage: "none"`. |
-| **The actual defect** | `styles/pages/reports.css` loads **after** `animations.css` and sets `background: var(--blue-dark)`. The `background` shorthand resets `background-image` to `none`, so the gradient never painted — but `animation` was not overridden, leaving an infinite animation running against a background that does not exist. Permanent compositing cost, zero visual output, on two routes. |
-| **Fix applied** | Removed the gradient and the `animation` declaration from the `animations.css` rule, keeping only `transition: width 900ms` (the bar growing to its value carries real meaning). `@keyframes borderFlow` deleted as orphaned. |
-| **Verification** | Re-measured on both routes: `animationName: "none"`, `iterationCount: "1"`, element count unchanged at 2, `backgroundImage` unchanged at `"none"` — proving no visual change. lint clean · build passes · 300 responsive + 44 axe pass. |
-| **Status** | **Resolved** |
-
----
-
-### AUD-004 — Dead CSS classes
-
-| Field | Value |
-|---|---|
-| **Category** | Unused CSS |
-| **Method** | Static analysis + a runtime collector walking all 22 routes, clicking every tab strip and expanding disclosures (205 distinct classes observed), + per-class source verification. |
-| **Outcome** | **58 → 11.** 47 dead selectors removed; 11 correctly retained. |
-| **Removed** | 37 rules deleted outright and 17 selector lists trimmed, plus 3 stragglers in a second pass and 1 newly-orphaned keyframe. The remover only deletes a rule when **every** class in its selector list is dead; a mixed list like `.auth-success, .login-message` is rewritten to keep the live half. |
-| **Retained (11)** | 1 **False Positive** — `recharts-default-tooltip`, stamped by the Recharts library. 10 **Unsafe To Remove** — `badge--{camera,gallery,unknown}` and `status--{approved,denied,expired,granted,pending,rejected,used}`, produced by template literals. |
-| **Verification** | The runtime collector was re-run after deletion: **205 classes before, 205 after, none lost, none gained.** lint clean · build passes · 300 responsive + 44 axe pass. |
-| **Status** | **Resolved** |
-
-**Tooling defect caught before it did damage:** the first version of the
-remover parsed CSS comment prose as selectors — it proposed "trimming"
-`/* File purpose: … */`. Running it would have corrupted eight stylesheets.
-Fixed by masking comment bodies with equal-length spaces so offsets stay
-valid. Recorded because it is the second time in this audit that inventorying
-before applying prevented real damage.
-
----
-
-### AUD-006 — Design token candidates
-
-| Field | Value |
-|---|---|
-| **Category** | Unused CSS / Design System |
-| **Outcome** | **All 34 candidates classified. 9 removed, 25 retained with reasons.** |
-
-| Category | Count | Action |
-|---|---:|---|
-| **Intentional scale member** | 17 | Retain — `--space-0`, `--radius-xl/2xl`, `--dur-instant/slow`, `--z-base/modal/modal-scrim`, `--ease-in-out`, `--font-mono`, `--line-height-relaxed`, `--color-{amber-50/400/600, green-50, red-50, slate-500}`. A token scale is a *palette*, not a usage list; a scale that only declares what is currently consumed forces a token edit for every new component. |
-| **Active semantic token, currently unconsumed** | 7 | Retain — `--accent-brand-subtle`, `--bg-active`, `--bg-surface-raised`, `--border-strong`, `--content-max-narrow`, `--status-neutral-border`, `--text-on-accent`. These complete semantic families whose siblings are in use. |
-| **Legacy alias, 0 consumers** | 9 | **Removed** — `--primary-light`, `--danger-light`, `--success`, `--warning`, `--warning-light`, `--bg`, `--mobile-bg`, `--shadow-login` (tokens.css) and `--transition-slow` (animations.css). |
-| **False positive** | 1 | `--active` was never a token. The analyser's `(--[\w-]+)\s*:` pattern matched inside the BEM class `.ops-module--active:hover`. |
-
-Verified zero remaining `var()` references for all 9 removed aliases. No raw
-values were introduced — every removal was of an alias with no consumer, so
-nothing needed migrating. Live legacy aliases (`--primary`, `--danger`,
-`--text`, `--muted`, `--border`, `--panel-bg`, `--blue-dark`, …) are
-**Intentionally Retained**: they still have consumers across the page sheets,
-and retiring them requires per-sheet migration, which is separate work.
+- **Repo-wide rescan: zero undefined tokens referenced anywhere.**
+- `site-operations.css`: **0** `var()` fallbacks, **0** raw hex values.
+- Computed styles confirmed on live DOM: camera/approved `#dcfce7`/`#15803d`,
+  gallery/pending `#fef3c7`/`rgb(180,83,9)`, unknown `#f8fafc`/`rgb(71,85,105)`,
+  denied `#fee2e2`/`#b91c1c` — all matching their canonical tokens.
+- **24 screenshots** (4 modules × 3 widths, before and after). Labour, Banking
+  and Access Requests **byte-identical**; Material differs by +37/+17/+1 bytes
+  at 1440/768/390 — the photo-source badges, the only place the changed tones
+  render.
+- **2 regression tests added**: one asserts each badge/status class resolves to
+  its canonical token (so a broken link fails loudly instead of silently
+  falling back to a literal); one asserts tones still carry text labels.
+- lint clean · build passes · **346 assertions** · axe 44/44.
 
 | **Status** | **Resolved** |
 
----
-
-### AUD-008 — Duplicate CSS declaration groups
+### AUD-014 — Live legacy token aliases
 
 | Field | Value |
 |---|---|
-| **Category** | Duplicate CSS |
-| **Description** | The analyser reports 26 groups (down from 28 as a side effect of the AUD-004 deletions). |
-| **Fix applied** | **None.** |
-| **Status** | **Blocked** — not started in this pass. Each group needs an individual intent-vs-coincidence judgement against specificity, source order, media scope and page ownership, with computed-style verification per merge. That did not fit the remaining budget, and a partial merge would change cascade order in ways the test suite would not necessarily catch. |
+| **Category** | Design System |
+| **Severity** | Medium (two live WCAG AA failures were found and fixed) |
+| **Files** | 14 stylesheets: `tokens.css`, `animations.css`, `foundation.css`, `utilities.css`, `responsive.css`, `cards.css`, `forms.css`, `tables.css`, `tabs.css`, `dashboard.css`, `reports.css`, `settings.css`, `tender-details.css`, `site-operations.css` |
+| **Scope correction** | The brief listed **7** aliases. A repo-wide inventory found **17 live** ones: the 11 in the `tokens.css` "LEGACY ALIASES" block, 3 `--accent-brand*` aliases in §2, and a **second `:root` block in `animations.css`** declaring a parallel motion scale. |
 
----
+#### Phase 1 — inventory
+
+| Alias | Defined at | Consumers | Canonical replacement | Computed equality | Class |
+|---|---|---:|---|---|---|
+| `--primary` | `tokens.css` §11 | 4 | `--accent` | `#2563eb` = `#2563eb` | exact |
+| `--success-light` | §11 | 1 | `--status-success-bg` | `#dcfce7` = | exact |
+| `--blue-light` | §11 | 1 | `--status-info-bg` | `#dbeafe` = | exact |
+| `--panel-bg` | §11 | 1 | `--bg-surface` | `#ffffff` = | exact |
+| `--text` | §11 | 10 | `--text-primary` | `#0f172a` = | exact |
+| `--muted` | §11 | 12 | `--text-muted` | `#475569` = | exact |
+| `--border` | §11 | 3 | `--border-subtle` | `#e2e8f0` = | exact |
+| `--input-border` | §11 | 1 | `--border-default` | `#cbd5e1` = | exact |
+| `--shadow-panel` | §11 | 2 | `--shadow-md` | identical | exact |
+| `--accent-brand` | §2 | 1 | `--accent` | `#2563eb` = | exact |
+| `--accent-brand-hover` | §2 | 1 | `--accent-hover` | `#1d4ed8` = | exact |
+| `--accent-brand-subtle` | §2 | **0** | `--accent-subtle` | — | dead |
+| `--danger` | §11 | 3 | `--status-danger-fg` | `#dc2626` → `#b91c1c` | **ambiguous** |
+| `--blue-dark` | §11 | 8 | role-split | `#1d4ed8` → two outcomes | **ambiguous** |
+| `--transition-fast` | `animations.css` | 7 | `--transition-base` | 150ms → 140ms | deprecated, live |
+| `--transition-med` | `animations.css` | 11 | `--transition-base` | 280ms → 140ms | deprecated, live |
+| `--ease-pro` | `animations.css` | 6 | `--ease-out` | curve change | deprecated, live |
+| `--ease-bounce` | `animations.css` | 3 | *none exists* | — | **promoted to `tokens.css` §7** |
+
+**72 `var()` references** to these names existed at HEAD (comments excluded), across
+14 stylesheets. All 72 are gone; every alias declaration has been deleted.
+
+**False positives — not touched.** `.claude/skills/**` matches
+(`hsl(var(--primary))`, `hsl(var(--muted))`, `hsl(var(--border))`) are vendored
+shadcn/Tailwind reference documentation describing a *different* design system.
+`UI_UX_AUDIT.md:318` is prose describing a historical defect. **No JavaScript
+references any of these tokens** — `getComputedStyle`, `getPropertyValue` and
+`setProperty` do not appear anywhere in `frontend/src`.
+
+#### The two ambiguous aliases
+
+`--danger` was `red-600`, which matches **no member** of the danger family
+(`-bg` is red-100, `-fg` red-700, `-border` red-500). All three uses moved to
+`--status-danger-fg`, which raises contrast in every one:
+
+| Use | Before | After |
+|---|---|---|
+| `.error { color }` on `--bg-page` | `#dc2626` = **4.41:1** ❌ | `#b91c1c` = **5.91:1** ✅ |
+| `.notification-button span` (white text on fill) | 4.83:1 | 6.47:1 |
+| `.notification-panel a.unread strong::after` (7px dot) | — | — |
+
+`.error` was the significant one: it is the shared error style for every
+non-auth form, and `auth.css` **already** used `--status-danger-fg` for
+`.auth-card .error`, so the two now agree.
+
+`--blue-dark` was `blue-700`, which matches **two** canonical tokens
+(`--status-info-fg` and `--accent-hover`), so value alone could not decide it.
+Split by the role of the property:
+
+| Consumer | Role | Replacement | Value |
+|---|---|---|---|
+| `.blue { color }` (bg is `--status-info-bg`) | info | `--status-info-fg` | unchanged |
+| `.notification-panel strong` | info | `--status-info-fg` | unchanged |
+| `.notification-panel a.unread { border-left }` | info marker | `--status-info-fg` | unchanged |
+| `.password-toggle-btn` | action | `--accent` | **no visible change** — `auth.css` already overrode this rule; measured `rgb(37,99,235)` before the migration |
+| `.table-wrapper a` | action | `--accent` | blue-700 → blue-600 (6.70:1 → 5.17:1, both AA) |
+| `.notification-panel .link-button` | action | `--accent` | same |
+| `.report-bar-fill` | data emphasis | `--accent` | same |
+| `tbody tr:hover` inset bar | hover affordance | `--accent` | same |
+
+The unread marker deliberately uses `-fg`, **not** `-border`: `--status-info-border`
+is blue-500, which measures **3.38:1** against that row's own tinted background.
+
+#### The motion scale (not in the brief, found by inventory)
+
+`core/animations.css` carried a second `:root` block. DESIGN_SYSTEM.md §7 states
+that `prefers-reduced-motion` is honoured by collapsing the `--dur-*` tokens to
+`0ms`, "**provided you use the tokens** — hard-code a duration and you have
+opted the user out of their own accessibility setting". `--transition-fast: 150ms`
+and `--transition-med: 280ms` did exactly that; they survived only because a
+separate blanket `transition: none !important` rule caught them. Every consumer
+of both was a hover/state transition on a card, button, badge or thumbnail —
+which §7 assigns to `--dur-fast`. `--ease-bounce` is the only overshoot curve in
+the product and had no canonical equivalent, so it was **promoted into
+`tokens.css` §7** as a token in its own right rather than approximated away.
+
+#### Phase 3 — dashboard.css
+
+`.quick-actions` was the last block in the product built entirely from raw
+values: 6 hexes, an off-scale radius, a bespoke shadow, 5 raw px sizes. All
+migrated. Two changes are visible rather than equivalent, both justified:
+
+- **hover** `#93c5fd` (blue-300) was the only signal a tile is interactive, and
+  a pale hairline on white against a slate-100 page is close to invisible. Now
+  `--accent`, matching every other interactive surface.
+- **lift** `transform: translateY(-2px)` is the hover lift AUD-011 removed from
+  every other control ("a lift on hover moves the thing the user is aiming
+  at"). This rule loads after `animations.css`, so it survived that sweep.
+
+#### Phase 4 — raw-value sweep, and what was retained
+
+After migration: **0 raw hex outside `tokens.css`**, **0 `var(--token, literal)`
+fallbacks repo-wide**. Literals deliberately retained, with reasons:
+
+| Retained | Where | Why |
+|---|---|---|
+| `rgba(255,255,255,0.07 … 0.85)` ×10 | `shell.css` | Translucent overlays on the dark sidebar. No token expresses "white at N% over an inverse surface". |
+| `rgba(255,255,255,0.04)` ×2, `0.12` | `auth.css` | The blueprint grid and its divider — an intentional, documented decoration. |
+| `rgba(0,0,0,0.45)` | `modal.css` | Modal scrim. No scrim token exists. |
+| `rgba(15,23,42,0.55)`, `rgba(255,255,255,0.96)`, `rgba(255,255,255,0.45)` | `animations.css` | The command palette's translucent glass, which pairs with `backdrop-filter`. Replacing them with opaque tokens would break the effect. |
+| `rgba(37,99,235,0.10 / 0.12 / 0.15)` | `animations.css`, `forms.css`, `foundation.css` | Three focus-ring alphas. No translucent-ring token exists; unifying them changes focus appearance and is listed as debt below. |
+| `rgba(15,23,42,0.04)` | `foundation.css` | Scroll-fade affordance gradient. |
+| `min-height: 82px` | `dashboard.css` | Card heights are bespoke throughout; well above the 44px floor. |
+| `0.5s` ×2, `900ms`, `animation-delay: 40/90/140ms` | `animations.css` | No canonical token at those scales. Covered by the blanket reduced-motion rule. |
+| Every hex in `tokens.css` | `tokens.css` | This file *is* the palette definition. |
+
+#### Verification
+
+A capture script recorded **every** declaration in every stylesheet rule whose
+value contains `var()`, with the value the browser resolves it to — including
+hover states, pseudo-elements and media-query branches that a rendered-element
+probe cannot reach. Run before and after, then diffed:
+
+- **843 declarations resolve to a byte-identical computed value.**
+- **25 rules changed**, every one intentional: 8 colour (3 danger, 5 blue-dark)
+  and 17 motion/count-difference rows.
+- **Pixel diff, 26 screenshots × 3 widths.** `/login` **byte-identical**. On
+  every table-bearing route the maximum per-pixel delta is **18–23 / 255** with
+  essentially no pixel differing by more than 16 — that is the intentional
+  darkening of `th` (slate-500 → slate-600) and `td` (slate-800 → slate-900).
+  The dashboard's larger figure is a **2px reflow**, not a repaint: realigning
+  the after-image by 2px drops the below-fold difference from 10.12% to 1.35%
+  and strong-delta pixels from 87,342 to 4,746.
+- **3 regression tests added** — no retired alias resolves on `:root`; no
+  stylesheet references one; the `--blue-dark` role split is still observable.
+  Each was confirmed to **fail** when an alias is reintroduced.
+- lint clean · build passes · **349 assertions** · axe **44/44** · `git diff --check` clean · backend untouched.
+- CSS bundle **65.70 → 65.89 kB** raw (added explanatory comments), **11.60 → 11.28 kB gzipped (−2.8%)**.
+
+#### Method defect found and corrected
+
+The first capture reported two phantom changes on `.site-operations-page` rules
+whose authored value was *identical* in both runs. Cause: the probe element was
+reused across ~900 declarations, so once a rule's `transition` value was applied
+to it, the next colour read came back **mid-transition**. Suppressing
+`transition`/`animation` on the probe removed both phantoms. Recorded because
+the same trap will catch anyone re-running this measurement.
+
+| **Status** | **Resolved** |
 
 ## Work applied this pass
 
@@ -383,6 +447,8 @@ and retiring them requires per-sheet migration, which is separate work.
 | AUD-006 | Removed 9 legacy token aliases with zero consumers | `tokens.css`, `animations.css` | CSS source 5,401 → 5,375 |
 | AUD-008 | Consolidated 4 duplicate groups (incl. a breakpoint bug); classified 22 retained | `cards.css`, `dashboard.css`, `tabs.css` | duplicates 26 → 22 |
 | AUD-007 | Removed `PortalSection` + its 4 CSS rules | `PortalPrimitives.jsx`, `portal.css` | unused exports 1 → 0 |
+| AUD-013 | Migrated 42 undefined-token refs + stripped 11 dead fallbacks | `site-operations.css` | CSS bundle 65.95 → 65.70 kB; 2 AA failures fixed |
+| AUD-014 | Retired all 17 live legacy aliases; migrated 72 references; raw-value sweep | 14 `.css` files | 0 aliases, 0 raw hex outside `tokens.css`, 0 fallbacks; 2 AA failures fixed; gzip 11.60 → 11.28 kB |
 
 **Net:** `animations.css` 708 → **631 lines** (**−77**, −10.9%). CSS source
 5,769 → **5,729 lines** (−40; the file shrank more than the total because
@@ -406,7 +472,10 @@ silently re-added later. Recorded rather than actioned; see §Remaining debt.
 | ID | Item | Why not fixed |
 |---|---|---|
 | AUD-001 | Four deleted docs | Awaiting owner decision |
-| AUD-006 | Legacy token aliases | Requires per-sheet migration off `--bg`, `--warning`, `--primary-light`, `--mobile-bg`, `--shadow-login`, `--danger-light`, `--active` before the aliases can go |
+| ~~AUD-006~~ | ~~Legacy token aliases~~ | **Closed by AUD-014.** All seven named here now have zero declarations and zero references, as does every other legacy alias. |
+| AUD-014 | Three focus-ring alphas (`rgba(37,99,235,0.10/0.12/0.15)`) | Same affordance expressed three ways. No translucent-ring token exists; unifying them changes focus appearance on every control and wants its own visual pass. |
+| AUD-014 | `.command-modal` glassmorphism | `backdrop-filter: blur(14px)` over `rgba(255,255,255,0.96)` contradicts the approved direction, but removing it is a redesign, not a token migration. |
+| AUD-014 | Orphaned `animation-delay` rules | `.summary-cards .card:nth-child(3n+…)` still set 40/90/140ms delays, but AUD-011 removed the card entry animation, so they delay nothing. |
 | AUD-008 | 28 duplicate CSS blocks | Each pair needs an intent-vs-coincidence judgement with visual verification |
 | AUD-004 | ~43 remaining reported-unused classes | Only 15 of 58 were individually verified; the rest need the same per-class check |
 

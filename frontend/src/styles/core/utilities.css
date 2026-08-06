@@ -27,12 +27,17 @@
 }
 
 .error {
-  color: var(--danger);
+  /*
+   * Was `--danger` (red-600). Measured 4.41:1 on --bg-page — under the
+   * 4.5:1 floor for normal text. red-700 is 5.91:1, and it is already what
+   * auth.css uses for `.auth-card .error`, so the two now agree.
+   */
+  color: var(--status-danger-fg);
   font-weight: 700;
 }
 
 .muted-text {
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .full-width {

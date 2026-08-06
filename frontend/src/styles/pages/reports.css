@@ -2,7 +2,7 @@
 
 .report-bar-fill {
   height: 100%;
-  background: var(--blue-dark);
+  background: var(--accent);
   border-radius: var(--radius-pill);
 }
 .report-actions {

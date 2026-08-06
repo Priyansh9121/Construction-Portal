@@ -147,11 +147,10 @@
    * warning everywhere else. Used only on the sidebar brand mark. */
   --identity-mark: var(--color-amber-500);
 
-  /* Retained so existing sheets that reference the old brand names keep
-   * working; both now resolve to the interactive blue rather than amber. */
-  --accent-brand: var(--accent);
-  --accent-brand-hover: var(--accent-hover);
-  --accent-brand-subtle: var(--accent-subtle);
+  /* REMOVED: --accent-brand / --accent-brand-hover / --accent-brand-subtle.
+   * Aliases for the three tokens directly above, kept while sheets still
+   * used the old brand names. Their two consumers in foundation.css now use
+   * --accent and --accent-hover; -subtle never had one. */
 
   /* Status. `-fg` values are all >= 4.5:1 on their `-bg` pair. */
   --status-success-bg: var(--color-green-100);
@@ -270,6 +269,12 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* The one overshoot curve in the product, for entrance animations that
+   * settle (modal card, photo thumbnails). Moved here from a second :root
+   * block in animations.css; it has no equivalent among the curves above,
+   * so it is a token in its own right rather than an alias for one. */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
   --transition-base: var(--dur-fast) var(--ease-out);
 
   /* =======================================================================
@@ -313,31 +318,30 @@
    * ===================================================================== */
 
   /* =======================================================================
-   * 11. LEGACY ALIASES
+   * 11. LEGACY ALIASES — removed
    * =======================================================================
-   * The pre-existing 2,850 lines reference these names. Mapped onto the new
-   * tokens so old and new rules stay visually consistent during migration.
-   * Retire per file; do not use in new code.
+   * This block declared eleven aliases kept alive so the pre-existing sheets
+   * did not all have to change at once:
+   *
+   *   --primary --danger --success-light --blue-light --blue-dark
+   *   --panel-bg --text --muted --border --input-border --shadow-panel
+   *
+   * All consumers have been migrated and the declarations are gone, so the
+   * names no longer resolve. Nine were exact aliases and moved with no
+   * change in computed value. Two were not, and are recorded in
+   * COMPLETE_CODEBASE_AUDIT.md AUD-014:
+   *
+   *   --danger     was red-600, which matched no member of the danger family.
+   *                Its three uses moved to --status-danger-fg (red-700).
+   *                `.error` had been failing AA at 4.41:1 on --bg-page.
+   *   --blue-dark  was blue-700, which matched TWO canonical tokens, so it
+   *                was split by role: informational uses to
+   *                --status-info-fg (identical value), action uses to
+   *                --accent, the product's single action colour.
+   *
+   * Do not reintroduce an alias to make an old name work. Migrate the
+   * consumers — see DESIGN_SYSTEM.md §19.
    * ===================================================================== */
-
-  --primary: var(--accent);
-
-  --danger: var(--color-red-600);
-
-  --success-light: var(--color-green-100);
-
-
-  --blue-light: var(--color-blue-100);
-  --blue-dark: var(--color-blue-700);
-
-  --panel-bg: var(--bg-surface);
-
-  --text: var(--text-primary);
-  --muted: var(--text-muted);
-  --border: var(--border-subtle);
-  --input-border: var(--border-default);
-
-  --shadow-panel: var(--shadow-md);
 }
 
 /* ===========================================================================

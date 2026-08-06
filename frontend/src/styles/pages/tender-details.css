@@ -23,7 +23,7 @@
 
   .tender-header p {
     margin: 6px 0;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 .tender-documents {
     display: flex;

@@ -620,7 +620,7 @@ tfoot td {
 .tabs button.active-tab {
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
-  border-bottom-color: var(--accent-brand);
+  border-bottom-color: var(--accent);
   background: none;
 }
 
@@ -675,7 +675,7 @@ details.panel > summary {
 }
 
 details.panel > summary:hover {
-  color: var(--accent-brand-hover);
+  color: var(--accent-hover);
 }
 
 /* ===========================================================================

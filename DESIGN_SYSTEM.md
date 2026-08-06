@@ -490,3 +490,79 @@ force the two into the same hierarchy or the same summary figures.
 
 Contract figures go in a `<dl>` with visible labels — a bare row of numbers on
 a contract is exactly the kind of thing that gets misread.
+
+---
+
+## 18. Undefined tokens and fallbacks
+
+**Never write `var(--token, #hex)` for a token you have not declared.**
+
+`site-operations.css` referenced 16 custom properties that were never defined
+— `--success-bg`, `--warning-text`, `--space-md`, `--primary-color` and others
+— each with a hard-coded fallback. The file read as fully tokenised while
+every one of those declarations shipped a raw literal. Two of the resulting
+colour pairs were below the 4.5:1 AA floor, and nobody noticed because the
+code looked correct.
+
+Rules:
+
+- **A fallback is not a token.** If you need a value the scale does not have,
+  add it to `tokens.css` with a rationale — do not smuggle it in as a
+  `var()` second argument.
+- **Do not add fallbacks to tokens that exist.** They can never apply, and
+  they rot: `var(--text-muted, #6b7280)` sat in this file while
+  `--text-muted` was slate-600 `#475569`. A rename would have silently
+  swapped in a colour nobody chose.
+- **Use the canonical family names.** Status colours are
+  `--status-{success,warning,danger,info,neutral}-{bg,fg,border}`. Spacing is
+  the numeric 4px scale (`--space-1`…`--space-16`), not a t-shirt scale.
+- **Do not create an alias to preserve old naming.** Migrate the consumers.
+
+To check: search for `var(--` and confirm every name is declared in
+`tokens.css`. A regression test in `tests/portals-and-tables.spec.js` guards
+the Site Operations classes specifically.
+
+---
+
+## 19. Legacy aliases — there are none, keep it that way
+
+`tokens.css` used to carry a "LEGACY ALIASES" block so ~2,850 lines of
+pre-existing CSS did not all have to change at once: `--primary`, `--danger`,
+`--text`, `--muted`, `--border`, `--panel-bg`, `--blue-dark`, `--input-border`,
+`--shadow-panel`, `--success-light`, `--blue-light`, plus three
+`--accent-brand*` names and a whole second motion scale declared in
+`animations.css`. All seventeen are gone; their consumers were migrated.
+
+**Do not reintroduce one.** An alias costs nothing to add and is expensive to
+remove, because by the time anyone notices it has consumers in a dozen files.
+Migrate the consumers instead — that is the whole job, and it is smaller than
+it looks.
+
+Retiring one properly:
+
+1. **Inventory first, and do not trust the list you were given.** The brief for
+   this migration named 7 aliases; the repo had 17. Search CSS, JSX, inline
+   styles, `getComputedStyle`/`getPropertyValue`, docs and tests.
+2. **Classify before replacing.** An alias is *exact* (same computed value as
+   its canonical token), *ambiguous* (matches several, or none), or a
+   *duplicate declaration site*. Only exact ones are mechanical.
+3. **For ambiguous aliases, the role of the property decides — not the value.**
+   `--blue-dark` was blue-700, which matched both `--status-info-fg` and
+   `--accent-hover`. Informational uses went to `--status-info-fg`; actions went
+   to `--accent`, because the product has exactly one action colour. Replacing
+   one generic name with another generic name is not a migration.
+4. **Migrate every consumer in one batch, then delete the declaration.** A
+   half-migrated alias is worse than an un-migrated one: the two halves drift.
+5. **Prove computed equality in a browser, not on paper.** Walk
+   `document.styleSheets` and resolve each `var()` through a throwaway element,
+   before and after. Two traps: CSSOM does not enumerate a shorthand whose
+   value contains `var()` (`background: var(--x)` is invisible to
+   `for (const p of rule.style)` — parse `cssText` instead), and a probe
+   element reused across many declarations will return **mid-transition**
+   colours once a `transition` value has been set on it.
+
+Colour changes are acceptable only where the current value violates the design
+system or a contrast requirement — and then they must be measured. AUD-014
+changed eight, all of which improved or preserved contrast, and two of which
+fixed live AA failures (`.error` at 4.41:1, and muted text on the accent fill
+at 3.48:1).
