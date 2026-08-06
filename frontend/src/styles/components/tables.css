@@ -3,27 +3,33 @@
  * Data table styling: headers, rows, sorting affordances, empty states.
  *
  * Loaded by:
- * - src/main.jsx, which imports every stylesheet in cascade order.
+ * - src/index.css, which imports every stylesheet in cascade order.
  *
  * Notes:
  * Shared by the register pages, FinanceTable and the tender detail tabs.
+ *
+ * What changed here:
+ * This file used to redeclare `.table-wrapper` — a second, conflicting copy
+ * of the rule already in foundation.css, with hard-coded hexes instead of
+ * tokens. Because this sheet loads later it silently won, so the documented
+ * foundation rule was dead code. The wrapper now lives in foundation.css
+ * only; this file keeps just the table-internal styling.
  */
-
-.table-wrapper {
-  width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: var(--radius-md);
-  background: #ffffff;
-  -webkit-overflow-scrolling: touch;
-}
 
 table {
   width: 100%;
   border-collapse: collapse;
 }
 
+/*
+ * The scroll floor for a wrapped table.
+ *
+ * 720px is wide enough that a dense register keeps readable column widths
+ * rather than collapsing into unreadable slivers; the wrapper scrolls
+ * horizontally to reach the rest. It is deliberately NOT applied in card
+ * mode — see `.table-wrapper--cards table { min-width: 0 }` in
+ * responsive.css, which reverts it below 768px.
+ */
 .table-wrapper table {
   min-width: 720px;
 }
@@ -59,17 +65,11 @@ tbody tr:last-child td {
 tbody tr:hover {
   background: #f8fafc;
 }
-
 .amount-cell,
-.number-cell,
-.align-right {
+.number-cell {
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-}
-
-.action-cell {
-  white-space: nowrap;
 }
 
 .table-wrapper td:last-child,
@@ -98,20 +98,26 @@ tbody tr:hover {
   text-decoration: underline;
 }
 
+/*
+ * This copy loads after foundation.css and used to reset min-height back to
+ * `auto`, which is what actually produced the 17px control — the foundation
+ * rule was already correct and was being silently undone here. It now keeps
+ * only the properties that genuinely differ, and takes its colour from a
+ * token rather than a hard-coded hex.
+ */
 .table-link-button {
-  min-height: auto;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #2563eb;
-  font-weight: 750;
+  color: var(--color-blue-700);
+  font-weight: var(--font-weight-semibold);
   text-align: left;
   box-shadow: none;
 }
 
 .table-link-button:hover {
-  color: #1d4ed8;
+  color: var(--color-blue-700);
   text-decoration: underline;
   transform: none;
   box-shadow: none;

@@ -30,7 +30,18 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'test-results', 'playwright-report']),
+
+  /*
+   * Playwright config and specs run in Node, not the browser, so they need
+   * Node globals (process). Everything under src/ stays browser-only.
+   */
+  {
+    files: ['playwright.config.js', 'tests/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
   {
     files: ['**/*.{js,jsx}'],
     extends: [

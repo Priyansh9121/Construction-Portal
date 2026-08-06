@@ -46,10 +46,7 @@
   color: var(--text-color, #1f2430);
 }
 
-.site-operations-page .tab--active {
-  color: var(--primary-color, #2563eb);
-  border-bottom-color: var(--primary-color, #2563eb);
-}
+
 
 .site-operations-page .tab:focus-visible {
   outline: 2px solid var(--primary-color, #2563eb);
@@ -312,4 +309,245 @@
   padding: 4px 10px;
   font-size: 12px;
   white-space: nowrap;
+}
+
+/* ===========================================================================
+ * FIELD-OPERATIONS WORKSPACE
+ * =======================================================================
+ * The context card, the operational module navigation, and the mobile
+ * field-entry treatment. See components/siteOperations/SiteOpsContext.jsx.
+ *
+ * There is deliberately no tender or site selector — Site Operations records
+ * carry no tender/site attribution today, and adding selectors would change
+ * what is written rather than how it looks. Tracked as SITE-OPS-DATA-01.
+ * ======================================================================== */
+
+.ops-context {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  padding: var(--space-4);
+  margin-bottom: var(--section-gap);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  /* The left bar ties this to the attention strip and the status cards, so
+   * "this is your current context" reads the same way across the product. */
+  border-inline-start: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.ops-context-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ops-context-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.ops-context-date {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ops-context-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ops-context-date strong {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* "Today" / "3 days ago". Text, not a colour — a supervisor recording a
+ * backdated entry needs to see that in words. */
+.ops-context-relative {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+
+  padding: var(--space-1) var(--space-3);
+
+  background: var(--status-info-bg);
+  color: var(--status-info-fg);
+  border-radius: var(--radius-pill);
+
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.ops-context-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ops-context-meta div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ops-context-meta dt {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ops-context-meta dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================================================
+ * MODULE NAVIGATION
+ * =======================================================================
+ * Scrolls horizontally on a phone rather than wrapping or collapsing into a
+ * "more" menu. Every module stays one tap away: burying Banking or Access
+ * Requests behind an overflow control on the screen a supervisor uses on
+ * site is the kind of tidying that costs someone a job.
+ */
+
+.ops-modules {
+  display: flex;
+  gap: var(--space-2);
+
+  margin-bottom: var(--section-gap);
+  padding-bottom: var(--space-2);
+
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Each tab snaps into place so a half-scrolled label never sits at the edge. */
+  scroll-snap-type: x proximity;
+}
+
+.ops-module {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.ops-module:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* The active module carries a fill AND a weight change, so selection is not
+ * signalled by colour alone. aria-selected carries it for assistive tech. */
+.ops-module--active,
+.ops-module--active:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ===========================================================================
+ * MOBILE FIELD ENTRY
+ * =======================================================================
+ * Below 768px every operational form is one column. A two-column grid on a
+ * phone gives two unusable half-width fields; on site, with gloves and
+ * sunlight, that is the difference between a record being made and not.
+ */
+
+@media (max-width: 767px) {
+  .ops-workspace .grid-2,
+  .ops-workspace .inline-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .ops-workspace label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .ops-workspace input,
+  .ops-workspace select,
+  .ops-workspace textarea {
+    width: 100%;
+    /* 16px floor — smaller makes iOS Safari zoom on focus. */
+    font-size: var(--font-size-md);
+  }
+
+  /* Save and submit span the width and stay comfortably tappable. */
+  .ops-workspace form > button[type="submit"] {
+    width: 100%;
+    min-height: var(--touch-target);
+  }
+
+  .ops-context-relative {
+    margin-inline-start: 0;
+  }
+
+  .ops-context-primary {
+    flex-wrap: wrap;
+  }
+}
+
+/* Photo capture. These are the two controls a supervisor reaches for most
+ * on a phone, so they are full-width and side by side rather than buried
+ * among the text inputs. */
+.ops-workspace fieldset {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.ops-workspace fieldset legend {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
 }

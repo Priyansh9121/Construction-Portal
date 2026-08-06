@@ -81,11 +81,11 @@ function ExportButtons({
       {open && (
         <div className="export-menu-dropdown">
           <button type="button" onClick={handlePDF}>
-            📄 Professional PDF
+            Professional PDF
           </button>
 
           <button type="button" onClick={handleExcel}>
-            📊 Professional Excel
+            Professional Excel
           </button>
 
           {showCSV && (

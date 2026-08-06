@@ -32,6 +32,7 @@ import toast from "react-hot-toast";
 
 import DeleteVerificationModal from "../components/DeleteVerificationModal";
 import ExportButtons from "../components/export/ExportButtons";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 function DailySiteUpdatesPage({
   sites = [],
@@ -1239,7 +1240,7 @@ function DailySiteUpdatesPage({
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -1358,7 +1359,7 @@ function DailySiteUpdatesPage({
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <DeleteVerificationModal

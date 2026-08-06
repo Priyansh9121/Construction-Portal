@@ -299,7 +299,7 @@ function TenderOverviewTab({
       <section className="panel">
         <h2>Tender Profit Breakdown</h2>
 
-        <div className="table-wrapper">
+        <div className="table-wrapper" tabIndex={0}>
           <table>
             <thead>
               <tr>

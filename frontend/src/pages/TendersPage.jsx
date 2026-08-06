@@ -56,6 +56,7 @@ import {
 } from "../utils/currency";
 
 import { useAuth,  } from "../contexts/authContext";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 const createEmptySite = () => ({
   site_name: "",
@@ -2120,7 +2121,7 @@ function TendersPage({
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -2344,7 +2345,7 @@ function TendersPage({
               </tfoot>
             )}
           </table>
-        </div>
+        </ResponsiveTable>
 
         {filteredTenders.map(
           (tender) => {
@@ -2380,7 +2381,7 @@ function TendersPage({
                     : "s"}
                 </summary>
 
-                <div className="table-wrapper">
+                <div className="table-wrapper" tabIndex={0}>
                   <table>
                     <thead>
                       <tr>

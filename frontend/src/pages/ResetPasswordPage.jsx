@@ -26,10 +26,11 @@
 
 import { useState } from "react";
 import {
-  Link,
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+
+import AuthShell, { AuthLink } from "../components/auth/AuthShell";
 
 import { resetPassword } from "../services/userService";
 
@@ -122,29 +123,29 @@ function ResetPasswordPage() {
   };
 
   return (
-    <div className="login-shell">
-      <section className="login-brand">
-        <p className="dashboard-hero-eyebrow">
-          Account Recovery
-        </p>
-
-        <h1>Reset Password</h1>
-
-        <p>
-          Enter your reset token and create a secure new
-          password for your account.
-        </p>
-      </section>
-
-      <section className="login-box">
+    <AuthShell
+      eyebrow="Account Recovery"
+      title="Reset password"
+      intro="Enter your reset token and create a secure new password for your account."
+      heading="Create new password"
+      subheading="Your password must contain at least eight characters."
+      footer={<AuthLink to="/login">Back to sign in</AuthLink>}
+    >
         <form onSubmit={handleSubmit}>
-          <h2>Create New Password</h2>
+          {/* Feedback above the fields, so it is never below the fold. */}
+          {message && (
+            <p className="auth-success" role="status">
+              {message}
+            </p>
+          )}
 
-          <p className="muted-text">
-            Your password must contain at least eight
-            characters.
-          </p>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
 
+          <div className="auth-field">
           <label htmlFor="reset-token">
             Reset Token
           </label>
@@ -165,7 +166,9 @@ function ResetPasswordPage() {
             disabled={submitting}
             required
           />
+          </div>
 
+          <div className="auth-field">
           <label htmlFor="new-password">
             New Password
           </label>
@@ -188,7 +191,9 @@ function ResetPasswordPage() {
             minLength={8}
             required
           />
+          </div>
 
+          <div className="auth-field">
           <label htmlFor="confirm-password">
             Confirm Password
           </label>
@@ -211,6 +216,7 @@ function ResetPasswordPage() {
             minLength={8}
             required
           />
+          </div>
 
           <label className="checkbox-row">
             <input
@@ -227,39 +233,15 @@ function ResetPasswordPage() {
 
           <button
             type="submit"
+            className="auth-submit"
             disabled={submitting}
           >
             {submitting
-              ? "Resetting..."
-              : "Reset Password"}
+              ? "Resetting…"
+              : "Reset password"}
           </button>
-
-          {message && (
-            <p
-              className="success-message"
-              role="status"
-            >
-              {message}
-            </p>
-          )}
-
-          {error && (
-            <p
-              className="error"
-              role="alert"
-            >
-              {error}
-            </p>
-          )}
-
-          <div className="login-links">
-            <Link to="/login">
-              Back to Login
-            </Link>
-          </div>
         </form>
-      </section>
-    </div>
+    </AuthShell>
   );
 }
 

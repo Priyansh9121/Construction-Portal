@@ -1,26 +1,52 @@
 /*
+ * ===========================================================================
+ * STYLESHEET ENTRY — cascade order
+ * ===========================================================================
+ *
  * File purpose:
- * The Vite base stylesheet: resets and root-level defaults.
+ * The single import manifest for the portal's CSS. Order is the whole
+ * mechanism: later files may override earlier ones, so the layers run from
+ * most general to most specific.
  *
- * Loaded by:
- * - src/main.jsx, which imports every stylesheet in cascade order.
+ *   1. tokens      design tokens. No selectors, no output beyond :root.
+ *   2. foundation  reset, base elements, and the primitives every page
+ *                  shares — panel, card, button, table, form, badge, tabs,
+ *                  alert. Restyling here reaches all 22 routes.
+ *   3. shell       sidebar, topbar, drawer, page container.
+ *   4. components  widgets layered on the primitives.
+ *   5. pages       genuinely page-specific rules only.
+ *   6. responsive  cross-cutting responsive adjustments, last so it wins.
  *
- * Notes:
- * First stylesheet imported by main.jsx, so everything below can override
- * it. Holds the CSS custom properties the rest of the sheets read.
+ * Note on what changed:
+ * `site-operations.css` used to be imported from main.jsx instead of here,
+ * which is why that page drifted into its own conventions. Every sheet now
+ * loads from this one file.
+ *
+ * global.css and layout.css were superseded by tokens.css + foundation.css
+ * + shell.css and are no longer imported.
  */
 
-@import "./styles/core/global.css";
-@import "./styles/core/layout.css";
+/* 1. Tokens ---------------------------------------------------------------- */
+@import "./styles/core/tokens.css";
+
+/* 2. Foundation ------------------------------------------------------------ */
+@import "./styles/core/foundation.css";
+
+/* 3. Shell ----------------------------------------------------------------- */
+@import "./styles/core/shell.css";
+
+/* 4. Components ------------------------------------------------------------ */
 @import "./styles/core/utilities.css";
 @import "./styles/core/animations.css";
-
 @import "./styles/components/cards.css";
 @import "./styles/components/forms.css";
 @import "./styles/components/tables.css";
 @import "./styles/components/tabs.css";
 @import "./styles/components/modal.css";
+@import "./styles/components/activity.css";
+@import "./styles/components/portal.css";
 
+/* 5. Pages ----------------------------------------------------------------- */
 @import "./styles/pages/auth.css";
 @import "./styles/pages/dashboard.css";
 @import "./styles/pages/payments.css";
@@ -30,7 +56,9 @@
 @import "./styles/pages/tenders.css";
 @import "./styles/pages/worker-portal.css";
 @import "./styles/pages/subcontractor-portal.css";
+@import "./styles/pages/site-operations.css";
 
+/* 6. Responsive ------------------------------------------------------------ */
 @import "./styles/core/responsive.css";
 
 html,
@@ -41,10 +69,7 @@ body,
   min-height: 100%;
 }
 
-body {
-  overflow-x: hidden;
-}
-
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }

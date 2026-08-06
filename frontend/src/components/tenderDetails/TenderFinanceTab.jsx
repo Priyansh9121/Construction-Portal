@@ -471,7 +471,7 @@ function TenderFinanceTab({
                       exportLedgerAsPDF
                     }
                   >
-                    📄 Ledger PDF
+                    Ledger PDF
                   </button>
 
                   <button
@@ -480,7 +480,7 @@ function TenderFinanceTab({
                       exportLedgerAsExcel
                     }
                   >
-                    📊 Ledger Excel
+                    Ledger Excel
                   </button>
                 </div>
               )}

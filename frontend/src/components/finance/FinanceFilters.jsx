@@ -38,27 +38,54 @@ function FinanceFilters({
           </div>
         </div>
   
+        {/*
+          Every control here was unlabelled — axe flagged the search input,
+          three selects and both date inputs.
+
+          The selects and the search carry `aria-label`: their current value
+          ("All Types") and placeholder already describe them on screen, so a
+          visible label would only repeat what is there.
+
+          The two dates get REAL visible labels, because this was a usability
+          bug as well as an accessibility one — two bare date fields side by
+          side gave a sighted user no way to tell which one was the start of
+          the range and which was the end.
+        */}
         <div className="form-grid">
           <input
+            type="search"
+            aria-label="Search finance records"
             placeholder="Search tender, name, material, notes, amount..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-  
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+
+          <select
+            aria-label="Filter by record type"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+          >
             <option value="all">All Types</option>
             <option value="Income">Income</option>
             <option value="Expense">Expense</option>
           </select>
-  
-          <select value={filterScope} onChange={(e) => setFilterScope(e.target.value)}>
+
+          <select
+            aria-label="Filter by scope"
+            value={filterScope}
+            onChange={(e) => setFilterScope(e.target.value)}
+          >
             <option value="all">All Scopes</option>
             <option value="PERSONAL_TENDER">Personal Tender</option>
             <option value="SUBCONTRACTOR_TENDER">Subcontractor Tender</option>
             <option value="OFFICE">Office</option>
           </select>
-  
-          <select value={filterTender} onChange={(e) => setFilterTender(e.target.value)}>
+
+          <select
+            aria-label="Filter by tender"
+            value={filterTender}
+            onChange={(e) => setFilterTender(e.target.value)}
+          >
             <option value="all">All Tenders</option>
             {tenders.map((tender) => (
               <option key={tender.id} value={tender.id}>
@@ -66,18 +93,24 @@ function FinanceFilters({
               </option>
             ))}
           </select>
-  
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-  
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
+
+          <label className="field-label">
+            From
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </label>
+
+          <label className="field-label">
+            To
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </label>
         </div>
       </section>
     );

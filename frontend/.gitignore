@@ -54,3 +54,7 @@ dist-ssr
 *.sln
 # Vim swap files (.swp, .swo).
 *.sw?
+
+# Playwright responsive-test artefacts. Regenerated on every run.
+test-results/
+playwright-report/

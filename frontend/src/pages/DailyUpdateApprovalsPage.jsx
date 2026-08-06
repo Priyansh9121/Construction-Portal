@@ -42,6 +42,7 @@ import useAsyncResource from "../hooks/useAsyncResource";
 
 import ExportButtons from "../components/export/ExportButtons";
 import ApprovalActionModal from "../components/ApprovalActionModal";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 function DailyUpdateApprovalsPage() {
   const fetchApprovals = useCallback(
@@ -1008,7 +1009,7 @@ function DailyUpdateApprovalsPage() {
             <div className="panel">
               <h3>Update Details</h3>
 
-              <div className="table-wrapper">
+              <div className="table-wrapper" tabIndex={0}>
                 <table>
                   <tbody>
                     <tr>
@@ -1164,7 +1165,7 @@ function DailyUpdateApprovalsPage() {
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -1349,7 +1350,7 @@ function DailyUpdateApprovalsPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <ApprovalActionModal

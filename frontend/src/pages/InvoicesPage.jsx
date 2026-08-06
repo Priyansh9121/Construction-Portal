@@ -33,6 +33,7 @@ import ExportButtons from "../components/export/ExportButtons";
 import { updateInvoice } from "../services/invoiceService";
 import { formatCurrency } from "../utils/currency";
 import { useAuth } from "../contexts/authContext";
+import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 const EMPTY_EDIT_FORM = {
   invoice_number: "",
@@ -717,6 +718,7 @@ function InvoicesPage({
           <input
             className="search-input"
             type="search"
+            aria-label="Search invoices"
             placeholder="Search invoice number, status, amount or date..."
             value={search}
             onChange={(event) =>
@@ -842,7 +844,7 @@ function InvoicesPage({
           </div>
         </div>
 
-        <div className="table-wrapper">
+        <ResponsiveTable mobile="cards">
           <table>
             <thead>
               <tr>
@@ -958,7 +960,7 @@ function InvoicesPage({
               </tfoot>
             )}
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <DeleteVerificationModal

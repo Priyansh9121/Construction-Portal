@@ -23,9 +23,18 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.summary-cards {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-}
+/*
+ * AUD-008 G07. Removed: `.summary-cards { grid-template-columns:
+ * repeat(auto-fit, minmax(190px, 1fr)) }`.
+ *
+ * foundation.css already declares this, scoped to `@media (min-width: 480px)`,
+ * with `grid-template-columns: 1fr` below that. This sheet loads later and
+ * restated it UNCONDITIONALLY, so the mobile rule never applied.
+ *
+ * Measured on /reports: at 479px the grid rendered TWO 215.5px columns where
+ * the documented breakpoint (DESIGN_SYSTEM.md §4 — "480px: summary tiles go
+ * multi-column") intends one. Deleting the duplicate restores it.
+ */
 
 .card,
 .panel,
@@ -79,19 +88,45 @@
   margin: 0 0 16px;
 }
 
+/*
+ * Status-highlighted cards.
+ *
+ * These were three `linear-gradient(135deg, #ffffff, …)` washes with
+ * hard-coded pastel borders. They are the cards a field worker sees first on
+ * the Worker Portal — "Pending Updates", "Pending Expenses", "Available
+ * Balance" — and a diagonal gradient is the wrong treatment for them twice
+ * over: the approved direction rules out gradients on ordinary business
+ * cards, and a wash that fades to white reads worst in exactly the condition
+ * these are used in, which is bright outdoor daylight on a phone.
+ *
+ * They are now a flat tinted surface plus a solid left bar, matching the
+ * dashboard attention strip. The bar is what carries the severity, so the
+ * state is not signalled by a background tint alone — a tint that subtle is
+ * close to invisible to a colour-blind user and to anyone in sunlight.
+ */
+.card.highlight-success,
+.card.highlight-warning,
+.card.highlight-danger {
+  border-inline-start-width: 3px;
+  border-inline-start-style: solid;
+}
+
 .card.highlight-success {
-  border-color: #86efac;
-  background: linear-gradient(135deg, #ffffff, #f0fdf4);
+  border-color: var(--border-subtle);
+  border-inline-start-color: var(--status-success-border);
+  background: var(--status-success-bg);
 }
 
 .card.highlight-warning {
-  border-color: #fcd34d;
-  background: linear-gradient(135deg, #ffffff, #fffbeb);
+  border-color: var(--border-subtle);
+  border-inline-start-color: var(--status-warning-border);
+  background: var(--status-warning-bg);
 }
 
 .card.highlight-danger {
-  border-color: #fca5a5;
-  background: linear-gradient(135deg, #ffffff, #fef2f2);
+  border-color: var(--border-subtle);
+  border-inline-start-color: var(--status-danger-border);
+  background: var(--status-danger-bg);
 }
 
 .animated-stat-card {

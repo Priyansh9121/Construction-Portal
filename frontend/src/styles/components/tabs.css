@@ -70,11 +70,12 @@
   gap: 20px;
 }
 
-.password-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
+/*
+ * AUD-008 G15. `.password-input-wrapper` was defined identically here and
+ * in pages/auth.css. It is an authentication control; a tab stylesheet has no
+ * ownership claim on it. The auth.css definition is canonical.
+ */
+
 
 .password-input-wrapper input {
   width: 100%;
@@ -82,6 +83,10 @@
 }
 
 .password-toggle-btn {
+  /* 44px floor — was 42px and failed the touch-target check. */
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+
   position: absolute;
   right: 8px;
   padding: 4px 10px;
