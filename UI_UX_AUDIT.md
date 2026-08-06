@@ -1082,3 +1082,49 @@ than changed late without review.
 5. Fix the role-badge colour mapping in User Management.
 6. Extract the remaining shared components; migrate page sheets off the
    legacy token aliases.
+
+---
+
+## Legacy token aliases retired (AUD-014)
+
+Item 6 of the list above — "migrate page sheets off the legacy token aliases"
+— is done. Full evidence is in COMPLETE_CODEBASE_AUDIT.md AUD-014; the
+design-relevant summary:
+
+**17 aliases, 72 references, 14 stylesheets, 0 remaining.** The brief named 7;
+the inventory found 17, including three `--accent-brand*` names and a second
+`:root` block in `animations.css` holding a parallel motion scale.
+
+**What changed visually, and why.** Nine aliases were exact — same computed
+value, so the migration was invisible. Eight rules did change:
+
+| Change | Reason |
+|---|---|
+| `.error` red-600 → red-700 | **Was failing AA at 4.41:1** on the page background. Now 5.91:1, and it matches what `auth.css` already used for the same class. |
+| Notification badge + unread dot red-600 → red-700 | Same family; white-on-fill goes 4.83:1 → 6.47:1. |
+| Table links, "mark all read", report bars, row-hover bar blue-700 → blue-600 | The product has **one** action colour. Two different blues for the same role was the fragmentation this programme exists to remove. Contrast 6.70:1 → 5.17:1, still AA. |
+| Muted text on the accent fill slate-300 → slate-100 | **Was failing AA at 3.48:1.** Now 4.72:1. |
+| `th` slate-500 → slate-600, `td` slate-800 → slate-900 | Raw hex that predated the token scale. Column headers were sitting at 4.55:1, a hair over the floor; now 7.24:1. |
+| Quick-action hover: pale blue-300 hairline → `--accent` | A blue-300 border on a white tile against a slate-100 page is close to invisible, and it was the *only* signal the tile is interactive. |
+| Quick-action hover lift removed | `translateY(-2px)` is the hover lift AUD-011 removed everywhere else — "a lift on hover moves the thing the user is aiming at". This rule loads after `animations.css`, so it survived that sweep. |
+| Card/button transitions 280ms → 140ms, modal 180ms → 220ms | DESIGN_SYSTEM.md §7 assigns `--dur-fast` to hover/state and `--dur-normal` to overlays. The old values were hard-coded and therefore **ignored `prefers-reduced-motion`**. |
+
+**What did not change.** 843 declarations resolve to a byte-identical computed
+value. `/login` is pixel-identical. On every table route the largest per-pixel
+delta is 18–23/255 — the intentional text darkening — with effectively nothing
+above 16.
+
+**Gradient removed.** `.form-section-title` was a `linear-gradient(135deg, …)`
+wash; it is now the flat `--accent-subtle`. That was the last gradient on an
+ordinary business surface.
+
+### Still open after this pass
+
+- Three focus-ring alphas (`rgba(37,99,235,0.10/0.12/0.15)`) express one
+  affordance three ways. Unifying them changes focus appearance on every
+  control, so it wants its own visual pass.
+- `.command-modal` is still glassmorphic (`backdrop-filter: blur(14px)` over
+  `rgba(255,255,255,0.96)`), which contradicts the approved direction. Removing
+  it is a redesign, not a token migration.
+- `.summary-cards .card:nth-child(3n+…)` still set `animation-delay`, but
+  AUD-011 removed the entry animation they were staggering.

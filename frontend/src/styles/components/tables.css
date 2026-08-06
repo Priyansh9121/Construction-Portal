@@ -35,26 +35,28 @@ table {
 }
 
 thead {
-  background: #f8fafc;
+  background: var(--bg-surface-sunken);
 }
 
 th,
 td {
   padding: 13px 14px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-subtle);
   text-align: left;
   vertical-align: middle;
 }
 
 th {
-  color: #64748b;
+  /* Was slate-500. Measured 4.55:1 on the header fill — a hair over the
+   * floor. slate-600 is 7.24:1 and is the token for de-emphasised text. */
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 td {
-  color: #1e293b;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -63,7 +65,7 @@ tbody tr:last-child td {
 }
 
 tbody tr:hover {
-  background: #f8fafc;
+  background: var(--bg-hover);
 }
 .amount-cell,
 .number-cell {
@@ -83,13 +85,13 @@ tbody tr:hover {
 
 .empty-table-message {
   padding: 30px 14px !important;
-  color: var(--muted);
+  color: var(--text-muted);
   text-align: center !important;
   font-weight: 700;
 }
 
 .table-wrapper a {
-  color: var(--blue-dark);
+  color: var(--accent);
   font-weight: 750;
   text-decoration: none;
 }

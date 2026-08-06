@@ -877,8 +877,20 @@ pixel padding or duration in a component.**
 | Motion | `--dur-*` | `--dur-fast` |
 | Layers | `--z-*` | `--z-modal` |
 
-Legacy aliases (`--primary`, `--bg`, `--muted`) still resolve, for sheets
-not yet migrated. Do not use them in new code.
+**There are no legacy aliases left.** `--primary`, `--danger`, `--text`,
+`--muted`, `--border`, `--panel-bg`, `--blue-dark`, `--input-border`,
+`--shadow-panel`, `--success-light`, `--blue-light`, the three `--accent-brand*`
+names and the `--transition-fast` / `--transition-med` / `--ease-pro` motion
+scale were all retired in AUD-014. They no longer resolve, so a `var(--muted)`
+added from muscle memory silently falls back to the inherited or initial value
+rather than the colour you meant — grey text turns black, a border disappears,
+and nothing errors. Three tests in `tests/portals-and-tables.spec.js` fail if
+any of those names is redeclared or referenced.
+
+Motion is the one place this bites hardest: `prefers-reduced-motion` is honoured
+by collapsing `--dur-*` to `0ms`, so a hard-coded duration opts the user out of
+their own accessibility setting. Use `--transition-base`, or `--dur-*` with
+`--ease-out` / `--ease-bounce`.
 
 **Two rules that are load-bearing:**
 

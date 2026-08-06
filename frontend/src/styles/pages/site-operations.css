@@ -7,17 +7,17 @@
    ========================================================================== */
 
 .site-operations-page .page-subtitle {
-  color: var(--text-muted, #6b7280);
-  margin: 0 0 var(--space-lg, 24px);
+  color: var(--text-muted);
+  margin: 0 0 var(--space-6);
 }
 
 /* --- Tabs ---------------------------------------------------------------- */
 
 .site-operations-page .tabs {
   display: flex;
-  gap: var(--space-xs, 4px);
-  border-bottom: 1px solid var(--border-color, #e6e8ec);
-  margin-bottom: var(--space-lg, 24px);
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-6);
   /* Site staff open this on a phone; let the tab row scroll rather than
      wrap into an unpredictable second line. */
   overflow-x: auto;
@@ -34,22 +34,22 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted);
   font-weight: 500;
   font-size: 0.95rem;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color var(--transition-base), border-color var(--transition-base);
 }
 
 .site-operations-page .tab:hover {
-  color: var(--text-color, #1f2430);
+  color: var(--text-primary);
 }
 
 
 
 .site-operations-page .tab:focus-visible {
-  outline: 2px solid var(--primary-color, #2563eb);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
   border-radius: 4px;
 }
@@ -58,10 +58,10 @@
 
 .site-operations-page .card label {
   display: block;
-  margin-bottom: var(--space-md, 16px);
+  margin-bottom: var(--space-4);
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-color, #1f2430);
+  color: var(--text-primary);
 }
 
 .site-operations-page .card label input,
@@ -76,9 +76,9 @@
 .site-operations-page .inline-form {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm, 8px);
+  gap: var(--space-2);
   align-items: center;
-  margin-bottom: var(--space-md, 16px);
+  margin-bottom: var(--space-4);
 }
 
 .site-operations-page .inline-form input,
@@ -89,19 +89,19 @@
 
 .site-operations-page .preview {
   padding: 10px 12px;
-  background: var(--surface-muted, #f4f5f7);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
-  margin: 0 0 var(--space-md, 16px);
+  margin: 0 0 var(--space-4);
 }
 
 /* --- Photo capture ------------------------------------------------------- */
 
 .site-operations-page .photo-picker {
-  border: 1px dashed var(--border-color, #e6e8ec);
-  border-radius: var(--radius-sm, 6px);
-  padding: var(--space-md, 16px);
-  margin-bottom: var(--space-md, 16px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .site-operations-page .photo-picker legend {
@@ -111,18 +111,18 @@
 }
 
 .site-operations-page .photo-preview {
-  margin-top: var(--space-sm, 8px);
+  margin-top: var(--space-2);
   display: flex;
   align-items: center;
-  gap: var(--space-sm, 8px);
+  gap: var(--space-2);
 }
 
 .site-operations-page .photo-preview img {
   width: 72px;
   height: 72px;
   object-fit: cover;
-  border-radius: var(--radius-sm, 6px);
-  border: 1px solid var(--border-color, #e6e8ec);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
 }
 
 /* --- Badges -------------------------------------------------------------- */
@@ -139,18 +139,18 @@
 /* A live capture and a gallery re-upload have to be visually distinct —
    telling them apart is the whole point of recording the source. */
 .site-operations-page .badge--camera {
-  background: var(--success-bg, #dcfce7);
-  color: var(--success-text, #15803d);
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
 }
 
 .site-operations-page .badge--gallery {
-  background: var(--warning-bg, #fef3c7);
-  color: var(--warning-text, #a16207);
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
 }
 
 .site-operations-page .badge--unknown {
-  background: var(--surface-muted, #f4f5f7);
-  color: var(--text-muted, #6b7280);
+  background: var(--bg-surface-sunken);
+  color: var(--text-muted);
 }
 
 /* --- Status -------------------------------------------------------------- */
@@ -165,38 +165,38 @@
 }
 
 .site-operations-page .status--pending {
-  background: var(--warning-bg, #fef3c7);
-  color: var(--warning-text, #a16207);
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
 }
 
 .site-operations-page .status--approved,
 .site-operations-page .status--granted {
-  background: var(--success-bg, #dcfce7);
-  color: var(--success-text, #15803d);
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
 }
 
 .site-operations-page .status--rejected,
 .site-operations-page .status--denied,
 .site-operations-page .status--expired {
-  background: var(--danger-bg, #fee2e2);
-  color: var(--danger-text, #b91c1c);
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
 }
 
 .site-operations-page .status--used {
-  background: var(--surface-muted, #f4f5f7);
-  color: var(--text-muted, #6b7280);
+  background: var(--bg-surface-sunken);
+  color: var(--text-muted);
 }
 
 /* --- Summary rows -------------------------------------------------------- */
 
 .site-operations-page .summary-row {
-  gap: var(--space-md, 16px);
-  margin-bottom: var(--space-md, 16px);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .site-operations-page .summary-row > div {
-  background: var(--surface-muted, #f4f5f7);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-sm);
   padding: 12px 14px;
 }
 
@@ -205,7 +205,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
@@ -216,30 +216,30 @@
 /* --- Table --------------------------------------------------------------- */
 
 .site-operations-page .row--selected {
-  background: var(--primary-bg, #eff6ff);
+  background: var(--accent-subtle);
 }
 
 .site-operations-page .empty {
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted);
   font-style: italic;
-  padding: var(--space-md, 16px) 0;
+  padding: var(--space-4) 0;
 }
 
 /* --- Alerts -------------------------------------------------------------- */
 
 .site-operations-page .alert {
   padding: 12px 16px;
-  border-radius: var(--radius-sm, 6px);
-  margin-bottom: var(--space-md, 16px);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
 }
 
 .site-operations-page .alert--error {
-  background: var(--danger-bg, #fee2e2);
-  color: var(--danger-text, #b91c1c);
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-sm, 8px);
+  gap: var(--space-2);
 }
 
 .site-operations-page .alert--error button {
@@ -252,9 +252,9 @@
 }
 
 .site-operations-page .alert--warning {
-  background: var(--warning-bg, #fef3c7);
-  color: var(--warning-text, #a16207);
-  border: 1px solid var(--warning-border, #fde68a);
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+  border: 1px solid var(--status-warning-border);
 }
 
 .site-operations-page .alert--warning p {

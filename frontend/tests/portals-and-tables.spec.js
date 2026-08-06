@@ -1069,3 +1069,203 @@ test.describe("subcontractor portal layout", () => {
     await context.close();
   });
 });
+
+test.describe("site operations design tokens (AUD-013)", () => {
+  /*
+   * Guards the missing-token defect specifically, not the colour values.
+   *
+   * site-operations.css referenced 16 custom properties that were never
+   * declared — `--success-bg`, `--warning-text`, `--space-md`, `--primary-color`
+   * and others — each with a hard-coded hex or px fallback. The sheet looked
+   * tokenised while actually shipping raw values, and two of those pairs were
+   * below the 4.5:1 AA floor.
+   *
+   * These assertions check that the classes resolve to the CANONICAL token
+   * values, so a future rename that breaks the link fails here rather than
+   * silently falling back to a literal again.
+   */
+  const PROBE = [
+    { cls: "badge badge--camera", token: "--status-success-bg", prop: "backgroundColor" },
+    { cls: "badge badge--gallery", token: "--status-warning-bg", prop: "backgroundColor" },
+    { cls: "badge badge--unknown", token: "--bg-surface-sunken", prop: "backgroundColor" },
+    { cls: "status status--approved", token: "--status-success-fg", prop: "color" },
+    { cls: "status status--pending", token: "--status-warning-fg", prop: "color" },
+    { cls: "status status--denied", token: "--status-danger-fg", prop: "color" },
+  ];
+
+  test("status and badge classes resolve to canonical tokens", async ({ browser }) => {
+    const { context, page } = await signedInPage(browser, "admin", {
+      width: 1440,
+      height: 900,
+    });
+
+    await page.goto(`${BASE_URL}/site-operations`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1500);
+
+    const results = await page.evaluate((probe) => {
+      const root = getComputedStyle(document.documentElement);
+      const host = document.querySelector(".site-operations-page") || document.body;
+
+      const toRgb = (hex) => {
+        const h = hex.trim().replace("#", "");
+        const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+        return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+      };
+
+      return probe.map((p) => {
+        const el = document.createElement("span");
+        el.className = p.cls;
+        host.appendChild(el);
+        const actual = getComputedStyle(el)[p.prop];
+        el.remove();
+        return { cls: p.cls, expected: toRgb(root.getPropertyValue(p.token)), actual };
+      });
+    }, PROBE);
+
+    for (const r of results) {
+      expect(
+        r.actual,
+        `"${r.cls}" no longer resolves to its canonical token — a fallback literal may have crept back in`
+      ).toBe(r.expected);
+    }
+
+    await context.close();
+  });
+
+  test("status text labels survive alongside the tone", async ({ browser }) => {
+    /*
+     * DESIGN_SYSTEM.md: state must never be carried by colour alone. The
+     * token migration must not have turned a labelled badge into a bare
+     * coloured pill.
+     */
+    const { context, page } = await signedInPage(browser, "admin", {
+      width: 390,
+      height: 844,
+    });
+
+    await page.goto(`${BASE_URL}/site-operations`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1500);
+
+    const unlabelled = await page.evaluate(() =>
+      [...document.querySelectorAll(".site-operations-page .badge, .site-operations-page .status")]
+        .filter((el) => !el.textContent.trim())
+        .length
+    );
+
+    expect(unlabelled, "a status/badge rendered with a tone but no text label").toBe(0);
+    await context.close();
+  });
+});
+
+/* ===========================================================================
+ * LEGACY TOKEN ALIASES (AUD-014)
+ * =======================================================================
+ * tokens.css carried a "LEGACY ALIASES" block — --primary, --danger, --text,
+ * --muted, --border, --panel-bg, --blue-dark and others — so the pre-existing
+ * sheets did not all have to change at once. Every consumer has now been
+ * migrated and the declarations are gone.
+ *
+ * Two things are worth guarding, and they fail differently:
+ *
+ *   1. An alias NAME coming back. A `var(--muted)` added by muscle memory
+ *      resolves to nothing and the property falls back to its inherited or
+ *      initial value — grey text turns black, a border vanishes. Nothing
+ *      throws, and it will not show up in a build.
+ *
+ *   2. The role-split of --blue-dark silently collapsing. It was blue-700,
+ *      which matched TWO canonical tokens, so informational uses went to
+ *      --status-info-fg and action uses to --accent. Those now differ in
+ *      value, so a careless "unify the blues" edit is detectable.
+ * ======================================================================== */
+test.describe("legacy token aliases stay retired (AUD-014)", () => {
+  const RETIRED = [
+    "--primary", "--danger", "--success-light", "--blue-light", "--blue-dark",
+    "--panel-bg", "--text", "--muted", "--border", "--input-border",
+    "--shadow-panel", "--accent-brand", "--accent-brand-hover",
+    "--accent-brand-subtle", "--transition-fast", "--transition-med",
+    "--ease-pro",
+  ];
+
+  test("no retired alias resolves on :root", async ({ browser }) => {
+    const { context, page } = await signedInPage(browser, "admin", {
+      width: 1440,
+      height: 900,
+    });
+
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1200);
+
+    const live = await page.evaluate((names) => {
+      const root = getComputedStyle(document.documentElement);
+      return names.filter((n) => root.getPropertyValue(n).trim() !== "");
+    }, RETIRED);
+
+    expect(
+      live,
+      "a legacy alias has been redeclared in tokens.css — migrate the consumer instead"
+    ).toEqual([]);
+
+    await context.close();
+  });
+
+  test("no stylesheet references a retired alias", async ({ browser }) => {
+    const { context, page } = await signedInPage(browser, "admin", {
+      width: 1440,
+      height: 900,
+    });
+
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1200);
+
+    /* Reads the authored declarations, so it catches a var() that resolves to
+     * nothing — which computed style alone cannot distinguish from "unset". */
+    const offenders = await page.evaluate((names) => {
+      const found = [];
+      const visit = (rules) => {
+        for (const rule of rules) {
+          if (rule.cssRules) visit(rule.cssRules);
+          if (!rule.style || !rule.selectorText) continue;
+          for (const n of names) {
+            if (new RegExp(`var\\(\\s*${n}\\s*[,)]`).test(rule.cssText)) {
+              found.push(`${rule.selectorText} uses ${n}`);
+            }
+          }
+        }
+      };
+      for (const sheet of document.styleSheets) {
+        try { visit(sheet.cssRules); } catch { /* cross-origin */ }
+      }
+      return found;
+    }, RETIRED);
+
+    expect(offenders, "a stylesheet still references a retired alias").toEqual([]);
+    await context.close();
+  });
+
+  test("the --blue-dark role split is intact", async ({ browser }) => {
+    const { context, page } = await signedInPage(browser, "admin", {
+      width: 1440,
+      height: 900,
+    });
+
+    await page.goto(`${BASE_URL}/tenders`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1500);
+
+    const tokens = await page.evaluate(() => {
+      const r = getComputedStyle(document.documentElement);
+      return {
+        accent: r.getPropertyValue("--accent").trim(),
+        infoFg: r.getPropertyValue("--status-info-fg").trim(),
+        accentHover: r.getPropertyValue("--accent-hover").trim(),
+      };
+    });
+
+    expect(
+      tokens.accent,
+      "--accent and --status-info-fg have collapsed to one value; the role split is no longer observable"
+    ).not.toBe(tokens.infoFg);
+    expect(tokens.infoFg).toBe(tokens.accentHover);
+
+    await context.close();
+  });
+});
