@@ -118,29 +118,12 @@
     line-height: 1.5;
   }
   
-  .password-input-row {
-    position: relative;
-  }
-  
-  .password-input-row input {
-    padding-right: 72px;
-  }
-  
-  .password-toggle-button {
-    position: absolute;
-    top: 50%;
-    right: 7px;
-    width: auto;
-    min-height: 34px;
-    padding: 7px 10px;
-    transform: translateY(-50%);
-    border-radius: 8px;
-    background: #e2e8f0;
-    color: #334155;
-    box-shadow: none;
-  }
-  
-  .password-toggle-button:hover {
-    transform: translateY(-50%);
-    background: #cbd5e1;
-  }
+  /*
+   * The password show/hide control is styled in components/tabs.css as
+   * .password-input-wrapper / .password-toggle-btn, which is what the JSX
+   * actually uses (LoginPage, RegisterPage, UsersPage).
+   *
+   * An older .password-input-row / .password-toggle-button pair lived here
+   * and matched no markup. Removed rather than kept as a second naming
+   * convention for one control.
+   */

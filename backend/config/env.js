@@ -847,13 +847,74 @@ const ALLOWED_UPLOAD_FOLDERS =
 const DEFAULT_CURRENCY =
   cleanString(
     process.env.DEFAULT_CURRENCY,
-    "AUD"
+    "INR"
   ).toUpperCase();
 
+/**
+ * Rejects a timezone the runtime cannot actually resolve.
+ *
+ * Purpose:
+ * `DEFAULT_TIMEZONE` was accepted as free text, so a plausible-looking but
+ * non-existent zone passed straight through. `India/Kolkata` is the real
+ * example — it is not an IANA name (the correct one is `Asia/Kolkata`) and
+ * was sitting in a working .env.
+ *
+ * Nothing complained, because the value is only resolved later, inside
+ * entryWindow.service.js, which catches the RangeError and falls back to
+ * UTC. So every date question silently answered in UTC instead of IST:
+ *
+ *   - a company created without an explicit timezone stored the bad string
+ *   - "today" for the supervisor backdated-entry rule shifted by 5.5 hours
+ *   - an evening entry in India could be judged a future date and refused
+ *
+ * That is the exact defect finding F-13 was written to fix, reintroduced
+ * through configuration rather than code.
+ *
+ * Parameters:
+ * value - the configured zone name
+ *
+ * Returns:
+ * The zone unchanged when Intl can resolve it.
+ *
+ * Side effects:
+ * Throws in production, so a bad zone aborts the deploy instead of quietly
+ * degrading. Warns and falls back to the default elsewhere, so a local
+ * typo does not block development.
+ */
+const resolveTimezone = (
+  value,
+  fallback
+) => {
+  try {
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: value,
+    }).format(new Date());
+
+    return value;
+  } catch {
+    const message =
+      `DEFAULT_TIMEZONE "${value}" is not a valid IANA timezone. ` +
+      `Dates would silently resolve in UTC. Use e.g. "Asia/Kolkata".`;
+
+    if (NODE_ENV === "production") {
+      throw new Error(message);
+    }
+
+    console.warn(
+      `${message} Falling back to "${fallback}".`
+    );
+
+    return fallback;
+  }
+};
+
 const DEFAULT_TIMEZONE =
-  cleanString(
-    process.env.DEFAULT_TIMEZONE,
-    "Australia/Melbourne"
+  resolveTimezone(
+    cleanString(
+      process.env.DEFAULT_TIMEZONE,
+      "Asia/Kolkata"
+    ),
+    "Asia/Kolkata"
   );
 
 module.exports = Object.freeze({

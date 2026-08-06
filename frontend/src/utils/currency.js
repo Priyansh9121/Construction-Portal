@@ -6,6 +6,12 @@
  * - Used across the finance components, tables and exports
  * - The currency code comes from the company record loaded by AuthProvider
  *
+ * Exports:
+ * - formatCurrency — the only public entry point. getCurrencyCode and
+ *   getCurrencyConfig are internal helpers it calls; they were exported
+ *   with no consumer, as were getCurrencySymbol and
+ *   formatCurrencyWithoutDecimals, which had no caller at all and are gone.
+ *
  * Important notes:
  * - Formatting only. Never use these for arithmetic — money figures arrive
  *   from node-pg as STRINGS, and the backend recalculates every derived
@@ -65,7 +71,7 @@ const CURRENCY_CONFIG = {
     },
   };
   
-  export function getCurrencyCode() {
+  function getCurrencyCode() {
     try {
       const preferences = JSON.parse(
         localStorage.getItem("appPreferences") || "{}"
@@ -77,19 +83,13 @@ const CURRENCY_CONFIG = {
     }
   }
   
-  export function getCurrencyConfig(
+  function getCurrencyConfig(
     currencyCode = getCurrencyCode()
   ) {
     return (
       CURRENCY_CONFIG[currencyCode] ||
       CURRENCY_CONFIG.INR
     );
-  }
-  
-  export function getCurrencySymbol(
-    currencyCode = getCurrencyCode()
-  ) {
-    return getCurrencyConfig(currencyCode).symbol;
   }
   
   export function formatCurrency(
@@ -112,15 +112,4 @@ const CURRENCY_CONFIG = {
       minimumFractionDigits,
       maximumFractionDigits,
     }).format(safeNumber);
-  }
-  
-  export function formatCurrencyWithoutDecimals(
-    value,
-    currencyCode = getCurrencyCode()
-  ) {
-    return formatCurrency(value, {
-      currencyCode,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
   }

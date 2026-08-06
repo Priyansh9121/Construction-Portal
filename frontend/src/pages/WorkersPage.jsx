@@ -5,8 +5,12 @@
  * State:
  * - Local: search, filters, the worker form, modal state.
  *
+ * Props:
+ * - workers, addWorker, removeWorker, fetchWorkers — all from the single
+ *   useWorkers instance in App.jsx, threaded through AppRoutes.
+ *
  * Hooks and context:
- * - useWorkers
+ * - useAuth for the signed-in user's company_id
  *
  * API endpoints:
  * - GET/POST/PUT/DELETE /workers via services/workerService.js
@@ -34,7 +38,6 @@ import { updateWorker } from "../services/workerService";
 import { formatCurrency } from "../utils/currency";
 
 import { useAuth } from "../contexts/authContext";
-import useWorkers from "../hooks/useWorkers";
 
 const EMPTY_EDIT_FORM = {
   full_name: "",
@@ -44,15 +47,21 @@ const EMPTY_EDIT_FORM = {
   status: "active",
 };
 
-function WorkersPage() {
+/*
+ * The register does NOT load its own workers. It used to call useWorkers
+ * here, which meant a second copy of the list: creating a worker refreshed
+ * this copy while the one App.jsx hands to Dashboard, Reports, Site
+ * Operations and Daily Site Updates stayed as it was at login, so a new
+ * worker was missing from those screens until the browser was reloaded.
+ * The list and its mutators now arrive as props from that single instance.
+ */
+function WorkersPage({
+  workers = [],
+  addWorker,
+  removeWorker,
+  fetchWorkers,
+}) {
   const { user } = useAuth();
-
-  const {
-    workers = [],
-    addWorker,
-    removeWorker,
-    fetchWorkers,
-  } = useWorkers(user);
 
   const [
     deleteTarget,

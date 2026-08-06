@@ -9,18 +9,15 @@
  * Important notes:
  * - Display-side only. estimated_margin and actual_margin are stored
  *   columns; anything computed here is presentation on top of them.
+ * - Exports exactly one function. `getTenderValue` and
+ *   `calculateFinancePreview` were removed after an audit found no caller
+ *   anywhere in frontend/src: the tender list sums estimated_value inline,
+ *   and the finance preview is computed by the finance wizard itself.
  */
 
 
   
   
-  
-  export const getTenderValue = (tenders = []) => {
-    return tenders.reduce(
-      (sum, tender) => sum + Number(tender.estimated_value || 0),
-      0
-    );
-  };
   
   export const calculateTenderDetailsSummary = ({
     tender,
@@ -111,26 +108,3 @@
     };
   };
   
-  export const calculateFinancePreview = (financeForm) => {
-    const financeAmount = Number(financeForm.amount || 0);
-    const financeGstPercent = Number(financeForm.gst_percent || 0);
-    const financeCompanyPercent = Number(
-      financeForm.company_charge_percent || 0
-    );
-  
-    const calculatedGstTotal =
-      financeForm.record_type === "GOVERNMENT_BILL"
-        ? (financeAmount * financeGstPercent) / 100
-        : Number(financeForm.gst_total || 0);
-  
-    const calculatedCompanyChargeTotal =
-      financeForm.record_type === "COMPANY_CHARGE" ||
-      financeForm.record_type === "GOVERNMENT_BILL"
-        ? (financeAmount * financeCompanyPercent) / 100
-        : Number(financeForm.company_charge_total || 0);
-  
-    return {
-      calculatedGstTotal,
-      calculatedCompanyChargeTotal,
-    };
-  };

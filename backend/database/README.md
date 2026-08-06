@@ -9,10 +9,8 @@ involved in any query.
 | File | What it is |
 |---|---|
 | `pool.js` | The connection pool every module imports. Also sets the `DATE` type parser and provides the tenant-scoped query helpers. |
-| `schema.sql` | **Not the schema.** A pointer to the migrations, kept because the name is where people look first. |
 | `check-database.js` | A hand-run diagnostic that reports which database, schema and search path a connection actually has. Not imported by anything. |
 | `migrations/` | The real schema, in numbered order. Start with `migrations/README.md`. |
-| `snapshots/schema-production.sql` | A `pg_dump` of the deployed schema, kept for comparison. **Stale** — it describes 18 tables and the database has 47. Do not build from it. |
 
 ## Setting a database up
 

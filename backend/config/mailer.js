@@ -57,7 +57,6 @@
 const nodemailer = require("nodemailer");
 
 const {
-  NODE_ENV,
   IS_PRODUCTION,
   SMTP_HOST,
   SMTP_PORT,

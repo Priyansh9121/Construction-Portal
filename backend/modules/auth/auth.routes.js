@@ -82,6 +82,19 @@ const {
   ACTIVITY_ACTIONS,
 } = require("../../utils/activityLog");
 
+/*
+ * A tighter limiter for the one endpoint that sends email. authLimiter
+ * already covers /api/auth at the mount, but forgot-password is the
+ * enumeration and mail-bombing target specifically: 5 per hour per IP
+ * rather than 10 per 15 minutes.
+ *
+ * This limiter existed and was never mounted, so the endpoint ran on the
+ * general auth ceiling alone.
+ */
+const {
+  passwordResetLimiter,
+} = require("../../middleware/rateLimiter");
+
 const router = express.Router();
 
 /*
@@ -230,6 +243,7 @@ router.post(
  */
 router.post(
   "/forgot-password",
+  passwordResetLimiter,
   asyncHandler(
     authController.forgotPassword
   )

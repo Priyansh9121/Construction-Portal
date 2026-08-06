@@ -5,8 +5,12 @@
  * State:
  * - Local: filters, the invoice form, modal state.
  *
+ * Props:
+ * - invoices, addInvoice, removeInvoice, fetchInvoices — all from the single
+ *   useInvoices instance in App.jsx, threaded through AppRoutes.
+ *
  * Hooks and context:
- * - useInvoices
+ * - useAuth for the signed-in user's company_id
  *
  * API endpoints:
  * - GET/POST/PUT/DELETE /invoices via services/invoiceService.js
@@ -29,7 +33,6 @@ import ExportButtons from "../components/export/ExportButtons";
 import { updateInvoice } from "../services/invoiceService";
 import { formatCurrency } from "../utils/currency";
 import { useAuth } from "../contexts/authContext";
-import useInvoices from "../hooks/useInvoices";
 
 const EMPTY_EDIT_FORM = {
   invoice_number: "",
@@ -37,15 +40,20 @@ const EMPTY_EDIT_FORM = {
   status: "pending",
 };
 
-function InvoicesPage() {
+/*
+ * The register does NOT load its own invoices. It used to call useInvoices
+ * here, which meant a second copy of the list: creating an invoice
+ * refreshed this copy while the one App.jsx hands to Dashboard and Reports
+ * stayed as it was at login. The list and its mutators now arrive as props
+ * from that single instance.
+ */
+function InvoicesPage({
+  invoices = [],
+  addInvoice,
+  removeInvoice,
+  fetchInvoices,
+}) {
   const { user } = useAuth();
-
-  const {
-    invoices = [],
-    addInvoice,
-    removeInvoice,
-    fetchInvoices,
-  } = useInvoices(user);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);

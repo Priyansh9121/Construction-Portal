@@ -69,8 +69,16 @@ function App() {
    * reports, layout counters and pages that still receive data
    * through AppRoutes.
    */
+  /*
+   * One instance per register, for the whole session. See the note on
+   * useTenders below — WorkersPage and InvoicesPage each used to call their
+   * hook a second time, which gave those pages a private copy of the list.
+   */
   const {
     workers = [],
+    addWorker,
+    removeWorker,
+    fetchWorkers,
   } = useWorkers(user);
 
   const {
@@ -94,6 +102,9 @@ function App() {
 
   const {
     invoices = [],
+    addInvoice,
+    removeInvoice,
+    fetchInvoices,
   } = useInvoices(user);
 
   const {
@@ -674,6 +685,22 @@ function App() {
       removeTender={removeTender}
       fetchTenders={
         fetchTenders
+      }
+
+      /* Worker register */
+      addWorker={addWorker}
+      removeWorker={removeWorker}
+      fetchWorkers={
+        fetchWorkers
+      }
+
+      /* Invoice register */
+      addInvoice={addInvoice}
+      removeInvoice={
+        removeInvoice
+      }
+      fetchInvoices={
+        fetchInvoices
       }
 
       /* Daily site updates */

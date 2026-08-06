@@ -673,18 +673,16 @@ app.use(
 );
 
 /*
- * Inline require rather than the `tenderRoutes` binding imported at the top
- * of the file. Both resolve to the same cached module, so the behaviour is
- * identical — the top-level import is simply unused for this one mount.
- * Left as it is; this pass does not change code.
+ * Uses the `tenderRoutes` binding imported at the top of the file. This
+ * previously re-required the module inline, which left the import unused —
+ * identical behaviour (both resolve to the same cached module) but a dead
+ * binding that the backend linter now rejects.
  */
 app.use(
   "/api/tenders",
   authMiddleware,
   requireOffice,
-  require(
-    "./modules/tenders/tender.routes"
-  )
+  tenderRoutes
 );
 
 app.use(

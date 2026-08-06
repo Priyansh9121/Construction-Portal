@@ -34,6 +34,11 @@
  */
 
 import {
+  lazy,
+  Suspense,
+} from "react";
+
+import {
   Navigate,
   Route,
   Routes,
@@ -42,30 +47,48 @@ import {
 import AppLayout from "../layouts/AppLayout";
 import RoleRoute from "./RoleRoute";
 
+/*
+|--------------------------------------------------------------------------
+| Page loading
+|--------------------------------------------------------------------------
+|
+| Login and the four public auth screens are imported eagerly: they are the
+| first thing an unauthenticated visitor sees, and code-splitting them would
+| add a network round trip to the one render that must be fastest.
+|
+| Every authenticated page is lazy. They were all in the single entry chunk,
+| which is why it reached ~1.9 MB — a labourer opening the worker portal was
+| downloading the settings screen, the reports screen and three PDF/XLSX
+| export libraries they can never reach.
+|
+| Each lazy() call becomes its own chunk, fetched when its route first
+| renders. <Suspense> below supplies the fallback while that happens.
+*/
+
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 
-import DashboardPage from "../pages/DashboardPage";
-import PaymentsPage from "../pages/PaymentsPage";
-import WorkersPage from "../pages/WorkersPage";
-import WorkerMoneyPage from "../pages/WorkerMoneyPage";
-import TendersPage from "../pages/TendersPage";
-import TenderDetailsPage from "../pages/TenderDetailsPage";
-import InvoicesPage from "../pages/InvoicesPage";
-import DailySiteUpdatesPage from "../pages/DailySiteUpdatesPage";
-import DailyUpdateApprovalsPage from "../pages/DailyUpdateApprovalsPage";
-import SubcontractorsPage from "../pages/SubcontractorsPage";
-import UsersPage from "../pages/UsersPage";
-import ReportsPage from "../pages/ReportsPage";
-import MastersPage from "../pages/MastersPage";
-import ActivityPage from "../pages/ActivityPage";
-import SettingsPage from "../pages/SettingsPage";
+const DashboardPage = lazy(() => import("../pages/DashboardPage"));
+const PaymentsPage = lazy(() => import("../pages/PaymentsPage"));
+const WorkersPage = lazy(() => import("../pages/WorkersPage"));
+const WorkerMoneyPage = lazy(() => import("../pages/WorkerMoneyPage"));
+const TendersPage = lazy(() => import("../pages/TendersPage"));
+const TenderDetailsPage = lazy(() => import("../pages/TenderDetailsPage"));
+const InvoicesPage = lazy(() => import("../pages/InvoicesPage"));
+const DailySiteUpdatesPage = lazy(() => import("../pages/DailySiteUpdatesPage"));
+const DailyUpdateApprovalsPage = lazy(() => import("../pages/DailyUpdateApprovalsPage"));
+const SubcontractorsPage = lazy(() => import("../pages/SubcontractorsPage"));
+const UsersPage = lazy(() => import("../pages/UsersPage"));
+const ReportsPage = lazy(() => import("../pages/ReportsPage"));
+const MastersPage = lazy(() => import("../pages/MastersPage"));
+const ActivityPage = lazy(() => import("../pages/ActivityPage"));
+const SettingsPage = lazy(() => import("../pages/SettingsPage"));
 
-import WorkerPortalPage from "../pages/WorkerPortalPage";
-import SubcontractorPortalPage from "../pages/SubcontractorPortalPage";
-import SiteOperationsPage from "../pages/SiteOperationsPage";
+const WorkerPortalPage = lazy(() => import("../pages/WorkerPortalPage"));
+const SubcontractorPortalPage = lazy(() => import("../pages/SubcontractorPortalPage"));
+const SiteOperationsPage = lazy(() => import("../pages/SiteOperationsPage"));
 
 function getRole(user) {
   return String(user?.role || "")
@@ -175,6 +198,19 @@ function AppRoutes({
   fetchTenders,
 
   /*
+   * Worker and invoice registers. Same reasoning as the tender register
+   * above: one hook instance in App.jsx, so a create or delete on the
+   * register page is visible to Dashboard and Reports without a reload.
+   */
+  addWorker,
+  removeWorker,
+  fetchWorkers,
+
+  addInvoice,
+  removeInvoice,
+  fetchInvoices,
+
+  /*
    * Daily site updates
    */
   siteLogs = [],
@@ -202,6 +238,20 @@ function AppRoutes({
   const homePath = getHomePath(user);
 
   return (
+    /*
+     * Every authenticated page is lazy, so a route change can suspend while
+     * its chunk downloads. Without a boundary here React throws instead of
+     * waiting. The fallback is deliberately plain — it is visible for a
+     * fraction of a second on a normal connection, and a spinner that
+     * flashes is worse than a word that does not.
+     */
+    <Suspense
+      fallback={
+        <div className="page-loading">
+          Loading...
+        </div>
+      }
+    >
     <Routes>
       {/* Authentication */}
 
@@ -451,7 +501,16 @@ function AppRoutes({
             activePage="Workers"
             user={user}
           >
-            <WorkersPage />
+            <WorkersPage
+              workers={workers}
+              addWorker={addWorker}
+              removeWorker={
+                removeWorker
+              }
+              fetchWorkers={
+                fetchWorkers
+              }
+            />
           </AdminManagerLayout>
         }
       />
@@ -515,7 +574,16 @@ function AppRoutes({
             activePage="Invoices"
             user={user}
           >
-            <InvoicesPage />
+            <InvoicesPage
+              invoices={invoices}
+              addInvoice={addInvoice}
+              removeInvoice={
+                removeInvoice
+              }
+              fetchInvoices={
+                fetchInvoices
+              }
+            />
           </AdminManagerLayout>
         }
       />
@@ -702,6 +770,7 @@ function AppRoutes({
         }
       />
     </Routes>
+    </Suspense>
   );
 }
 

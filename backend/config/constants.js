@@ -395,13 +395,19 @@ const CURRENCY_CODES = Object.freeze({
  * not be told an entry is in the future because the server is on UTC, so
  * the entry-window service formats dates in the company's own zone.
  *
- * Note this default is Australia/Melbourne while DEFAULT_TIMEZONE in the
- * environment is Asia/Kolkata — the environment wins at registration, and
- * this only applies if a company somehow has none.
+ * These now agree with DEFAULT_CURRENCY and DEFAULT_TIMEZONE in
+ * config/env.js. They previously did not — this file said AUD and
+ * Australia/Melbourne while the environment said INR and Asia/Kolkata
+ * (finding F-04). The environment wins at registration, so the mismatch
+ * changed no behaviour, but a ten-and-a-half-hour disagreement between two
+ * defaults for the same concept is a trap for whoever touches the
+ * entry-window logic next.
+ *
+ * env.js is the authoritative source. Keep these in step with it.
  */
 const DEFAULTS = Object.freeze({
-  COMPANY_CURRENCY: "AUD",
-  COMPANY_TIMEZONE: "Australia/Melbourne",
+  COMPANY_CURRENCY: "INR",
+  COMPANY_TIMEZONE: "Asia/Kolkata",
   TENDER_PRIORITY: PRIORITY_LEVELS.MEDIUM,
   TENDER_RISK: RISK_LEVELS.LOW,
   TENDER_STATUS: TENDER_STATUS.PENDING,

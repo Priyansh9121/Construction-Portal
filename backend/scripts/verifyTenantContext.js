@@ -194,6 +194,17 @@ const check = (name, pass, detail = "") => {
     const cleanup = new Pool({ connectionString: ADMIN_URL, ssl: false });
     await cleanup.query(`DROP DATABASE IF EXISTS ${SCRATCH}`);
     await cleanup.end();
-  } catch {}
+  } catch (cleanupError) {
+    /*
+     * The scratch database could not be dropped while already handling a
+     * fatal error. Nothing further can be done here, but say so — a
+     * silently swallowed failure leaves an orphaned database behind and no
+     * record of why.
+     */
+    console.error(
+      `Could not drop the scratch database ${SCRATCH}. Drop it by hand.`,
+      cleanupError.message
+    );
+  }
   process.exit(1);
 });
