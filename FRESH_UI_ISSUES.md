@@ -1376,3 +1376,110 @@ max-width would need removing and that shell padding would fight route
 padding. Measurement said otherwise on both counts. Changing a policy that
 evidence says is already correct, in order to make a unit look productive,
 would have damaged five routes that cannot yet defend themselves.
+
+
+---
+
+## SHELL-011 / SHELL-012 — CLOSED
+
+The command palette is now a modal command dialog with a real keyboard model.
+
+**Semantics.** `role="dialog"` + `aria-modal="true"` + an accessible name on the
+surface; the input is a `combobox` with `aria-expanded`, `aria-controls` and
+`aria-activedescendant`; results are `option`s inside a `listbox`, each with
+`aria-selected`.
+
+`aria-activedescendant` was chosen over a roving tabindex deliberately: focus
+must STAY in the field the user is typing into, and a roving tabindex would
+move it out on every arrow key.
+
+**Keyboard.** ArrowDown, ArrowUp, Home, End, Enter, Escape. Selection is
+clamped by DERIVING it during render rather than correcting it in an effect, so
+there is never a frame where the rendered selection is out of range, and the
+lint rule against synchronous setState in effects is satisfied rather than
+worked around.
+
+**Reduced motion.** Reads the project's existing `prefersReducedMotion()` and
+collapses the 35px translate and 0.94 scale to a plain opacity change. Exit
+stays faster than entrance in both modes. Motion never gates input: `autoFocus`
+places the caret on the first frame.
+
+**SHELL-005 intact**, verified by interaction in both directions: with a
+dropdown open beneath it, one Escape closes the palette and the dropdown
+survives; a second Escape closes the dropdown.
+
+---
+
+## SHELL-019 — Focus trap matched non-focusable buttons
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | focus / keyboard |
+| Severity | **High** |
+| Files | `components/CommandPalette.jsx` |
+| Status | **Verified** (fixed within this unit) |
+
+**Description.** The first trap used
+`'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'`.
+In CSS `:not()` binds to its own branch only, so `button` matched all twelve
+result buttons even though each carries `tabindex="-1"`. The input was
+therefore never recognised as the last focusable node, the wrap never fired,
+and **Tab walked straight out of a surface advertising `aria-modal="true"`**.
+
+**Resolution.** `:not([tabindex="-1"])` applied to every branch.
+
+---
+
+## SHELL-020 — Focus restoration captured the palette's own input
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | focus |
+| Severity | Medium |
+| Files | `components/CommandPalette.jsx` |
+| Status | **Verified** (fixed within this unit) |
+
+**Description.** The opener was recorded in a `useEffect` keyed on `open`.
+React applies `autoFocus` during commit, **before** passive effects run, so by
+the time the effect read `document.activeElement` the palette's own input
+already held focus. On close, focus was "restored" to an element that had just
+been unmounted, stranding the user at the top of the document.
+
+**Resolution.** The opener is captured in the Ctrl/Cmd+K handler, at the moment
+of opening, while it still holds focus.
+
+**Both defects were found by the probe, not by the suite.** The 370 assertions
+passed throughout.
+
+---
+
+## SHELL-018 — The palette's destination list does not filter by role
+
+| Field | Value |
+|---|---|
+| Class | **B** (navigation visibility, needs per-role verification) |
+| Category | routing / navigation visibility |
+| Severity | Medium |
+| Files | `components/CommandPalette.jsx` |
+| Status | **Proposed** — recorded, NOT fixed in this unit |
+
+**Description.** The command list is a static array of twelve destinations. It
+includes `/daily-update-approvals` and other admin-only routes, and it is
+offered identically to every role. The file's original header claimed "results
+respect the current user's role because the underlying hooks return nothing for
+a role that may not load them" — there are no hooks; it is a hard-coded array.
+That is the same shape of defect as AUTH-001: a comment describing behaviour
+the code does not have.
+
+**Impact bounded.** This is navigation VISIBILITY, not authorisation. RoleRoute
+and the backend still enforce access, so selecting an unreachable entry
+redirects to the role's home rather than exposing anything. The cost is a
+worker being offered destinations that bounce them.
+
+**Why not fixed here.** Filtering the list changes what each role can see and
+needs verification against every role, which is its own unit. Bundling it into
+an accessibility pass would have shipped an unverified navigation-visibility
+change. The stale comment has been corrected to describe reality and to point
+here.
