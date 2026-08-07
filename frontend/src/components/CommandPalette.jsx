@@ -42,38 +42,41 @@
  * is load-bearing and must not be renamed. This component's own Escape handler
  * is unchanged, so the precedence it participates in is unchanged.
  *
- * Important notes:
- * - The destination list is static. It does NOT filter by role; see SHELL-018.
- *   RoleRoute and the backend still enforce access, so an unreachable entry
- *   redirects rather than exposing anything.
+ * NAVIGATION VISIBILITY (SHELL-018)
+ * Destinations come from `config/navigation.js`, the same definition the
+ * sidebar renders, so the palette cannot offer somewhere the sidebar says this
+ * role cannot reach. The filtering happens at the source: a hidden destination
+ * is absent from the array that drives search, selection,
+ * aria-activedescendant and Enter, so it cannot be typed to, arrowed to or
+ * activated.
+ *
+ * This is visibility, not authorisation. RoleRoute and the backend remain
+ * authoritative and neither consults that file.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import useAppNavigate from "../hooks/useAppNavigate";
+import { useAuth } from "../contexts/authContext";
+import { buildNavigationDestinations } from "../config/navigation";
 import { prefersReducedMotion } from "../hooks/prefersReducedMotion";
-
-const commands = [
-  { name: "Dashboard", path: "/dashboard" },
-  { name: "Finance / Payments", path: "/payments" },
-  { name: "Invoices", path: "/invoices" },
-  { name: "Workers", path: "/workers" },
-  { name: "Worker Money", path: "/worker-money" },
-  { name: "Subcontractors", path: "/subcontractors" },
-  { name: "Sites / Projects", path: "/sites" },
-  { name: "Tenders", path: "/tenders" },
-  { name: "Daily Site Updates", path: "/daily-site-updates" },
-  { name: "Update Approvals", path: "/daily-update-approvals" },
-  { name: "Reports", path: "/reports" },
-  { name: "Settings", path: "/settings" },
-];
 
 const LISTBOX_ID = "command-results";
 const optionId = (index) => `command-option-${index}`;
 
 function CommandPalette() {
   const navigate = useAppNavigate();
+  const { user } = useAuth();
+
+  /*
+   * Derived from the SAME definition the sidebar renders, so the palette can
+   * never offer a destination the sidebar says this role cannot reach.
+   * Filtering happens here, at the source, so a hidden destination is not
+   * merely unrendered: it is absent from the array that drives search,
+   * selection, aria-activedescendant and Enter.
+   */
+  const commands = useMemo(() => buildNavigationDestinations(user), [user]);
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -88,9 +91,9 @@ function CommandPalette() {
   const filteredCommands = useMemo(
     () =>
       commands.filter((command) =>
-        command.name.toLowerCase().includes(search.toLowerCase())
+        command.label.toLowerCase().includes(search.toLowerCase())
       ),
-    [search]
+    [commands, search]
   );
 
   /*
@@ -312,7 +315,7 @@ function CommandPalette() {
                   onMouseEnter={() => setSelected(index)}
                   onClick={() => goToPage(command.path)}
                 >
-                  <span>{command.name}</span>
+                  <span>{command.label}</span>
                   <small>{command.path}</small>
                 </button>
               ))}

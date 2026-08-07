@@ -17,7 +17,12 @@
  * - AppLayout.jsx
  *
  * Navigation model:
- * The fifteen destinations are grouped into five labelled sections rather
+ * The destination list and its role visibility live in config/navigation.js,
+ * shared with the command palette so the two cannot disagree about where a
+ * user can go (SHELL-018). This file renders that model; it does not define
+ * it.
+ *
+ * The destinations are grouped into five labelled sections rather
  * than presented as one flat list. A flat list of fifteen forces the user to
  * read every label to find one; grouping lets them jump to the right
  * neighbourhood first. The groups mirror how the business is organised —
@@ -51,69 +56,7 @@ import { AppNavLink } from "./ui/AppLink";
 
 import Icon from "./ui/Icon";
 
-/**
- * Builds the grouped navigation for a role.
- *
- * Returns an array of { heading, items } where items is
- * { label, path, icon }. Groups that end up empty are dropped, so a role
- * never sees a heading with nothing under it.
- */
-function buildGroups(user) {
-  const isAdmin = user?.role === "admin";
-
-  const groups = [
-    {
-      heading: "Overview",
-      items: [
-        { label: "Dashboard", path: "/dashboard", icon: "dashboard" },
-      ],
-    },
-    {
-      heading: "Projects",
-      items: [
-        { label: "Tenders", path: "/tenders", icon: "tenders" },
-        { label: "Site Operations", path: "/site-operations", icon: "operations" },
-        { label: "Site Updates", path: "/daily-site-updates", icon: "updates" },
-
-        // Admin-only, matching AdminLayout in AppRoutes.jsx.
-        ...(isAdmin
-          ? [{ label: "Update Approvals", path: "/daily-update-approvals", icon: "approvals" }]
-          : []),
-      ],
-    },
-    {
-      heading: "People",
-      items: [
-        { label: "Workforce", path: "/workers", icon: "workers" },
-        { label: "Subcontractors", path: "/subcontractors", icon: "subcontractors" },
-
-        // Admin-only, matching AdminLayout in AppRoutes.jsx.
-        ...(isAdmin
-          ? [{ label: "User Management", path: "/users", icon: "users" }]
-          : []),
-      ],
-    },
-    {
-      heading: "Finance",
-      items: [
-        { label: "Finance", path: "/payments", icon: "finance" },
-        { label: "Invoices", path: "/invoices", icon: "invoices" },
-        { label: "Worker Money", path: "/worker-money", icon: "money" },
-      ],
-    },
-    {
-      heading: "Administration",
-      items: [
-        { label: "Master Data", path: "/masters", icon: "masters" },
-        { label: "Analytics & Reports", path: "/reports", icon: "reports" },
-        { label: "Activity Log", path: "/activity", icon: "activity" },
-        { label: "Settings", path: "/settings", icon: "settings" },
-      ],
-    },
-  ];
-
-  return groups.filter((group) => group.items.length > 0);
-}
+import { buildNavigationGroups } from "../config/navigation";
 
 /** First letter of each of the first two words, for the avatar. */
 function initialsOf(name) {
@@ -131,7 +74,7 @@ function Sidebar({
   open = false,
   onClose,
 }) {
-  const groups = buildGroups(user);
+  const groups = buildNavigationGroups(user);
 
   return (
     <>

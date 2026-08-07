@@ -1550,3 +1550,53 @@ so.
 
 Only the content region is named. Naming the shell would animate the sidebar
 and topbar on every route change, which the direction rules out.
+
+
+---
+
+## SHELL-018 — CLOSED, with its premise corrected
+
+**Root cause.** The sidebar held role-aware navigation while the command
+palette carried a separate hard-coded array. The two had drifted in BOTH
+directions:
+
+| Divergence | Effect |
+|---|---|
+| Palette offered `/daily-update-approvals` | `AdminLayout` restricts it to admin, so a **manager** could select it and be bounced |
+| Palette offered `/sites` | A redirect to `/tenders`. The sidebar omits it deliberately: two entries for one destination is noise |
+| Palette omitted Site Operations, Master Data, Activity Log | Three real destinations were unreachable by search |
+
+**Correction to the original framing.** The issue as first recorded named
+workers and subcontractors as the affected roles. Measurement showed
+otherwise: `/worker-portal` and `/subcontractor-portal` render **outside
+`AppLayout`**, so portal roles never see the shell, the sidebar or the palette
+at all. The role actually being misled was **manager**. The earlier wording is
+left in this file above; it is corrected here rather than rewritten, because
+the mistaken assumption is part of the record.
+
+**Why this was never an RBAC failure.** `RoleRoute` and the backend enforce
+access and neither consults navigation data. The defect was that the shell
+OFFERED somewhere the user could not go, which is a wayfinding failure: the
+product was telling the user something untrue about itself.
+
+**Architecture.** `src/config/navigation.js` now holds one definition of the
+destinations and their role visibility. `buildNavigationGroups(user)` renders
+the sidebar; `buildNavigationDestinations(user)` flattens the same result for
+the palette. The palette derives from the sidebar's model rather than a
+parallel array, so the two cannot drift again.
+
+Filtering happens at the SOURCE, not at render: a hidden destination is absent
+from the array that drives search, selection, `aria-activedescendant` and
+Enter, so it cannot be typed to, arrowed to or activated.
+
+**Verified at runtime** by `tools/fresh_ui/navigation_consistency_probe.mjs`,
+which compares what the two surfaces actually render per role. Admin: sidebar
+15, palette 15, zero divergence. Worker and subcontractor: no shell rendered at
+all, as expected. The probe treats "in palette but not sidebar" as a failure
+and "in sidebar but not palette" as information, because only the first
+direction misleads a user.
+
+**Disclosed coverage gap.** There is no `manager` fixture in the local test
+accounts, so the role that motivated this fix is covered by the shared
+definition's `adminOnly` filter and by the admin/non-admin assertions, but is
+not itself exercised at runtime. Adding a manager fixture would close that.
