@@ -16,7 +16,7 @@ Complete · Verified
 
 | Route | Page | Current system | Status | Notes |
 |---|---|---|---|---|
-| `/login` | `LoginPage.jsx` | V1 + V2 | **Concept locked** | Flagship. State owned by `App.jsx`; prop contract preserved |
+| `/login` | `LoginPage.jsx` | **System** | **Complete** | Boundary B verified. Prop contract preserved; `?next=` orientation added as UI-only helper |
 | `/register` | `RegisterPage.jsx` | V1 + V2 | **Concept locked** | Densest auth surface, 5 fields + select |
 | `/forgot-password` | `ForgotPasswordPage.jsx` | V1 + V2 | **Concept locked** | Invariant response is a security contract |
 | `/reset-password` | `ResetPasswordPage.jsx` | V1 + V2 | **Concept locked** | 1500 ms success window is a real designed moment |
