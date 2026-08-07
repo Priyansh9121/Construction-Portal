@@ -1288,3 +1288,47 @@ S-A1 through S-A4c and would have reported every intended shell change as a
 finding. Samples genuinely absent on a route are recorded as `"absent"` and
 compared as such, so a component disappearing is caught, rather than being
 silently substituted.
+
+
+---
+
+## SHELL-016 — Inherited properties on the shell root leaked into every page
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | cascade / leakage |
+| Severity | **High** |
+| Files | `styles/system/shell/app-layout.css` |
+| Status | **Verified** (fixed within S-A4a1) |
+
+**Description.** The first version of the migrated `.app-layout` set
+`color: var(--ui-ink)` and `font-family: var(--ui-font-sans)`. Both are
+**inherited** properties, so they cascaded into every descendant that does not
+declare its own — which is most components on the five unmigrated routes.
+
+**Measured impact.** 41 descendant style differences: card `color` changed from
+`rgb(13, 16, 23)` to `rgb(47, 46, 42)`, and the resolved font stack changed on
+buttons, inputs, selects, headings and cards across Dashboard, Tenders,
+Payments, Users and Site Operations.
+
+**How it was found.** The frame-aware leak probe rebuilt immediately before
+this unit (SHELL-015). Bucket B reported all 41 and failed. The negative
+control run had already proven the probe detects real changes, so the finding
+was trusted rather than second-guessed.
+
+**Note on my own reasoning.** The file's original comment asserted "inherited
+text colour only; pages that set their own are unaffected". That was true and
+irrelevant: the question is what happens to pages that DON'T set their own, and
+most do not. A plausible-sounding justification in a comment is not evidence.
+
+**Resolution.** The authenticated root now owns only NON-inherited properties
+while pages remain unmigrated: `display`, `grid-template-columns`,
+`min-height` and `background`. Typography and text colour move with the pages
+themselves, not ahead of them.
+
+**Generalised rule for the remaining frame units.** A shell selector that
+wraps unmigrated content may set non-inherited properties freely, but must not
+set `color`, `font-family`, `font-size`, `line-height`, `letter-spacing`,
+`text-align`, `visibility` or any other inherited property until the content
+inside it has been migrated.
