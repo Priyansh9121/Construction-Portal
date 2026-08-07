@@ -155,9 +155,17 @@
    * weight decision. No bilingual claim ships in the UI until it is resolved.
    * ====================================================================== */
 
+  /* Both families are named in one stack. The browser picks per codepoint via
+   * unicode-range, so a mixed Latin + Gujarati string resolves per character
+   * with no wrapper element and no language attribute required.
+   *
+   * NUMERALS: Latin digits (U+0030-0039) fall inside Plex's range, so
+   * currency, IDs, dates and tabular financial figures render in Plex
+   * automatically. This is the confirmed product decision, and it holds
+   * structurally rather than by convention. */
   --ui-font-sans:
-    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, sans-serif;
+    "IBM Plex Sans", "Noto Sans Gujarati", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, sans-serif;
 
   /* Tabular figures everywhere a number can change or be compared, so a
    * column never shifts as values update. */

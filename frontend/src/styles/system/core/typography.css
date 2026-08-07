@@ -1,0 +1,79 @@
+/*
+ * ===========================================================================
+ * TYPOGRAPHY — face declarations
+ * ===========================================================================
+ *
+ * File purpose:
+ * The @font-face declarations for the design system. Note that @font-face is
+ * NOT affected by cascade layers, so these sit outside the layer blocks
+ * deliberately; wrapping them in a layer would be misleading rather than
+ * wrong.
+ *
+ * Current split, and why:
+ * The two IBM Plex Sans subsets are still declared in styles/v2/core/
+ * typography.css, because v2 is live and load-bearing (AppLayout and
+ * AuthShell render inside `.v2-root`). Re-declaring the same family and the
+ * same unicode-ranges here would be duplication, not safety. Plex's
+ * declarations MOVE into this file when the auth and dashboard route groups
+ * are replaced and v2's sheets are removed. Until then this file owns only
+ * what v2 never declared: Gujarati.
+ *
+ * Connected to:
+ * - core/tokens.css supplies --ui-font-sans, which names both families
+ * - tools/fresh_ui/measure_font_metrics.mjs produced the override values
+ * - FRESH_UI_TYPOGRAPHY_DECISION.md records why this face was chosen
+ */
+
+/* ---------------------------------------------------------------------------
+ * Gujarati — Noto Sans Gujarati, variable, self-hosted.
+ *
+ * PRODUCT.md records bilingual English + Gujarati as a confirmed requirement,
+ * and the seeded materials catalog and labour categories genuinely carry
+ * Gujarati names. Relying on the OS fallback was explicitly ruled out: it
+ * renders differently on a budget Android and a Mac, so two people would be
+ * reading visibly different type from the same record.
+ *
+ * WHY THE PAYLOAD IS NOT A COST FOR MOST SESSIONS:
+ * `unicode-range` means Chromium fetches this file only when it actually has
+ * to render a codepoint in U+0A80-U+0AFF. An English-only session downloads
+ * ZERO bytes of it. That is what makes a 110 kB face acceptable on a product
+ * whose priority persona is on a phone with weak signal, and it is why the
+ * face is declared for the whole application rather than only for field-role
+ * routes: the cost follows the content, not the route.
+ *
+ * THE METRIC OVERRIDES BELOW WERE MEASURED, NOT GUESSED.
+ * No Gujarati face is purpose-drawn to pair with IBM Plex Sans; Noto
+ * harmonises with Noto Sans. Left uncorrected, the two faces produce
+ * different line boxes and a mixed-script line sits unevenly. The values
+ * below come from tools/fresh_ui/measure_font_metrics.mjs, run against real
+ * woff2 files in real Chromium:
+ *
+ *   IBM Plex Sans       ascent 102.00  descent 27.00  ink 52.80
+ *   Noto Sans Gujarati  ascent  90.00  descent 41.00  ink 60.30
+ *
+ *   size-adjust 87.6%   matches Gujarati's base-glyph height (shirorekha to
+ *                       baseline) to Plex's x-height, so the two scripts read
+ *                       as the same optical size rather than the same em.
+ *   ascent-override 116.5% / descent-override 30.8% / line-gap-override 0%
+ *                       force an identical line box. Verified delta: 0.0000px
+ *                       at 100px.
+ *
+ * Re-run the measurement tool if either face is ever updated.
+ * ------------------------------------------------------------------------ */
+
+@font-face {
+  font-family: "Noto Sans Gujarati";
+  src: url("/fonts/noto-sans-gujarati-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+
+  size-adjust: 87.6%;
+  ascent-override: 116.5%;
+  descent-override: 30.8%;
+  line-gap-override: 0%;
+
+  /* Gujarati block, plus the Gujarati rupee sign and the danda punctuation
+   * the script shares with other Indic writing systems. */
+  unicode-range: U+0A80-0AFF, U+200C-200D, U+20B9, U+964-965;
+}
