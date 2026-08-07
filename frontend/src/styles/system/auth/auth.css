@@ -307,8 +307,18 @@
    * full-width button on a phone is frequently below the fold, so the user
    * sees nothing happen and submits again.
    *
-   * Neither state is signalled by colour alone — each carries its own text,
-   * and a left bar gives a second, non-chromatic cue.
+   * Neither state is signalled by colour alone. The cue that carries that
+   * guarantee is the message TEXT, which is always present and is announced
+   * through role="alert" or role="status".
+   *
+   * An earlier version added a 3px coloured left bar and described it as "a
+   * second, non-chromatic cue". That was wrong twice over: the bar was drawn
+   * in the same hue family as the background and the text, so it conveyed
+   * nothing additional to a colour-blind reader, and a thick accent border on
+   * one edge is a recognisable generated-UI tell. It was a decorative stripe
+   * wearing an accessibility justification, so it is gone rather than
+   * restyled. A hairline in the status hue keeps the region legible against
+   * the canvas without pretending to be a semantic signal.
    * ====================================================================== */
 
   .auth-card .error,
@@ -319,8 +329,8 @@
     font-size: var(--ui-text-sm);
     line-height: var(--ui-leading-relaxed);
 
+    border: 1px solid;
     border-radius: var(--ui-radius-control);
-    border-left: 3px solid;
 
     animation: ui-status-in var(--ui-duration-enter) var(--ui-ease-enter) both;
   }
@@ -328,13 +338,13 @@
   .auth-card .error {
     color: var(--ui-status-danger-fg);
     background: var(--ui-status-danger-bg);
-    border-left-color: var(--ui-status-danger-border);
+    border-color: var(--ui-status-danger-border);
   }
 
   .auth-card .auth-success {
     color: var(--ui-status-success-fg);
     background: var(--ui-status-success-bg);
-    border-left-color: var(--ui-status-success-border);
+    border-color: var(--ui-status-success-border);
   }
 
   /* =========================================================================
