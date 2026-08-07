@@ -1600,3 +1600,107 @@ direction misleads a user.
 accounts, so the role that motivated this fix is covered by the shared
 definition's `adminOnly` filter and by the admin/non-admin assertions, but is
 not itself exercised at runtime. Adding a manager fixture would close that.
+
+---
+
+## SHELL-021 — Sidebar icons are dimmed by legacy opacity the system never restates
+
+**Class:** hidden legacy dependency
+**Found by:** S-D static declaration-coverage analysis
+**Status:** recorded, NOT yet fixed
+
+`styles/core/shell.css:182` declares:
+
+```css
+.sidebar-link .icon { opacity: 0.75; }
+```
+
+`Icon.jsx:81` renders `className={`icon ${className}`.trim()}` on the SVG, so
+this matches the same element as the system rule `.sidebar-link svg`.
+
+The system owns icon emphasis through COLOUR only — `--ui-ink-faint` at rest,
+`--ui-ink-muted` on hover, `--ui-accent` when active. It never declares
+`opacity`. So the legacy declaration is not overridden; it is the ONLY
+declaration, and it is live.
+
+**Why this matters beyond aesthetics.** `--ui-ink-faint` was chosen against a
+measured 3.50:1 ratio. Compositing it at 0.75 opacity lowers the effective
+ratio to roughly 2.7:1, under the 3.0:1 floor for non-text. A legacy rule is
+silently invalidating a contrast decision that was deliberately measured — the
+same failure shape as AUTH-015.
+
+**Intended resolution:** delete it and do NOT migrate it. The system already
+expresses icon de-emphasis through colour; the opacity is a second, unmeasured
+emphasis channel stacked on top. Removal is an EXPECTED teardown difference and
+a contrast improvement. Requires runtime contrast confirmation before closing.
+
+---
+
+## SHELL-022 — `.mobile-page-nav` is dead in markup but styled in three stylesheets
+
+**Class:** dead selector
+**Status:** recorded, NOT yet fixed
+
+`.mobile-page-nav` has zero consumers in any component. `AppLayout.jsx:24`
+documents it as removed. Styling for it nevertheless survives in:
+
+- `styles/core/shell.css:583` (in S-D scope)
+- `styles/core/animations.css:122` (OUT of S-D scope)
+- referenced in `styles/core/responsive.css:13` commentary
+
+S-D removes only the `core/shell.css` occurrence. The `core/animations.css`
+rule is recorded here as separate debt rather than swept up, per the no-broad-
+cleanup constraint.
+
+---
+
+## SHELL-023 — Legacy topbar translucency and blur are inert, not load-bearing
+
+**Class:** expected teardown difference (pending runtime confirmation)
+**Status:** analysed, NOT yet confirmed at runtime
+
+`styles/core/shell.css:356-358` gives `.topbar` a TRANSLUCENT background plus
+blur:
+
+```css
+background: rgba(255, 255, 255, 0.85);
+backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
+```
+
+`backdrop-filter` appears nowhere in `system/shell/topbar.css`, so on the face
+of it deleting the legacy sheet removes the topbar blur — the SHELL-013 shape.
+
+It does not, because the system rule at `topbar.css:59` paints
+`background: var(--ui-surface)`, which resolves through `--ui-neutral-0` to an
+OPAQUE colour. An opaque background completely occludes what the blur samples,
+so the filter currently produces no visible result. Deleting it should be a
+visual no-op.
+
+This is reasoning, not measurement, and the SHELL-013 precedent is exactly a
+case where legacy compositing survived a confident argument. It must be
+confirmed by the computed-style diff and screenshot review before S-D closes.
+
+---
+
+## S-D STATUS — blocked on fixture credentials, stylesheet NOT deleted
+
+The selector inventory is complete and every live selector in
+`styles/core/shell.css` maps to a system owner, with the three exceptions
+recorded above. `styles/core/shell.css` has exactly ONE import site,
+`src/index.css:52`, under `layer(legacy)`.
+
+The teardown was NOT performed. The mandatory gate — computed-style diff across
+every shell surface, the frame-aware leak probe, all shell probes and the
+responsive matrix — requires signing in as the local fixtures, and those
+passwords were generated at seed time and are not recorded in any file. The
+only way to obtain them is to re-seed, which REWRITES shared fixture
+credentials. That is the precise mutation that caused AUTH-018's 128 failures,
+so it was not done unilaterally.
+
+`tools/fresh_ui/shell_style_diff.mjs` is added and ready: it captures every
+shell surface with all overlays open and diffs before/after. It needs
+`LOCAL_ADMIN_FIXTURE_EMAIL` / `LOCAL_ADMIN_FIXTURE_PASSWORD` exported.
+
+Deleting the sheet without that evidence would leave conditions 5–12 of the
+S-D completion definition unmet.
