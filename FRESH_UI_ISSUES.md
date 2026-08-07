@@ -1483,3 +1483,70 @@ needs verification against every role, which is its own unit. Bundling it into
 an accessibility pass would have shipped an unverified navigation-visibility
 change. The stale comment has been corrected to describe reality and to point
 here.
+
+
+---
+
+## SHELL-021 — `.v2-root` is NOT shell-only, so S-A5 splits
+
+| Field | Value |
+|---|---|
+| Class | **B** |
+| Category | hidden legacy dependency |
+| Severity | **High** — removing it blindly would have broken Dashboard |
+| Status | **Verified** (measured at the start of S-A5) |
+
+The teardown brief anticipated removing `.v2-root` from `AppLayout` alongside
+the V2 shell sheets, and included a STOP condition if any non-shell page
+depended on it. Measurement hit that condition:
+
+| File | `.v2-root`-scoped rules |
+|---|---|
+| `v2/components/data.css` | **66** |
+| `v2/core/reset.css` | 16 |
+| `v2/pages/dashboard.css` | **12** |
+| `v2/core/foundation.css` | 1 |
+| `v2/shell/overlays.css` | 33 (shell, removed) |
+
+Removing the class would have disabled **95 non-shell rules** at once, taking
+Dashboard's page styling and the shared V2 data components with it.
+
+**So S-A5 divides:**
+
+- **S-A5a — done.** Delete both V2 SHELL stylesheets and their imports. Keep
+  `.v2-root` on the element for the page-level rules that still need it.
+- **S-A5b — blocked.** Remove `.v2-root`. Cannot proceed until
+  `v2/components/data.css` and `v2/pages/dashboard.css` are migrated, which is
+  the Dashboard route group's work, not the shell's.
+
+The class now serves only page-level styling. It is no longer a shell
+dependency, which is what S-A5 was actually for.
+
+---
+
+## SHELL-022 — The route-transition name lived in a sheet being deleted
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | behavioural contract |
+| Severity | Medium |
+| Files | `styles/system/shell/page-content.css` |
+| Status | **Verified** (migrated in S-A5a) |
+
+`v2/shell/overlays.css:356` set `view-transition-name: v2-page` on
+`.page-content`, plus a reduced-motion rule setting it to `none`. Deleting the
+sheet without migrating those would have silently disabled route transitions:
+the `@keyframes` that animate the name live in `v2/core/motion.css`, which
+stays for unmigrated pages, so the animations would have survived with nothing
+named to drive them.
+
+**Resolution.** Both declarations were carried into
+`styles/system/shell/page-content.css` verbatim, **including the `v2-page`
+name**. Renaming it here without relocating the animations is exactly the
+silent breakage this issue exists to prevent. S-C owns route transitions and
+should rename the token and move the animations together; the file header says
+so.
+
+Only the content region is named. Naming the shell would animate the sidebar
+and topbar on every route change, which the direction rules out.

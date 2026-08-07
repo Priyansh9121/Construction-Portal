@@ -46,8 +46,6 @@
 @import "./components/data.css";
 
 /* Shell ------------------------------------------------------------------ */
-@import "./shell/app-shell.css";
-@import "./shell/overlays.css";
 
 /* Pages ------------------------------------------------------------------ */
 @import "./pages/dashboard.css";

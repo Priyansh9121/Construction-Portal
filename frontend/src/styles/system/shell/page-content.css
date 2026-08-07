@@ -69,8 +69,24 @@
  *   - No inherited property (SHELL-016): no color, font-family, font-size,
  *     line-height, letter-spacing or text-align. This element wraps every
  *     unmigrated business page.
- *   - No `view-transition-name`. `v2/shell/overlays.css:355` sets one for
- *     route transitions; that belongs to S-C and is left untouched.
+ *   - No background, border, radius, shadow or blur; no overflow; no inherited
+ *     property. See above.
+ *
+ * VIEW TRANSITION — TEMPORARY, OWNED BY S-C
+ * The route-transition NAME below was migrated here from
+ * `v2/shell/overlays.css` when the V2 shell sheets were deleted in S-A5a. It
+ * is carried across verbatim, including the `v2-page` name, because the
+ * @keyframes that animate it still live in `v2/core/motion.css`, which stays
+ * for unmigrated pages. Renaming it here without moving those animations would
+ * silently disable route transitions.
+ *
+ * Only the CONTENT region is named. Naming the shell too would animate the
+ * sidebar and topbar on every route change, which is the novelty navigation
+ * the direction rules out.
+ *
+ * S-C owns route transitions and should rename this and relocate the
+ * animations together. Until then this is the minimum declaration required to
+ * preserve existing behaviour.
  */
 
 :root {
@@ -104,5 +120,18 @@
     /* Load-bearing: without it a wide table refuses to shrink and widens the
      * whole page. */
     min-width: 0;
+
+    /* Temporary, migrated from the deleted V2 shell sheet. See the header. */
+    view-transition-name: v2-page;
+  }
+}
+
+/* Reduced motion: the route simply changes, with no cross-fade travel.
+ * Carried across from the deleted sheet unchanged. */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .page-content {
+      view-transition-name: none;
+    }
   }
 }
