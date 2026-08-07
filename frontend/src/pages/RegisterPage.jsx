@@ -224,38 +224,50 @@ function RegisterPage() {
             </p>
           )}
 
-          <label htmlFor="register-full-name">
-            Full Name
-          </label>
+          {/*
+            Each label and its control share an `auth-field` wrapper, matching
+            Login, Forgot and Reset. Without it the form's uniform gap applied
+            equally between every label and every input, so each label sat
+            closer to the field ABOVE it than to its own control. Screenshot
+            review caught that; no assertion did. See AUTH-008.
+          */}
+          <div className="auth-field">
+            <label htmlFor="register-full-name">
+              Full Name
+            </label>
 
-          <input
-            id="register-full-name"
-            name="full_name"
-            type="text"
-            autoComplete="name"
-            value={form.full_name}
-            placeholder="Full name"
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
+            <input
+              id="register-full-name"
+              name="full_name"
+              type="text"
+              autoComplete="name"
+              value={form.full_name}
+              placeholder="Full name"
+              onChange={handleChange}
+              disabled={loading}
+              required
+            />
+          </div>
 
-          <label htmlFor="register-email">
-            Email
-          </label>
+          <div className="auth-field">
+            <label htmlFor="register-email">
+              Email
+            </label>
 
-          <input
-            id="register-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={form.email}
-            placeholder="email@example.com"
-            onChange={handleChange}
-            disabled={loading}
-            required
-          />
+            <input
+              id="register-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={form.email}
+              placeholder="email@example.com"
+              onChange={handleChange}
+              disabled={loading}
+              required
+            />
+          </div>
 
+          <div className="auth-field">
           <label htmlFor="register-password">
             Password
           </label>
@@ -300,50 +312,55 @@ function RegisterPage() {
                 : "Show"}
             </button>
           </div>
+          </div>
 
-          <label htmlFor="register-confirm-password">
-            Confirm Password
-          </label>
+          <div className="auth-field">
+            <label htmlFor="register-confirm-password">
+              Confirm Password
+            </label>
 
-          <input
-            id="register-confirm-password"
-            name="confirm_password"
-            type={
-              showPassword
-                ? "text"
-                : "password"
-            }
-            autoComplete="new-password"
-            value={
-              form.confirm_password
-            }
-            placeholder="Confirm password"
-            onChange={handleChange}
-            disabled={loading}
-            minLength={8}
-            required
-          />
+            <input
+              id="register-confirm-password"
+              name="confirm_password"
+              type={
+                showPassword
+                  ? "text"
+                  : "password"
+              }
+              autoComplete="new-password"
+              value={
+                form.confirm_password
+              }
+              placeholder="Confirm password"
+              onChange={handleChange}
+              disabled={loading}
+              minLength={8}
+              required
+            />
+          </div>
 
-          <label htmlFor="register-role">
-            Role
-          </label>
+          <div className="auth-field">
+            <label htmlFor="register-role">
+              Role
+            </label>
 
-          <select
-            id="register-role"
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            disabled={loading}
-            required
-          >
-            <option value="worker">
-              Worker
-            </option>
+            <select
+              id="register-role"
+              name="role"
+              value={form.role}
+              onChange={handleChange}
+              disabled={loading}
+              required
+            >
+              <option value="worker">
+                Worker
+              </option>
 
-            <option value="subcontractor">
-              Subcontractor
-            </option>
-          </select>
+              <option value="subcontractor">
+                Subcontractor
+              </option>
+            </select>
+          </div>
 
           <button
             type="submit"
