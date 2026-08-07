@@ -17,16 +17,107 @@ Blocked · Needs Manual Decision · Intentionally Retained · False Positive
 
 ---
 
-## AUTH-001 — RegisterPage header comment contradicts its implementation
+## AUTH-001 — RESOLVED BY EVIDENCE: registration is broken, and the role select is dead UI
 
 | Field | Value |
 |---|---|
-| Class | **C + D** |
-| Category | documentation / security-review |
-| Severity | High |
+| Class | **C** — behaviour and security review. Not a documentation issue. |
+| Category | behaviour / security |
+| Severity | **Critical** |
 | Route | `/register` |
-| Files | `frontend/src/pages/RegisterPage.jsx:21-25` |
-| Status | **Needs Manual Decision** |
+| Files | `frontend/src/pages/RegisterPage.jsx`, `backend/modules/auth/auth.controller.js` |
+| Status | **Blocked — needs a product decision** |
+
+**The question was: is the comment wrong, or the implementation? The answer is
+the implementation.** Verified by reading the route binding and then by a live
+probe against the running endpoint with exactly the payload the frontend
+sends.
+
+### Evidence
+
+`POST /api/auth/register` binds to `authController.register`, which
+destructures:
+
+```
+full_name, email, password, company_name, industry, currency_code, timezone
+```
+
+**There is no `role` in that list.** The handler creates an admin account, a
+company, and an admin company membership, in one transaction. Its documented
+business rule is explicit: *"The registrant always becomes an admin and the
+company's owner. The request cannot ask for any other role."*
+
+`RegisterPage` sends `{ full_name, email, password, role }`. It never sends
+`company_name`.
+
+Live probe, 2026-08-07, local stack:
+
+```
+POST /api/auth/register
+{"full_name":"Probe Only","email":"…","password":"…","role":"worker"}
+
+-> {"success":false,"message":"Company name is required."}
+users created: 0
+```
+
+### Two defects, not one
+
+1. **Self-service registration cannot succeed.** The backend requires
+   `company_name`; the frontend has no such field and never sends one. Every
+   submission returns 400. The route is non-functional in production.
+
+2. **The role select is dead UI that misrepresents the outcome.** The backend
+   ignores `role` entirely. A user choosing "Worker" is not creating a worker
+   account. If registration were repaired by supplying `company_name` and
+   nothing else, that same user would become an **administrator and the owner
+   of a new company**. The control implies a least-privilege choice the API
+   does not offer and has never honoured.
+
+### Why this blocks the Register redesign
+
+The Boundary C objective is to make Register "feel like creating access to a
+workspace" and to treat role selection as "an important decision", with any
+explanatory copy accurately reflecting current behaviour.
+
+None of that can be done honestly while the form cannot submit and its most
+prominent decision control has no effect. Accurate copy for the role field is
+impossible to write, because the field does nothing. Polishing the surface
+would make a broken, misleading flow more convincing.
+
+### What was deliberately NOT done
+
+Per the standing instruction that behaviour wins over comments and must not be
+changed by design work:
+
+- `company_name` was **not** added. That is a payload change.
+- The role select was **not** removed. That is a behaviour change to a flow
+  under review.
+- No explanatory role copy was written, because none would be true.
+
+### Options for the decision
+
+- **A. Repair signup as owner/admin.** Add a company-name field, drop the role
+  select, and align the UI with what the API does. Changes the payload;
+  requires product sign-off.
+- **B. Add worker/subcontractor self-signup on the backend.** Makes the
+  existing UI truthful. A larger backend change and a real security decision,
+  since it changes who may create accounts.
+- **C. Remove public registration.** If accounts are meant to be created by an
+  administrator through the Users screen, the route and its link should go.
+- **D. Leave as is.** Not recommended: a permanently failing signup route
+  remains linked from Login.
+
+Until one is chosen, `/register` stays visually on the shared auth system from
+Boundary A and receives no route-specific work.
+
+---
+
+## AUTH-001-HISTORICAL — original framing, superseded above
+
+| Field | Value |
+|---|---|
+| Class | was **C + D** |
+| Status | Superseded by the evidence recorded above |
 
 **Description.** The file header states the registrant "always becomes the
 company OWNER and an admin" and that "the form cannot request another role."
