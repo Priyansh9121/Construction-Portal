@@ -356,4 +356,232 @@ test.describe("authenticated routes", () => {
       await context.close();
     });
   });
+
+  /* =========================================================================
+   * OVERLAY DISMISS BEHAVIOUR (V2-I023)
+   * =======================================================================
+   * The notification panel shipped with no Escape handling at all: it stayed
+   * open behind the command palette, with focus on a node that had been
+   * removed from the document. Four things in this app listen for Escape, so
+   * these also assert that fixing one did not break the others.
+   *
+   * Behaviour, not timing — nothing here asserts a duration.
+   * ======================================================================= */
+  test.describe("overlay dismiss", () => {
+    test("notification panel: Escape closes it and focus returns to the trigger", async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      const errors = [];
+      page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+
+      const trigger = page.locator(".notification-button").first();
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+      await trigger.click();
+      await expect(page.locator(".notification-panel")).toBeVisible();
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+      await page.keyboard.press("Escape");
+      await expect(page.locator(".notification-panel")).toHaveCount(0);
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+      const focusIsTrigger = await page.evaluate(() =>
+        document.activeElement?.classList.contains("notification-button"));
+      expect(focusIsTrigger, "focus did not return to the notification trigger").toBe(true);
+
+      expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
+      await context.close();
+    });
+
+    test("Escape with nothing open does not disturb the page", async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+
+      const url = page.url();
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(200);
+
+      expect(page.url()).toBe(url);
+      await expect(page.locator(".notification-panel")).toHaveCount(0);
+      await expect(page.locator(".main-content")).toBeVisible();
+      await context.close();
+    });
+
+    test("a modal surface outranks the notification panel for Escape", async ({ browser }) => {
+      /*
+       * With both open, one Escape must close only the topmost layer. Before
+       * the shared helper every document-level listener fired at once and
+       * several layers collapsed together.
+       */
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+
+      await page.locator(".notification-button").first().click();
+      await expect(page.locator(".notification-panel")).toBeVisible();
+
+      await page.keyboard.press("Control+k");
+      await page.waitForTimeout(400);
+      if ((await page.locator(".command-modal").count()) === 0) {
+        test.skip(true, "command palette did not open with Control+K");
+      }
+
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(300);
+
+      await expect(page.locator(".command-modal")).toHaveCount(0);
+      await expect(page.locator(".notification-panel"),
+        "the palette's Escape also closed the panel beneath it").toBeVisible();
+      await context.close();
+    });
+
+    test("drawer Escape still works at 768px", async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+
+      const toggle = page.locator(".sidebar-toggle").first();
+      await toggle.click();
+      await expect(page.locator('.sidebar[data-open="true"]')).toHaveCount(1);
+
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(300);
+      await expect(page.locator('.sidebar[data-open="true"]')).toHaveCount(0);
+      await context.close();
+    });
+  });
+
+  /* =========================================================================
+   * ROUTE TRANSITIONS (V2-I024)
+   * =======================================================================
+   * Behaviour, never timing. These assert where the transition is OWNED and
+   * that navigation is never blocked by it — not how long anything takes.
+   * ======================================================================= */
+  test.describe("route transitions", () => {
+    test("only the content region carries the transition name", async ({ browser }) => {
+      /*
+       * If the shell were named too, the sidebar and topbar would cross-fade
+       * on every route change — the novelty navigation the design direction
+       * rules out. The name must be on .page-content and nowhere else.
+       */
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+
+      const named = await page.evaluate(() =>
+        [...document.querySelectorAll("body *")]
+          .filter((el) => {
+            const n = getComputedStyle(el).viewTransitionName;
+            return n && n !== "none";
+          })
+          .map((el) => `${el.tagName.toLowerCase()}.${el.className}`.slice(0, 60)));
+
+      expect(named.length, `named elements: ${named.join(", ")}`).toBe(1);
+      expect(named[0]).toContain("page-content");
+      await context.close();
+    });
+
+    test("sidebar navigation reaches the route and content stays usable", async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      const errors = [];
+      page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+
+      await page.locator('.sidebar-link[href="/tenders"]').first().click();
+      await page.waitForURL("**/tenders");
+
+      // Immediately interactive — navigation is never awaited on animation.
+      await expect(page.locator(".main-content")).toBeVisible();
+      await expect(page.locator(".topbar h1")).toBeVisible();
+
+      expect(errors, `console errors: ${errors.join(" | ")}`).toEqual([]);
+      await context.close();
+    });
+
+    test("browser Back and Forward still work", async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+
+      await page.locator('.sidebar-link[href="/tenders"]').first().click();
+      await page.waitForURL("**/tenders");
+
+      await page.goBack();
+      await page.waitForURL("**/dashboard");
+      await expect(page.locator(".main-content")).toBeVisible();
+
+      await page.goForward();
+      await page.waitForURL("**/tenders");
+      await expect(page.locator(".main-content")).toBeVisible();
+      await context.close();
+    });
+
+    test("reduced motion runs no decorative transition", async ({ browser }) => {
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+        reducedMotion: "reduce",
+      });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1000);
+
+      // The stylesheet drops the name entirely in this mode.
+      const name = await page.evaluate(() =>
+        getComputedStyle(document.querySelector(".page-content")).viewTransitionName);
+      expect(name).toBe("none");
+
+      // And navigation still works.
+      await page.locator('.sidebar-link[href="/tenders"]').first().click();
+      await page.waitForURL("**/tenders");
+      await expect(page.locator(".main-content")).toBeVisible();
+      await context.close();
+    });
+
+    test("navigation works where View Transitions are unavailable", async ({ browser }) => {
+      /*
+       * Progressive enhancement: with the API removed the router must fall
+       * back to a plain DOM update, not throw.
+       */
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await signIn(context, await getSession());
+      const page = await context.newPage();
+      await page.addInitScript(() => {
+        delete Document.prototype.startViewTransition;
+      });
+
+      const errors = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+
+      await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1200);
+      expect(await page.evaluate(() => typeof document.startViewTransition)).toBe("undefined");
+
+      await page.locator('.sidebar-link[href="/tenders"]').first().click();
+      await page.waitForURL("**/tenders");
+      await expect(page.locator(".main-content")).toBeVisible();
+
+      expect(errors, `page errors: ${errors.join(" | ")}`).toEqual([]);
+      await context.close();
+    });
+  });
 });

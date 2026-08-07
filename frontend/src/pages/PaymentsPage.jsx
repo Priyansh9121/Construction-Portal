@@ -416,8 +416,31 @@ function PaymentsPage({
     }
   };
 
+  const recordCount = Array.isArray(payments) ? payments.length : 0;
+
   return (
     <>
+      {/*
+        V2-I041. The page opened directly on six cards with no title and no
+        context — the topbar said "Finance" and the page itself said nothing
+        about what was in it. The count is the useful part: it tells you
+        whether you are looking at an empty ledger or a busy one before you
+        read a single figure.
+      */}
+      <div className="v2-page-head">
+        <div className="v2-page-head__text">
+          <h2 className="v2-page-head__title">Finance ledger</h2>
+
+          <p className="v2-page-head__sub">
+            {recordCount === 0
+              ? "No records yet — use Add Payment below to record the first one."
+              : `${recordCount.toLocaleString("en-IN")} ${
+                  recordCount === 1 ? "record" : "records"
+                } across income and expenses.`}
+          </p>
+        </div>
+      </div>
+
       <FinanceOverview totals={totals} />
 
       <FinanceTrendChart

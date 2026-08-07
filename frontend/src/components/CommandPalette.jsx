@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import useAppNavigate from "../hooks/useAppNavigate";
 import { AnimatePresence, motion } from "framer-motion";
 
 const commands = [
@@ -38,7 +38,7 @@ const commands = [
 ];
 
 function CommandPalette() {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");

@@ -1,0 +1,374 @@
+/**
+ * ===========================================================================
+ * UI v2 — OVERLAYS
+ * ===========================================================================
+ *
+ * File purpose:
+ * The command palette, the notification surface, and route transitions.
+ *
+ * Two surfaces, two planes, and the difference is the point
+ * ---------------------------------------------------------
+ * The COMMAND PALETTE takes the chrome plane. It is the second and last
+ * place in the product where dark carries content (Login's brand panel is
+ * the other). That is deliberate: the palette is a tool for operating the
+ * application rather than a view of the data in it, so it should not look
+ * like a page. Dark, elevated, keyboard-first — it reads as a console.
+ *
+ * The NOTIFICATION PANEL stays on the data plane. Everything in it is
+ * operational content — an approval, an overdue invoice — and content
+ * belongs on the light surface where the rest of the data lives.
+ *
+ * What this replaces:
+ * The legacy palette was glassmorphic: `backdrop-filter: blur(14px)` over
+ * `rgba(255,255,255,0.96)`, with a translucent white border. That was logged
+ * as debt during Phase 2A. Blur here communicated nothing — the palette is
+ * modal, so what is behind it is not actionable and does not need to show
+ * through. Only the scrim blurs now, and only to signal dismissability.
+ */
+
+@layer v2-components {
+  /* =======================================================================
+   * COMMAND PALETTE
+   * ===================================================================== */
+
+  .v2-root .command-backdrop,
+  .command-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--v2-z-palette);
+
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: var(--v2-s4);
+    padding-block-start: min(14vh, 7rem);
+
+    background: rgb(7 9 14 / 0.55);
+    /* Blur on the scrim only: it says "the layer beneath is dismissable".
+     * The panel itself is opaque, because a translucent console over live
+     * data is harder to read, not more premium. */
+    backdrop-filter: blur(3px);
+
+    animation: v2-fade-in var(--v2-d-fast) var(--v2-ease) both;
+  }
+
+  .v2-root .command-modal,
+  .command-modal {
+    inline-size: min(100%, 40rem);
+    max-block-size: min(70vh, 34rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    background: var(--v2-chrome-bg-raised);
+    border: var(--v2-hairline) solid var(--v2-chrome-line-strong);
+    border-radius: var(--v2-r-xl);
+    box-shadow: var(--v2-shadow-xl);
+    color: var(--v2-chrome-text);
+    color-scheme: dark;
+
+    animation: v2-scale-in var(--v2-d-modal) var(--v2-ease-in) both;
+  }
+
+  .v2-root .command-header,
+  .command-header {
+    display: flex;
+    align-items: center;
+    gap: var(--v2-s3);
+
+    padding: var(--v2-s3) var(--v2-s4);
+    border-block-end: var(--v2-hairline) solid var(--v2-chrome-line);
+    flex: 0 0 auto;
+  }
+
+  .v2-root .command-header input,
+  .command-header input {
+    flex: 1;
+    min-width: 0;
+    min-block-size: var(--v2-touch);
+
+    background: transparent;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+
+    color: var(--v2-chrome-text);
+    /* 16px floor — below this iOS zooms on focus, and the palette is
+     * reachable on a phone. */
+    font-size: var(--v2-t-md);
+  }
+
+  .v2-root .command-header input::placeholder,
+  .command-header input::placeholder {
+    color: var(--v2-chrome-text-muted);
+  }
+
+  /* The keyboard hint. A console should say how to leave it. */
+  .v2-root .command-header span,
+  .command-header span {
+    flex: 0 0 auto;
+    padding: 3px var(--v2-s2);
+
+    background: var(--v2-chrome-bg-active);
+    border: var(--v2-hairline) solid var(--v2-chrome-line-strong);
+    border-radius: var(--v2-r-xs);
+
+    color: var(--v2-chrome-text-muted);
+    font-size: var(--v2-t-micro);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+  }
+
+  .v2-root .command-results,
+  .command-results {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--v2-s2);
+  }
+
+  .v2-root .command-results button,
+  .command-results button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--v2-s3);
+    width: 100%;
+
+    min-block-size: var(--v2-touch);
+    padding: var(--v2-s2) var(--v2-s3);
+
+    background: transparent;
+    border: 0;
+    border-radius: var(--v2-r-sm);
+
+    color: var(--v2-chrome-text);
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-medium);
+    text-align: start;
+    cursor: pointer;
+
+    transition: background-color var(--v2-t-fast);
+  }
+
+  /* Colour only — no translateX. In a keyboard-driven list the selection
+   * moves with the arrow keys, and a row that also slides sideways makes the
+   * cursor position harder to track, not easier. */
+  .v2-root .command-results button:hover,
+  .command-results button:hover,
+  .v2-root .command-results button[aria-selected="true"],
+  .command-results button[aria-selected="true"] {
+    background: var(--v2-chrome-bg-active);
+    transform: none;
+  }
+
+  .v2-root .command-results button small,
+  .command-results button small {
+    flex: 0 0 auto;
+    color: var(--v2-chrome-text-muted);
+    font-size: var(--v2-t-xs);
+    font-weight: var(--v2-w-normal);
+  }
+
+  .v2-root .command-empty,
+  .command-empty {
+    padding: var(--v2-s8) var(--v2-s4);
+    text-align: center;
+    color: var(--v2-chrome-text-muted);
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-normal);
+  }
+
+  /* =======================================================================
+   * NOTIFICATION SURFACE — data plane
+   * ===================================================================== */
+
+  .v2-root .notification-center {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .v2-root .notification-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+
+    inline-size: var(--v2-touch);
+    block-size: var(--v2-touch);
+
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-sm);
+    box-shadow: none;
+    color: var(--v2-text-secondary);
+
+    transition:
+      background-color var(--v2-t-fast),
+      border-color var(--v2-t-fast),
+      color var(--v2-t-fast);
+  }
+
+  .v2-root .notification-button:hover {
+    background: var(--v2-surface-hover);
+    border-color: var(--v2-control-line);
+    color: var(--v2-text);
+  }
+
+  /* The count. Sits on the corner, never pulses — a permanently animating
+   * badge stops being read, and then it fails on the day it matters. */
+  .v2-root .notification-button span {
+    position: absolute;
+    inset-block-start: -6px;
+    inset-inline-end: -6px;
+
+    display: grid;
+    place-items: center;
+    min-inline-size: 18px;
+    block-size: 18px;
+    padding-inline: 5px;
+
+    background: var(--v2-danger-fg);
+    border: 2px solid var(--v2-surface);
+    border-radius: var(--v2-r-pill);
+
+    color: var(--v2-text-inverse);
+    font-size: 10px;
+    font-weight: var(--v2-w-bold);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+
+    animation: v2-scale-in var(--v2-d-fast) var(--v2-ease-in) both;
+  }
+
+  .v2-root .notification-panel {
+    position: absolute;
+    inset-block-start: calc(100% + var(--v2-s2));
+    inset-inline-end: 0;
+    z-index: var(--v2-z-raised);
+
+    inline-size: min(22rem, calc(100vw - var(--v2-s6)));
+    max-block-size: min(70vh, 28rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--v2-s2);
+
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-lg);
+    box-shadow: var(--v2-shadow-lg);
+
+    animation: v2-rise-in var(--v2-d-fast) var(--v2-ease-in) both;
+    transform-origin: top right;
+  }
+
+  .v2-root .notification-panel h3 {
+    margin: 0 0 var(--v2-s2);
+    padding: var(--v2-s2) var(--v2-s3) 0;
+    font-size: var(--v2-t-micro);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+    text-transform: uppercase;
+    color: var(--v2-text-muted);
+  }
+
+  .v2-root .notification-panel a {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    min-block-size: var(--v2-touch);
+    padding: var(--v2-s2) var(--v2-s3);
+    border-radius: var(--v2-r-sm);
+
+    color: var(--v2-text);
+    text-decoration: none;
+
+    transition: background-color var(--v2-t-fast);
+  }
+
+  .v2-root .notification-panel a:hover {
+    background: var(--v2-surface-hover);
+    text-decoration: none;
+  }
+
+  /* Unread carries a bar AND a dot AND weight — never colour alone. */
+  .v2-root .notification-panel a.unread {
+    background: var(--v2-action-subtle);
+    border-inline-start: 3px solid var(--v2-info-bar);
+  }
+
+  .v2-root .notification-panel strong {
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-semibold);
+    color: var(--v2-text);
+  }
+
+  .v2-root .notification-panel a.unread strong::after {
+    content: "";
+    display: inline-block;
+    inline-size: 6px;
+    block-size: 6px;
+    margin-inline-start: var(--v2-s2);
+    border-radius: 50%;
+    background: var(--v2-danger-fg);
+    vertical-align: middle;
+  }
+
+  .v2-root .notification-panel span,
+  .v2-root .notification-panel p {
+    font-size: var(--v2-t-xs);
+    color: var(--v2-text-muted);
+  }
+
+  .v2-root .notification-panel .link-button {
+    display: block;
+    min-block-size: var(--v2-touch);
+    margin: 0 0 var(--v2-s1) auto;
+    padding: 0 var(--v2-s2);
+
+    background: none;
+    border: 0;
+    color: var(--v2-action);
+    font-size: var(--v2-t-xs);
+    font-weight: var(--v2-w-medium);
+    cursor: pointer;
+  }
+
+  .v2-root .notification-panel .link-button:hover {
+    text-decoration: underline;
+  }
+
+  /* =======================================================================
+   * ROUTE TRANSITIONS
+   * =====================================================================
+   * The named element the browser cross-fades between navigations. Only the
+   * content region is named — naming the shell too would animate the sidebar
+   * and topbar on every route change, which is exactly the novelty
+   * navigation the brief rules out.
+   *
+   * The animations themselves live in core/motion.css. Everything here is
+   * progressive enhancement: a browser without View Transitions swaps the
+   * route with no animation, which is the pre-existing behaviour, and
+   * navigation is never awaited on an animation completing.
+   * ===================================================================== */
+
+  .v2-root .page-content {
+    view-transition-name: v2-page;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer v2-components {
+    /* No cross-fade travel; the route simply changes. */
+    .v2-root .page-content { view-transition-name: none; }
+
+    .v2-root .notification-button span,
+    .v2-root .notification-panel,
+    .v2-root .command-modal,
+    .v2-root .command-backdrop,
+    .command-modal,
+    .command-backdrop {
+      animation: v2-fade-in var(--v2-d-fast) linear both;
+    }
+  }
+}

@@ -44,7 +44,6 @@
 
 import {
   useCallback,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -53,6 +52,7 @@ import { useAuth } from "../contexts/authContext";
 
 import NotificationCenter from "./NotificationCenter";
 import Icon from "./ui/Icon";
+import useDismissableOverlay from "../hooks/useDismissableOverlay";
 
 /** First letter of each of the first two words, for the avatar. */
 function initialsOf(name) {
@@ -85,38 +85,18 @@ function Topbar({
   /*
    * Dismiss on outside click and on Escape.
    *
-   * Both listeners are only attached while the menu is open, so the portal
-   * does not carry two document-level listeners on every page for a menu
-   * that is usually shut.
+   * This was the reference implementation for `useDismissableOverlay`
+   * (V2-I023) and now uses it. Behaviour is unchanged: listeners attach only
+   * while the menu is open, and focus returns to the trigger on Escape. What
+   * it gains is arbitration — it no longer competes with the notification
+   * panel or the command palette for the key.
    */
-  useEffect(() => {
-    if (!accountOpen) {
-      return undefined;
-    }
-
-    const handlePointerDown = (event) => {
-      if (!accountRef.current?.contains(event.target)) {
-        setAccountOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setAccountOpen(false);
-        // Return focus to the trigger — otherwise focus is left on a node
-        // that has just been removed from the document.
-        accountTriggerRef.current?.focus();
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [accountOpen]);
+  useDismissableOverlay({
+    open: accountOpen,
+    onDismiss: closeAccount,
+    containerRef: accountRef,
+    triggerRef: accountTriggerRef,
+  });
 
   const handleLogout = () => {
     // logout() already clears the token and the cached user.

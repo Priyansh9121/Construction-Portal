@@ -26,40 +26,60 @@
  * + shell.css and are no longer imported.
  */
 
+/* ===========================================================================
+ * CASCADE LAYER ORDER  (UI v2 migration)
+ * ===========================================================================
+ * Later layers win, regardless of specificity. Every UI v1 sheet below is
+ * imported into `legacy`, so a UI v2 rule can override a UI v1 rule without
+ * a specificity fight and without `!important` — and without editing any
+ * legacy file. UI v2 opts in per route via the `.v2-root` class, so an
+ * unmigrated route renders exactly as it did before.
+ *
+ * Caveat: `!important` reverses layer order. Legacy has 9, of which the
+ * meaningful one is the reduced-motion blanket in animations.css. It stays
+ * authoritative during coexistence, which is compatible with v2 by design.
+ * ======================================================================== */
+@layer legacy, v2-reset, v2-foundation, v2-components, v2-pages, v2-utilities;
+
 /* 1. Tokens ---------------------------------------------------------------- */
-@import "./styles/core/tokens.css";
+@import "./styles/core/tokens.css" layer(legacy);
 
 /* 2. Foundation ------------------------------------------------------------ */
-@import "./styles/core/foundation.css";
+@import "./styles/core/foundation.css" layer(legacy);
 
 /* 3. Shell ----------------------------------------------------------------- */
-@import "./styles/core/shell.css";
+@import "./styles/core/shell.css" layer(legacy);
 
 /* 4. Components ------------------------------------------------------------ */
-@import "./styles/core/utilities.css";
-@import "./styles/core/animations.css";
-@import "./styles/components/cards.css";
-@import "./styles/components/forms.css";
-@import "./styles/components/tables.css";
-@import "./styles/components/tabs.css";
-@import "./styles/components/modal.css";
-@import "./styles/components/activity.css";
-@import "./styles/components/portal.css";
+@import "./styles/core/utilities.css" layer(legacy);
+@import "./styles/core/animations.css" layer(legacy);
+@import "./styles/components/cards.css" layer(legacy);
+@import "./styles/components/forms.css" layer(legacy);
+@import "./styles/components/tables.css" layer(legacy);
+@import "./styles/components/tabs.css" layer(legacy);
+@import "./styles/components/modal.css" layer(legacy);
+@import "./styles/components/activity.css" layer(legacy);
+@import "./styles/components/portal.css" layer(legacy);
 
 /* 5. Pages ----------------------------------------------------------------- */
-@import "./styles/pages/auth.css";
-@import "./styles/pages/dashboard.css";
-@import "./styles/pages/payments.css";
-@import "./styles/pages/reports.css";
-@import "./styles/pages/settings.css";
-@import "./styles/pages/tender-details.css";
-@import "./styles/pages/tenders.css";
-@import "./styles/pages/worker-portal.css";
-@import "./styles/pages/subcontractor-portal.css";
-@import "./styles/pages/site-operations.css";
+@import "./styles/pages/auth.css" layer(legacy);
+@import "./styles/pages/dashboard.css" layer(legacy);
+@import "./styles/pages/payments.css" layer(legacy);
+@import "./styles/pages/reports.css" layer(legacy);
+@import "./styles/pages/settings.css" layer(legacy);
+@import "./styles/pages/tender-details.css" layer(legacy);
+@import "./styles/pages/tenders.css" layer(legacy);
+@import "./styles/pages/worker-portal.css" layer(legacy);
+@import "./styles/pages/subcontractor-portal.css" layer(legacy);
+@import "./styles/pages/site-operations.css" layer(legacy);
 
 /* 6. Responsive ------------------------------------------------------------ */
-@import "./styles/core/responsive.css";
+@import "./styles/core/responsive.css" layer(legacy);
+
+/* 7. UI v2 ------------------------------------------------------------------
+ * Declares its own layers and imports the v2 tree. Loaded last so its
+ * layers sit after `legacy` in the cascade. */
+@import "./styles/v2/index.css";
 
 html,
 body,

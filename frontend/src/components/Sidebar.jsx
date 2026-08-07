@@ -47,7 +47,7 @@
  *   other produces a link that leads to a redirect.
  */
 
-import { NavLink } from "react-router-dom";
+import { AppNavLink } from "./ui/AppLink";
 
 import Icon from "./ui/Icon";
 
@@ -182,7 +182,7 @@ function Sidebar({
               </h2>
 
               {group.items.map((item) => (
-                <NavLink
+                <AppNavLink
                   key={item.path}
                   to={item.path}
                   className={({ isActive }) =>
@@ -192,7 +192,7 @@ function Sidebar({
                 >
                   <Icon name={item.icon} size={18} />
                   <span>{item.label}</span>
-                </NavLink>
+                </AppNavLink>
               ))}
             </nav>
           ))}

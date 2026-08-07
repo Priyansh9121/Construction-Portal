@@ -1,0 +1,260 @@
+{
+  "routes": [
+    {
+      "path": "/login",
+      "line": 259,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "LoginPage",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "/register",
+      "line": 280,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "RegisterPage",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "/forgot-password",
+      "line": 294,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "ForgotPasswordPage",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "/reset-password",
+      "line": 308,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "ResetPasswordPage",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "/worker-portal",
+      "line": 324,
+      "guard": "RoleRoute",
+      "allow": "",
+      "component": "WorkerPortalPage",
+      "lazy": true,
+      "module": "../pages/WorkerPortalPage"
+    },
+    {
+      "path": "/subcontractor-portal",
+      "line": 340,
+      "guard": "RoleRoute",
+      "allow": "",
+      "component": "SubcontractorPortalPage",
+      "lazy": true,
+      "module": "../pages/SubcontractorPortalPage"
+    },
+    {
+      "path": "/dashboard",
+      "line": 358,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "DashboardPage",
+      "lazy": true,
+      "module": "../pages/DashboardPage"
+    },
+    {
+      "path": "/tenders",
+      "line": 378,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "TendersPage",
+      "lazy": true,
+      "module": "../pages/TendersPage"
+    },
+    {
+      "path": "/projects",
+      "line": 401,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "Navigate/redirect",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "/tenders/:id",
+      "line": 423,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "TenderDetailsPage",
+      "lazy": true,
+      "module": "../pages/TenderDetailsPage"
+    },
+    {
+      "path": "/projects/:id",
+      "line": 437,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "TenderDetailsPage",
+      "lazy": true,
+      "module": "../pages/TenderDetailsPage"
+    },
+    {
+      "path": "/sites",
+      "line": 456,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "Navigate/redirect",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "/sites/:id",
+      "line": 466,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "Navigate/redirect",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "/payments",
+      "line": 478,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "PaymentsPage",
+      "lazy": true,
+      "module": "../pages/PaymentsPage"
+    },
+    {
+      "path": "/workers",
+      "line": 498,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "WorkersPage",
+      "lazy": true,
+      "module": "../pages/WorkersPage"
+    },
+    {
+      "path": "/worker-money",
+      "line": 521,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "WorkerMoneyPage",
+      "lazy": true,
+      "module": "../pages/WorkerMoneyPage"
+    },
+    {
+      "path": "/invoices",
+      "line": 571,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "InvoicesPage",
+      "lazy": true,
+      "module": "../pages/InvoicesPage"
+    },
+    {
+      "path": "/daily-site-updates",
+      "line": 594,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "DailySiteUpdatesPage",
+      "lazy": true,
+      "module": "../pages/DailySiteUpdatesPage"
+    },
+    {
+      "path": "/daily-update-approvals",
+      "line": 617,
+      "guard": "AdminLayout",
+      "allow": "",
+      "component": "DailyUpdateApprovalsPage",
+      "lazy": true,
+      "module": "../pages/DailyUpdateApprovalsPage"
+    },
+    {
+      "path": "/site-operations",
+      "line": 631,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "SiteOperationsPage",
+      "lazy": true,
+      "module": "../pages/SiteOperationsPage"
+    },
+    {
+      "path": "/subcontractors",
+      "line": 645,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "SubcontractorsPage",
+      "lazy": true,
+      "module": "../pages/SubcontractorsPage"
+    },
+    {
+      "path": "/users",
+      "line": 659,
+      "guard": "AdminLayout",
+      "allow": "",
+      "component": "UsersPage",
+      "lazy": true,
+      "module": "../pages/UsersPage"
+    },
+    {
+      "path": "/masters",
+      "line": 673,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "MastersPage",
+      "lazy": true,
+      "module": "../pages/MastersPage"
+    },
+    {
+      "path": "/activity",
+      "line": 687,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "ActivityPage",
+      "lazy": true,
+      "module": "../pages/ActivityPage"
+    },
+    {
+      "path": "/reports",
+      "line": 701,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "ReportsPage",
+      "lazy": true,
+      "module": "../pages/ReportsPage"
+    },
+    {
+      "path": "/settings",
+      "line": 724,
+      "guard": "AdminManagerLayout",
+      "allow": "",
+      "component": "SettingsPage",
+      "lazy": true,
+      "module": "../pages/SettingsPage"
+    },
+    {
+      "path": "/",
+      "line": 738,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "Navigate/redirect",
+      "lazy": false,
+      "module": ""
+    },
+    {
+      "path": "*",
+      "line": 757,
+      "guard": "\u2014",
+      "allow": "",
+      "component": "Navigate/redirect",
+      "lazy": false,
+      "module": ""
+    }
+  ],
+  "route_count": 28,
+  "lazy_boundaries": 19,
+  "page_files": 22,
+  "pages_not_registered": []
+}

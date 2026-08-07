@@ -1,0 +1,341 @@
+/**
+ * ===========================================================================
+ * UI v2 — DASHBOARD (Operations Command Centre)
+ * ===========================================================================
+ *
+ * File purpose:
+ * The layout and hierarchy of `/dashboard`.
+ *
+ * The problem this solves
+ * ----------------------
+ * The page had roughly twenty panels, twelve equally-sized KPI cards and six
+ * separate "Recent X" tables — 4,465px tall at 1440, about five screens. Every
+ * figure was given the same weight, so nothing read as important and the user
+ * had to scan all of it to find out whether anything was wrong. It answered
+ * "here is all the data" rather than "here is what needs you".
+ *
+ * The zone model
+ * --------------
+ * Reading order IS priority order, top to bottom:
+ *
+ *   1. ATTENTION   what is wrong right now (the attention strip)
+ *   2. RISK        what is overdue or due soon — promoted from a single card
+ *                  buried among twelve
+ *   3. POSITION    the money and capacity figures, tiered rather than flat
+ *   4. TREND       the finance chart
+ *   5. DETAIL      health panels, then recent activity behind tabs
+ *
+ * Zones 1, 3 and 5 are implemented. Zone 2 (a dedicated RISK band) and the
+ * bullet-style ratio bars are designed but NOT yet built — see V2-I029 and
+ * V2-I031. Their CSS was deliberately removed rather than left in place with
+ * no consumer: unused CSS is the debt this programme spent three passes
+ * clearing, and shipping it "ready for later" is how it comes back.
+ *
+ * Nothing was removed to achieve this. Every figure, table and link the page
+ * had is still present and still reachable; what changed is what the user
+ * meets first and how much scrolling separates them from it.
+ *
+ * Density note: this is deliberately denser than the rest of the product.
+ * A command centre is read at a glance by someone deciding where to go, so
+ * more information per screen is the point — provided the hierarchy makes it
+ * scannable, which is what the tiering below does.
+ */
+
+@layer v2-pages {
+  /* =======================================================================
+   * ZONE RHYTHM
+   * =====================================================================
+   * One spacing scale between zones, so the page reads as a sequence of
+   * sections rather than a list of panels.
+   * ===================================================================== */
+
+  .v2-dash__zone {
+    min-width: 0;
+  }
+
+  .v2-dash__zone-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--v2-s3);
+    flex-wrap: wrap;
+    margin-block-end: var(--v2-s3);
+  }
+
+  .v2-dash__zone-title {
+    margin: 0;
+    font-size: var(--v2-t-micro);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+    text-transform: uppercase;
+    color: var(--v2-text-muted);
+  }
+
+  /* =======================================================================
+   * ZONE 3 — POSITION: the tiered metric grid  (V2-I027)
+   * =====================================================================
+   * Twelve identical cards became two tiers. `auto-fit` + `minmax` means
+   * neither tier needs a media query: the columns resolve from the space
+   * available, so the same rule serves 320px and 1920px.
+   * ===================================================================== */
+
+  .v2-metrics {
+    display: grid;
+    gap: var(--v2-s3);
+    min-width: 0;
+  }
+
+  /* Primary — the figures someone opens the product to check. */
+  .v2-metrics--primary {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    margin-block-end: var(--v2-s3);
+  }
+
+  /* Secondary — the supporting band. Denser, smaller, still scannable. */
+  .v2-metrics--secondary {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
+  }
+
+  /*
+   * `AnimatedStatCard` renders `.card`, and that class contract is left
+   * alone — `css_inventory.py` tracks it and the component is shared. The
+   * tiering is applied to the card AS PLACED, which is why these rules
+   * target `.v2-metrics .card` rather than requiring a new class on the
+   * component.
+   */
+  .v2-root .v2-metrics .card {
+    container-type: inline-size;
+    padding: var(--v2-s4);
+    min-height: 0;
+  }
+
+  .v2-root .v2-metrics--primary .card h2 {
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  }
+
+  .v2-root .v2-metrics--secondary .card {
+    padding: var(--v2-s3) var(--v2-s4);
+  }
+
+  .v2-root .v2-metrics--secondary .card h2 {
+    font-size: var(--v2-t-lg);
+  }
+
+  /* Below ~11rem the secondary figure steps down rather than wrapping a
+   * currency value mid-number. */
+  @container (max-width: 11rem) {
+    .v2-root .v2-metrics .card h2 { font-size: var(--v2-t-base); }
+  }
+
+
+  /* =======================================================================
+   * BULLET RATIO ROWS  (V2-I031)
+   * =====================================================================
+   * Label, bar, value on one line inside the existing health tables.
+   * Adopted from UI/UX Pro Max's chart guidance: "multiple KPIs side by
+   * side; space-constrained contexts where a gauge is too large". No
+   * charting dependency — this is two spans and a transition.
+   * ===================================================================== */
+
+  .v2-ratio {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--v2-s2);
+    inline-size: 100%;
+    justify-content: flex-end;
+  }
+
+  .v2-ratio__track {
+    flex: 1 1 auto;
+    /* Caps the bar so a long label never squeezes it to nothing, and stops
+     * it stretching across a wide desktop cell where it would read as a
+     * progress bar for the whole row. */
+    max-inline-size: 7rem;
+    min-inline-size: 2.5rem;
+    block-size: 6px;
+
+    border-radius: var(--v2-r-pill);
+    background: var(--v2-surface-active);
+    overflow: hidden;
+  }
+
+  .v2-ratio__fill {
+    display: block;
+    block-size: 100%;
+    border-radius: inherit;
+    background: var(--v2-action);
+    /* Grows from 0 once, on mount. A state change, not a loop. */
+    transition: inline-size var(--v2-d-deliberate) var(--v2-ease-in);
+  }
+
+  .v2-ratio__fill[data-tone="success"] { background: var(--v2-success-bar); }
+  .v2-ratio__fill[data-tone="warning"] { background: var(--v2-warning-bar); }
+  .v2-ratio__fill[data-tone="danger"] { background: var(--v2-danger-bar); }
+  .v2-ratio__fill[data-tone="info"] { background: var(--v2-info-bar); }
+
+  .v2-ratio__value {
+    flex: 0 0 auto;
+    min-inline-size: 4.25rem;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--v2-w-semibold);
+  }
+
+  /* On a phone the bar would leave no room for the figure, and the figure is
+   * the precise answer. The bar is the affordance that goes. */
+  @media (max-width: 520px) {
+    .v2-ratio__track { display: none; }
+  }
+
+  /* =======================================================================
+   * QUICK ACTIONS  (V2-I032)
+   * =====================================================================
+   * The panel, heading and description that used to wrap these are gone.
+   * Typography and spacing carry the hierarchy instead of a border.
+   * ===================================================================== */
+
+  .v2-dash__actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    gap: var(--v2-s2);
+  }
+
+  .v2-dash__action {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--v2-touch);
+    min-width: 0;
+
+    padding: var(--v2-s3);
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-md);
+
+    color: var(--v2-text);
+    text-decoration: none;
+    transition: border-color var(--v2-t-fast), background-color var(--v2-t-fast);
+  }
+
+  .v2-dash__action:hover {
+    background: var(--v2-surface-hover);
+    border-color: var(--v2-action);
+    text-decoration: none;
+  }
+
+  .v2-dash__action-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .v2-dash__action-text strong {
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-semibold);
+  }
+
+  .v2-dash__action-text span {
+    font-size: var(--v2-t-xs);
+    color: var(--v2-text-muted);
+  }
+
+  /* =======================================================================
+   * METRIC SKELETON  (V2-I033)
+   * =====================================================================
+   * Same grid, same card count, same padding as the real tiers, so the
+   * placeholder occupies exactly the box the content will. A skeleton whose
+   * shape differs from its content is a layout shift with extra steps.
+   * ===================================================================== */
+
+  .v2-root .v2-metric-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--v2-s2);
+    justify-content: center;
+  }
+
+  .v2-skeleton--label {
+    display: block;
+    block-size: 0.6875rem;
+    inline-size: 55%;
+    border-radius: var(--v2-r-xs);
+  }
+
+  .v2-skeleton--value {
+    display: block;
+    block-size: 1.5rem;
+    inline-size: 75%;
+    border-radius: var(--v2-r-xs);
+  }
+
+  /* =======================================================================
+   * ZONE 5 — RECENT ACTIVITY, tabbed  (V2-I028)
+   * =====================================================================
+   * Six stacked tables became six panels behind one tab strip. Every table
+   * and every link is preserved; four screens of scroll are not.
+   * ===================================================================== */
+
+  .v2-recent__panel {
+    animation: v2-fade-in var(--v2-d-fast) var(--v2-ease-in) both;
+  }
+
+  /* =======================================================================
+   * TWO-COLUMN DETAIL  (V2-I034)
+   * =====================================================================
+   * Defined here rather than inherited from the legacy sheet, so the legacy
+   * rules can be deleted in Phase 6 once no other page consumes them.
+   * ===================================================================== */
+
+  .v2-root .dashboard-grid,
+  .v2-root .two-column-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: var(--v2-section);
+    align-items: start;
+  }
+
+  .v2-root .section-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--v2-s3);
+    flex-wrap: wrap;
+    margin-block-end: var(--v2-s4);
+  }
+
+  .v2-root .section-title-row h2 {
+    margin: 0;
+    font-size: var(--v2-t-lg);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-tight);
+  }
+
+  .v2-root .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+    gap: var(--v2-s3);
+    margin-block-end: 0;
+  }
+
+  /* The chart panel: a fixed aspect rather than a fixed height, so it is not
+   * a letterbox on a phone or a stamp on a wide display. */
+  .v2-root .premium-chart-shell {
+    inline-size: 100%;
+    block-size: clamp(14rem, 32vh, 22rem);
+  }
+}
+
+/* ===========================================================================
+ * REVEAL
+ * ===========================================================================
+ * One staged entrance on arrival, capped at eight children by the shared
+ * `.v2-stagger` primitive so a long grid does not queue. State changes after
+ * that are handled by each component's own transition.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer v2-pages {
+    .v2-recent__panel { animation: none; }
+    /* The bar is the information; its arrival is not. */
+    .v2-ratio__fill { transition: none; }
+  }
+}

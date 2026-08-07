@@ -60,20 +60,25 @@ import {
       return () => controls.stop();
     }, [count, numericValue]);
   
+    /*
+     * V2-I030. The hover lift (`y: -8, scale: 1.02`) and tap scale are gone.
+     *
+     * A control that moves under the cursor is a mis-click risk in a dense
+     * grid, and AUD-011 removed hover lifts from every other control in the
+     * product. This one survived because it was a Framer Motion prop rather
+     * than CSS, so the stylesheet sweep never saw it. Hover feedback is now
+     * the border change in styles/v2/pages/dashboard.css — visible, instant,
+     * and it moves nothing.
+     *
+     * The count-up is kept: it fires once on mount, is bounded, and it draws
+     * the eye to a figure that has just changed. That is motion carrying
+     * meaning rather than decorating.
+     */
     return (
-      <motion.div
-        className="card animated-stat-card"
-        whileHover={{
-          y: -8,
-          scale: 1.02,
-        }}
-        whileTap={{
-          scale: 0.98,
-        }}
-      >
+      <div className="card animated-stat-card">
         <p>{title}</p>
         <motion.h2>{displayedValue}</motion.h2>
-      </motion.div>
+      </div>
     );
   }
   

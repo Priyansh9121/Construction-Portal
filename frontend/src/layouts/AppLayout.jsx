@@ -230,7 +230,7 @@ function AppLayout({
   }, [drawerOpen]);
 
   return (
-    <div className="app-layout">
+    <div className="app-layout v2-root">
       {/*
         First tab stop on every page. Lets a keyboard or screen-reader user
         jump the navigation instead of tabbing through ~15 links on every

@@ -1,0 +1,54 @@
+/**
+ * ===========================================================================
+ * UI v2 — STYLESHEET ENTRY
+ * ===========================================================================
+ *
+ * File purpose:
+ * Declares the cascade layer order for UI v2 and imports its sheets.
+ *
+ * Why layers, and why this works
+ * ------------------------------
+ * UI v1 and UI v2 share one document during migration. Layer order — not
+ * specificity, not source order, not `!important` — decides who wins:
+ *
+ *     legacy < v2-reset < v2-foundation < v2-components < v2-pages < v2-utilities
+ *
+ * Every legacy sheet is imported into `layer(legacy)` from src/index.css
+ * WITHOUT editing a single legacy file, so a v2 rule beats a v1 rule at any
+ * specificity and no `!important` is ever needed to migrate a component.
+ *
+ * Verified rather than assumed: Vite's CSS pipeline inlines `@import` at build
+ * time, so `@import "x.css" layer(legacy)` could plausibly have been flattened
+ * and the layer lost. A build probe confirmed it emits
+ * `@layer legacy{...}@layer v2{...}` correctly. See UI_V2_MASTER_AUDIT.md
+ * UIV2-007.
+ *
+ * One caveat that layers introduce: `!important` reverses layer order, so a
+ * legacy `!important` beats a v2 `!important`. Legacy has 9 of them. The one
+ * that matters is the blanket `animation/transition: none !important` under
+ * `prefers-reduced-motion` in animations.css — which stays authoritative
+ * during coexistence, and is compatible with v2's reduced-motion design
+ * rather than in conflict with it.
+ */
+
+@layer legacy, v2-reset, v2-foundation, v2-components, v2-pages, v2-utilities;
+
+/* Tokens and motion variables carry no selectors beyond :root, so they are
+ * layer-neutral and safe to load before anything opts in. */
+@import "./core/tokens.css";
+@import "./core/motion.css";
+
+@import "./core/reset.css";
+@import "./core/typography.css";
+@import "./core/foundation.css";
+
+/* Components -------------------------------------------------------------- */
+@import "./components/data.css";
+
+/* Shell ------------------------------------------------------------------ */
+@import "./shell/app-shell.css";
+@import "./shell/overlays.css";
+
+/* Pages ------------------------------------------------------------------ */
+@import "./pages/auth.css";
+@import "./pages/dashboard.css";

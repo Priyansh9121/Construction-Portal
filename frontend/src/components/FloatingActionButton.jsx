@@ -17,7 +17,7 @@
  */
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import AppLink from "./ui/AppLink";
 import { motion, AnimatePresence } from "framer-motion";
 
 function FloatingActionButton() {
@@ -48,9 +48,9 @@ function FloatingActionButton() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.04 }}
               >
-                <Link to={action.path} onClick={() => setOpen(false)}>
+                <AppLink to={action.path} onClick={() => setOpen(false)}>
                   + {action.label}
-                </Link>
+                </AppLink>
               </motion.div>
             ))}
           </motion.div>

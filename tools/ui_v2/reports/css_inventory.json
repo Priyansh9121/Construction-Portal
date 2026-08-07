@@ -1,0 +1,2154 @@
+{
+  "stylesheets": 23,
+  "css_lines": 5380,
+  "declared_classes": 232,
+  "summary": {
+    "static": 209,
+    "DYNAMIC": 12,
+    "no-consumer-found": 9,
+    "test-only": 2
+  },
+  "dynamic_prefixes": [
+    "badge--",
+    "portal-summary-value",
+    "status--"
+  ],
+  "test_referenced": [
+    "activity-day-heading",
+    "activity-disclosure",
+    "activity-metadata",
+    "activity-stream",
+    "as",
+    "auth-brand",
+    "auth-card",
+    "auth-shell",
+    "auth-submit",
+    "badge",
+    "card",
+    "className",
+    "closest",
+    "cls",
+    "css",
+    "env",
+    "example",
+    "filter",
+    "getAttribute",
+    "height",
+    "help",
+    "helpUrl",
+    "id",
+    "impact",
+    "join",
+    "js",
+    "length",
+    "map",
+    "md",
+    "message",
+    "name",
+    "ops-context",
+    "ops-context-date",
+    "ops-module",
+    "ops-module--active",
+    "ops-workspace",
+    "password-input-wrapper",
+    "password-toggle-btn",
+    "path",
+    "pathname",
+    "portal-action",
+    "portal-assignment",
+    "portal-context-row",
+    "portal-header",
+    "portal-summaries",
+    "portal-summary",
+    "portal-summary-value",
+    "right",
+    "round",
+    "scrollWidth",
+    "selectorText",
+    "sidebar",
+    "sidebar-toggle",
+    "site-operations-page",
+    "slice",
+    "spec",
+    "split",
+    "status",
+    "table-wrapper",
+    "table-wrapper--cards",
+    "tagName",
+    "target",
+    "test",
+    "toLowerCase",
+    "topbar-actions",
+    "trim",
+    "type",
+    "url",
+    "width"
+  ],
+  "classes": [
+    {
+      "class": "account-action",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:490",
+        "frontend/src/styles/core/shell.css:509"
+      ],
+      "count": 2
+    },
+    {
+      "class": "account-action--danger",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:513",
+        "frontend/src/styles/core/shell.css:517"
+      ],
+      "count": 2
+    },
+    {
+      "class": "account-avatar",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:428"
+      ],
+      "count": 1
+    },
+    {
+      "class": "account-caret",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:443"
+      ],
+      "count": 1
+    },
+    {
+      "class": "account-identity",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:467",
+        "frontend/src/styles/core/shell.css:478",
+        "frontend/src/styles/core/shell.css:483"
+      ],
+      "count": 3
+    },
+    {
+      "class": "account-menu",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:399"
+      ],
+      "count": 1
+    },
+    {
+      "class": "account-panel",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:447"
+      ],
+      "count": 1
+    },
+    {
+      "class": "account-trigger",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:408",
+        "frontend/src/styles/core/shell.css:423"
+      ],
+      "count": 2
+    },
+    {
+      "class": "active-link",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:197",
+        "frontend/src/styles/core/shell.css:206"
+      ],
+      "count": 2
+    },
+    {
+      "class": "active-tab",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:29",
+        "frontend/src/styles/components/tabs.css:29",
+        "frontend/src/styles/core/foundation.css:618"
+      ],
+      "count": 3
+    },
+    {
+      "class": "activity-actor",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:147"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-arrow",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:260"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-body",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:133"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-day-count",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:53"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-day-heading",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:22",
+        "frontend/src/styles/components/activity.css:46"
+      ],
+      "count": 2
+    },
+    {
+      "class": "activity-disclosure",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:168",
+        "frontend/src/styles/components/activity.css:186"
+      ],
+      "count": 2
+    },
+    {
+      "class": "activity-email",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:163"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-from",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:252"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-headline",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:140"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-item",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:70",
+        "frontend/src/styles/components/activity.css:83",
+        "frontend/src/styles/components/activity.css:101"
+      ],
+      "count": 7
+    },
+    {
+      "class": "activity-list",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:62"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-marker",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:87",
+        "frontend/src/styles/components/activity.css:101",
+        "frontend/src/styles/components/activity.css:113"
+      ],
+      "count": 6
+    },
+    {
+      "class": "activity-meta",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:156"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-metadata",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:202",
+        "frontend/src/styles/components/activity.css:219",
+        "frontend/src/styles/components/activity.css:230"
+      ],
+      "count": 4
+    },
+    {
+      "class": "activity-metadata-row",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:224"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-stream",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:1"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-target",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:151"
+      ],
+      "count": 1
+    },
+    {
+      "class": "activity-to",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/activity.css:265"
+      ],
+      "count": 1
+    },
+    {
+      "class": "alert",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:625",
+        "frontend/src/styles/pages/site-operations.css:226"
+      ],
+      "count": 2
+    },
+    {
+      "class": "alert--error",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:650",
+        "frontend/src/styles/pages/site-operations.css:234",
+        "frontend/src/styles/pages/site-operations.css:243"
+      ],
+      "count": 3
+    },
+    {
+      "class": "alert--warning",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:656",
+        "frontend/src/styles/pages/site-operations.css:252",
+        "frontend/src/styles/pages/site-operations.css:258"
+      ],
+      "count": 3
+    },
+    {
+      "class": "amount-cell",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tables.css:69",
+        "frontend/src/styles/core/foundation.css:568",
+        "frontend/src/styles/core/responsive.css:186"
+      ],
+      "count": 3
+    },
+    {
+      "class": "animated-stat-card",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:130",
+        "frontend/src/styles/core/animations.css:368"
+      ],
+      "count": 2
+    },
+    {
+      "class": "app-layout",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:1",
+        "frontend/src/styles/core/shell.css:1"
+      ],
+      "count": 2
+    },
+    {
+      "class": "attention-body",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:123"
+      ],
+      "count": 1
+    },
+    {
+      "class": "attention-card",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:61",
+        "frontend/src/styles/pages/dashboard.css:82",
+        "frontend/src/styles/pages/dashboard.css:86"
+      ],
+      "count": 8
+    },
+    {
+      "class": "attention-chevron",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:151"
+      ],
+      "count": 1
+    },
+    {
+      "class": "attention-count",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:130"
+      ],
+      "count": 1
+    },
+    {
+      "class": "attention-detail",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:145"
+      ],
+      "count": 1
+    },
+    {
+      "class": "attention-icon",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:98",
+        "frontend/src/styles/pages/dashboard.css:108",
+        "frontend/src/styles/pages/dashboard.css:113"
+      ],
+      "count": 4
+    },
+    {
+      "class": "attention-label",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:139"
+      ],
+      "count": 1
+    },
+    {
+      "class": "attention-strip",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:47"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-brand",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:33",
+        "frontend/src/styles/pages/auth.css:271",
+        "frontend/src/styles/pages/auth.css:302"
+      ],
+      "count": 3
+    },
+    {
+      "class": "auth-brand-intro",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:324"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-brand-list",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:332",
+        "frontend/src/styles/pages/auth.css:342",
+        "frontend/src/styles/pages/auth.css:348"
+      ],
+      "count": 4
+    },
+    {
+      "class": "auth-brand-mark",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:83"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-brand-title",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:315"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-card",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:41",
+        "frontend/src/styles/pages/auth.css:59",
+        "frontend/src/styles/pages/auth.css:94"
+      ],
+      "count": 9
+    },
+    {
+      "class": "auth-card-brand",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:69",
+        "frontend/src/styles/pages/auth.css:359"
+      ],
+      "count": 2
+    },
+    {
+      "class": "auth-card-head",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:65"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-card-sub",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:106"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-eyebrow",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:306"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-link",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:242",
+        "frontend/src/styles/pages/auth.css:256"
+      ],
+      "count": 2
+    },
+    {
+      "class": "auth-links",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:227"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-shell",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:1",
+        "frontend/src/styles/pages/auth.css:266"
+      ],
+      "count": 2
+    },
+    {
+      "class": "auth-submit",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:138"
+      ],
+      "count": 1
+    },
+    {
+      "class": "auth-success",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/auth.css:211"
+      ],
+      "count": 1
+    },
+    {
+      "class": "badge",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:35",
+        "frontend/src/styles/core/animations.css:217",
+        "frontend/src/styles/core/foundation.css:393"
+      ],
+      "count": 8
+    },
+    {
+      "class": "badge--camera",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:137"
+      ],
+      "count": 1
+    },
+    {
+      "class": "badge--gallery",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:144"
+      ],
+      "count": 1
+    },
+    {
+      "class": "badge--unknown",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:149"
+      ],
+      "count": 1
+    },
+    {
+      "class": "blue",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:52",
+        "frontend/src/styles/core/foundation.css:424"
+      ],
+      "count": 2
+    },
+    {
+      "class": "card",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:24",
+        "frontend/src/styles/components/cards.css:48",
+        "frontend/src/styles/components/cards.css:59"
+      ],
+      "count": 31
+    },
+    {
+      "class": "cards",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:1",
+        "frontend/src/styles/components/cards.css:19",
+        "frontend/src/styles/core/animations.css:103"
+      ],
+      "count": 7
+    },
+    {
+      "class": "checkbox-row",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:103",
+        "frontend/src/styles/components/tabs.css:110"
+      ],
+      "count": 2
+    },
+    {
+      "class": "child-tabs",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/payments.css:9"
+      ],
+      "count": 1
+    },
+    {
+      "class": "command-backdrop",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:372",
+        "frontend/src/styles/core/animations.css:467"
+      ],
+      "count": 2
+    },
+    {
+      "class": "command-empty",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:458"
+      ],
+      "count": 1
+    },
+    {
+      "class": "command-header",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:394",
+        "frontend/src/styles/core/animations.css:402",
+        "frontend/src/styles/core/animations.css:412"
+      ],
+      "count": 3
+    },
+    {
+      "class": "command-modal",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:385"
+      ],
+      "count": 1
+    },
+    {
+      "class": "command-results",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:421",
+        "frontend/src/styles/core/animations.css:427",
+        "frontend/src/styles/core/animations.css:441"
+      ],
+      "count": 6
+    },
+    {
+      "class": "dashboard-cards",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:1",
+        "frontend/src/styles/components/cards.css:19",
+        "frontend/src/styles/core/responsive.css:58"
+      ],
+      "count": 4
+    },
+    {
+      "class": "dashboard-hero-eyebrow",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:465"
+      ],
+      "count": 1
+    },
+    {
+      "class": "delete-btn",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:47",
+        "frontend/src/styles/components/forms.css:57",
+        "frontend/src/styles/core/foundation.css:257"
+      ],
+      "count": 4
+    },
+    {
+      "class": "empty",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:220"
+      ],
+      "count": 1
+    },
+    {
+      "class": "empty-table-message",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tables.css:84",
+        "frontend/src/styles/core/foundation.css:574",
+        "frontend/src/styles/core/responsive.css:195"
+      ],
+      "count": 3
+    },
+    {
+      "class": "error",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:214",
+        "frontend/src/styles/core/utilities.css:27",
+        "frontend/src/styles/pages/auth.css:195"
+      ],
+      "count": 3
+    },
+    {
+      "class": "export-menu",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:191"
+      ],
+      "count": 1
+    },
+    {
+      "class": "export-menu-button",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:198",
+        "frontend/src/styles/components/forms.css:217"
+      ],
+      "count": 2
+    },
+    {
+      "class": "export-menu-dropdown",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:221",
+        "frontend/src/styles/components/forms.css:237",
+        "frontend/src/styles/components/forms.css:247"
+      ],
+      "count": 3
+    },
+    {
+      "class": "fab",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:290"
+      ],
+      "count": 1
+    },
+    {
+      "class": "fab-button",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:342"
+      ],
+      "count": 1
+    },
+    {
+      "class": "fab-menu",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:351",
+        "frontend/src/styles/core/animations.css:357"
+      ],
+      "count": 2
+    },
+    {
+      "class": "fab-wrapper",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:296",
+        "frontend/src/styles/core/animations.css:331"
+      ],
+      "count": 2
+    },
+    {
+      "class": "field-label",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:61"
+      ],
+      "count": 1
+    },
+    {
+      "class": "filter-row",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tables.css:130",
+        "frontend/src/styles/components/tables.css:144",
+        "frontend/src/styles/components/tables.css:152"
+      ],
+      "count": 5
+    },
+    {
+      "class": "finance-wizard-panel",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/payments.css:1"
+      ],
+      "count": 1
+    },
+    {
+      "class": "flex-between",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:221",
+        "frontend/src/styles/core/utilities.css:1"
+      ],
+      "count": 2
+    },
+    {
+      "class": "form-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:154",
+        "frontend/src/styles/core/foundation.css:299",
+        "frontend/src/styles/core/responsive.css:248"
+      ],
+      "count": 4
+    },
+    {
+      "class": "form-grid",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:89",
+        "frontend/src/styles/components/forms.css:100",
+        "frontend/src/styles/components/forms.css:107"
+      ],
+      "count": 9
+    },
+    {
+      "class": "form-preview-total",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:161",
+        "frontend/src/styles/core/foundation.css:382"
+      ],
+      "count": 2
+    },
+    {
+      "class": "form-section-title",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:171",
+        "frontend/src/styles/components/forms.css:181",
+        "frontend/src/styles/components/forms.css:187"
+      ],
+      "count": 3
+    },
+    {
+      "class": "full-width",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/utilities.css:41"
+      ],
+      "count": 1
+    },
+    {
+      "class": "green",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:42",
+        "frontend/src/styles/core/foundation.css:420"
+      ],
+      "count": 2
+    },
+    {
+      "class": "grid-2",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/utilities.css:17",
+        "frontend/src/styles/pages/site-operations.css:266",
+        "frontend/src/styles/pages/site-operations.css:498"
+      ],
+      "count": 3
+    },
+    {
+      "class": "grid-3",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/utilities.css:22",
+        "frontend/src/styles/pages/site-operations.css:266"
+      ],
+      "count": 2
+    },
+    {
+      "class": "highlight-danger",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:89",
+        "frontend/src/styles/components/cards.css:124",
+        "frontend/src/styles/core/foundation.css:204"
+      ],
+      "count": 3
+    },
+    {
+      "class": "highlight-success",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:89",
+        "frontend/src/styles/components/cards.css:112",
+        "frontend/src/styles/core/foundation.css:201"
+      ],
+      "count": 3
+    },
+    {
+      "class": "highlight-warning",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:89",
+        "frontend/src/styles/components/cards.css:118",
+        "frontend/src/styles/core/foundation.css:203"
+      ],
+      "count": 3
+    },
+    {
+      "class": "icon",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:180",
+        "frontend/src/styles/core/shell.css:206"
+      ],
+      "count": 2
+    },
+    {
+      "class": "inline-form",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:74",
+        "frontend/src/styles/pages/site-operations.css:82",
+        "frontend/src/styles/pages/site-operations.css:82"
+      ],
+      "count": 8
+    },
+    {
+      "class": "link-button",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:560",
+        "frontend/src/styles/core/animations.css:572"
+      ],
+      "count": 2
+    },
+    {
+      "class": "login-box",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:1",
+        "frontend/src/styles/components/forms.css:107"
+      ],
+      "count": 2
+    },
+    {
+      "class": "main-content",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:296",
+        "frontend/src/styles/core/responsive.css:1",
+        "frontend/src/styles/core/shell.css:36"
+      ],
+      "count": 3
+    },
+    {
+      "class": "mobile-page-nav",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:118",
+        "frontend/src/styles/core/shell.css:574"
+      ],
+      "count": 2
+    },
+    {
+      "class": "modal-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/modal.css:28",
+        "frontend/src/styles/core/responsive.css:248",
+        "frontend/src/styles/core/responsive.css:253"
+      ],
+      "count": 3
+    },
+    {
+      "class": "modal-backdrop",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/modal.css:1",
+        "frontend/src/styles/core/animations.css:205"
+      ],
+      "count": 2
+    },
+    {
+      "class": "modal-card",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:107",
+        "frontend/src/styles/components/forms.css:107",
+        "frontend/src/styles/components/forms.css:130"
+      ],
+      "count": 5
+    },
+    {
+      "class": "muted-text",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:96",
+        "frontend/src/styles/core/utilities.css:37"
+      ],
+      "count": 2
+    },
+    {
+      "class": "notification-button",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:486",
+        "frontend/src/styles/core/animations.css:496"
+      ],
+      "count": 2
+    },
+    {
+      "class": "notification-center",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:482"
+      ],
+      "count": 1
+    },
+    {
+      "class": "notification-panel",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:512",
+        "frontend/src/styles/core/animations.css:524",
+        "frontend/src/styles/core/animations.css:528"
+      ],
+      "count": 13
+    },
+    {
+      "class": "number-cell",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tables.css:69"
+      ],
+      "count": 1
+    },
+    {
+      "class": "ops-context",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:312"
+      ],
+      "count": 1
+    },
+    {
+      "class": "ops-context-date",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:359",
+        "frontend/src/styles/pages/site-operations.css:373"
+      ],
+      "count": 2
+    },
+    {
+      "class": "ops-context-icon",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:346"
+      ],
+      "count": 1
+    },
+    {
+      "class": "ops-context-label",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:365"
+      ],
+      "count": 1
+    },
+    {
+      "class": "ops-context-meta",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:397",
+        "frontend/src/styles/pages/site-operations.css:407",
+        "frontend/src/styles/pages/site-operations.css:414"
+      ],
+      "count": 4
+    },
+    {
+      "class": "ops-context-primary",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:339",
+        "frontend/src/styles/pages/site-operations.css:529"
+      ],
+      "count": 2
+    },
+    {
+      "class": "ops-context-relative",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:380",
+        "frontend/src/styles/pages/site-operations.css:525"
+      ],
+      "count": 2
+    },
+    {
+      "class": "ops-module",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:452",
+        "frontend/src/styles/pages/site-operations.css:473"
+      ],
+      "count": 2
+    },
+    {
+      "class": "ops-module--active",
+      "status": "test-only",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:478",
+        "frontend/src/styles/pages/site-operations.css:478"
+      ],
+      "count": 2
+    },
+    {
+      "class": "ops-modules",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:430"
+      ],
+      "count": 1
+    },
+    {
+      "class": "ops-workspace",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:498",
+        "frontend/src/styles/pages/site-operations.css:498",
+        "frontend/src/styles/pages/site-operations.css:504"
+      ],
+      "count": 9
+    },
+    {
+      "class": "page-content",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:27",
+        "frontend/src/styles/core/responsive.css:1",
+        "frontend/src/styles/core/responsive.css:299"
+      ],
+      "count": 4
+    },
+    {
+      "class": "page-header",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:221",
+        "frontend/src/styles/core/responsive.css:230",
+        "frontend/src/styles/core/responsive.css:240"
+      ],
+      "count": 3
+    },
+    {
+      "class": "page-intro",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:1"
+      ],
+      "count": 1
+    },
+    {
+      "class": "page-intro-greeting",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:33"
+      ],
+      "count": 1
+    },
+    {
+      "class": "page-intro-summary",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:41"
+      ],
+      "count": 1
+    },
+    {
+      "class": "page-subtitle",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:1"
+      ],
+      "count": 1
+    },
+    {
+      "class": "panel",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:24",
+        "frontend/src/styles/components/cards.css:54",
+        "frontend/src/styles/components/cards.css:85"
+      ],
+      "count": 13
+    },
+    {
+      "class": "password-input-wrapper",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:71",
+        "frontend/src/styles/pages/auth.css:147",
+        "frontend/src/styles/pages/auth.css:157"
+      ],
+      "count": 3
+    },
+    {
+      "class": "password-toggle-btn",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:1",
+        "frontend/src/styles/components/tabs.css:83",
+        "frontend/src/styles/components/tabs.css:99"
+      ],
+      "count": 6
+    },
+    {
+      "class": "payment-form",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:1",
+        "frontend/src/styles/components/forms.css:82",
+        "frontend/src/styles/components/forms.css:89"
+      ],
+      "count": 9
+    },
+    {
+      "class": "payment-grid",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:58",
+        "frontend/src/styles/core/responsive.css:80"
+      ],
+      "count": 2
+    },
+    {
+      "class": "payment-tender-summary",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/payments.css:5"
+      ],
+      "count": 1
+    },
+    {
+      "class": "photo-picker",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:96",
+        "frontend/src/styles/pages/site-operations.css:105"
+      ],
+      "count": 2
+    },
+    {
+      "class": "photo-preview",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:111",
+        "frontend/src/styles/pages/site-operations.css:118"
+      ],
+      "count": 2
+    },
+    {
+      "class": "portal-action",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:189",
+        "frontend/src/styles/components/portal.css:202",
+        "frontend/src/styles/components/portal.css:206"
+      ],
+      "count": 5
+    },
+    {
+      "class": "portal-action-body",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:233",
+        "frontend/src/styles/components/portal.css:240",
+        "frontend/src/styles/components/portal.css:245"
+      ],
+      "count": 3
+    },
+    {
+      "class": "portal-action-btn",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:250"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-action-icon",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:210",
+        "frontend/src/styles/components/portal.css:223",
+        "frontend/src/styles/components/portal.css:228"
+      ],
+      "count": 3
+    },
+    {
+      "class": "portal-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:162"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-actions-heading",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:170"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-actions-list",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:179"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-assignment",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:60",
+        "frontend/src/styles/components/portal.css:117",
+        "frontend/src/styles/components/portal.css:135"
+      ],
+      "count": 5
+    },
+    {
+      "class": "portal-assignment--empty",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:82",
+        "frontend/src/styles/components/portal.css:99"
+      ],
+      "count": 2
+    },
+    {
+      "class": "portal-assignment-body",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:104"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-assignment-icon",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:86",
+        "frontend/src/styles/components/portal.css:99"
+      ],
+      "count": 2
+    },
+    {
+      "class": "portal-assignment-label",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:108"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-assignment-more",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:141",
+        "frontend/src/styles/components/portal.css:141",
+        "frontend/src/styles/components/portal.css:158"
+      ],
+      "count": 3
+    },
+    {
+      "class": "portal-assignment-project",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:128"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-context-row",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:376",
+        "frontend/src/styles/components/portal.css:385"
+      ],
+      "count": 2
+    },
+    {
+      "class": "portal-header",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:1"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-header-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:53"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-header-identity",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:33",
+        "frontend/src/styles/components/portal.css:37",
+        "frontend/src/styles/components/portal.css:46"
+      ],
+      "count": 3
+    },
+    {
+      "class": "portal-project-facts",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:390",
+        "frontend/src/styles/components/portal.css:406",
+        "frontend/src/styles/components/portal.css:412"
+      ],
+      "count": 4
+    },
+    {
+      "class": "portal-project-money",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:428"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-summaries",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:254"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-summary",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:266",
+        "frontend/src/styles/components/portal.css:279",
+        "frontend/src/styles/components/portal.css:286"
+      ],
+      "count": 4
+    },
+    {
+      "class": "portal-summary-detail",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:326"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-summary-label",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:296"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-summary-value",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:304"
+      ],
+      "count": 1
+    },
+    {
+      "class": "portal-summary-value--money",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:319"
+      ],
+      "count": 1
+    },
+    {
+      "class": "premium-chart-panel",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:228"
+      ],
+      "count": 1
+    },
+    {
+      "class": "premium-chart-shell",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:232"
+      ],
+      "count": 1
+    },
+    {
+      "class": "preview",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:88"
+      ],
+      "count": 1
+    },
+    {
+      "class": "quick-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:118",
+        "frontend/src/styles/core/responsive.css:58",
+        "frontend/src/styles/core/responsive.css:80"
+      ],
+      "count": 9
+    },
+    {
+      "class": "recharts-default-tooltip",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/pages/dashboard.css:237"
+      ],
+      "count": 1
+    },
+    {
+      "class": "red",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:423"
+      ],
+      "count": 1
+    },
+    {
+      "class": "report-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/reports.css:7",
+        "frontend/src/styles/pages/reports.css:13",
+        "frontend/src/styles/pages/reports.css:18"
+      ],
+      "count": 3
+    },
+    {
+      "class": "report-bar",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:127"
+      ],
+      "count": 1
+    },
+    {
+      "class": "report-bar-fill",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:222",
+        "frontend/src/styles/pages/reports.css:1"
+      ],
+      "count": 2
+    },
+    {
+      "class": "route-guard-loading",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:134"
+      ],
+      "count": 1
+    },
+    {
+      "class": "row--selected",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:214"
+      ],
+      "count": 1
+    },
+    {
+      "class": "row-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:292",
+        "frontend/src/styles/pages/site-operations.css:306"
+      ],
+      "count": 2
+    },
+    {
+      "class": "search-input",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:107",
+        "frontend/src/styles/components/forms.css:150",
+        "frontend/src/styles/core/foundation.css:378"
+      ],
+      "count": 3
+    },
+    {
+      "class": "secondary-btn",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/forms.css:23",
+        "frontend/src/styles/components/forms.css:43",
+        "frontend/src/styles/core/foundation.css:247"
+      ],
+      "count": 4
+    },
+    {
+      "class": "section-title-row",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:108",
+        "frontend/src/styles/core/foundation.css:117",
+        "frontend/src/styles/core/foundation.css:123"
+      ],
+      "count": 5
+    },
+    {
+      "class": "settings-grid",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:58",
+        "frontend/src/styles/core/responsive.css:80",
+        "frontend/src/styles/pages/settings.css:1"
+      ],
+      "count": 3
+    },
+    {
+      "class": "settings-info-list",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/settings.css:13",
+        "frontend/src/styles/pages/settings.css:19",
+        "frontend/src/styles/pages/settings.css:27"
+      ],
+      "count": 4
+    },
+    {
+      "class": "settings-toggle-list",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:121"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:63",
+        "frontend/src/styles/core/animations.css:118",
+        "frontend/src/styles/core/animations.css:327"
+      ],
+      "count": 7
+    },
+    {
+      "class": "sidebar-avatar",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:228"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-brand",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:107"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-brand-mark",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:119"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-close",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:289",
+        "frontend/src/styles/core/shell.css:309",
+        "frontend/src/styles/core/shell.css:330"
+      ],
+      "count": 4
+    },
+    {
+      "class": "sidebar-group",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:146"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-group-heading",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:152"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-head",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:93"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-link",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:163",
+        "frontend/src/styles/core/shell.css:180",
+        "frontend/src/styles/core/shell.css:185"
+      ],
+      "count": 7
+    },
+    {
+      "class": "sidebar-scrim",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:290",
+        "frontend/src/styles/core/shell.css:263",
+        "frontend/src/styles/core/shell.css:280"
+      ],
+      "count": 6
+    },
+    {
+      "class": "sidebar-scroll",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:130"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-toggle",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:330",
+        "frontend/src/styles/core/shell.css:521",
+        "frontend/src/styles/core/shell.css:538"
+      ],
+      "count": 4
+    },
+    {
+      "class": "sidebar-user",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:214"
+      ],
+      "count": 1
+    },
+    {
+      "class": "sidebar-user-text",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:243",
+        "frontend/src/styles/core/shell.css:249",
+        "frontend/src/styles/core/shell.css:257"
+      ],
+      "count": 3
+    },
+    {
+      "class": "site-operations-page",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:1",
+        "frontend/src/styles/pages/site-operations.css:12",
+        "frontend/src/styles/pages/site-operations.css:25"
+      ],
+      "count": 50
+    },
+    {
+      "class": "skip-link",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:696",
+        "frontend/src/styles/core/foundation.css:713",
+        "frontend/src/styles/core/responsive.css:290"
+      ],
+      "count": 3
+    },
+    {
+      "class": "sr-only",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/foundation.css:679"
+      ],
+      "count": 1
+    },
+    {
+      "class": "stat-card",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:24",
+        "frontend/src/styles/components/cards.css:48",
+        "frontend/src/styles/components/cards.css:59"
+      ],
+      "count": 6
+    },
+    {
+      "class": "status",
+      "status": "test-only",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:154"
+      ],
+      "count": 1
+    },
+    {
+      "class": "status--approved",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:170"
+      ],
+      "count": 1
+    },
+    {
+      "class": "status--denied",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:176"
+      ],
+      "count": 1
+    },
+    {
+      "class": "status--expired",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:176"
+      ],
+      "count": 1
+    },
+    {
+      "class": "status--granted",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:170"
+      ],
+      "count": 1
+    },
+    {
+      "class": "status--pending",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:165"
+      ],
+      "count": 1
+    },
+    {
+      "class": "status--rejected",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:176"
+      ],
+      "count": 1
+    },
+    {
+      "class": "status--used",
+      "status": "DYNAMIC",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:183"
+      ],
+      "count": 1
+    },
+    {
+      "class": "subcontractor-portal-page",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:366",
+        "frontend/src/styles/pages/subcontractor-portal.css:1"
+      ],
+      "count": 2
+    },
+    {
+      "class": "subcontractor-profile",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/pages/subcontractor-portal.css:16"
+      ],
+      "count": 1
+    },
+    {
+      "class": "summary-cards",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/cards.css:1",
+        "frontend/src/styles/core/animations.css:103",
+        "frontend/src/styles/core/animations.css:108"
+      ],
+      "count": 8
+    },
+    {
+      "class": "summary-row",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:188",
+        "frontend/src/styles/pages/site-operations.css:195",
+        "frontend/src/styles/pages/site-operations.css:201"
+      ],
+      "count": 4
+    },
+    {
+      "class": "tab",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/pages/site-operations.css:29",
+        "frontend/src/styles/pages/site-operations.css:43",
+        "frontend/src/styles/pages/site-operations.css:47"
+      ],
+      "count": 3
+    },
+    {
+      "class": "tab-panel",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:57"
+      ],
+      "count": 1
+    },
+    {
+      "class": "table-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:115",
+        "frontend/src/styles/core/foundation.css:299",
+        "frontend/src/styles/core/responsive.css:190"
+      ],
+      "count": 6
+    },
+    {
+      "class": "table-link-button",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tables.css:101",
+        "frontend/src/styles/components/tables.css:119",
+        "frontend/src/styles/components/tables.css:126"
+      ],
+      "count": 6
+    },
+    {
+      "class": "table-wrapper",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tables.css:22",
+        "frontend/src/styles/components/tables.css:75",
+        "frontend/src/styles/components/tables.css:75"
+      ],
+      "count": 12
+    },
+    {
+      "class": "table-wrapper--cards",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:115",
+        "frontend/src/styles/core/responsive.css:120",
+        "frontend/src/styles/core/responsive.css:125"
+      ],
+      "count": 17
+    },
+    {
+      "class": "tabs",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:1",
+        "frontend/src/styles/components/tabs.css:19",
+        "frontend/src/styles/components/tabs.css:29"
+      ],
+      "count": 10
+    },
+    {
+      "class": "tender-details-page",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/tender-details.css:1"
+      ],
+      "count": 1
+    },
+    {
+      "class": "tender-documents",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/tender-details.css:27"
+      ],
+      "count": 1
+    },
+    {
+      "class": "tender-header",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/pages/tender-details.css:17",
+        "frontend/src/styles/pages/tender-details.css:22"
+      ],
+      "count": 2
+    },
+    {
+      "class": "tender-tabs",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:1",
+        "frontend/src/styles/components/tabs.css:19",
+        "frontend/src/styles/components/tabs.css:29"
+      ],
+      "count": 4
+    },
+    {
+      "class": "topbar",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:290",
+        "frontend/src/styles/core/shell.css:337",
+        "frontend/src/styles/core/shell.css:365"
+      ],
+      "count": 4
+    },
+    {
+      "class": "topbar-actions",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:476",
+        "frontend/src/styles/core/shell.css:376"
+      ],
+      "count": 2
+    },
+    {
+      "class": "topbar-heading",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/shell.css:360"
+      ],
+      "count": 1
+    },
+    {
+      "class": "two-column-dashboard",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/responsive.css:58",
+        "frontend/src/styles/core/responsive.css:90"
+      ],
+      "count": 2
+    },
+    {
+      "class": "unread",
+      "status": "no-consumer-found",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:542",
+        "frontend/src/styles/core/animations.css:549"
+      ],
+      "count": 2
+    },
+    {
+      "class": "worker-photo-preview",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:255",
+        "frontend/src/styles/core/animations.css:263",
+        "frontend/src/styles/core/animations.css:275"
+      ],
+      "count": 4
+    },
+    {
+      "class": "worker-photo-thumb",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/core/animations.css:255",
+        "frontend/src/styles/core/animations.css:263",
+        "frontend/src/styles/core/animations.css:275"
+      ],
+      "count": 4
+    },
+    {
+      "class": "worker-portal-page",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/portal.css:366",
+        "frontend/src/styles/pages/worker-portal.css:1"
+      ],
+      "count": 2
+    },
+    {
+      "class": "yellow",
+      "status": "static",
+      "declared_at": [
+        "frontend/src/styles/components/tabs.css:47",
+        "frontend/src/styles/core/foundation.css:422"
+      ],
+      "count": 2
+    }
+  ]
+}

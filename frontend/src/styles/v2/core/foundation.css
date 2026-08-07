@@ -1,0 +1,330 @@
+/**
+ * ===========================================================================
+ * UI v2 — FOUNDATION
+ * ===========================================================================
+ *
+ * File purpose:
+ * The primitives every UI v2 screen is assembled from: surfaces, buttons,
+ * fields, badges and the empty/loading states.
+ *
+ * All scoped under `.v2-root` — see core/reset.css for why.
+ *
+ * The look, in one paragraph:
+ * Depth comes from a hairline and a half-step of background contrast, not
+ * from a shadow. Shadows are reserved for things that genuinely float
+ * (dropdown, dialog, drawer, palette). Corners are small. Nothing lifts on
+ * hover, because a control that moves under the cursor is a mis-click in a
+ * dense table — hover changes colour and border, never position.
+ */
+
+@layer v2-foundation {
+  /* =======================================================================
+   * SURFACES
+   * ===================================================================== */
+
+  .v2-surface {
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-md);
+  }
+
+  .v2-panel {
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-lg);
+    padding: var(--v2-s5);
+  }
+
+  .v2-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--v2-s3);
+    flex-wrap: wrap;
+    margin-bottom: var(--v2-s4);
+  }
+
+  /* The dark plane. Applied only to shell and high-value overlay surfaces. */
+  .v2-chrome {
+    background: var(--v2-chrome-bg);
+    color: var(--v2-chrome-text);
+    color-scheme: dark;
+  }
+
+  /* =======================================================================
+   * BUTTONS
+   * =====================================================================
+   * One action colour, three levels of emphasis, plus danger. Every one
+   * clears the 44px target floor.
+   * ===================================================================== */
+
+  .v2-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--v2-s2);
+
+    /* Explicit: the element reset no longer strips this (V2-I014), so every
+     * v2 control states its own surface. */
+    background: none;
+
+    min-height: var(--v2-touch);
+    padding: 0 var(--v2-s4);
+
+    border: var(--v2-hairline) solid transparent;
+    border-radius: var(--v2-r-sm);
+
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-semibold);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+
+    transition:
+      background-color var(--v2-t-fast),
+      border-color var(--v2-t-fast),
+      color var(--v2-t-fast);
+  }
+
+  .v2-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .v2-btn--primary {
+    background: var(--v2-action);
+    color: var(--v2-action-text);
+  }
+  .v2-btn--primary:hover:not(:disabled) { background: var(--v2-action-hover); }
+
+  .v2-btn--secondary {
+    background: var(--v2-surface);
+    border-color: var(--v2-control-line);
+    color: var(--v2-text);
+  }
+  .v2-btn--secondary:hover:not(:disabled) {
+    background: var(--v2-surface-hover);
+    border-color: var(--v2-control-line-strong);
+  }
+
+  .v2-btn--ghost {
+    background: transparent;
+    color: var(--v2-text-secondary);
+  }
+  .v2-btn--ghost:hover:not(:disabled) {
+    background: var(--v2-surface-hover);
+    color: var(--v2-text);
+  }
+
+  .v2-btn--danger {
+    background: var(--v2-danger-fg);
+    color: var(--v2-text-inverse);
+  }
+  .v2-btn--danger:hover:not(:disabled) { background: var(--v2-red-700); }
+
+  .v2-btn--block { width: 100%; }
+
+  /*
+   * Busy state.
+   *
+   * The label stays in the DOM and keeps its width, so the button does not
+   * resize mid-submit and shift everything around it. `aria-busy` is what
+   * assistive tech reads; the spinner is decorative and hidden from it.
+   */
+  .v2-btn[aria-busy="true"] {
+    position: relative;
+    color: transparent;
+    pointer-events: none;
+  }
+
+  .v2-btn[aria-busy="true"]::after {
+    content: "";
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid currentcolor;
+    border-block-start-color: transparent;
+    border-radius: 50%;
+    color: var(--v2-action-text);
+    animation: v2-spin 700ms linear infinite;
+  }
+
+  .v2-btn--secondary[aria-busy="true"]::after,
+  .v2-btn--ghost[aria-busy="true"]::after {
+    color: var(--v2-text);
+  }
+
+  /* The single exception to "no infinite animation": a spinner exists only
+   * while a request is in flight and is removed when it resolves. It is
+   * bounded by the network, not by a timer. */
+  @keyframes v2-spin {
+    to { transform: rotate(1turn); }
+  }
+
+  /* =======================================================================
+   * FIELDS
+   * ===================================================================== */
+
+  .v2-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--v2-s1);
+    min-width: 0;
+  }
+
+  .v2-label {
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-medium);
+    color: var(--v2-text);
+  }
+
+  .v2-required {
+    color: var(--v2-danger-fg);
+    margin-inline-start: 2px;
+  }
+
+  .v2-input,
+  .v2-select,
+  .v2-textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--v2-touch);
+    padding: var(--v2-s2) var(--v2-s3);
+
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-control-line);
+    border-radius: var(--v2-r-sm);
+
+    color: var(--v2-text);
+    /* 16px floor: anything smaller makes iOS Safari zoom on focus, which
+     * leaves the page scrolled sideways. This is not a style choice. */
+    font-size: var(--v2-t-md);
+
+    transition:
+      border-color var(--v2-t-fast),
+      background-color var(--v2-t-fast);
+  }
+
+  .v2-textarea {
+    min-height: 6.5rem;
+    padding: var(--v2-s3);
+    resize: vertical;
+  }
+
+  .v2-input:hover:not(:disabled),
+  .v2-select:hover:not(:disabled),
+  .v2-textarea:hover:not(:disabled) {
+    border-color: var(--v2-control-line-strong);
+  }
+
+  .v2-input:disabled,
+  .v2-select:disabled,
+  .v2-textarea:disabled {
+    background: var(--v2-surface-sunken);
+    color: var(--v2-text-muted);
+    cursor: not-allowed;
+  }
+
+  /* Invalid is driven by aria-invalid, so the visual state and the state
+   * assistive tech reports can never disagree. */
+  .v2-input[aria-invalid="true"],
+  .v2-select[aria-invalid="true"],
+  .v2-textarea[aria-invalid="true"] {
+    border-color: var(--v2-danger-fg);
+  }
+
+  .v2-hint {
+    font-size: var(--v2-t-xs);
+    color: var(--v2-text-muted);
+  }
+
+  .v2-error {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--v2-s2);
+    font-size: var(--v2-t-xs);
+    font-weight: var(--v2-w-medium);
+    color: var(--v2-danger-fg);
+    overflow-wrap: anywhere;
+  }
+
+  /* =======================================================================
+   * BADGES + STATUS
+   * =====================================================================
+   * A tone never travels alone: every badge carries text. Enforced by test.
+   * ===================================================================== */
+
+  .v2-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--v2-s1);
+
+    padding: 2px var(--v2-s2);
+    border-radius: var(--v2-r-xs);
+
+    font-size: var(--v2-t-micro);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    background: var(--v2-neutral-bg);
+    color: var(--v2-neutral-fg);
+  }
+
+  .v2-badge--success { background: var(--v2-success-bg); color: var(--v2-success-fg); }
+  .v2-badge--warning { background: var(--v2-warning-bg); color: var(--v2-warning-fg); }
+  .v2-badge--danger  { background: var(--v2-danger-bg);  color: var(--v2-danger-fg); }
+  .v2-badge--info    { background: var(--v2-info-bg);    color: var(--v2-info-fg); }
+
+  /* =======================================================================
+   * STATES
+   * ===================================================================== */
+
+  .v2-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--v2-s3);
+
+    padding: var(--v2-s10) var(--v2-s5);
+    text-align: center;
+  }
+
+  .v2-empty__mark {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--v2-r-md);
+    background: var(--v2-surface-sunken);
+    border: var(--v2-hairline) solid var(--v2-line);
+    color: var(--v2-text-muted);
+  }
+
+  .v2-empty__title {
+    font-size: var(--v2-t-lg);
+    font-weight: var(--v2-w-semibold);
+    color: var(--v2-text);
+  }
+
+  .v2-empty__body {
+    max-width: 42ch;
+    font-size: var(--v2-t-sm);
+    line-height: var(--v2-lh-normal);
+    color: var(--v2-text-secondary);
+  }
+
+  /* Assistive-technology-only text. */
+  .v2-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
