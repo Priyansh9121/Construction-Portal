@@ -1,0 +1,93 @@
+/*
+ * ===========================================================================
+ * MAIN CONTENT — the content column of the shell
+ * ===========================================================================
+ *
+ * File purpose:
+ * The second grid track of `.app-layout`. It stacks the topbar above the page,
+ * and nothing else. It is a GEOMETRY container, never a theme container.
+ *
+ * STRUCTURE (from AppLayout.jsx):
+ *   .app-layout
+ *     .skip-link
+ *     Sidebar            fixed below 1024px, sticky and in-flow at/above it
+ *     .main-content      <- this file
+ *       Topbar           position: sticky
+ *       main#main-content.page-content   <- S-A4b owns this, untouched here
+ *
+ * Note the id: `#main-content` is on the PAGE element, not on this div. The
+ * skip link therefore jumps past the topbar to the content itself, which is
+ * correct and is left exactly as it is.
+ *
+ * SHELL-016 IS THE BINDING CONSTRAINT HERE.
+ * This element wraps every unmigrated business page, so it sets NO inherited
+ * property: no color, font-family, font-size, font-weight, line-height,
+ * letter-spacing, text-align, text-transform, visibility or cursor. Setting
+ * `color` and `font-family` on the shell root changed 41 descendant properties
+ * across five routes; the same mistake here would be worse, because this
+ * element is closer to the content.
+ *
+ * PROPERTY OWNERSHIP MATRIX (SHELL-008)
+ *
+ *   flex: 1 1 auto
+ *     core/shell.css:39
+ *     DECISION: REMOVE. It sized this element as a FLEX child, which it no
+ *     longer is: S-A4a1 made `.app-layout` a grid, and `flex` on a grid item
+ *     is inert. Carrying it forward would preserve a property that describes a
+ *     layout model the shell no longer uses.
+ *
+ *   width: 100%
+ *     core/shell.css:46
+ *     DECISION: REMOVE. A grid item already fills its track. The declaration
+ *     is redundant at best, and at worst it fights any future padding on this
+ *     element.
+ *
+ *   display: flex + flex-direction: column
+ *     core/shell.css:40-41 and v2/app-shell.css:42-43
+ *     DECISION: PRESERVE. This element is itself a column container: topbar
+ *     above page. That is unrelated to how its PARENT lays it out.
+ *
+ *   min-width: 0
+ *     core/shell.css:45, v2/app-shell.css:47, and the shared rule at
+ *     core/responsive.css:35
+ *     DECISION: PRESERVE, and restated here rather than left to the shared
+ *     rule alone. It is load-bearing: a grid item defaults to `min-width:auto`
+ *     and refuses to shrink below its content, which is how one wide table
+ *     used to widen the entire page. Removing it would reintroduce the single
+ *     most common horizontal-overflow defect this product has had.
+ *
+ *   position: relative + z-index: 1
+ *     core/animations.css:323, shared with `.fab-wrapper`
+ *     DECISION: PRESERVE, restated explicitly. This pair creates a stacking
+ *     context, and the current overlay layering depends on it: the sidebar at
+ *     z-60 is a SIBLING of this element and must paint above the topbar at
+ *     z-40 which lives INSIDE it. Dropping it, or raising the z-index, would
+ *     silently rearrange the shell's overlays.
+ *
+ *   overflow
+ *     Not set by any layer today, and deliberately not introduced.
+ *     `overflow-x: hidden` here would hide genuine page overflow, and every
+ *     responsive probe in this project depends on that overflow staying
+ *     measurable.
+ *
+ *   topbar compensation
+ *     None exists, and none is added. The topbar is `position: sticky` and so
+ *     remains in flow; a fixed-header offset would push every page down by the
+ *     height of a bar that is already occupying that space.
+ */
+
+@layer system-components {
+  .main-content {
+    /* A column: topbar, then page. Unrelated to how the parent grid sizes
+     * this track. */
+    display: flex;
+    flex-direction: column;
+
+    /* Load-bearing. See the matrix above. */
+    min-width: 0;
+
+    /* Preserves the existing stacking relationship with the sidebar. */
+    position: relative;
+    z-index: 1;
+  }
+}
