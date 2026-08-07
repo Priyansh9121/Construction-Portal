@@ -19,7 +19,7 @@ Complete · Verified
 | `/login` | `LoginPage.jsx` | **System** | **Complete** | Boundary B verified. Prop contract preserved; `?next=` orientation added as UI-only helper |
 | `/register` | `RegisterPage.jsx` | **System** | **Complete** | Boundary C verified. AUTH-001 resolved via Option A: role select removed, `company_name` added, payload matches the backend contract |
 | `/forgot-password` | `ForgotPasswordPage.jsx` | **System** | **Complete** | Boundary D verified. Confirmation replaces the form; enumeration invariance asserted against the real backend |
-| `/reset-password` | `ResetPasswordPage.jsx` | V1 + V2 | **Concept locked** | 1500 ms success window is a real designed moment |
+| `/reset-password` | `ResetPasswordPage.jsx` | **System** | **Complete** | Boundary E verified. Independent per-field toggles; 1500 ms redirect unchanged |
 
 **Shared auth surface:** `AuthShell.jsx` (+ `AuthLink`, `StructuralFrame`) —
 concept locked, `StructuralFrame` to be replaced (AUTH-003).
