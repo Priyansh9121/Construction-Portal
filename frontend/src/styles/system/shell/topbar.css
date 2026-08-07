@@ -1,0 +1,243 @@
+/*
+ * ===========================================================================
+ * TOPBAR — frame and navigation controls
+ * ===========================================================================
+ *
+ * File purpose:
+ * The header bar: navigation toggle, page context, and the triggers for
+ * notifications and the account menu.
+ *
+ * SCOPE OF THIS UNIT (S-A2):
+ * The BAR and its TRIGGERS only. The account panel, its identity block and
+ * its actions are deliberately left to S-A3, where the overlay surfaces
+ * migrate together with the Escape-arbitration contract recorded in
+ * SHELL-005. Splitting them keeps this unit small enough to verify fully.
+ *
+ * SCOPE SAFETY (SHELL-003):
+ * `.topbar*`, `.sidebar-toggle`, `.account-trigger`, `.account-avatar` and
+ * `.account-caret` were each checked against every source file before this
+ * was written. The only matches outside Topbar.jsx and AppLayout.jsx are the
+ * word "topbar" appearing in PROSE inside comments in Sidebar.jsx,
+ * DashboardHero.jsx and PaymentsPage.jsx, not as class names.
+ *
+ * `.badge` is rendered inside the account panel and is NOT touched here. It
+ * is a generic class used across business routes; restyling it from a shell
+ * sheet is precisely the AUTH-020 failure.
+ *
+ * WHY EVERY PROPERTY IS SET EXPLICITLY:
+ * styles/core/shell.css and styles/v2/shell/app-shell.css both still define
+ * these selectors and still apply. The system layer wins per property, so any
+ * property this file omits stays under legacy control. SHELL-007 was exactly
+ * that: an inherited amber bar survived because only some properties were
+ * overridden.
+ *
+ * THE OVERFLOW THIS MUST NOT REGRESS:
+ * The actions cluster once measured 343px inside a 375px viewport, giving
+ * every authenticated route a 52px horizontal overflow on a phone. The fix
+ * was a fixed-size account trigger plus a shrinkable cluster, so the actions
+ * occupy a constant width regardless of the user's name length. That property
+ * is preserved below and is covered by the responsive probe.
+ */
+
+@layer system-components {
+  /* =========================================================================
+   * BAR
+   * ====================================================================== */
+
+  .topbar {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 40;
+
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+
+    min-height: 3.5rem;
+    padding: var(--ui-space-2) var(--ui-space-4);
+
+    background: var(--ui-surface);
+    border-bottom: 1px solid var(--ui-line);
+    box-shadow: none;
+
+    font-family: var(--ui-font-sans);
+    color: var(--ui-ink);
+  }
+
+  /* =========================================================================
+   * NAVIGATION TOGGLE
+   * =========================================================================
+   * Hidden at 1024px and above, where the sidebar is permanent. It carries
+   * aria-expanded and aria-controls pointing at the sidebar's id; nothing here
+   * changes that.
+   * ====================================================================== */
+
+  .sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+
+    width: var(--ui-target-min);
+    height: var(--ui-target-min);
+    padding: 0;
+
+    color: var(--ui-ink-muted);
+    background: none;
+    border: 0;
+    border-radius: var(--ui-radius-control);
+    box-shadow: none;
+    cursor: pointer;
+
+    transition:
+      color var(--ui-duration-fast) var(--ui-ease-move),
+      background-color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .sidebar-toggle:hover {
+    color: var(--ui-ink-strong);
+    background: var(--ui-surface-sunken);
+  }
+
+  /*
+   * Hidden once the sidebar is permanent. Setting `display` unconditionally
+   * above overrode the legacy rule that did this, so the toggle reappeared at
+   * desktop widths where it controls a drawer that no longer exists. Caught by
+   * `authenticated.spec.js:322`, "toggle is hidden once the sidebar is
+   * permanent" — the same lesson as SHELL-007: overriding one property of a
+   * legacy rule means owning ALL of its responsibilities, including its media
+   * queries.
+   */
+  @media (min-width: 1024px) {
+    .sidebar-toggle {
+      display: none;
+    }
+  }
+
+  /* =========================================================================
+   * PAGE CONTEXT
+   * =========================================================================
+   * Answers "where am I" in the shell's own voice. The page title is the
+   * authenticated <h1>, so it stays a heading and is not restyled into
+   * decoration.
+   * ====================================================================== */
+
+  .topbar-heading {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .topbar-heading h1 {
+    margin: 0;
+
+    font-size: var(--ui-text-lg);
+    font-weight: var(--ui-weight-semibold);
+    line-height: var(--ui-leading-snug);
+    letter-spacing: var(--ui-tracking-tight);
+    color: var(--ui-ink-strong);
+
+    /* A long page title must never push the actions cluster off screen. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* =========================================================================
+   * ACTIONS
+   * =========================================================================
+   * `flex: 0 1 auto` rather than `0 0 auto`: the cluster is allowed to shrink.
+   * The fixed-width variant is what produced the 52px phone overflow.
+   * ====================================================================== */
+
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-1);
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  /* =========================================================================
+   * ACCOUNT TRIGGER
+   * =========================================================================
+   * Constant width regardless of the user's name, which is what keeps the
+   * cluster from growing. The panel it opens belongs to S-A3.
+   * ====================================================================== */
+
+  .account-menu {
+    position: relative;
+    flex: none;
+  }
+
+  .account-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ui-space-1);
+    flex: none;
+
+    min-height: var(--ui-target-min);
+    padding: var(--ui-space-1) var(--ui-space-1);
+
+    background: none;
+    border: 0;
+    border-radius: var(--ui-radius-control);
+    box-shadow: none;
+    cursor: pointer;
+
+    transition: background-color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .account-trigger:hover {
+    background: var(--ui-surface-sunken);
+  }
+
+  .account-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--ui-radius-pill);
+
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-on-accent);
+    background: var(--ui-accent);
+  }
+
+  .account-caret {
+    flex: none;
+    color: var(--ui-ink-faint);
+    transition: transform var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  /* Rotation only, and only on the caret. The trigger itself never moves,
+   * so the click target stays where the pointer already is. */
+  .account-trigger[aria-expanded="true"] .account-caret {
+    transform: rotate(180deg);
+  }
+
+  /* =========================================================================
+   * FOCUS
+   * =========================================================================
+   * core/shell.css recolours shell focus rings to the identity amber. Focus
+   * belongs to the accent, consistently with every other control in the
+   * product. Same correction as SHELL-007.
+   * ====================================================================== */
+
+  .topbar :focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+    outline-color: var(--ui-focus);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .account-trigger[aria-expanded="true"] .account-caret {
+      transition: none;
+    }
+  }
+}
