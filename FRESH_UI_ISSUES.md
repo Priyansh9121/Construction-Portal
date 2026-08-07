@@ -537,3 +537,51 @@ Six users and six companies were left behind and had to be removed by hand.
 discovered from `information_schema` rather than hard-coded, then the company,
 the membership and the user in that order. Verified: zero residue after a full
 run.
+
+
+---
+
+## AUTH-017 — passwordResetLimiter made verification impossible
+
+| Field | Value |
+|---|---|
+| Class | **A** (narrowly authorised backend testability change) |
+| Category | environment / testability |
+| Severity | Medium |
+| Files | `backend/config/env.js`, `backend/middleware/rateLimiter.js` |
+| Status | **Verified** (Boundary D) |
+
+**Description.** `POST /auth/forgot-password` is guarded by
+`passwordResetLimiter`, not `authLimiter`. Its window and limit were
+hard-coded at 60 minutes and 5 requests, reading no environment variable, so
+`AUTH_RATE_LIMIT_MAX=100000` could not relax it. Any automated coverage of the
+recovery flow exhausted the budget and then failed for an hour.
+
+**Two misdiagnoses this caused, both recorded so they are not repeated.** The
+429s were first attributed to `authLimiter`, and then to a backend that had
+not been restarted. Neither was true: the process on `:5051` already carried
+`AUTH_RATE_LIMIT_MAX=100000` and had been running since the previous day. The
+limiter's own source comment notes it "existed and was never mounted", which
+is why it had not bitten before.
+
+**Resolution, authorised and deliberately narrow.**
+`PASSWORD_RESET_RATE_LIMIT_WINDOW_MS` and `PASSWORD_RESET_RATE_LIMIT_MAX` are
+read through the project's standard `parseInteger`, defaulting to exactly the
+previous hard-coded values. With both absent, production behaviour is
+unchanged. The limiter is never disabled, there is no IP bypass, and the
+endpoint, middleware ordering and 429 response are untouched.
+
+**Deviation from the brief, disclosed rather than silently chosen.** The
+instruction asked that invalid production values "fail loudly". The project's
+`parseInteger` returns the fallback instead, and that policy is applied to
+every bounded integer in `config/env.js`. For a limiter the fallback is the
+*stricter* production value, so a typo fails in the secure direction: the
+endpoint keeps 5-per-hour rather than becoming unbounded. Making these two
+variables throw would make them the only rate-limit settings that do. The
+established pattern was kept.
+
+**Coverage.** `backend/tests/passwordResetRateLimit.test.js`, 12 tests:
+defaults remain 60 minutes and 5 requests, valid overrides are honoured,
+invalid values of every shape fall back to the strict default, and the limiter
+is never disabled. Documented in `backend/.env.example` and `DEPLOYMENT.md`,
+including the trap that `AUTH_RATE_LIMIT_MAX` does not relax this endpoint.

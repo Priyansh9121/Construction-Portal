@@ -522,3 +522,31 @@ Full detail in `FRESH_UI_ISSUES.md`.
 
 `DESIGN.md` is **not** written yet. Impeccable's contract is that it documents
 a built world, and the auth surface does not exist yet.
+
+
+---
+
+## Boundary D outcome — Forgot Password
+
+Implemented as designed in section 6. The form is replaced by the confirmation
+on success, so no editable field invites a second submission. Wording stays
+conditional and never distinguishes a registered address from an unregistered
+one.
+
+**Enumeration invariance is asserted, not assumed.** The suite submits a real
+registered address and a guaranteed-unregistered one against the local backend
+and requires the confirmation text to be byte-identical.
+
+One correction to the research: the phrase "If an account exists for this
+email…" was initially treated as enumeration wording by the test's own regex.
+It is not. Conditional phrasing is the canonical safe form and is what the
+backend itself returns. The regex was wrong and was corrected.
+
+**The DEV reset-token block shipped its CSS to production** until
+`verify_dev_token_absent.mjs` caught it. Vite eliminates DEV-gated JSX but does
+not tree-shake CSS, so the rules moved to `dev-only.css` behind a dynamic
+import guarded by `import.meta.env.DEV`. Production CSS fell 130.87 to
+130.07 kB and all three markers are now absent from the built bundle.
+
+Verification of this route also required a narrowly authorised backend change;
+see AUTH-017.

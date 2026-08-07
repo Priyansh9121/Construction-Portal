@@ -427,6 +427,34 @@
   }
 
   /* =========================================================================
+   * CONFIRMATION
+   * =========================================================================
+   * Replaces the form once a recovery request succeeds, so there is no
+   * editable field left inviting a second submission.
+   *
+   * The entrance is short and calm. This is a relieved user, not a celebrated
+   * one: no bounce, no overshoot, no celebration. The exit of the form is
+   * handled by React unmounting it, which is instant, so the confirmation is
+   * the only thing that animates.
+   * ====================================================================== */
+
+  .auth-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-5);
+    min-width: 0;
+
+    animation: ui-rise-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+  }
+
+  .auth-confirm__body p {
+    margin: 0;
+    font-size: var(--ui-text-base);
+    line-height: var(--ui-leading-relaxed);
+    color: var(--ui-ink-muted);
+  }
+
+  /* =========================================================================
    * FOOTER LINKS
    * ====================================================================== */
 
@@ -715,7 +743,8 @@
     }
 
     .auth-card .error,
-    .auth-card .auth-success {
+    .auth-card .auth-success,
+    .auth-confirm {
       animation-name: ui-fade-in;
     }
 
