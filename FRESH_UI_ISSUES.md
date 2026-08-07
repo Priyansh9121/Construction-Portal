@@ -937,3 +937,67 @@ Either:
 
 Choosing the second option without adding those tests would be strictly worse
 than leaving it alone.
+
+
+---
+
+## SHELL-006 — S-A is divisible; only the `.v2-root` removal is atomic
+
+| Field | Value |
+|---|---|
+| Class | **B** |
+| Category | architecture / planning correction |
+| Severity | Medium |
+| Status | **Verified** |
+
+**Correction to SHELL-001's consequence.** SHELL-001 established that removing
+`.v2-root` breaks overlay styling while leaving frame styling active, and the
+conclusion drawn was that the whole shell must migrate as one indivisible S-A.
+
+That conclusion was too strong. The atomicity applies to the **removal**, not
+to the migration. New system-layer rules do not require `.v2-root` to go,
+because layer order already gives them precedence over both legacy sheets.
+
+So S-A divides into independently shippable, independently verifiable units,
+with the removal last:
+
+| Unit | Scope | State |
+|---|---|---|
+| **S-A1** | Sidebar and drawer styling | **Done** |
+| S-A2 | Topbar | pending |
+| S-A3 | Overlays: command palette, notifications, account menu | pending |
+| S-A4 | Frame: `.app-layout`, `.main-content`, `.page-content`, skip link | pending |
+| S-A5 | `.v2-root` removal plus deletion of both V2 shell sheets | pending, atomic, last |
+
+Each of S-A1 to S-A4 leaves the application fully functional, because the
+legacy sheets stay in place underneath until S-A5.
+
+---
+
+## SHELL-007 — The active nav item inherited an amber bar
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | visual / semantic |
+| Severity | Medium |
+| Files | `styles/core/shell.css:205`, `styles/system/shell/sidebar.css` |
+| Status | **Verified** (fixed in S-A1) |
+
+**Description.** `core/shell.css:205` paints the current nav item with
+`box-shadow: inset 3px 0 0 var(--identity-mark)` — an amber bar. The new
+sidebar set `box-shadow: none` on `.sidebar` but not on `.sidebar-link`, so the
+amber bar survived underneath the new accent mark.
+
+**Why it matters beyond appearance.** Amber is the warning status in this
+product and DESIGN_SYSTEM.md states it is never a brand or decorative colour.
+An amber bar on the current route reads as a warning on whatever page the user
+is standing on.
+
+`core/shell.css:213` likewise recolours the focus ring to the identity amber;
+that is now overridden to the accent, consistent with every other control.
+
+**How it was found.** Screenshot review at 1440. All 370 assertions passed with
+the amber bar on screen. This is the third time visual review has caught a
+defect the suite could not (AUTH-012, AUTH-013, now SHELL-007), and the second
+time the cause was a property left unset while the legacy sheet still applied.
