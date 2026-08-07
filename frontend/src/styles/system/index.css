@@ -39,6 +39,7 @@
 @import "./auth/auth.css";
 @import "./shell/app-layout.css";
 @import "./shell/main-content.css";
+@import "./shell/page-content.css";
 @import "./shell/sidebar.css";
 @import "./shell/topbar.css";
 @import "./shell/account-menu.css";
