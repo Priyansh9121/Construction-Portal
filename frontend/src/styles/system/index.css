@@ -1,0 +1,30 @@
+/*
+ * ===========================================================================
+ * V3 STYLESHEET ENTRY
+ * ===========================================================================
+ *
+ * File purpose:
+ * The import manifest for the V3 design system, and the declaration of its
+ * cascade layers.
+ *
+ * Why layers:
+ * V1 (`legacy`) is still live on every route during migration. Layers let a
+ * V3 rule beat a V1 rule on layer order alone, with no specificity escalation
+ * and no `!important` anywhere. The layer names are declared in src/index.css
+ * so their ORDER is fixed in one place; re-declaring them here would be
+ * harmless but would split the ordering decision across two files.
+ *
+ * Migration contract (FRESH_UI_DESIGN_SYSTEM.md section 7):
+ *   1. Build V3 alongside V1.        <- we are here
+ *   2. Migrate shell and primitives.
+ *   3. Migrate complete route groups, verifying each before the next.
+ *   4. Prove old classes have zero consumers.
+ *   5. Only then delete obsolete CSS.
+ *
+ * No route may be left unstyled or half-migrated at any point.
+ */
+
+/* Tokens and motion carry no selectors beyond :root and @keyframes, so they
+ * are safe to load ahead of anything that consumes them. */
+@import "./core/tokens.css" layer(system-tokens);
+@import "./core/motion.css" layer(system-tokens);

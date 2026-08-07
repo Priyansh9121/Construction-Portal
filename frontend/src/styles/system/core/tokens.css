@@ -1,0 +1,237 @@
+/*
+ * ===========================================================================
+ * V3 TOKENS — the fresh design programme
+ * ===========================================================================
+ *
+ * File purpose:
+ * The single source of truth for every V3 value. No selectors beyond :root,
+ * no output. If a V3 rule types a raw hex, pixel or millisecond value, it is
+ * a bug in that rule, not a missing token here.
+ *
+ * Namespace:
+ * Every token is prefixed `--ui-`. That is deliberate: V1 (`--*`) and the
+ * archived V2 experiment (`--v2-*`) still exist during migration, and three
+ * systems sharing one namespace is how the last migration produced a
+ * specificity fight. Namespacing lets V3 override V1 through cascade layers
+ * alone, with no `!important` anywhere.
+ *
+ * Direction contract:
+ * See FRESH_UI_DESIGN_SYSTEM.md. The two rules that shape this file most:
+ *
+ *   1. Hierarchy comes from typography, spacing, grouping and composition —
+ *      not from coloured boxes. So the palette is deliberately small and the
+ *      type and space scales are deliberately rich.
+ *
+ *   2. Status colour communicates status ONLY. The brand accent may never be
+ *      red, amber, green, blue or slate, because all five carry semantic load.
+ *      See the accent note below; this is the file where that is enforced.
+ *
+ * Connected to:
+ * - styles/system/index.css imports this first, into the system-tokens layer
+ * - tools/fresh_ui/token_audit.py reads this file to verify contrast
+ */
+
+:root {
+  /* =========================================================================
+   * 1. PRIMITIVES
+   * =========================================================================
+   * Raw values with no meaning attached. Nothing outside this file should
+   * reference a primitive directly — use a semantic token below, so a value
+   * can change without hunting every consumer.
+   * ====================================================================== */
+
+  /* Neutrals. Warm-cast rather than pure grey: a pure-grey canvas under
+   * daylight reads blue and slightly clinical, and this product is used
+   * outdoors more than it is used in an office. */
+  --ui-neutral-0:   #ffffff;
+  --ui-neutral-25:  #fbfbfa;
+  --ui-neutral-50:  #f6f6f4;
+  --ui-neutral-100: #eeeeec;
+  --ui-neutral-200: #e2e2df;
+  --ui-neutral-300: #cfd0cd;
+  --ui-neutral-400: #a8aaa7;
+  --ui-neutral-500: #868a87;
+  --ui-neutral-600: #5f6461;
+  --ui-neutral-700: #4a4945;
+  --ui-neutral-800: #2f2e2a;
+  --ui-neutral-900: #1a1917;
+
+  /* Accent — indigo.
+   *
+   * Chosen by ELIMINATION, not preference, and the reasoning is recorded so
+   * nobody "improves" it later:
+   *
+   *   red    -> status-danger,  and banned as branding by directive
+   *   amber  -> status-warning, and banned as branding by directive
+   *   green  -> status-success, and banned as branding by directive
+   *   blue   -> status-info (running / active). Already semantic.
+   *   slate  -> status-neutral (draft / archived). Already semantic.
+   *
+   * Indigo is the one family carrying no semantic load. It is rendered deep
+   * and desaturated on purpose: this is not the glowing violet that generated
+   * interfaces default to, and it appears only on the primary action, the
+   * focus ring and identity. Never on surfaces, never on cards, never
+   * scattered as decoration.
+   *
+   * V1 DEFECT THIS FIXES: V1's `--accent` was blue-600 while `--status-info`
+   * was blue-500/700, so a primary button and an "active" badge were the same
+   * signal. V3 separates the two by hue family, permanently.
+   *
+   * Hue is verified mechanically, not by eye. tools/fresh_ui/token_audit.py
+   * classifies the accent's hue arc and FAILS the build if it lands in a
+   * reserved family. The first values written here computed to 244 degrees,
+   * which is still `blue` and therefore still the collision this fixes; they
+   * were rejected by the audit and replaced with the values below, which sit
+   * near 260 degrees and are unambiguously outside the status blue.
+   */
+  --ui-indigo-50:  #f0ebfd;
+  --ui-indigo-200: #cbb8f5;
+  --ui-indigo-500: #6f3ddb;
+  --ui-indigo-600: #5d28c8;
+  --ui-indigo-700: #4c1fa6;
+  --ui-indigo-900: #2c1163;
+
+  /* =========================================================================
+   * 2. SURFACE AND INK
+   * =========================================================================
+   * Light canvas is an accessibility requirement recorded in PRODUCT.md, not
+   * a style preference: a phone screen cannot out-emit the sun, so outdoor
+   * legibility depends on reflectance contrast, which needs a bright ground.
+   * ====================================================================== */
+
+  --ui-canvas:          var(--ui-neutral-25);
+  --ui-surface:         var(--ui-neutral-0);
+  --ui-surface-sunken:  var(--ui-neutral-50);
+  --ui-surface-inset:   var(--ui-neutral-100);
+
+  --ui-ink-strong:      var(--ui-neutral-900);
+  --ui-ink:             var(--ui-neutral-800);
+  --ui-ink-muted:       var(--ui-neutral-600);
+  --ui-ink-faint:       var(--ui-neutral-500);
+  --ui-ink-on-accent:   var(--ui-neutral-0);
+
+  /* Hairlines carry structure. Depth comes from layered surfaces and light,
+   * never from heavy drop shadows — a directive constraint. */
+  --ui-line-faint:      var(--ui-neutral-100);
+  --ui-line:            var(--ui-neutral-300);
+  /* neutral-400 was tried here first and measured 2.34:1 against a card,
+   * short of the 3.0 WCAG 2.2 requires for a control boundary. neutral-500
+   * measures 3.50:1. Control borders are not decoration. */
+  --ui-line-strong:     var(--ui-neutral-500);
+
+  --ui-accent:          var(--ui-indigo-600);
+  --ui-accent-hover:    var(--ui-indigo-700);
+  --ui-accent-subtle:   var(--ui-indigo-50);
+  --ui-accent-line:     var(--ui-indigo-200);
+  --ui-focus:           var(--ui-indigo-500);
+
+  /* =========================================================================
+   * 3. ELEVATION
+   * =========================================================================
+   * Tinted to the canvas hue, never pure black. Four steps only; a fifth
+   * always turns out to be a step someone added instead of choosing.
+   * ====================================================================== */
+
+  --ui-elevation-0: none;
+  --ui-elevation-1:
+    0 1px 2px -1px rgb(20 22 26 / 0.06),
+    0 1px 1px    rgb(20 22 26 / 0.04);
+  --ui-elevation-2:
+    0 2px 4px -2px rgb(20 22 26 / 0.08),
+    0 4px 12px -2px rgb(20 22 26 / 0.06);
+  --ui-elevation-3:
+    0 8px 24px -8px rgb(20 22 26 / 0.14),
+    0 2px  6px -2px rgb(20 22 26 / 0.06);
+
+  /* =========================================================================
+   * 4. TYPOGRAPHY
+   * =========================================================================
+   * IBM Plex Sans variable is already self-hosted at 66 kB with zero network
+   * requests. It carries Latin and Latin-Extended.
+   *
+   * OPEN DECISION, recorded not ignored: PRODUCT.md records a confirmed
+   * commitment to a bilingual English + Gujarati interface. This face does
+   * NOT cover the Gujarati script. That needs an additional font asset and a
+   * weight decision. No bilingual claim ships in the UI until it is resolved.
+   * ====================================================================== */
+
+  --ui-font-sans:
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+
+  /* Tabular figures everywhere a number can change or be compared, so a
+   * column never shifts as values update. */
+  --ui-numeric: "tnum" 1, "lnum" 1;
+
+  /* A fluid ramp. clamp() rather than breakpoint steps, so type scales
+   * continuously between a 320px phone and a 1920px desktop instead of
+   * jumping at arbitrary widths. */
+  --ui-text-2xs:  0.6875rem;                            /* 11px, meta only  */
+  --ui-text-xs:   0.75rem;                              /* 12px             */
+  --ui-text-sm:   0.8125rem;                            /* 13px             */
+  --ui-text-base: 0.9375rem;                            /* 15px, body       */
+  --ui-text-md:   1rem;                                 /* 16px, ALL inputs */
+  --ui-text-lg:   clamp(1.0625rem, 0.35vw + 0.98rem, 1.1875rem);
+  --ui-text-xl:   clamp(1.25rem,  0.6vw  + 1.13rem, 1.5rem);
+  --ui-text-2xl:  clamp(1.5rem,   1.1vw  + 1.28rem, 2rem);
+  --ui-text-3xl:  clamp(1.875rem, 1.9vw  + 1.5rem,  2.75rem);
+  --ui-text-4xl:  clamp(2.25rem,  3.2vw  + 1.6rem,  3.75rem);
+
+  --ui-weight-regular:  400;
+  --ui-weight-medium:   500;
+  --ui-weight-semibold: 600;
+
+  --ui-leading-tight:   1.15;
+  --ui-leading-snug:    1.3;
+  --ui-leading-normal:  1.5;
+  --ui-leading-relaxed: 1.65;
+
+  --ui-tracking-tight:  -0.014em;
+  --ui-tracking-normal: 0;
+  --ui-tracking-wide:   0.02em;
+
+  /* =========================================================================
+   * 5. SPACE
+   * =========================================================================
+   * A 4px base. Hierarchy is carried by space as much as by type, so this
+   * scale is richer than the palette on purpose.
+   * ====================================================================== */
+
+  --ui-space-0:  0;
+  --ui-space-1:  0.25rem;
+  --ui-space-2:  0.5rem;
+  --ui-space-3:  0.75rem;
+  --ui-space-4:  1rem;
+  --ui-space-5:  1.25rem;
+  --ui-space-6:  1.5rem;
+  --ui-space-8:  2rem;
+  --ui-space-10: 2.5rem;
+  --ui-space-12: 3rem;
+  --ui-space-16: 4rem;
+  --ui-space-20: 5rem;
+
+  /* =========================================================================
+   * 6. SHAPE
+   * =========================================================================
+   * ONE radius system, applied consistently. Mixed radii without a documented
+   * rule is the single most common tell of an assembled interface.
+   * The rule: controls 8px, containers 12px, pills fully round, hairline
+   * dividers square.
+   * ====================================================================== */
+
+  --ui-radius-none:      0;
+  --ui-radius-control:   0.5rem;
+  --ui-radius-container: 0.75rem;
+  --ui-radius-pill:      999px;
+
+  /* =========================================================================
+   * 7. TOUCH AND TARGET
+   * =========================================================================
+   * 44px is a tested guarantee in this product, at all nine widths, and the
+   * priority persona is wearing gloves. It is a floor, not a suggestion.
+   * ====================================================================== */
+
+  --ui-target-min: 44px;
+  --ui-focus-ring-width:  2px;
+  --ui-focus-ring-offset: 2px;
+}
