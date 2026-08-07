@@ -1235,3 +1235,56 @@ S-A4 was split on the dependency evidence above rather than shipped whole:
 S-A4c was taken first precisely because it is the only part of the frame with
 **zero** effect on page layout, so it carries none of the SHELL-003 risk the
 other two do.
+
+
+---
+
+## SHELL-015 — The leak probe could not distinguish intended geometry from leakage
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | tooling / verification |
+| Severity | **High** — it would have blocked or falsely cleared the frame units |
+| Files | `tools/fresh_ui/shell_leak_probe.mjs` |
+| Status | **Verified** (fixed before S-A4a) |
+
+**Description.** The original probe treated ANY computed-style difference on a
+business page as leakage. That was right while the shell units changed only
+navigation and overlays, which must not move page content at all. It becomes
+wrong for the frame units, where changing the sidebar offset or the content
+gutter is the entire purpose.
+
+An instrument that flags intended change alongside real defects trains its
+reader to ignore it, which is worse than having no instrument.
+
+**Resolution.** Results are now classified and reported separately:
+
+- **A. Frame geometry** — the rects of `.app-layout`, `.main-content` and
+  `.page-content`, plus the viewport. Reported as information; never a
+  failure.
+- **B. Descendant style** — computed visual properties of nine representative
+  page components. Any difference is a failure and exits non-zero.
+
+The split is deliberately narrow: bucket A is three named elements and the
+viewport, nothing else. Widening it to silence a finding would defeat the
+instrument.
+
+**One deliberate exclusion, stated rather than hidden.** Element width and
+height are not sampled. A narrower content column reflows a table or card to a
+different size with no style having changed, and that is geometry, not
+leakage. Colour, type, border, radius, shadow, spacing and opacity ARE
+sampled, because none of those can change from reflow alone.
+
+**Validated by negative control, not by assumption.** A deliberate
+`.app-layout button { border-radius: 13px }` was injected. The probe reported
+`FAIL` with 5 route/component differences naming the exact property, then the
+control was reverted and the probe returned to PASS. A detector that has never
+been shown to detect anything is not evidence.
+
+**Fresh baseline captured** at `c1bb6cf` and committed to
+`tools/fresh_ui/baselines/shell-c1bb6cf.json`. The previous reference predated
+S-A1 through S-A4c and would have reported every intended shell change as a
+finding. Samples genuinely absent on a route are recorded as `"absent"` and
+compared as such, so a component disappearing is caught, rather than being
+silently substituted.
