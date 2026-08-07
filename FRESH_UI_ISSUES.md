@@ -26,7 +26,7 @@ Blocked · Needs Manual Decision · Intentionally Retained · False Positive
 | Severity | **Critical** |
 | Route | `/register` |
 | Files | `frontend/src/pages/RegisterPage.jsx`, `backend/modules/auth/auth.controller.js` |
-| Status | **Blocked — needs a product decision** |
+| Status | **Verified — resolved by Option A** |
 
 **The question was: is the comment wrong, or the implementation? The answer is
 the implementation.** Verified by reading the route binding and then by a live
@@ -107,8 +107,35 @@ changed by design work:
 - **D. Leave as is.** Not recommended: a permanently failing signup route
   remains linked from Login.
 
-Until one is chosen, `/register` stays visually on the shared auth system from
-Boundary A and receives no route-specific work.
+### DECISION: Option A, approved 2026-08-07
+
+Align the frontend with the existing backend contract. Backend unchanged.
+
+**Implemented.** The role selector is removed and `company_name` is added. The
+form now submits exactly `{full_name, email, password, company_name}` — the
+four fields the endpoint requires. `industry`, `currency_code` and `timezone`
+are optional and server-defaulted, so they are deliberately not collected.
+
+The security model is unchanged and now honestly represented: the registrant
+becomes an administrator and the company's owner, a new company is created, no
+role can be requested by the client, no existing company can be joined through
+this form, and no worker, subcontractor or additional administrator is
+self-provisioned. Those are still created through the authenticated company
+workflows.
+
+Copy states the real outcome: "Create your company workspace. You will become
+its initial administrator." A hint under the company field tells anyone whose
+firm already uses the portal to ask their administrator instead.
+
+**Regression coverage added** in `tests/register-contract.spec.js`, driving the
+real local backend rather than a mock, because mocking is what allowed the
+contract to break unnoticed. Five tests assert that `company_name` is sent,
+that `role` is not, that `company_id`/`owner_user_id`/`company_role`/admin
+flags are never sent, that the payload contains exactly the four accepted
+keys, that a successful signup authenticates and lands on the destination the
+BACKEND chose, that a missing company name is caught before any request, that
+a duplicate email surfaces the backend error, and that no role selector
+exists. Each created workspace is removed in teardown.
 
 ---
 
@@ -461,3 +488,52 @@ confirmation moment on the two most-used auth routes.
 
 **Constraint.** Any success treatment must not delay navigation. Security and
 permission redirects stay immediate.
+
+
+---
+
+## AUTH-015 — Group labels failed contrast
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | accessibility |
+| Severity | Serious |
+| Route | `/register` |
+| Files | `styles/system/auth/auth.css` |
+| Status | **Verified** (fixed in Boundary C) |
+
+**Description.** `.auth-group__label` used `--ui-ink-faint`, measuring 3.50:1
+against the canvas. axe rejected it at both mobile and desktop widths:
+normal-size text needs 4.5:1.
+
+**Root cause worth recording.** The token audit gates `--ui-ink-faint` at 3.0
+with the justification "meta text, large or non-essential". These are 12px
+labels, which are neither. The token was not wrong; the usage was. Changed to
+`--ui-ink-muted`, 6.03:1.
+
+**Also removed** a dead `id="register-group-you"` that no `aria-labelledby`
+referenced.
+
+---
+
+## AUTH-016 — Contract test teardown left rows in the dev database
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | technical debt / test hygiene |
+| Severity | Medium |
+| Files | `tests/register-contract.spec.js` |
+| Status | **Verified** (fixed in Boundary C) |
+
+**Description.** The first teardown deleted `company_users`, then the company,
+then the user. Migration 004 seeds a materials catalog and labour categories
+per company through a trigger, and many tables carry `company_id`, so the
+company delete violated a foreign key, threw, and aborted the whole teardown.
+Six users and six companies were left behind and had to be removed by hand.
+
+**Resolution.** Teardown now clears every table carrying `company_id`,
+discovered from `information_schema` rather than hard-coded, then the company,
+the membership and the user in that order. Verified: zero residue after a full
+run.

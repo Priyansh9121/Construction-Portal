@@ -152,6 +152,48 @@
   }
 
   /*
+   * A named group of related fields, used by Register: who you are, what the
+   * workspace is called, how you will sign in. Separated by space and one
+   * hairline rather than by cards, which gives the same cognitive relief as
+   * splitting the form into steps without adding navigation or breaking
+   * password-manager autofill, which reads a whole form at once.
+   */
+  .auth-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-4);
+    min-width: 0;
+  }
+
+  .auth-group + .auth-group {
+    padding-top: var(--ui-space-5);
+    border-top: 1px solid var(--ui-line-faint);
+  }
+
+  .auth-group__label {
+    margin: 0;
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-semibold);
+    letter-spacing: var(--ui-tracking-wide);
+    text-transform: uppercase;
+
+    /* --ui-ink-faint was used here first and axe rejected it: 3.50:1 against
+     * the canvas, short of the 4.5:1 that normal-size text needs. That token
+     * is gated at 3.0 in the audit as "meta text, large or non-essential",
+     * which these 12px labels are not. --ui-ink-muted measures 6.03:1. */
+    color: var(--ui-ink-muted);
+  }
+
+  /* Explanatory text under a control. States what the field does; it never
+   * carries an error, which has its own region above the form. */
+  .auth-field__hint {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+    color: var(--ui-ink-muted);
+  }
+
+  /*
    * A label paired with an inline action, currently the password field's
    * recovery link. Baseline-aligned so the label and the link read as one
    * line rather than two stacked things.
