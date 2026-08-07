@@ -39,7 +39,8 @@
  * meaningful one is the reduced-motion blanket in animations.css. It stays
  * authoritative during coexistence, which is compatible with v2 by design.
  * ======================================================================== */
-@layer legacy, v2-reset, v2-foundation, v2-components, v2-pages, v2-utilities;
+@layer legacy, v2-reset, v2-foundation, v2-components, v2-pages, v2-utilities,
+       system-tokens, system-reset, system-foundation, system-components, system-pages, system-utilities;
 
 /* 1. Tokens ---------------------------------------------------------------- */
 @import "./styles/core/tokens.css" layer(legacy);
@@ -80,6 +81,23 @@
  * Declares its own layers and imports the v2 tree. Loaded last so its
  * layers sit after `legacy` in the cascade. */
 @import "./styles/v2/index.css";
+
+/* 8. The design system ------------------------------------------------------
+ * The current system. Deliberately NOT version-named: the finished product
+ * must not reveal that it passed through a v1 and a v2, and version numbers
+ * in a token namespace age into exactly that.
+ *
+ * Loaded last so its layers win over both `legacy` and the v2 layers.
+ *
+ * CORRECTION TO THE RECORD: v2 above is NOT archived, despite the commit that
+ * named it so. It is live and load-bearing — AppLayout and AuthShell render
+ * inside `.v2-root`, Dashboard depends on `v2-metrics` / `v2-ratio` /
+ * `v2-skeleton`, and six Playwright assertions read `--v2-*` values directly.
+ * The application is therefore half-migrated today, and it is resolved by
+ * replacing each route group with this system and deleting the v1 and v2 rules
+ * that group owned, never by a bulk delete.
+ * See FRESH_UI_DESIGN_SYSTEM.md section 7. */
+@import "./styles/system/index.css";
 
 html,
 body,

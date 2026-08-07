@@ -1,0 +1,187 @@
+/*
+ * ===========================================================================
+ * V3 MOTION — the motion language
+ * ===========================================================================
+ *
+ * File purpose:
+ * Every duration, easing and choreography primitive V3 is allowed to use.
+ * A V3 rule that types a raw millisecond value or a raw cubic-bezier is a bug
+ * in that rule.
+ *
+ * The one rule behind every value here:
+ * motion must be justifiable in one sentence, as hierarchy, storytelling,
+ * feedback, or state transition. "It looked good" is not one of the four.
+ * Motion that cannot be justified is deleted, not tuned.
+ *
+ * Hard constraints, from the directive and PRODUCT.md:
+ *   - Exits resolve faster than entrances.
+ *   - Everything is interruptible; motion never blocks input.
+ *   - Only transform and opacity animate. Never width, height, top or left.
+ *   - Financial figures never animate in place.
+ *   - No permanent loops. No ambient shimmer, no continuous pulse, no
+ *     endless background motion on an operational page.
+ *   - Hover feedback never moves the interaction target.
+ *   - Dense data never overshoots or bounces.
+ *
+ * Connected to:
+ * - styles/system/index.css imports this into the system-tokens layer
+ * - hooks/prefersReducedMotion.js is the JS side of the same contract
+ */
+
+:root {
+  /* =========================================================================
+   * 1. DURATION
+   * =========================================================================
+   * Scaled to what the movement has to explain, not to a house style.
+   * The asymmetry is deliberate: an entrance introduces something the user
+   * has not seen and can afford to be read; an exit removes something they
+   * are already done with and must not be waited on.
+   * ====================================================================== */
+
+  --ui-duration-instant: 80ms;   /* press feedback, checkbox, toggle       */
+  --ui-duration-fast:    140ms;  /* hover, focus, small state changes      */
+  --ui-duration-exit:    160ms;  /* overlays leaving, always < enter       */
+  --ui-duration-enter:   240ms;  /* overlays arriving, content revealing   */
+  --ui-duration-move:    320ms;  /* layout and shared-element transitions  */
+  --ui-duration-page:    380ms;  /* route change, the longest we ever go   */
+
+  /* Stagger. Small enough that a list of twelve finishes inside one page
+   * duration; a stagger the user can count is a stagger that is too slow. */
+  --ui-stagger-tight: 18ms;
+  --ui-stagger:       28ms;
+  --ui-stagger-max:   9;         /* items after this get no extra delay    */
+
+  /* =========================================================================
+   * 2. EASING
+   * =========================================================================
+   * Named for the job, not the curve, so a call site reads as intent.
+   * ====================================================================== */
+
+  /* Decelerate. Arrives fast, settles gently. The default for anything
+   * entering, because the user should see it land, not see it start. */
+  --ui-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Accelerate. Leaves immediately. Nothing to read on the way out. */
+  --ui-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Standard in-out, for something moving between two places the user can
+   * see, where both ends matter equally. */
+  --ui-ease-move: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* A spring with NO overshoot past 1. Physicality without bounce, so it is
+   * safe over dense data where a bouncing row is nauseating and makes a
+   * figure hard to read mid-flight. */
+  --ui-ease-settle: linear(
+    0, 0.2178 2.1%, 0.7758 6.61%, 0.9067, 0.9695 9.91%, 0.9887, 1.0011 12.91%,
+    1.0058 14.11%, 1.0055 15.61%, 1.0004 18.92%, 0.9995 21.02%, 1
+  );
+}
+
+/* ===========================================================================
+ * 3. CHOREOGRAPHY PRIMITIVES
+ * ===========================================================================
+ * Composable keyframes. Each animates transform and opacity only, so every
+ * one of them stays on the compositor and off the main thread.
+ * ======================================================================== */
+
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ui-rise-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ui-scale-in {
+  from { opacity: 0; transform: scale3d(0.97, 0.97, 1); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Directional. Wayfinding supplies the direction: a transition that carries
+ * you forward through the information architecture moves one way, and going
+ * back moves the other. Direction is orientation, not decoration. */
+@keyframes ui-advance-in {
+  from { opacity: 0; transform: translate3d(12px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ui-retreat-in {
+  from { opacity: 0; transform: translate3d(-12px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+/*
+ * Skeleton. A SINGLE traverse per load, not a permanent shimmer loop.
+ * An endless shimmer is banned by the directive, and on an operational page
+ * it also keeps the compositor awake forever on a phone that is already
+ * fighting for battery in the sun.
+ */
+@keyframes ui-skeleton-sweep {
+  from { transform: translate3d(-100%, 0, 0); }
+  to   { transform: translate3d(100%, 0, 0); }
+}
+
+/* ===========================================================================
+ * 4. UTILITY CLASSES
+ * ===========================================================================
+ * Deliberately few. Most motion belongs on the component that owns the state
+ * change, where its purpose is legible. These exist for the cases that
+ * genuinely repeat.
+ * ======================================================================== */
+
+.ui-enter {
+  animation: ui-rise-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+}
+
+.ui-enter-fade {
+  animation: ui-fade-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+}
+
+/*
+ * Staggered children. The index is supplied by the component as --ui-i, so
+ * the delay is computed in CSS rather than through inline styles on every
+ * row. Capped, so a 400-row register does not schedule a 400-step cascade.
+ */
+.ui-stagger > * {
+  animation: ui-rise-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+  animation-delay: calc(min(var(--ui-i, 0), var(--ui-stagger-max)) * var(--ui-stagger));
+}
+
+/* ===========================================================================
+ * 5. REDUCED MOTION
+ * ===========================================================================
+ * This is a designed mode, not a disabled one. It must preserve information
+ * and hierarchy and still look finished.
+ *
+ * What it removes: transforms, parallax, stagger, continuous motion.
+ * What it keeps:   short opacity changes, because a fade still communicates
+ *                  that something arrived, costs no vestibular load, and
+ *                  removing it entirely makes state changes hard to notice.
+ *
+ * Note this does NOT use a blanket `* { animation: none !important }`. That
+ * pattern is what V1 shipped, and it wins over every later layer because
+ * !important reverses cascade-layer order, which then has to be worked around
+ * forever. Reduced motion is expressed as values, so it composes.
+ * ======================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ui-duration-instant: 1ms;
+    --ui-duration-fast:    1ms;
+    --ui-duration-exit:    1ms;
+    --ui-duration-enter:   120ms;  /* a fade survives; it carries meaning  */
+    --ui-duration-move:    1ms;
+    --ui-duration-page:    120ms;
+    --ui-stagger-tight:    0ms;
+    --ui-stagger:          0ms;
+  }
+
+  /* Every transform-bearing primitive collapses to its opacity component.
+   * The element still announces itself; it just does not travel. */
+  .ui-enter,
+  .ui-stagger > * {
+    animation-name: ui-fade-in;
+  }
+}
