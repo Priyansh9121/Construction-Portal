@@ -184,6 +184,25 @@
     color: var(--ui-ink-muted);
   }
 
+  /*
+   * A field whose value already arrived correct, currently the reset token
+   * when it came from the emailed link.
+   *
+   * De-emphasised, never disabled and never hidden: the user should not be
+   * asked to think about a field that is already right, but they must still
+   * be able to correct it if they pasted the token by hand. The control keeps
+   * its full contrast on focus, so editing it never feels second-class.
+   */
+  .auth-field--resolved input {
+    color: var(--ui-ink-muted);
+    background: var(--ui-surface-sunken);
+  }
+
+  .auth-field--resolved input:focus {
+    color: var(--ui-ink-strong);
+    background: var(--ui-surface);
+  }
+
   /* Explanatory text under a control. States what the field does; it never
    * carries an error, which has its own region above the form. */
   .auth-field__hint {

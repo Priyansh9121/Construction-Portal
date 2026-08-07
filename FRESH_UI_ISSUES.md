@@ -585,3 +585,70 @@ defaults remain 60 minutes and 5 requests, valid overrides are honoured,
 invalid values of every shape fall back to the strict default, and the limiter
 is never disabled. Documented in `backend/.env.example` and `DEPLOYMENT.md`,
 including the trap that `AUTH_RATE_LIMIT_MAX` does not relax this endpoint.
+
+
+---
+
+## AUTH-018 — Reset tests mutated a shared fixture and raced its token
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | test defect |
+| Severity | **High** — it broke 128 assertions across unrelated suites |
+| Files | `frontend/tests/reset-password.spec.js` |
+| Status | **Verified** (fixed in Boundary E) |
+
+**Description.** The end-to-end reset test minted a reset token for a shared
+fixture account. Two independent failures followed.
+
+1. **Token race.** The backend stores ONE `reset_token` per user.
+   `forgot-password.spec.js` also mints a token for the admin fixture, so in a
+   parallel run whichever suite ran second overwrote the other's token and the
+   first failed with an invalid token. The test passed in isolation and failed
+   in the full run, which is the signature of a shared-state race.
+
+2. **Fixture destruction.** A successful reset *changes that account's
+   password*. Switching to the worker fixture moved the problem rather than
+   solving it: the restore in `afterAll` then failed, because four parallel
+   workers each retried a wrong password and tripped a per-account
+   failed-login lockout. The worker fixture was left unusable and **128
+   assertions failed** across the portal, a11y and table suites, none of which
+   had anything to do with this change.
+
+**Recovery.** The fixture was restored with the documented
+`createLocalPortalFixtures.js` seed script and the backend restarted to clear
+the lockout counter. All three fixtures verified logging in afterwards.
+
+**Resolution.** The suite now **owns its own account**: it registers a
+throwaway workspace, resets that account, and deletes it in teardown, clearing
+every `company_id` table before the company exactly as
+`register-contract.spec.js` does. A throwaway account cannot collide with
+another suite and cannot be left broken.
+
+**The general lesson, recorded because it will recur.** Any test that performs
+a destructive or single-use operation on an account must own that account.
+Shared fixtures are safe to read and to sign in as; they are not safe to
+mutate.
+
+---
+
+## AUTH-019 — Reset used one visibility control for two password fields
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | accessibility / interaction-consistency |
+| Severity | Medium |
+| Route | `/reset-password` |
+| Status | **Verified** (fixed in Boundary E) |
+
+**Description.** A single checkbox revealed both the new password and its
+confirmation, so a user unsure only of the confirmation had to expose the
+password too. It was also the only auth route not using the button pattern
+with `aria-pressed`.
+
+**Resolution.** Each field has its own in-field toggle with an accurate
+`aria-label`, `aria-pressed`, keyboard activation and a 44px target. Revealing
+one never reveals the other, values survive toggling and focus stays on the
+control. Closes AUTH-004; Login, Register and Reset now share one pattern.
