@@ -305,19 +305,23 @@
    * earlier version rendered a filled button over the password.
    * ====================================================================== */
 
-  .password-input-wrapper {
+  /* SCOPED TO AUTH DELIBERATELY. `.password-input-wrapper` and
+   * `.password-toggle-btn` are NOT auth-only: UsersPage.jsx uses both for its
+   * own password control. Unscoped, these rules silently restyled a route
+   * that has not been migrated yet. See AUTH-020. */
+  .auth-shell .password-input-wrapper {
     position: relative;
     display: flex;
     align-items: center;
     min-width: 0;
   }
 
-  .password-input-wrapper input {
+  .auth-shell .password-input-wrapper input {
     /* Reserve the toggle's width plus breathing room. */
     padding-right: 4.5rem;
   }
 
-  .password-toggle-btn {
+  .auth-shell .password-toggle-btn {
     position: absolute;
     right: var(--ui-space-1);
 
@@ -342,12 +346,12 @@
     transition: color var(--ui-duration-fast) var(--ui-ease-move);
   }
 
-  .password-toggle-btn:hover:not(:disabled) {
+  .auth-shell .password-toggle-btn:hover:not(:disabled) {
     color: var(--ui-ink-strong);
     /* Colour only. Moving the target on hover is never acceptable. */
   }
 
-  .password-toggle-btn:disabled {
+  .auth-shell .password-toggle-btn:disabled {
     color: var(--ui-ink-faint);
     cursor: not-allowed;
   }
@@ -443,6 +447,39 @@
     color: var(--ui-status-success-fg);
     background: var(--ui-status-success-bg);
     border-color: var(--ui-status-success-border);
+  }
+
+  /* =========================================================================
+   * ROUTE GUARD LOADING
+   * =========================================================================
+   * Shown while AuthProvider verifies the cached session against /auth/me.
+   * RoleRoute holds the route rather than redirecting, because redirecting
+   * before the real role is known bounces a legitimate user off a page they
+   * are entitled to.
+   *
+   * Deliberately a quiet line of text, not a spinner and not a progress bar.
+   * The wait is normally one round trip; a spinner would draw attention to
+   * something that is usually over before it is noticed, and a percentage
+   * would be invented, since nothing here knows how long the request has
+   * left. role="status" with aria-live="polite" is preserved exactly.
+   *
+   * The text fades in after a short delay so a fast verification shows
+   * nothing at all rather than flashing. Opacity only: no layout shift, and
+   * nothing to collapse under reduced motion beyond the fade itself.
+   * ====================================================================== */
+
+  .route-guard-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: var(--ui-space-8);
+
+    font-family: var(--ui-font-sans);
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+
+    animation: ui-fade-in var(--ui-duration-enter) var(--ui-ease-enter) 240ms both;
   }
 
   /* =========================================================================

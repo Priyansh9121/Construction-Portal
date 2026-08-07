@@ -1229,3 +1229,33 @@ bypass: a high local value still counts requests, it just does not stop a test
 suite mid-run.
 
 The counter lives in an in-memory store, so restarting the backend clears it.
+
+
+## Testing rule: a destructive auth test must own its account
+
+Established by AUTH-018, which cost 128 failing assertions across unrelated
+suites.
+
+Shared fixtures (`createLocalPortalFixtures.js`, `createBreakGlassAdmin.js`)
+may be **read** and signed in as. They must NOT be mutated by any test that
+resets a password, rotates or consumes a single-use token, changes credentials,
+changes a role or membership, triggers lockout behaviour, or destroys and
+recreates identity state.
+
+Two independent failure modes make this non-negotiable:
+
+1. **Racing.** The backend stores one `reset_token` per user, so two suites
+   minting a token for the same account race and the loser sees an invalid
+   token. Such a test passes alone and fails in a parallel run.
+2. **Destruction.** A successful reset changes that account's password. If the
+   restore fails, every other suite that signs in as that fixture fails too,
+   and retrying a wrong password can trip a per-account lockout that makes it
+   worse.
+
+Any destructive auth test must create its own disposable user, company or
+workspace, act on that, clean it up reliably, and verify zero residue.
+`tests/register-contract.spec.js` and `tests/reset-password.spec.js` both do
+this; their teardown clears every table carrying `company_id`, discovered from
+`information_schema`, before deleting the company and then the user.
+
+Do not weaken this rule to make tests faster.

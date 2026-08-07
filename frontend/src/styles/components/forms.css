@@ -249,3 +249,59 @@ textarea:focus {
 .export-menu-dropdown button:hover {
   background: var(--accent-subtle);
 }
+
+/* ---------------------------------------------------------------------------
+ * PASSWORD CONTROL — shared, non-auth
+ * ---------------------------------------------------------------------------
+ * These lived in styles/pages/auth.css, which has been deleted now that the
+ * four auth routes are on the current design system. They are NOT auth-only:
+ * UsersPage.jsx renders the same wrapper and toggle for setting a colleague's
+ * password, so they moved here rather than being removed with the rest.
+ *
+ * The current system defines its own, scoped to `.auth-shell`, so the two do
+ * not collide. When UsersPage is migrated these go with it.
+ * ------------------------------------------------------------------------ */
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  /* Room for the toggle, so the text never runs underneath it. */
+  padding-inline-end: 4.5rem;
+}
+
+/*
+ * `:not(:disabled)` matches the shape of `button:hover:not(:disabled)` in
+ * foundation.css, which scores (0,2,1). A plain class would lose and the
+ * toggle would fill solid blue on hover.
+ */
+.password-toggle-btn,
+.password-toggle-btn:hover:not(:disabled) {
+  position: absolute;
+  inset-inline-end: var(--space-1);
+
+  display: grid;
+  place-items: center;
+
+  /* The full 44px floor, not a reduced "it's only a toggle" height. It fits:
+   * the input is taller than 44px, so the control sits inside it without
+   * changing the field's height. */
+  min-width: 3.5rem;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-2);
+
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.password-toggle-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}

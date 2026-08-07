@@ -63,7 +63,6 @@
 @import "./styles/components/portal.css" layer(legacy);
 
 /* 5. Pages ----------------------------------------------------------------- */
-@import "./styles/pages/auth.css" layer(legacy);
 @import "./styles/pages/dashboard.css" layer(legacy);
 @import "./styles/pages/payments.css" layer(legacy);
 @import "./styles/pages/reports.css" layer(legacy);
