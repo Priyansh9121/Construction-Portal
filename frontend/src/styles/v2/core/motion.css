@@ -1,0 +1,269 @@
+/**
+ * ===========================================================================
+ * UI v2 — MOTION SYSTEM
+ * ===========================================================================
+ *
+ * File purpose:
+ * Every duration, easing and reusable motion primitive in UI v2.
+ *
+ * Three rules this system encodes
+ * -------------------------------
+ * 1. EXIT IS FASTER THAN ENTRANCE. Roughly 65%. Taken from the UI/UX Pro Max
+ *    motion database: "Exit animation should always resolve faster than
+ *    entrance (asymmetric timing) so back/forward feels snappy." An operator
+ *    dismissing a dialog wants it gone, not performed.
+ *
+ * 2. NO OVERSHOOT ON DATA. Also from the same source, adopted verbatim:
+ *    "Don't use back.out on dense data tables; the overshoot reads as sloppy
+ *    on informational UI." `--v2-ease-emphasis` exists but is legal ONLY on
+ *    success confirmation and the brand mark — never on a row, cell, card,
+ *    figure or form control.
+ *
+ * 3. MOTION IS A RESPONSE, NOT A DECORATION. Everything here is triggered by
+ *    something: a route change, a disclosure, a submit, an arrival of data.
+ *    There is not one infinite animation in this file, and there must never
+ *    be one. No permanent pulse, no shimmer loop, no ambient background.
+ *
+ * Reduced motion
+ * --------------
+ * Handled at the bottom, and it is a designed state rather than a switch that
+ * breaks things. Durations collapse to ~1ms (not 0 — a zero-length transition
+ * never fires `transitionend`, and several components rely on that event to
+ * unmount cleanly). Transforms are dropped; opacity is kept. The result still
+ * has clear state changes, just no travel.
+ */
+
+:root {
+  /* =======================================================================
+   * DURATION
+   * ===================================================================== */
+
+  --v2-d-instant: 70ms;    /* colour/opacity on press */
+  --v2-d-fast: 130ms;      /* hover, focus, small state */
+  --v2-d-standard: 200ms;  /* disclosure, tab, dropdown */
+  --v2-d-deliberate: 300ms;/* drawer, larger reveal */
+
+  --v2-d-route: 220ms;     /* route transition — capped; never blocks nav */
+  --v2-d-modal: 240ms;     /* dialog + palette entrance */
+  --v2-d-exit: 150ms;      /* ~65% of entrance, per rule 1 */
+
+  --v2-stagger: 40ms;      /* list interval; 8 items max = 320ms tail */
+  --v2-stagger-max: 8;
+
+  /* =======================================================================
+   * EASING
+   * ===================================================================== */
+
+  /* Standard: symmetric, for state that changes in place. */
+  --v2-ease: cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* Entrance: strong deceleration, arrives settled. NO overshoot. */
+  --v2-ease-in: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Exit: accelerates away. */
+  --v2-ease-out: cubic-bezier(0.4, 0, 1, 1);
+  /* Emphasis: the ONLY curve with overshoot. Success confirmation and the
+   * brand mark only. Never on data. */
+  --v2-ease-emphasis: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* Composed shorthands. */
+  --v2-t-fast: var(--v2-d-fast) var(--v2-ease);
+  --v2-t-standard: var(--v2-d-standard) var(--v2-ease);
+  --v2-t-enter: var(--v2-d-standard) var(--v2-ease-in);
+  --v2-t-exit: var(--v2-d-exit) var(--v2-ease-out);
+
+  /* Travel distances. Kept small deliberately: the motion database advises
+   * an 8-16px offset so a reveal "reads as a fade, not a slide". */
+  --v2-rise: 10px;
+  --v2-rise-lg: 16px;
+}
+
+@layer v2-foundation {
+  /* =======================================================================
+   * KEYFRAMES
+   * =====================================================================
+   * Transform and opacity only — both composited, neither triggers layout.
+   * ===================================================================== */
+
+  @keyframes v2-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes v2-rise-in {
+    from { opacity: 0; transform: translate3d(0, var(--v2-rise), 0); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @keyframes v2-scale-in {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @keyframes v2-slide-from-start {
+    from { transform: translate3d(-100%, 0, 0); }
+    to   { transform: none; }
+  }
+
+  @keyframes v2-slide-from-end {
+    from { transform: translate3d(100%, 0, 0); }
+    to   { transform: none; }
+  }
+
+  /* Success: the one place overshoot is allowed. */
+  @keyframes v2-confirm {
+    0%   { opacity: 0; transform: scale(0.9); }
+    60%  { opacity: 1; transform: scale(1.02); }
+    100% { opacity: 1; transform: none; }
+  }
+
+  /* Error shake. Small, once, and it never moves a focus target far enough
+   * to cause a mis-tap. Used only on a rejected submit. */
+  @keyframes v2-shake {
+    0%, 100% { transform: none; }
+    20%      { transform: translate3d(-4px, 0, 0); }
+    40%      { transform: translate3d(3px, 0, 0); }
+    60%      { transform: translate3d(-2px, 0, 0); }
+    80%      { transform: translate3d(1px, 0, 0); }
+  }
+
+  /* Skeleton sweep. FINITE by design — 3 iterations, then it rests.
+   * A permanent shimmer is prohibited and, on a slow connection, is also a
+   * permanent compositing cost on the device least able to afford it. */
+  @keyframes v2-skeleton {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
+  /* =======================================================================
+   * PRIMITIVES
+   * ===================================================================== */
+
+  .v2-fade      { animation: v2-fade-in var(--v2-d-standard) var(--v2-ease-in) both; }
+  .v2-rise      { animation: v2-rise-in var(--v2-d-standard) var(--v2-ease-in) both; }
+  .v2-scale-in  { animation: v2-scale-in var(--v2-d-modal) var(--v2-ease-in) both; }
+  .v2-confirm   { animation: v2-confirm var(--v2-d-deliberate) var(--v2-ease-emphasis) both; }
+  .v2-shake     { animation: v2-shake var(--v2-d-deliberate) var(--v2-ease) both; }
+
+  /*
+   * List stagger.
+   *
+   * Capped at 8 children. Beyond that every item shares the last delay, so a
+   * 200-row table costs 8 delays rather than 200 — and the last row never
+   * waits 8 seconds to appear. This is the guard the brief asks for: no
+   * animation on every row on every render.
+   */
+  .v2-stagger > * {
+    animation: v2-rise-in var(--v2-d-standard) var(--v2-ease-in) both;
+    animation-delay: calc(var(--v2-stagger) * var(--v2-stagger-max));
+  }
+  .v2-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .v2-stagger > *:nth-child(2) { animation-delay: calc(var(--v2-stagger) * 1); }
+  .v2-stagger > *:nth-child(3) { animation-delay: calc(var(--v2-stagger) * 2); }
+  .v2-stagger > *:nth-child(4) { animation-delay: calc(var(--v2-stagger) * 3); }
+  .v2-stagger > *:nth-child(5) { animation-delay: calc(var(--v2-stagger) * 4); }
+  .v2-stagger > *:nth-child(6) { animation-delay: calc(var(--v2-stagger) * 5); }
+  .v2-stagger > *:nth-child(7) { animation-delay: calc(var(--v2-stagger) * 6); }
+  .v2-stagger > *:nth-child(8) { animation-delay: calc(var(--v2-stagger) * 7); }
+
+  /* Disclosure: grid-template-rows 0fr->1fr animates a genuinely unknown
+   * height without measuring it in JS and without animating `height`. */
+  .v2-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--v2-t-standard);
+  }
+  .v2-collapse[data-open="true"] { grid-template-rows: 1fr; }
+  .v2-collapse > * { overflow: hidden; min-height: 0; }
+
+  /* Skeleton surface. */
+  .v2-skeleton {
+    background-image: linear-gradient(
+      90deg,
+      var(--v2-surface-sunken) 0%,
+      var(--v2-ink-100) 50%,
+      var(--v2-surface-sunken) 100%
+    );
+    background-size: 200% 100%;
+    animation: v2-skeleton 1.4s var(--v2-ease) 3;
+    border-radius: var(--v2-r-sm);
+  }
+
+  /* Tab / nav active indicator. Transform-driven so it never reflows. */
+  .v2-indicator {
+    transition: transform var(--v2-t-standard), opacity var(--v2-t-fast);
+    will-change: transform;
+  }
+
+  /* =======================================================================
+   * ROUTE TRANSITIONS — View Transitions API
+   * =====================================================================
+   * Progressive enhancement: browsers without support simply swap the route,
+   * which is the current behaviour. Nothing is gated on this working, and
+   * navigation is never awaited on an animation.
+   * ===================================================================== */
+
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(v2-page) {
+      animation: v2-fade-in var(--v2-d-exit) var(--v2-ease-out) reverse both;
+    }
+    ::view-transition-new(v2-page) {
+      animation: v2-rise-in var(--v2-d-route) var(--v2-ease-in) both;
+    }
+  }
+}
+
+/* ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * A designed state, not a kill switch.
+ *
+ * What changes: travel. Transforms are removed, stagger delays collapse, the
+ * skeleton sweep stops moving.
+ *
+ * What is kept: opacity. State changes still register — a dialog still
+ * appears, a disclosure still opens, a row still highlights — they simply do
+ * not move. Someone with vestibular sensitivity gets the same information and
+ * the same feedback, without travel.
+ *
+ * Durations collapse to 1ms rather than 0: a zero-length transition never
+ * fires `transitionend`, and components that unmount on that event would hang.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --v2-d-instant: 1ms;
+    --v2-d-fast: 1ms;
+    --v2-d-standard: 1ms;
+    --v2-d-deliberate: 1ms;
+    --v2-d-route: 1ms;
+    --v2-d-modal: 1ms;
+    --v2-d-exit: 1ms;
+    --v2-stagger: 0ms;
+    --v2-rise: 0px;
+    --v2-rise-lg: 0px;
+  }
+
+  @layer v2-foundation {
+    /* Every entrance becomes a plain fade at full speed. */
+    .v2-rise,
+    .v2-scale-in,
+    .v2-confirm,
+    .v2-stagger > * {
+      animation-name: v2-fade-in;
+      animation-duration: var(--v2-d-fast);
+      animation-timing-function: linear;
+      animation-delay: 0ms;
+    }
+
+    /* Shake conveys rejection by movement alone, so it is dropped entirely;
+     * the error message and its aria-live announcement carry the meaning. */
+    .v2-shake { animation: none; }
+
+    /* The skeleton keeps its shape and contrast but stops travelling. */
+    .v2-skeleton {
+      animation: none;
+      background-image: none;
+      background-color: var(--v2-surface-sunken);
+    }
+
+    .v2-indicator { transition-duration: var(--v2-d-fast); }
+  }
+}

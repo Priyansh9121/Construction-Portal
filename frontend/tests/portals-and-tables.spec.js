@@ -1072,6 +1072,13 @@ test.describe("subcontractor portal layout", () => {
 
 test.describe("site operations design tokens (AUD-013)", () => {
   /*
+   * UI v2 update: the expected token names moved from the legacy
+   * `--status-*` family to `--v2-*`. Site Operations now renders inside
+   * `.v2-root`, so those are its canonical tokens. The assertion's INTENT is
+   * unchanged and still the point — each class must resolve to a declared
+   * token, never to a hard-coded literal. See V2-I022 for the regression
+   * this caught when the v2 base rule outranked the BEM modifiers.
+   *
    * Guards the missing-token defect specifically, not the colour values.
    *
    * site-operations.css referenced 16 custom properties that were never
@@ -1085,12 +1092,12 @@ test.describe("site operations design tokens (AUD-013)", () => {
    * silently falling back to a literal again.
    */
   const PROBE = [
-    { cls: "badge badge--camera", token: "--status-success-bg", prop: "backgroundColor" },
-    { cls: "badge badge--gallery", token: "--status-warning-bg", prop: "backgroundColor" },
-    { cls: "badge badge--unknown", token: "--bg-surface-sunken", prop: "backgroundColor" },
-    { cls: "status status--approved", token: "--status-success-fg", prop: "color" },
-    { cls: "status status--pending", token: "--status-warning-fg", prop: "color" },
-    { cls: "status status--denied", token: "--status-danger-fg", prop: "color" },
+    { cls: "badge badge--camera", token: "--v2-success-bg", prop: "backgroundColor" },
+    { cls: "badge badge--gallery", token: "--v2-warning-bg", prop: "backgroundColor" },
+    { cls: "badge badge--unknown", token: "--v2-neutral-bg", prop: "backgroundColor" },
+    { cls: "status status--approved", token: "--v2-success-fg", prop: "color" },
+    { cls: "status status--pending", token: "--v2-warning-fg", prop: "color" },
+    { cls: "status status--denied", token: "--v2-danger-fg", prop: "color" },
   ];
 
   test("status and badge classes resolve to canonical tokens", async ({ browser }) => {

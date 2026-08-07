@@ -1,0 +1,155 @@
+/**
+ * ===========================================================================
+ * UI v2 — RESET
+ * ===========================================================================
+ *
+ * File purpose:
+ * Base element behaviour for UI v2 surfaces.
+ *
+ * Why almost everything here is scoped to `.v2-root`
+ * --------------------------------------------------
+ * UI v1 and UI v2 share one document during migration. Cascade layers mean a
+ * v2 rule beats a v1 rule at any specificity, which is exactly what a
+ * migrated route needs — and exactly what an UNMIGRATED route must not get.
+ * An unscoped `button { }` in the v2 layer would silently restyle all 24
+ * legacy routes at once, and the 349 assertions and 44 axe checks that pass
+ * against them are measuring the v1 design.
+ *
+ * So `.v2-root` is the opt-in. A route adopts UI v2 by putting that class on
+ * its outermost element; nothing else changes. Phase 6 removes the scoping
+ * once no legacy consumer is left, which `tools/ui_v2/css_inventory.py`
+ * verifies rather than assumes.
+ *
+ * The two exceptions are deliberate and both are global-by-necessity:
+ * box-sizing (already the legacy behaviour, so it is a no-op) and the
+ * focus-visible reset, because a keyboard user must never lose a focus ring
+ * on any route, migrated or not.
+ */
+
+@layer v2-reset {
+  /* Matches the legacy reset exactly — declared so v2 does not depend on a
+   * legacy file that Phase 6 will delete. */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  .v2-root {
+    font-family: var(--v2-font);
+    font-size: var(--v2-t-base);
+    line-height: var(--v2-lh-normal);
+    letter-spacing: var(--v2-ls-normal);
+    color: var(--v2-text);
+
+    /* Plex renders slightly heavy without this on macOS. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    /* Two hard rules from the responsive contract, applied at the root so no
+     * child can start a sideways scroll: a min-width:auto flex/grid child
+     * refuses to shrink below its content, which is what caused most of the
+     * horizontal overflow this product has ever had. */
+    min-width: 0;
+    text-size-adjust: 100%;
+  }
+
+  .v2-root :where(h1, h2, h3, h4, h5, h6) {
+    margin: 0;
+    font-weight: var(--v2-w-semibold);
+    line-height: var(--v2-lh-tight);
+    letter-spacing: var(--v2-ls-tight);
+    color: var(--v2-text);
+  }
+
+  .v2-root :where(p, ul, ol, dl, figure) {
+    margin: 0;
+  }
+
+  .v2-root :where(img, svg, video, canvas) {
+    display: block;
+    max-width: 100%;
+  }
+
+  /*
+   * Inherit the FONT, so a control never falls back to the UA's 13px Arial.
+   *
+   * V2-I018. Deliberately NOT `color: inherit`. That reached every legacy
+   * button in the authenticated app and replaced its white label with the
+   * inherited body colour — ink-900 on the blue action fill, which axe
+   * measured at 3.68:1 and failed on 24 routes. Colour belongs to the
+   * component; only metrics are safe to normalise while UI v1 is on screen.
+   */
+  .v2-root :where(button, input, select, textarea) {
+    font: inherit;
+    margin: 0;
+  }
+
+  /*
+   * V2-I014. This deliberately does NOT reset background, border or padding.
+   *
+   * It used to. `.v2-root` sits on `.app-layout`, so during coexistence this
+   * selector reaches every legacy button in the authenticated app — and
+   * cascade-layer order beats specificity, so `:where()`'s zero weight buys
+   * nothing. The result was that the "Export" control rendered as bare text
+   * and the floating action button as a pale circle, on every unmigrated
+   * route. No test caught it: the suite asserts touch targets, overflow and
+   * ARIA, never `background-color`.
+   *
+   * Appearance belongs to `.v2-btn`, which sets its own. The element reset
+   * normalises only what is safe to normalise while UI v1 is still on screen.
+   */
+  .v2-root :where(button) {
+    cursor: pointer;
+  }
+
+  .v2-root :where(button:disabled) {
+    cursor: not-allowed;
+  }
+
+  .v2-root :where(a) {
+    color: var(--v2-action);
+    text-decoration: none;
+  }
+
+  .v2-root :where(a:hover) {
+    text-decoration: underline;
+  }
+
+  .v2-root :where(table) {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  /* Tabular figures everywhere a number lives, so columns cannot jitter. */
+  .v2-root :where(td, th) {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer v2-reset {
+  /*
+   * Focus — global on purpose.
+   *
+   * `:focus-visible` only, so a mouse click does not leave a ring, but every
+   * keyboard path does. The double ring (surface-coloured inner, accent
+   * outer) stays visible on both colour planes, which a single outline
+   * cannot do: a blue ring vanishes on the dark sidebar and a white ring
+   * vanishes on a card.
+   */
+  :where(.v2-root) :focus-visible {
+    outline: none;
+    box-shadow: var(--v2-focus-ring);
+    border-radius: var(--v2-r-xs);
+  }
+
+  :where(.v2-chrome) :focus-visible {
+    box-shadow: var(--v2-focus-ring-chrome);
+  }
+
+  /* Never remove the ring — only replace it. If a component needs a
+   * different shape it overrides box-shadow, not outline:none alone. */
+  .v2-root :focus:not(:focus-visible) {
+    outline: none;
+  }
+}

@@ -1,0 +1,541 @@
+/**
+ * ===========================================================================
+ * UI v2 — AUTHENTICATION
+ * ===========================================================================
+ *
+ * File purpose:
+ * The four unauthenticated screens: Login, Register, Forgot, Reset.
+ *
+ * Why this screen gets the most design budget:
+ * It is the only screen every user sees, it is the only one seen before
+ * anyone trusts the product, and it is the only one with nothing to do but
+ * look right. Everywhere else, density and legibility win over presentation.
+ *
+ * The composition:
+ *   >= 900px   two panels. Chrome plane on the left carrying the blueprint;
+ *              data plane on the right carrying the form. The form column is
+ *              width-capped so it never stretches to an unreadable measure.
+ *   <  900px   one column, data plane only. The brand panel is `display:none`
+ *              — not merely hidden — because on a phone the form is the whole
+ *              job and a decorative panel above it pushes the fields under
+ *              the fold. That is what made the pre-v1 auth screens unusable
+ *              at 320px, and the browser suite asserts it stays fixed.
+ *
+ * These class names are inherited from UI v1 on purpose. The auth suite
+ * asserts against `.auth-shell`, `.auth-brand`, `.auth-card`, `.auth-submit`
+ * and `.password-toggle-btn`, and those assertions encode real requirements
+ * (exactly one h1, brand hidden on phones, submit full-width at 320px, the
+ * toggle inside the input's reserved padding). Keeping the hooks means those
+ * 30 assertions now verify UI v2 rather than being rewritten to suit it.
+ */
+
+@layer v2-pages {
+  .auth-shell {
+    display: grid;
+    grid-template-columns: 1fr;
+
+    min-height: 100vh;
+    min-height: 100dvh;
+
+    background: var(--v2-page);
+    color: var(--v2-text);
+  }
+
+  /* =======================================================================
+   * BRAND PANEL — chrome plane, desktop only
+   * ===================================================================== */
+
+  .auth-brand {
+    display: none;
+  }
+
+  /* =======================================================================
+   * FORM CARD — data plane
+   * ===================================================================== */
+
+  .auth-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    width: 100%;
+    min-width: 0;
+
+    padding: clamp(var(--v2-s6), 6vw, var(--v2-s12)) var(--v2-gutter);
+    padding-block-start: max(var(--v2-s6), env(safe-area-inset-top));
+    padding-block-end: max(var(--v2-s6), env(safe-area-inset-bottom));
+  }
+
+  .auth-card > * {
+    width: 100%;
+    max-width: 27rem;
+    margin-inline: auto;
+  }
+
+  .auth-card-head {
+    margin-block-end: var(--v2-s6);
+  }
+
+  /* The wordmark, shown only where the brand panel is not. */
+  .auth-card-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--v2-s2);
+    margin-block-end: var(--v2-s5);
+
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+    text-transform: uppercase;
+    color: var(--v2-text-muted);
+  }
+
+  /* The identity mark. Amber, and this is one of exactly two places it is
+   * allowed to appear — everywhere else amber means warning. */
+  .auth-brand-mark {
+    flex: 0 0 auto;
+    inline-size: 4px;
+    block-size: 20px;
+    border-radius: var(--v2-r-xs);
+    background: var(--v2-identity);
+  }
+
+  /*
+   * The heading. Deliberately NOT a marketing headline: it names the task
+   * ("Sign in"), not the product. The suite asserts there is exactly one h1
+   * and that it reads as the task.
+   */
+  .auth-card h1 {
+    font-size: var(--v2-t-2xl);
+    font-weight: var(--v2-w-semibold);
+    line-height: var(--v2-lh-tight);
+    letter-spacing: var(--v2-ls-tight);
+    color: var(--v2-text);
+  }
+
+  .auth-card-sub {
+    margin-block-start: var(--v2-s2);
+    font-size: var(--v2-t-base);
+    color: var(--v2-text-secondary);
+  }
+
+  /* =======================================================================
+   * FORM
+   * ===================================================================== */
+
+  .auth-card form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--v2-s4);
+  }
+
+  .auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--v2-s1);
+    min-width: 0;
+  }
+
+  .auth-card label {
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-medium);
+    color: var(--v2-text);
+  }
+
+  .auth-card input,
+  .auth-card select {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--v2-touch);
+    padding: var(--v2-s2) var(--v2-s3);
+
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-control-line);
+    border-radius: var(--v2-r-sm);
+
+    color: var(--v2-text);
+    /* 16px floor — below this iOS Safari zooms on focus and leaves the page
+     * scrolled sideways. Not a style choice. */
+    font-size: var(--v2-t-md);
+
+    transition:
+      border-color var(--v2-t-fast),
+      background-color var(--v2-t-fast);
+  }
+
+  .auth-card input::placeholder {
+    color: var(--v2-ink-400);
+  }
+
+  .auth-card input:hover:not(:disabled) {
+    border-color: var(--v2-control-line-strong);
+  }
+
+  .auth-card input:disabled {
+    background: var(--v2-surface-sunken);
+    color: var(--v2-text-muted);
+  }
+
+  /*
+   * Submit. Styled by class rather than `.auth-card button` so the password
+   * toggle — which is also a button inside this card — is unaffected. That
+   * descendant selector is what once rendered the toggle as a filled dark
+   * block over the password field.
+   */
+  .auth-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--v2-s2);
+
+    width: 100%;
+    min-height: var(--v2-touch);
+    margin-block-start: var(--v2-s2);
+    padding: 0 var(--v2-s4);
+
+    background: var(--v2-action);
+    border: var(--v2-hairline) solid transparent;
+    border-radius: var(--v2-r-sm);
+
+    color: var(--v2-action-text);
+    font-size: var(--v2-t-md);
+    font-weight: var(--v2-w-semibold);
+    cursor: pointer;
+
+    transition: background-color var(--v2-t-fast);
+  }
+
+  .auth-submit:hover:not(:disabled) { background: var(--v2-action-hover); }
+
+  .auth-submit:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* =======================================================================
+   * PASSWORD VISIBILITY TOGGLE
+   * ===================================================================== */
+
+  .password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Reserved room, so the typed text never runs underneath the toggle. The
+   * suite measures this exact relationship. */
+  .password-input-wrapper input {
+    padding-inline-end: 4.5rem;
+  }
+
+  .password-toggle-btn,
+  .password-toggle-btn:hover:not(:disabled) {
+    position: absolute;
+    inset-inline-end: var(--v2-s1);
+
+    display: grid;
+    place-items: center;
+
+    /* The full 44px floor, not a reduced "it is only a toggle" height. It
+     * fits: the input is taller than 44px, so the control sits inside it
+     * without changing the field's height. */
+    min-inline-size: 3.5rem;
+    min-block-size: var(--v2-touch);
+    padding: 0 var(--v2-s2);
+
+    background: transparent;
+    border: 0;
+    border-radius: var(--v2-r-xs);
+
+    color: var(--v2-action);
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-medium);
+    cursor: pointer;
+  }
+
+  .password-toggle-btn:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+
+  /* =======================================================================
+   * ERROR
+   * =====================================================================
+   * Above the fields, never below the submit button: a failure rendered
+   * under a full-width button on a phone is frequently below the fold, so
+   * the user sees nothing happen and presses Sign in again.
+   *
+   * The shake fires once on mount. Under reduced motion it is dropped
+   * entirely — the message and its role="alert" carry the meaning, and
+   * movement is not the signal.
+   * ===================================================================== */
+
+  .auth-card .error {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--v2-s2);
+
+    margin: 0;
+    padding: var(--v2-s3);
+
+    background: var(--v2-danger-bg);
+    border: var(--v2-hairline) solid var(--v2-danger-bar);
+    border-inline-start-width: 3px;
+    border-radius: var(--v2-r-sm);
+
+    color: var(--v2-danger-fg);
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-medium);
+    overflow-wrap: anywhere;
+
+    animation:
+      v2-rise-in var(--v2-d-standard) var(--v2-ease-in) both,
+      v2-shake var(--v2-d-deliberate) var(--v2-ease) both;
+  }
+
+  .auth-success {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--v2-s2);
+
+    margin: 0;
+    padding: var(--v2-s3);
+
+    background: var(--v2-success-bg);
+    border: var(--v2-hairline) solid var(--v2-success-bar);
+    border-inline-start-width: 3px;
+    border-radius: var(--v2-r-sm);
+
+    color: var(--v2-success-fg);
+    font-size: var(--v2-t-sm);
+    overflow-wrap: anywhere;
+
+    animation: v2-confirm var(--v2-d-deliberate) var(--v2-ease-emphasis) both;
+  }
+
+  /* =======================================================================
+   * FOOTER LINKS
+   * ===================================================================== */
+
+  .auth-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--v2-s2) var(--v2-s5);
+
+    margin-block-start: var(--v2-s5);
+    padding-block-start: var(--v2-s4);
+    border-block-start: var(--v2-hairline) solid var(--v2-line);
+  }
+
+  /* The 44px floor applies: these are standalone navigation controls between
+   * auth flows, not links inside a sentence. */
+  .auth-link {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--v2-touch);
+
+    color: var(--v2-action);
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-medium);
+    text-decoration: none;
+  }
+
+  .auth-link:hover { text-decoration: underline; }
+
+  /* =======================================================================
+   * DESKTOP — the chrome panel arrives
+   * ===================================================================== */
+
+  @media (min-width: 900px) {
+    .auth-shell {
+      /* Chrome takes the remainder; the form column is capped so the measure
+       * stays readable on a 1920px display. */
+      grid-template-columns: minmax(0, 1fr) minmax(26rem, 32rem);
+    }
+
+    .auth-brand {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+
+      padding: var(--v2-s12);
+
+      background: var(--v2-chrome-bg-deep);
+      color: var(--v2-chrome-text);
+    }
+
+    /*
+     * The drafting grid. Two repeating gradients — no image request, scales
+     * to any viewport, and it is completely static. The blueprint drawing on
+     * top is the only thing that moves, and it moves once.
+     */
+    .auth-brand::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          var(--v2-chrome-line) 0 1px,
+          transparent 1px 56px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          var(--v2-chrome-line) 0 1px,
+          transparent 1px 56px
+        );
+      /* Fades out toward the form so the join between the two planes is a
+       * gradient of structure, not a hard seam. */
+      mask-image: linear-gradient(to right, #000 0%, #000 55%, transparent 100%);
+    }
+
+    .auth-brand__body {
+      position: relative;
+      max-width: 34rem;
+    }
+
+    .auth-eyebrow {
+      margin: var(--v2-s6) 0 var(--v2-s3);
+      font-size: var(--v2-t-micro);
+      font-weight: var(--v2-w-semibold);
+      letter-spacing: var(--v2-ls-caps);
+      text-transform: uppercase;
+      color: var(--v2-chrome-text-muted);
+    }
+
+    .auth-brand-title {
+      margin: 0;
+      font-size: var(--v2-t-3xl);
+      font-weight: var(--v2-w-semibold);
+      line-height: var(--v2-lh-tight);
+      letter-spacing: var(--v2-ls-tight);
+      color: var(--v2-chrome-text);
+    }
+
+    .auth-brand-intro {
+      margin: var(--v2-s4) 0 0;
+      max-width: 44ch;
+      font-size: var(--v2-t-base);
+      line-height: var(--v2-lh-normal);
+      color: var(--v2-chrome-text-secondary);
+    }
+
+    .auth-brand-list {
+      display: grid;
+      gap: var(--v2-s4);
+      margin-block-start: var(--v2-s8);
+      padding-block-start: var(--v2-s6);
+      border-block-start: var(--v2-hairline) solid var(--v2-chrome-line-strong);
+    }
+
+    .auth-brand-list div {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .auth-brand-list strong {
+      font-size: var(--v2-t-sm);
+      font-weight: var(--v2-w-semibold);
+      color: var(--v2-chrome-text);
+    }
+
+    .auth-brand-list span {
+      font-size: var(--v2-t-sm);
+      line-height: var(--v2-lh-snug);
+      color: var(--v2-chrome-text-muted);
+    }
+
+    /* The wordmark inside the card is redundant once the panel shows. */
+    .auth-card-brand { display: none; }
+
+    .auth-card {
+      background: var(--v2-surface);
+      border-inline-start: var(--v2-hairline) solid var(--v2-line);
+    }
+  }
+
+  /* =======================================================================
+   * THE BLUEPRINT
+   * =====================================================================
+   * Draws once on load, then rests. See AuthShell.jsx for the geometry and
+   * the reasoning; this is only its presentation and timing.
+   * ===================================================================== */
+
+  .auth-blueprint {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: -4%;
+    transform: translateY(-52%);
+
+    inline-size: min(58%, 30rem);
+    block-size: auto;
+    pointer-events: none;
+
+    stroke: var(--v2-action-on-chrome);
+    stroke-width: 1.25;
+    stroke-linecap: square;
+    opacity: 0.5;
+  }
+
+  .auth-blueprint__frame path,
+  .auth-blueprint__detail path,
+  .auth-blueprint__detail rect {
+    /* 900 comfortably exceeds the longest path, so one value covers all of
+     * them without measuring each in JS. */
+    stroke-dasharray: 900;
+    stroke-dashoffset: 900;
+    animation: v2-draw 1500ms var(--v2-ease-in) both;
+  }
+
+  .auth-blueprint__frame path:nth-child(2) { animation-delay: 90ms; }
+  .auth-blueprint__frame path:nth-child(3) { animation-delay: 180ms; }
+  .auth-blueprint__frame path:nth-child(4) { animation-delay: 250ms; }
+  .auth-blueprint__frame path:nth-child(5) { animation-delay: 320ms; }
+  .auth-blueprint__frame path:nth-child(6) { animation-delay: 390ms; }
+  .auth-blueprint__frame path:nth-child(7) { animation-delay: 500ms; }
+
+  .auth-blueprint__detail {
+    stroke: var(--v2-identity);
+    opacity: 0.85;
+  }
+
+  .auth-blueprint__detail path,
+  .auth-blueprint__detail rect {
+    animation-delay: 700ms;
+    animation-duration: 900ms;
+  }
+
+  @keyframes v2-draw {
+    from { stroke-dashoffset: 900; }
+    to   { stroke-dashoffset: 0; }
+  }
+}
+
+/* ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * The blueprint is a picture, not a performance. With motion reduced it is
+ * simply already drawn — no sweep, no delay, nothing missing. The error
+ * shake is dropped; role="alert" and the colour carry the meaning.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer v2-pages {
+    .auth-blueprint__frame path,
+    .auth-blueprint__detail path,
+    .auth-blueprint__detail rect {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
+
+    .auth-card .error {
+      animation: v2-fade-in var(--v2-d-fast) linear both;
+    }
+
+    .auth-success {
+      animation: v2-fade-in var(--v2-d-fast) linear both;
+    }
+  }
+}

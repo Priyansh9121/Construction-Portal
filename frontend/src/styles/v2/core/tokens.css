@@ -1,0 +1,314 @@
+/**
+ * ===========================================================================
+ * UI v2 — "INSTRUMENT DECK" TOKENS
+ * ===========================================================================
+ *
+ * File purpose:
+ * Every visual constant in UI v2. Nothing downstream invents a raw value.
+ *
+ * The one idea this system is built on
+ * ------------------------------------
+ * Two planes, and they are not interchangeable:
+ *
+ *   CHROME PLANE  dark, machined, structural — sidebar, topbar, command
+ *                 palette, dialog scrim, and nothing else. This is where the
+ *                 product gets to feel like equipment rather than a webpage.
+ *
+ *   DATA PLANE    light, high-contrast, flat — every surface that carries
+ *                 operational or financial information.
+ *
+ * The data plane is light on purpose, and it is the one place UI v2 overrules
+ * a mandated source. UI/UX Pro Max lists "light mode default" as an
+ * anti-pattern for this product class. That advice is written for analysts at
+ * desks. Half this product's users read it one-handed, outdoors, on a phone,
+ * in direct sun — the condition in which a dark data surface is measurably
+ * worse. Dark chrome buys the premium feel; the light data plane keeps the
+ * numbers readable on a roof. See UI_V2_MASTER_AUDIT.md UIV2-002.
+ *
+ * Naming: every token is prefixed `--v2-` so UI v1 and UI v2 can coexist in
+ * one document during migration without a single name collision. The prefix
+ * is removed in Phase 6 only if that is safe; it costs nothing to keep.
+ */
+
+:root {
+  /* =======================================================================
+   * 1. PALETTE — raw values, rarely referenced directly
+   * =====================================================================
+   * Ink is a cooled neutral. It is deliberately NOT the slate ramp UI v1
+   * used: slate is faintly blue-warm and reads as "software". These steps
+   * are pulled toward graphite so large dark areas read as machined metal,
+   * which is the whole point of the chrome plane.
+   * ===================================================================== */
+
+  --v2-ink-950: #07090e;
+  --v2-ink-900: #0d1017;
+  --v2-ink-850: #131722;
+  --v2-ink-800: #1a1f2c;
+  --v2-ink-750: #222839;
+  --v2-ink-700: #2c3346;
+  --v2-ink-600: #3e4759;
+  --v2-ink-500: #5b6478;
+  --v2-ink-450: #8d97ab;
+  --v2-ink-400: #838da2;
+  --v2-ink-300: #adb5c5;
+  --v2-ink-200: #d3d8e2;
+  --v2-ink-100: #e7eaf1;
+  --v2-ink-75: #eff2f7;
+  --v2-ink-50: #f6f8fb;
+  --v2-white: #ffffff;
+
+  /* Action blue. Carried over from v1 deliberately: it is already the single
+   * action colour, it already passes AA on white, and changing the thing
+   * users click is churn without benefit. */
+  --v2-blue-50: #eff6ff;
+  --v2-blue-100: #dbeafe;
+  --v2-blue-300: #93c5fd;
+  --v2-blue-500: #3b82f6;
+  --v2-blue-600: #2563eb;
+  --v2-blue-700: #1d4ed8;
+  --v2-blue-800: #1e40af;
+
+  /* Amber — WARNING ONLY. Never a brand colour, never an action. UI v1 had
+   * amber serving as both brand accent and "needs attention" simultaneously;
+   * in a portal where amber means overdue or unsafe that is a hazard. */
+  --v2-amber-100: #fef3c7;
+  --v2-amber-500: #f59e0b;
+  --v2-amber-700: #b45309;
+
+  --v2-green-100: #dcfce7;
+  --v2-green-500: #22c55e;
+  --v2-green-700: #15803d;
+
+  --v2-red-100: #fee2e2;
+  --v2-red-500: #ef4444;
+  --v2-red-700: #b91c1c;
+
+  /* =======================================================================
+   * 2. THE CHROME PLANE — dark structural surfaces
+   * ===================================================================== */
+
+  --v2-chrome-bg: var(--v2-ink-900);
+  --v2-chrome-bg-deep: var(--v2-ink-950);
+  --v2-chrome-bg-raised: var(--v2-ink-850);
+  --v2-chrome-bg-hover: var(--v2-ink-800);
+  --v2-chrome-bg-active: var(--v2-ink-750);
+
+  /* Hairlines on dark are translucent white, not a fixed grey: they then sit
+   * correctly on every chrome step without a token per pairing. */
+  --v2-chrome-line: rgb(255 255 255 / 0.08);
+  --v2-chrome-line-strong: rgb(255 255 255 / 0.14);
+
+  --v2-chrome-text: #f2f5fa;
+  --v2-chrome-text-secondary: var(--v2-ink-300);
+  /* ink-450, not ink-400. Measured: ink-400 reaches only 4.40:1 against
+   * --v2-chrome-bg-active, and muted labels do render on active nav items. */
+  --v2-chrome-text-muted: var(--v2-ink-450);
+
+  /* =======================================================================
+   * 3. THE DATA PLANE — light operational surfaces
+   * ===================================================================== */
+
+  --v2-page: var(--v2-ink-75);
+  --v2-surface: var(--v2-white);
+  --v2-surface-sunken: var(--v2-ink-50);
+  --v2-surface-hover: var(--v2-ink-75);
+  --v2-surface-active: var(--v2-ink-100);
+
+  /* ---------------------------------------------------------------------
+   * Two kinds of line, and conflating them is an accessibility error in
+   * both directions.
+   *
+   * SEPARATORS (`--v2-line*`) divide content — table rules, card edges,
+   * section dividers. WCAG 1.4.11 does not apply: they are decorative, and
+   * forcing them to 3:1 produces a harsh grid that makes dense tables
+   * harder to read, not easier.
+   *
+   * CONTROL BOUNDARIES (`--v2-control-line`) are what makes an input or an
+   * unfilled button identifiable as a control. 1.4.11 DOES apply, so this
+   * is a different, darker token. Never use a separator on a control.
+   * ------------------------------------------------------------------- */
+  --v2-line: var(--v2-ink-200);
+  --v2-line-soft: var(--v2-ink-100);
+  --v2-line-strong: var(--v2-ink-300);
+  --v2-control-line: var(--v2-ink-400);
+  --v2-control-line-strong: var(--v2-ink-500);
+
+  --v2-text: var(--v2-ink-900);
+  --v2-text-secondary: var(--v2-ink-700);
+  --v2-text-muted: var(--v2-ink-600);
+  --v2-text-inverse: var(--v2-white);
+
+  /* =======================================================================
+   * 4. ACTION + STATUS
+   * =====================================================================
+   * One action colour. One warning colour. Status families never borrow from
+   * the action family, and the action family never borrows from status.
+   * ===================================================================== */
+
+  --v2-action: var(--v2-blue-600);
+  --v2-action-hover: var(--v2-blue-700);
+  --v2-action-text: var(--v2-white);
+  --v2-action-subtle: var(--v2-blue-50);
+  --v2-action-line: var(--v2-blue-500);
+  /* The action colour readable on the CHROME plane — blue-600 on ink-900 is
+   * only 3.1:1, so links in the sidebar use this lighter step instead. */
+  --v2-action-on-chrome: var(--v2-blue-300);
+
+  --v2-focus: var(--v2-blue-500);
+  --v2-focus-ring: 0 0 0 2px var(--v2-surface), 0 0 0 4px var(--v2-focus);
+  --v2-focus-ring-chrome: 0 0 0 2px var(--v2-chrome-bg), 0 0 0 4px var(--v2-blue-300);
+
+  /* Each family has three members and they are not interchangeable:
+   *   -bg   the tinted surface
+   *   -fg   text on that surface (always >= 4.5:1 on its own -bg)
+   *   -bar  the solid indicator bar / left rule / dot
+   *
+   * `-bar` is the `-fg` value, not a mid-tone. A mid-tone bar measured
+   * 1.93:1 (warning) and 2.07:1 (success) against its own tint — invisible
+   * in sunlight, which is exactly where this product is read. Status is
+   * never carried by colour alone, so the bar is reinforcement rather than
+   * the sole signal, but reinforcement nobody can see is not reinforcement.
+   */
+  --v2-success-bg: var(--v2-green-100);
+  --v2-success-fg: var(--v2-green-700);
+  --v2-success-bar: var(--v2-green-700);
+
+  --v2-warning-bg: var(--v2-amber-100);
+  --v2-warning-fg: var(--v2-amber-700);
+  --v2-warning-bar: var(--v2-amber-700);
+
+  --v2-danger-bg: var(--v2-red-100);
+  --v2-danger-fg: var(--v2-red-700);
+  --v2-danger-bar: var(--v2-red-700);
+
+  --v2-info-bg: var(--v2-blue-100);
+  --v2-info-fg: var(--v2-blue-700);
+  --v2-info-bar: var(--v2-blue-700);
+
+  --v2-neutral-bg: var(--v2-ink-100);
+  --v2-neutral-fg: var(--v2-ink-700);
+  --v2-neutral-bar: var(--v2-ink-600);
+
+  /* Construction identity. Exactly one place (the shell brand mark), for the
+   * same reason amber is warning-only everywhere else. */
+  --v2-identity: var(--v2-amber-500);
+
+  /* =======================================================================
+   * 5. SPACING — 4px base
+   * ===================================================================== */
+
+  --v2-s0: 0;
+  --v2-s1: 0.25rem;  /*  4 */
+  --v2-s2: 0.5rem;   /*  8 */
+  --v2-s3: 0.75rem;  /* 12 */
+  --v2-s4: 1rem;     /* 16 */
+  --v2-s5: 1.25rem;  /* 20 */
+  --v2-s6: 1.5rem;   /* 24 */
+  --v2-s8: 2rem;     /* 32 */
+  --v2-s10: 2.5rem;  /* 40 */
+  --v2-s12: 3rem;    /* 48 */
+  --v2-s16: 4rem;    /* 64 */
+
+  --v2-gutter: clamp(var(--v2-s4), 3vw, var(--v2-s8));
+  --v2-section: clamp(var(--v2-s5), 2.5vw, var(--v2-s8));
+
+  /* =======================================================================
+   * 6. TYPOGRAPHY
+   * =====================================================================
+   * IBM Plex Sans, self-hosted, variable (one 40.2 kB latin file covers 400
+   * through 700; latin-ext adds 25.9 kB and is fetched by the browser only
+   * when a page actually contains ₹ or extended latin).
+   *
+   * Measured, not assumed: its digits are equal-width WITHOUT
+   * `font-variant-numeric: tabular-nums`. Plex ships tabular figures by
+   * default, which is why UI v2 needs no monospace family for currency and
+   * IBM Plex Mono was dropped — a 37.8 kB saving. See UIV2-006.
+   *
+   * The fallback stack is real, not decorative: `font-display: swap` means
+   * every user reads the fallback first, so it must already be correct.
+   * ===================================================================== */
+
+  --v2-font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Fixed where consistency matters; fluid only for the few display sizes. */
+  --v2-t-micro: 0.6875rem; /* 11 — caps labels, table meta */
+  --v2-t-xs: 0.75rem;      /* 12 */
+  --v2-t-sm: 0.8125rem;    /* 13 */
+  --v2-t-base: 0.9375rem;  /* 15 — body */
+  --v2-t-md: 1rem;         /* 16 — inputs; below this iOS zooms on focus */
+  --v2-t-lg: 1.125rem;     /* 18 */
+  --v2-t-xl: clamp(1.25rem, 1.1rem + 0.5vw, 1.4375rem);
+  --v2-t-2xl: clamp(1.5rem, 1.25rem + 1vw, 1.875rem);
+  --v2-t-3xl: clamp(1.875rem, 1.4rem + 1.9vw, 2.5rem);
+
+  --v2-w-normal: 400;
+  --v2-w-medium: 500;
+  --v2-w-semibold: 600;
+  --v2-w-bold: 700;
+
+  --v2-lh-tight: 1.15;
+  --v2-lh-snug: 1.35;
+  --v2-lh-normal: 1.55;
+
+  --v2-ls-tight: -0.015em;
+  --v2-ls-normal: 0;
+  --v2-ls-caps: 0.07em;
+
+  /* =======================================================================
+   * 7. GEOMETRY
+   * =====================================================================
+   * Tighter than UI v1. Large radii read as consumer software; instruments
+   * have small, precise corners.
+   * ===================================================================== */
+
+  --v2-r-xs: 3px;
+  --v2-r-sm: 5px;
+  --v2-r-md: 8px;
+  --v2-r-lg: 12px;
+  --v2-r-xl: 16px;
+  --v2-r-pill: 999px;
+
+  --v2-hairline: 1px;
+
+  /* =======================================================================
+   * 8. ELEVATION — used sparingly
+   * =====================================================================
+   * Depth comes from borders and micro-contrast first. Shadows are reserved
+   * for things that genuinely float above the page: dropdowns, dialogs,
+   * drawers, the command palette. Resting cards get a hairline, not a shadow.
+   * ===================================================================== */
+
+  --v2-shadow-sm: 0 1px 2px rgb(7 9 14 / 0.06);
+  --v2-shadow-md: 0 4px 10px rgb(7 9 14 / 0.07), 0 1px 2px rgb(7 9 14 / 0.05);
+  --v2-shadow-lg: 0 12px 28px rgb(7 9 14 / 0.12), 0 3px 8px rgb(7 9 14 / 0.06);
+  --v2-shadow-xl: 0 28px 64px rgb(7 9 14 / 0.28);
+
+  /* =======================================================================
+   * 9. LAYOUT
+   * ===================================================================== */
+
+  --v2-sidebar-w: 264px;
+  --v2-sidebar-w-collapsed: 68px;
+  --v2-topbar-h: 60px;
+  --v2-content-max: 1640px;
+  --v2-content-narrow: 840px;
+
+  /* WCAG 2.2 target size. Floor for anything tappable, no exceptions. */
+  --v2-touch: 44px;
+
+  /* =======================================================================
+   * 10. STACKING
+   * ===================================================================== */
+
+  --v2-z-base: 0;
+  --v2-z-raised: 10;
+  --v2-z-sticky: 100;
+  --v2-z-sidebar: 200;
+  --v2-z-scrim: 290;
+  --v2-z-drawer: 300;
+  --v2-z-dialog-scrim: 390;
+  --v2-z-dialog: 400;
+  --v2-z-palette: 450;
+  --v2-z-toast: 500;
+}

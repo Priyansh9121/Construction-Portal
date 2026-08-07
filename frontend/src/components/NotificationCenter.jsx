@@ -17,8 +17,8 @@
  * - The unread count drives the badge in Topbar; marking read updates both.
  */
 
-import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useRef, useState } from "react";
+import AppLink from "./ui/AppLink";
 import { AnimatePresence, motion } from "framer-motion";
 
 import {
@@ -29,6 +29,7 @@ import {
 
 import useAsyncResource from "../hooks/useAsyncResource";
 import Icon from "./ui/Icon";
+import useDismissableOverlay from "../hooks/useDismissableOverlay";
 
 /*
 |--------------------------------------------------------------------------
@@ -71,6 +72,28 @@ function toInternalPath(value) {
 
 function NotificationCenter() {
   const [open, setOpen] = useState(false);
+
+  const panelRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  const closePanel = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  /*
+   * V2-I023. This panel previously had no Escape handling at all — it stayed
+   * open behind the command palette with focus in an ambiguous place. It now
+   * shares the account menu's dismiss behaviour: Escape closes it, focus
+   * returns to the bell, a pointer-down outside closes it, and a modal
+   * surface outranks it. Notification loading, marking and navigation are
+   * untouched.
+   */
+  useDismissableOverlay({
+    open,
+    onDismiss: closePanel,
+    containerRef: panelRef,
+    triggerRef,
+  });
 
   const load = useCallback(async () => {
     const { notifications } = await getNotifications({ limit: 20 });
@@ -140,11 +163,15 @@ function NotificationCenter() {
   };
 
   return (
-    <div className="notification-center">
+    <div className="notification-center" ref={panelRef}>
       <button
         type="button"
+        ref={triggerRef}
         className="notification-button"
         onClick={openPanel}
+        aria-expanded={open}
+        aria-controls="notification-panel"
+        aria-haspopup="dialog"
         aria-label={
           unreadCount > 0
             ? `Notifications, ${unreadCount} unread`
@@ -165,7 +192,10 @@ function NotificationCenter() {
       <AnimatePresence>
         {open && (
           <motion.div
+            id="notification-panel"
             className="notification-panel"
+            role="dialog"
+            aria-label="Notifications"
             initial={{ opacity: 0, y: 18, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -183,7 +213,7 @@ function NotificationCenter() {
             )}
 
             {notifications.map((item) => (
-              <Link
+              <AppLink
                 key={item.id}
                 // Notification links come from the database, so they are
                 // the one place in this app where a route target is not a
@@ -197,7 +227,7 @@ function NotificationCenter() {
               >
                 <strong>{item.title}</strong>
                 <span>{item.message}</span>
-              </Link>
+              </AppLink>
             ))}
 
             {notifications.length === 0 && <p>No active alerts.</p>}

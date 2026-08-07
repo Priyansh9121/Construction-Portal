@@ -26,6 +26,7 @@
  */
 
 import { Link } from "react-router-dom";
+import AppLink from "../components/ui/AppLink";
 import AnimatedStatCard from "../components/AnimatedStatCard";
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import DashboardHero from "../components/DashboardHero";
@@ -34,6 +35,105 @@ import { formatCurrency } from "../utils/currency";
 import { useEffect, useState } from "react";
 import { getSubcontractors } from "../services/subcontractorService";
 import { useAuth } from "../contexts/authContext";
+
+
+/**
+ * A bullet-style ratio row.
+ *
+ * UI/UX Pro Max returns Bullet Chart for "multiple KPIs side by side;
+ * space-constrained contexts where a gauge is too large" — which is exactly
+ * these four percentages, previously rendered as bare text in a table cell.
+ * A number alone gives no sense of position; a bar does, at a glance, in the
+ * same vertical space.
+ *
+ * Not a gauge, donut or progress circle: all three cost far more width for
+ * less precision, and none of them sit inside a table row.
+ *
+ * The fill animates from 0 to its value once, on mount, via a CSS transition
+ * on inline-size. Under reduced motion the transition is dropped and the bar
+ * is simply already at its value — nothing is lost, because the bar itself is
+ * the information, not its arrival.
+ *
+ * `role="img"` with an aria-label gives a screen reader the value as a
+ * sentence rather than a decorative bar. The exact figure is still printed
+ * beside it, so nothing depends on the graphic.
+ */
+function RatioRow({ label, value, tone }) {
+  const [grown, setGrown] = useState(false);
+
+  useEffect(() => {
+    // Next frame, so the browser paints 0 first and the transition runs.
+    const id = requestAnimationFrame(() => setGrown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const safe = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
+
+  return (
+    <tr>
+      <td>{label}</td>
+      <td className="amount-cell">
+        <span className="v2-ratio">
+          <span
+            className="v2-ratio__track"
+            role="img"
+            aria-label={`${label}: ${safe.toFixed(2)} percent`}
+          >
+            <span
+              className="v2-ratio__fill"
+              data-tone={tone}
+              style={{ inlineSize: grown ? `${safe}%` : "0%" }}
+            />
+          </span>
+
+          <span className="v2-ratio__value">{safe.toFixed(2)}%</span>
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+
+/**
+ * The metric grid's loading state.
+ *
+ * It reuses the real grid classes and renders the real number of cards, so
+ * the skeleton occupies exactly the box the content will occupy. That is the
+ * point: a skeleton whose shape differs from its content is a layout shift
+ * with extra steps.
+ *
+ * No spinner. A spinner says "something is happening"; this says "twelve
+ * figures are coming, and here is where they will be".
+ */
+function MetricSkeleton() {
+  return (
+    <div aria-hidden="true">
+      <div className="v2-metrics v2-metrics--primary">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="card v2-metric-skeleton">
+            <span className="v2-skeleton v2-skeleton--label" />
+            <span className="v2-skeleton v2-skeleton--value" />
+          </div>
+        ))}
+      </div>
+
+      <div className="v2-metrics v2-metrics--secondary">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <div key={i} className="card v2-metric-skeleton">
+            <span className="v2-skeleton v2-skeleton--label" />
+            <span className="v2-skeleton v2-skeleton--value" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const RECENT_TABS = [
+  { key: "payments", label: "Payments & deadlines" },
+  { key: "invoices", label: "Invoices & tenders" },
+  { key: "workforce", label: "Workforce & sites" },
+];
 
 function DashboardPage({
   payments = [],
@@ -110,10 +210,31 @@ function DashboardPage({
     return date.getTime() === today.getTime();
   };
 
+  /*
+   * Which recent-activity tab is showing. Local presentation state only —
+   * every table below still receives exactly the data it always did.
+   */
+  const [recentTab, setRecentTab] = useState("payments");
+
   const [
     subcontractors,
     setSubcontractors,
   ] = useState([]);
+
+  /*
+   * V2-I033. First-load signal, inferred locally.
+   *
+   * The five register arrays arrive as props and carry no loading flag, so
+   * "empty" and "not yet fetched" are indistinguishable from here — a company
+   * with no records would otherwise skeleton forever.
+   *
+   * This page already runs its own request, so that is used as the signal
+   * instead: while it is in flight the first load has not finished, and when
+   * it settles (either way) the skeleton clears. True for an empty account as
+   * well as a full one, and it needs nothing threaded from AppRoutes — so no
+   * data-flow or business-logic change was required.
+   */
+  const [firstLoad, setFirstLoad] = useState(true);
   
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +260,7 @@ function DashboardPage({
                 ? records
                 : []
             );
+            setFirstLoad(false);
           }
         } catch (error) {
           console.error(
@@ -149,6 +271,7 @@ function DashboardPage({
   
           if (!cancelled) {
             setSubcontractors([]);
+            setFirstLoad(false);
           }
         }
       };
@@ -657,16 +780,19 @@ function DashboardPage({
         pendingTenders={pendingTenders}
       />
 
-      <section className="panel">
-        <div className="section-title-row">
-          <div>
-            <h2>Executive Dashboard</h2>
+      {/*
+        V2-I032. This was a full bordered panel wrapping a heading, a sentence
+        of description and six links. The heading restated the page the user
+        had just navigated to, and the description described the product to
+        someone already inside it. Both are gone; the export control and the
+        quick actions remain, now as a plain row.
 
-            <p className="muted-text">
-              Finance, projects, invoices, workers and operational
-              priorities in one live company overview.
-            </p>
-          </div>
+        Typography and spacing carry the hierarchy here instead of a border —
+        one less box between the user and the first real figure.
+      */}
+      <section className="v2-dash__zone" aria-label="Quick actions">
+        <div className="v2-dash__zone-head">
+          <h2 className="v2-dash__zone-title">Jump to</h2>
 
           <ExportButtons
             filename="dashboard-summary"
@@ -678,85 +804,117 @@ function DashboardPage({
           />
         </div>
 
-        <section className="quick-actions">
+        <div className="v2-dash__actions">
           {quickActions.map((action) => (
-            <Link key={action.path} to={action.path}>
-              <strong>{action.label}</strong>
-              <small>{action.description}</small>
-            </Link>
+            <AppLink
+              key={action.path}
+              to={action.path}
+              className="v2-dash__action"
+            >
+              <span className="v2-dash__action-text">
+                <strong>{action.label}</strong>
+                <span>{action.description}</span>
+              </span>
+            </AppLink>
           ))}
-        </section>
+        </div>
       </section>
 
-      <section className="cards dashboard-cards">
+      {/*
+        V2-I027. These twelve figures used to render in one flat
+        `repeat(4, 1fr)` grid — Cash Position and Month Expense at identical
+        size and weight, so nothing read as important and the user had to
+        scan all twelve to find out whether anything was wrong.
+
+        They are now tiered. The primary row is what someone opens the
+        product to check: how much money there is, whether it is profitable,
+        what is owed, and how much work is running. The rest is the
+        supporting band — still present, still exact, just no longer
+        competing with the headline.
+
+        No figure was removed and none changed its source.
+      */}
+      {firstLoad ? <MetricSkeleton /> : null}
+
+      <section
+        className="v2-metrics v2-metrics--primary"
+        aria-label="Key position"
+        hidden={firstLoad}
+      >
         <AnimatedStatCard
-          title="Total Income"
-          value={totalIncome}
-          currency
+        title="Cash Position"
+        value={cashPosition}
+        currency
         />
 
         <AnimatedStatCard
-          title="Total Expense"
-          value={totalExpense}
-          currency
+        title="Net Profit"
+        value={netProfit}
+        currency
         />
 
         <AnimatedStatCard
-          title="Net Profit"
-          value={netProfit}
-          currency
+        title="Invoice Outstanding"
+        value={pendingInvoiceTotal}
+        currency
         />
 
         <AnimatedStatCard
-          title="Month Income"
-          value={monthIncome}
-          currency
+        title="Running Tenders"
+        value={runningTenders}
+        />
+      </section>
+
+      <section
+        className="v2-metrics v2-metrics--secondary"
+        aria-label="Supporting figures"
+        hidden={firstLoad}
+      >
+        <AnimatedStatCard
+        title="Total Income"
+        value={totalIncome}
+        currency
         />
 
         <AnimatedStatCard
-          title="Month Expense"
-          value={monthExpense}
-          currency
+        title="Total Expense"
+        value={totalExpense}
+        currency
         />
 
         <AnimatedStatCard
-          title="Month Profit"
-          value={monthProfit}
-          currency
+        title="Month Income"
+        value={monthIncome}
+        currency
         />
 
         <AnimatedStatCard
-          title="GST Outstanding"
-          value={gstPending}
-          currency
+        title="Month Expense"
+        value={monthExpense}
+        currency
         />
 
         <AnimatedStatCard
-          title="Company Charge Outstanding"
-          value={companyChargePending}
-          currency
+        title="Month Profit"
+        value={monthProfit}
+        currency
         />
 
         <AnimatedStatCard
-          title="Invoice Outstanding"
-          value={pendingInvoiceTotal}
-          currency
+        title="GST Outstanding"
+        value={gstPending}
+        currency
         />
 
         <AnimatedStatCard
-          title="Cash Position"
-          value={cashPosition}
-          currency
+        title="Company Charge Outstanding"
+        value={companyChargePending}
+        currency
         />
 
         <AnimatedStatCard
-          title="Running Tenders"
-          value={runningTenders}
-        />
-
-        <AnimatedStatCard
-          title="Active Workers"
-          value={activeWorkers}
+        title="Active Workers"
+        value={activeWorkers}
         />
       </section>
 
@@ -873,19 +1031,17 @@ function DashboardPage({
                 </td>
               </tr>
 
-              <tr>
-                <td>Profit Margin</td>
-                <td className="amount-cell">
-                  {profitMargin.toFixed(2)}%
-                </td>
-              </tr>
+              <RatioRow
+                label="Profit Margin"
+                value={profitMargin}
+                tone="success"
+              />
 
-              <tr>
-                <td>Expense Ratio</td>
-                <td className="amount-cell">
-                  {expenseRatio.toFixed(2)}%
-                </td>
-              </tr>
+              <RatioRow
+                label="Expense Ratio"
+                value={expenseRatio}
+                tone="warning"
+              />
 
               <tr>
                 <td>GST Outstanding</td>
@@ -974,12 +1130,11 @@ function DashboardPage({
                 </td>
               </tr>
 
-              <tr>
-                <td>Collection Rate</td>
-                <td className="amount-cell">
-                  {invoiceCollectionRate.toFixed(2)}%
-                </td>
-              </tr>
+              <RatioRow
+                label="Collection Rate"
+                value={invoiceCollectionRate}
+                tone="success"
+              />
             </tbody>
           </table>
         </div>
@@ -1042,12 +1197,11 @@ function DashboardPage({
                 </td>
               </tr>
 
-              <tr>
-                <td>Completion Rate</td>
-                <td className="amount-cell">
-                  {tenderCompletionRate.toFixed(2)}%
-                </td>
-              </tr>
+              <RatioRow
+                label="Completion Rate"
+                value={tenderCompletionRate}
+                tone="info"
+              />
 
               <tr>
                 <td>Running Tender Value</td>
@@ -1138,6 +1292,50 @@ function DashboardPage({
         </div>
       </section>
 
+
+      {/*
+        V2-I028. Six "Recent X" tables used to stack vertically here, about
+        four of the page's five screens of scroll. Nothing is removed — the
+        same three sections, the same six tables, the same links — they are
+        now one at a time behind a tab strip.
+
+        Real tab semantics: role="tablist", aria-selected, aria-controls, and
+        each panel is a labelled tabpanel, so a screen reader announces "tab 2
+        of 3" rather than meeting three unexplained regions.
+      */}
+      <section className="v2-dash__zone" aria-labelledby="recent-activity-heading">
+        <div className="v2-dash__zone-head">
+          <h2 className="v2-dash__zone-title" id="recent-activity-heading">
+            Recent activity
+          </h2>
+        </div>
+
+        <div className="tabs" role="tablist" aria-label="Recent activity">
+          {RECENT_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              id={`recent-tab-${tab.key}`}
+              aria-selected={recentTab === tab.key}
+              aria-controls={`recent-panel-${tab.key}`}
+              tabIndex={recentTab === tab.key ? 0 : -1}
+              className={recentTab === tab.key ? "active-tab" : undefined}
+              onClick={() => setRecentTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          className="v2-recent__panel"
+          role="tabpanel"
+          id={`recent-panel-${recentTab}`}
+          aria-labelledby={`recent-tab-${recentTab}`}
+          tabIndex={0}
+        >
+        {recentTab === "payments" && (
       <section className="dashboard-grid two-column-dashboard">
         <div className="panel">
           <div className="section-title-row">
@@ -1282,7 +1480,9 @@ function DashboardPage({
           </div>
         </div>
       </section>
+        )}
 
+        {recentTab === "invoices" && (
       <section className="dashboard-grid two-column-dashboard">
         <div className="panel">
           <div className="section-title-row">
@@ -1419,7 +1619,9 @@ function DashboardPage({
           </div>
         </div>
       </section>
+        )}
 
+        {recentTab === "workforce" && (
       <section className="dashboard-grid two-column-dashboard">
         <div className="panel">
           <div className="section-title-row">
@@ -1544,6 +1746,9 @@ function DashboardPage({
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+        )}
         </div>
       </section>
 

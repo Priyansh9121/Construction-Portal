@@ -1,0 +1,510 @@
+/**
+ * ===========================================================================
+ * UI v2 — DATA SURFACES
+ * ===========================================================================
+ *
+ * File purpose:
+ * Tables, cards, panels, badges, tabs and dialogs — the surfaces every
+ * register, finance and detail page is built from.
+ *
+ * Why one file upgrades twenty-one routes:
+ * Every page already shares the same class vocabulary (`.panel`, `.card`,
+ * `table`, `.badge`, `.tabs`, `.modal-card`). Restyling that vocabulary in a
+ * v2 layer re-skins the whole product at once and gives each page a coherent
+ * base to be individually designed on top of — rather than twenty-one
+ * one-off stylesheets that drift apart again.
+ *
+ * The table, specifically
+ * ----------------------
+ * This is a financial product, so the table is the product. Decisions:
+ *
+ * - STICKY HEADER. A register scrolled past its own column labels is
+ *   unreadable; you cannot tell an amount from a balance.
+ * - NO ZEBRA STRIPING. Alternating fills fight the status tints that carry
+ *   real meaning here. Rows are separated by a hairline instead.
+ * - NUMBERS RIGHT-ALIGNED AND TABULAR. Digits must line up by place value,
+ *   or a column of currency cannot be scanned for magnitude.
+ * - HOVER CHANGES COLOUR, NEVER POSITION. A row that moves under the cursor
+ *   is a mis-click in a dense table.
+ * - Rejected: "proximity hover highlighting" (21st #10379) — cursor-tracking
+ *   motion across a data grid is continuous decorative movement, which the
+ *   brief rules out and which makes scanning harder, not easier.
+ */
+
+@layer v2-components {
+  /* =======================================================================
+   * PANELS + CARDS
+   * =====================================================================
+   * Depth is a hairline and a half-step of contrast. No resting shadow: on
+   * a page with twelve panels, twelve shadows is noise, not hierarchy.
+   * ===================================================================== */
+
+  .v2-root .panel,
+  .v2-root .card,
+  .v2-root .stat-card {
+    position: relative;
+    min-width: 0;
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-lg);
+    box-shadow: none;
+  }
+
+  .v2-root .panel {
+    padding: var(--v2-s5);
+    margin-block-end: var(--v2-section);
+  }
+
+  .v2-root .card,
+  .v2-root .stat-card {
+    padding: var(--v2-s4);
+    min-height: 0;
+  }
+
+  .v2-root .panel > h2 {
+    margin: 0 0 var(--v2-s4);
+    font-size: var(--v2-t-lg);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-tight);
+    color: var(--v2-text);
+  }
+
+  /* -----------------------------------------------------------------------
+   * The metric card.
+   *
+   * The label leads and the figure follows, because on a KPI grid the label
+   * is what you search for and the number is what you read. The figure gets
+   * tabular figures and a tight measure so a row of cards aligns optically.
+   * -------------------------------------------------------------------- */
+
+  .v2-root .card p,
+  .v2-root .stat-card p {
+    margin: 0 0 var(--v2-s2);
+    font-size: var(--v2-t-micro);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+    text-transform: uppercase;
+    color: var(--v2-text-muted);
+  }
+
+  .v2-root .card h2,
+  .v2-root .stat-card h2 {
+    margin: 0;
+    font-size: clamp(1.375rem, 1.15rem + 0.9vw, 1.75rem);
+    font-weight: var(--v2-w-semibold);
+    line-height: var(--v2-lh-tight);
+    letter-spacing: var(--v2-ls-tight);
+    color: var(--v2-text);
+
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
+  .v2-root .card small,
+  .v2-root .stat-card small {
+    display: block;
+    margin-block-start: var(--v2-s2);
+    font-size: var(--v2-t-xs);
+    color: var(--v2-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Status-tinted cards. The left bar carries the tone as well as the fill,
+   * so severity is never signalled by a background tint alone — a tint that
+   * subtle is close to invisible in sunlight and to a colour-blind user. */
+  .v2-root .card.highlight-success,
+  .v2-root .card.highlight-warning,
+  .v2-root .card.highlight-danger {
+    border-inline-start-width: 3px;
+    border-inline-start-style: solid;
+  }
+
+  .v2-root .card.highlight-success {
+    background: var(--v2-success-bg);
+    border-color: var(--v2-line);
+    border-inline-start-color: var(--v2-success-bar);
+  }
+  .v2-root .card.highlight-warning {
+    background: var(--v2-warning-bg);
+    border-color: var(--v2-line);
+    border-inline-start-color: var(--v2-warning-bar);
+  }
+  .v2-root .card.highlight-danger {
+    background: var(--v2-danger-bg);
+    border-color: var(--v2-line);
+    border-inline-start-color: var(--v2-danger-bar);
+  }
+
+  /* =======================================================================
+   * TABLES
+   * ===================================================================== */
+
+  .v2-root .table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-lg);
+  }
+
+  .v2-root table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--v2-t-sm);
+  }
+
+  .v2-root thead {
+    background: var(--v2-surface-sunken);
+  }
+
+  /* Sticky column labels. A register scrolled past its own header cannot be
+   * read — an amount and a balance look identical without them. */
+  .v2-root thead th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+
+    padding: var(--v2-s3) var(--v2-s4);
+    background: var(--v2-surface-sunken);
+    border-block-end: var(--v2-hairline) solid var(--v2-line);
+
+    font-size: var(--v2-t-micro);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+    text-transform: uppercase;
+    text-align: start;
+    white-space: nowrap;
+    color: var(--v2-text-muted);
+  }
+
+  .v2-root tbody td {
+    padding: var(--v2-s3) var(--v2-s4);
+    border-block-end: var(--v2-hairline) solid var(--v2-line-soft);
+    color: var(--v2-text);
+    vertical-align: middle;
+  }
+
+  .v2-root tbody tr:last-child td {
+    border-block-end: 0;
+  }
+
+  /* Colour only. Never transform — a row that moves under the cursor in a
+   * dense grid is a mis-click waiting to happen. */
+  .v2-root tbody tr {
+    transition: background-color var(--v2-t-fast);
+  }
+
+  .v2-root tbody tr:hover {
+    background: var(--v2-surface-hover);
+    box-shadow: none;
+  }
+
+  /* Money and counts: right-aligned so place values line up, tabular so the
+   * columns cannot jitter as data changes. */
+  .v2-root .amount-cell,
+  .v2-root .number-cell {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--v2-w-medium);
+    white-space: nowrap;
+  }
+
+  .v2-root .table-wrapper a {
+    color: var(--v2-action);
+    font-weight: var(--v2-w-medium);
+    text-decoration: none;
+  }
+
+  .v2-root .table-wrapper a:hover {
+    text-decoration: underline;
+  }
+
+  /*
+   * V2-I020. Row action links measured 44px tall but only 28.9-37.3px WIDE
+   * ("New", "Open"). WCAG 2.2 target size is an AREA, not a height, and the
+   * existing suite only asserted height — so this had been passing while the
+   * actual tap target was two-thirds the intended size. These are standalone
+   * row actions, not links inside a sentence, so no inline exception applies.
+   */
+  .v2-root .table-link-button,
+  .v2-root td > a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--v2-touch);
+    min-block-size: var(--v2-touch);
+    padding-inline: var(--v2-s2);
+  }
+
+  .v2-root .empty-table-message {
+    padding: var(--v2-s10) var(--v2-s4) !important;
+    color: var(--v2-text-muted);
+    text-align: center !important;
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-normal);
+  }
+
+  /* =======================================================================
+   * BADGES
+   * =====================================================================
+   * Legacy colour classes (`.green` / `.yellow` / `.blue`) are re-pointed at
+   * the canonical status families so a badge means the same thing on every
+   * page. A tone never travels without its text label.
+   * ===================================================================== */
+
+  .v2-root .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--v2-s1);
+
+    padding: 3px var(--v2-s2);
+    border-radius: var(--v2-r-xs);
+
+    font-size: var(--v2-t-micro);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-caps);
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    background: var(--v2-neutral-bg);
+    color: var(--v2-neutral-fg);
+  }
+
+  .v2-root .badge.green { background: var(--v2-success-bg); color: var(--v2-success-fg); }
+  .v2-root .badge.yellow { background: var(--v2-warning-bg); color: var(--v2-warning-fg); }
+  .v2-root .badge.blue { background: var(--v2-info-bg); color: var(--v2-info-fg); }
+  .v2-root .badge.red { background: var(--v2-danger-bg); color: var(--v2-danger-fg); }
+
+  /*
+   * V2-I022. Site Operations uses BEM modifiers rather than colour-word
+   * classes. The v2 `.badge` base outranks them (later layer), so without
+   * these mappings every Site Operations badge collapsed to neutral grey and
+   * the photo-source and approval states became indistinguishable — status
+   * information silently lost. Caught by the AUD-013 regression test, which
+   * exists for exactly this.
+   */
+  .v2-root .badge--camera,
+  .v2-root .status--approved { background: var(--v2-success-bg); color: var(--v2-success-fg); }
+
+  .v2-root .badge--gallery,
+  .v2-root .status--pending { background: var(--v2-warning-bg); color: var(--v2-warning-fg); }
+
+  .v2-root .status--denied { background: var(--v2-danger-bg); color: var(--v2-danger-fg); }
+
+  .v2-root .badge--unknown,
+  .v2-root .status--used { background: var(--v2-neutral-bg); color: var(--v2-neutral-fg); }
+
+  /* =======================================================================
+   * TABS
+   * =====================================================================
+   * An underline indicator, not a filled pill. Pills read as buttons and
+   * compete with the primary action; an underline reads as "where am I".
+   * ===================================================================== */
+
+  .v2-root .tabs,
+  .v2-root .tender-tabs {
+    display: flex;
+    gap: var(--v2-s1);
+    flex-wrap: wrap;
+
+    border-block-end: var(--v2-hairline) solid var(--v2-line);
+    margin-block-end: var(--v2-s5);
+  }
+
+  .v2-root .tabs button,
+  .v2-root .tender-tabs button {
+    position: relative;
+    min-block-size: var(--v2-touch);
+    padding: 0 var(--v2-s3);
+
+    background: none;
+    border: 0;
+    border-radius: var(--v2-r-sm) var(--v2-r-sm) 0 0;
+
+    color: var(--v2-text-muted);
+    font-size: var(--v2-t-sm);
+    font-weight: var(--v2-w-medium);
+    white-space: nowrap;
+    cursor: pointer;
+
+    transition: color var(--v2-t-fast), background-color var(--v2-t-fast);
+  }
+
+  .v2-root .tabs button::after,
+  .v2-root .tender-tabs button::after {
+    content: "";
+    position: absolute;
+    inset-inline: var(--v2-s2);
+    inset-block-end: -1px;
+    block-size: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--v2-action);
+
+    transform: scaleX(0);
+    transition: transform var(--v2-t-standard);
+  }
+
+  .v2-root .tabs button:hover,
+  .v2-root .tender-tabs button:hover {
+    color: var(--v2-text);
+    background: var(--v2-surface-hover);
+  }
+
+  .v2-root .tabs .active-tab,
+  .v2-root .tender-tabs button.active-tab {
+    background: none;
+    color: var(--v2-text);
+    font-weight: var(--v2-w-semibold);
+  }
+
+  .v2-root .tabs .active-tab::after,
+  .v2-root .tender-tabs button.active-tab::after {
+    transform: scaleX(1);
+  }
+
+  /* =======================================================================
+   * DIALOGS
+   * ===================================================================== */
+
+  .v2-root .modal-backdrop,
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--v2-z-dialog-scrim);
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--v2-s4);
+    overflow-y: auto;
+
+    background: rgb(7 9 14 / 0.5);
+    /* Blur here signals that the layer beneath is dismissable — the one
+     * legitimate use of blur in the product. */
+    backdrop-filter: blur(4px);
+    animation: v2-fade-in var(--v2-d-fast) var(--v2-ease) both;
+  }
+
+  .v2-root .modal-card,
+  .modal-card {
+    inline-size: min(100%, 40rem);
+    margin-block: auto;
+    padding: var(--v2-s5);
+
+    background: var(--v2-surface);
+    border: var(--v2-hairline) solid var(--v2-line);
+    border-radius: var(--v2-r-xl);
+    box-shadow: var(--v2-shadow-xl);
+
+    animation: v2-scale-in var(--v2-d-modal) var(--v2-ease-in) both;
+  }
+
+  /* =======================================================================
+   * PAGE HEADER
+   * =====================================================================
+   * The one piece of new vocabulary this file introduces: a consistent
+   * title / description / actions band every page can adopt.
+   * ===================================================================== */
+
+  .v2-page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--v2-s4);
+    flex-wrap: wrap;
+    margin-block-end: var(--v2-section);
+  }
+
+  .v2-page-head__text { min-width: 0; }
+
+  .v2-page-head__title {
+    margin: 0;
+    font-size: var(--v2-t-xl);
+    font-weight: var(--v2-w-semibold);
+    letter-spacing: var(--v2-ls-tight);
+    color: var(--v2-text);
+  }
+
+  .v2-page-head__sub {
+    margin: var(--v2-s1) 0 0;
+    font-size: var(--v2-t-sm);
+    color: var(--v2-text-secondary);
+  }
+
+  .v2-page-head__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--v2-s2);
+    flex-wrap: wrap;
+  }
+}
+
+/* ===========================================================================
+ * MOBILE — the record card
+ * ===========================================================================
+ * Below 768px a register stops being a table and becomes a list of records.
+ * The machinery (`.table-wrapper--cards` + `data-label`) already exists; this
+ * is its UI v2 presentation.
+ */
+@media (max-width: 767px) {
+  @layer v2-components {
+    .v2-root .table-wrapper--cards {
+      background: none;
+      border: 0;
+      overflow: visible;
+    }
+
+    .v2-root .table-wrapper--cards thead {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    .v2-root .table-wrapper--cards tbody tr {
+      display: block;
+      margin-block-end: var(--v2-s3);
+      padding: var(--v2-s3) var(--v2-s4);
+
+      background: var(--v2-surface);
+      border: var(--v2-hairline) solid var(--v2-line);
+      border-radius: var(--v2-r-md);
+    }
+
+    .v2-root .table-wrapper--cards tbody td {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--v2-s4);
+
+      padding: var(--v2-s2) 0;
+      border-block-end: var(--v2-hairline) solid var(--v2-line-soft);
+      text-align: end;
+    }
+
+    .v2-root .table-wrapper--cards tbody td:last-child {
+      border-block-end: 0;
+      padding-block-end: 0;
+    }
+
+    /* The column label, reconstructed from data-label so the value keeps its
+     * meaning once the header row is gone. */
+    .v2-root .table-wrapper--cards tbody td::before {
+      content: attr(data-label);
+      flex: 0 0 auto;
+
+      font-size: var(--v2-t-micro);
+      font-weight: var(--v2-w-semibold);
+      letter-spacing: var(--v2-ls-caps);
+      text-transform: uppercase;
+      color: var(--v2-text-muted);
+      text-align: start;
+    }
+  }
+}
