@@ -1,0 +1,108 @@
+/*
+ * ===========================================================================
+ * PAGE CONTENT — the application canvas
+ * ===========================================================================
+ *
+ * File purpose:
+ * The element every business route renders into. It provides safe gutters and
+ * nothing else. It is a canvas, not a card and not a composition.
+ *
+ * THE DECISION THIS UNIT HAD TO MAKE, AND THE EVIDENCE BEHIND IT
+ * `tools/fresh_ui/page_content_probe.mjs` measured five routes at five widths
+ * before a line of this was written. The measurements changed the plan:
+ *
+ *   1. NO DOUBLE PADDING EXISTS. The route's own outermost wrapper reports
+ *      0px inline padding on Dashboard, Tenders, Payments, Users and Site
+ *      Operations, at every width. The shell gutter is the ONLY gutter these
+ *      pages have. Reducing or removing it would put content flush against
+ *      the viewport edge on every unmigrated route at once.
+ *
+ *   2. THE MAX-WIDTH IS ALMOST ENTIRELY INERT. At 390, 768, 1024 and 1440 the
+ *      content track is narrower than the cap, so it constrains nothing. It
+ *      binds only at 1920, where it holds content to 1576px instead of 1616px.
+ *      It is therefore not a "universal reading column" imposed on operational
+ *      pages; it is an ultrawide backstop that never engages on the widths
+ *      real users have.
+ *
+ *   3. THE GUTTER SCALE IS ALREADY CORRECT. Measured 16 / 23 / 31 / 32 / 32 at
+ *      390 / 768 / 1024 / 1440 / 1920, which is exactly clamp(16px, 3vw, 32px):
+ *      a 16px floor that does not waste a 390px viewport, and a 32px ceiling
+ *      that does not create decorative margins on desktop.
+ *
+ * So this unit deliberately PRESERVES the behaviour and changes only its
+ * ownership: the values move onto system tokens and are stated here instead of
+ * being inherited from two legacy sheets. Changing a policy that measurement
+ * says is already right, purely to make the diff look like progress, would
+ * have damaged five unmigrated routes.
+ *
+ * PROPERTY OWNERSHIP MATRIX (SHELL-008)
+ *
+ *   flex: 1 1 auto / flex: 1     PRESERVE. `.main-content` is a flex column,
+ *                                so this is what makes the page fill the space
+ *                                below the topbar. Unlike the same declaration
+ *                                on `.main-content` (removed in S-A4a2, where
+ *                                the parent had become a grid), here the
+ *                                parent genuinely is flex.
+ *   width: 100%                  PRESERVE.
+ *   max-width                    PRESERVE as an ultrawide backstop, now
+ *                                `--ui-canvas-max`. See evidence 2. Individual
+ *                                routes remain free to constrain themselves
+ *                                further; the shell does not dictate it.
+ *   margin-inline: auto          PRESERVE. Only has an effect once the cap
+ *                                binds, i.e. above ~1672px.
+ *   padding-inline               PRESERVE, tokenised as `--ui-shell-gutter`.
+ *   padding-block-start          PRESERVE. No topbar compensation is involved:
+ *                                the topbar is sticky and in flow (S-A4a2).
+ *   padding-block-end            PRESERVE INCLUDING `env(safe-area-inset-bottom)`.
+ *                                Dropping the safe-area term would put the last
+ *                                row of every page under the home indicator on
+ *                                a notched phone.
+ *   min-width: 0                 PRESERVE. Same load-bearing reason as
+ *                                `.main-content`: without it a wide table
+ *                                refuses to shrink and widens the page.
+ *
+ * NOT SET, DELIBERATELY:
+ *   - No background, border, radius, shadow or blur. This is the canvas; a
+ *     surface here would make every route look like a card inside a card.
+ *   - No `overflow`. `overflow-x: hidden` would conceal real page overflow
+ *     that the responsive probes depend on measuring.
+ *   - No inherited property (SHELL-016): no color, font-family, font-size,
+ *     line-height, letter-spacing or text-align. This element wraps every
+ *     unmigrated business page.
+ *   - No `view-transition-name`. `v2/shell/overlays.css:355` sets one for
+ *     route transitions; that belongs to S-C and is left untouched.
+ */
+
+:root {
+  /*
+   * Shell gutter. Floor 16px so a 390px phone keeps usable width; ceiling
+   * 32px so a wide desktop does not gain decorative margin. Reproduces the
+   * measured legacy scale exactly.
+   */
+  --ui-shell-gutter: clamp(1rem, 3vw, 2rem);
+
+  /* Ultrawide backstop only. Engages above roughly 1672px. */
+  --ui-canvas-max: 102.5rem;
+}
+
+@layer system-components {
+  .page-content {
+    /* The parent is a flex column, so this fills the space below the topbar. */
+    flex: 1 1 auto;
+
+    width: 100%;
+    max-width: var(--ui-canvas-max);
+    margin-inline: auto;
+
+    padding-block-start: var(--ui-space-6);
+    padding-inline: var(--ui-shell-gutter);
+
+    /* The safe-area term is load-bearing on notched phones: without it the
+     * last row of every page sits under the home indicator. */
+    padding-block-end: max(var(--ui-space-10), env(safe-area-inset-bottom));
+
+    /* Load-bearing: without it a wide table refuses to shrink and widens the
+     * whole page. */
+    min-width: 0;
+  }
+}

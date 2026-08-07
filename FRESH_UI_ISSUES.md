@@ -1332,3 +1332,47 @@ wraps unmigrated content may set non-inherited properties freely, but must not
 set `color`, `font-family`, `font-size`, `line-height`, `letter-spacing`,
 `text-align`, `visibility` or any other inherited property until the content
 inside it has been migrated.
+
+
+---
+
+## SHELL-017 — The shell gutter is the only gutter unmigrated routes have
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | shell gutter / width policy |
+| Severity | Informational, but decision-changing |
+| Status | **Verified** (measured in S-A4b) |
+
+`tools/fresh_ui/page_content_probe.mjs` measured five routes at five widths
+before any CSS was written for S-A4b. Three findings changed what the unit did:
+
+1. **No double padding exists.** The outermost wrapper each route renders
+   reports **0px inline padding** on Dashboard, Tenders, Payments, Users and
+   Site Operations, at 390/768/1024/1440/1920. The shell gutter is the only
+   gutter those pages have. Reducing or removing it would put content flush
+   against the viewport edge on five unmigrated routes simultaneously.
+
+2. **The universal max-width is almost entirely inert.** At 390, 768, 1024 and
+   1440 the content track is narrower than the cap, so it constrains nothing
+   (`binding: false`). It engages only at 1920, holding content to 1576px
+   rather than 1616px. It is therefore not a reading column imposed on
+   operational pages; it is an ultrawide backstop that never fires at the
+   widths real users have.
+
+3. **The gutter scale is already right.** Measured 16 / 23 / 31 / 32 / 32,
+   which is exactly `clamp(16px, 3vw, 32px)`: a floor that does not waste a
+   390px viewport and a ceiling that does not manufacture desktop margin.
+
+**Consequence.** S-A4b deliberately preserved the behaviour and changed only
+its ownership, moving the values onto `--ui-shell-gutter` and
+`--ui-canvas-max` and stating them in one place instead of inheriting them
+from two legacy sheets. Post-change measurements are identical: 16/23/31/32/32,
+cap 1640px, binding only at 1920.
+
+**Why this is worth recording.** The brief anticipated that a universal
+max-width would need removing and that shell padding would fight route
+padding. Measurement said otherwise on both counts. Changing a policy that
+evidence says is already correct, in order to make a unit look productive,
+would have damaged five routes that cannot yet defend themselves.
