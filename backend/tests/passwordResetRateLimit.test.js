@@ -16,7 +16,12 @@
  * registry and re-imports with a different process.env.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+/*
+ * No vitest import. vitest.config.mjs sets `globals: true`, so describe, it,
+ * expect and vi arrive as globals and the suites stay CommonJS like every
+ * other backend file. Requiring vitest fails outright; importing it would
+ * break the eslint sourceType.
+ */
 
 const VARIABLES = [
   "PASSWORD_RESET_RATE_LIMIT_WINDOW_MS",
@@ -24,7 +29,7 @@ const VARIABLES = [
 ];
 
 /** Load a fresh config/env.js under a given environment. */
-async function loadEnv(overrides = {}) {
+function loadEnv(overrides = {}) {
   vi.resetModules();
 
   for (const name of VARIABLES) {
@@ -32,8 +37,11 @@ async function loadEnv(overrides = {}) {
   }
   Object.assign(process.env, overrides);
 
-  const module = await import("../config/env.js");
-  return module.default ?? module;
+  /* config/env.js parses process.env once at require time, so the registry
+   * must be reset before each case. delete on the cache is what makes the
+   * re-require actually re-read. */
+  delete require.cache[require.resolve("../config/env.js")];
+  return require("../config/env.js");
 }
 
 let saved;
@@ -52,15 +60,15 @@ afterEach(() => {
 });
 
 describe("password reset rate limit configuration", () => {
-  it("defaults to 60 minutes and 5 requests when unset", async () => {
-    const env = await loadEnv();
+  it("defaults to 60 minutes and 5 requests when unset", () => {
+    const env = loadEnv();
 
     expect(env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS).toBe(60 * 60 * 1000);
     expect(env.PASSWORD_RESET_RATE_LIMIT_MAX).toBe(5);
   });
 
-  it("honours valid overrides", async () => {
-    const env = await loadEnv({
+  it("honours valid overrides", () => {
+    const env = loadEnv({
       PASSWORD_RESET_RATE_LIMIT_WINDOW_MS: "900000",
       PASSWORD_RESET_RATE_LIMIT_MAX: "100000",
     });
@@ -83,8 +91,8 @@ describe("password reset rate limit configuration", () => {
     ["negative", "-1"],
     ["zero", "0"],
     ["above the ceiling", "999999999"],
-  ])("falls back to the strict default for a %s max", async (_label, value) => {
-    const env = await loadEnv({ PASSWORD_RESET_RATE_LIMIT_MAX: value });
+  ])("falls back to the strict default for a %s max", (_label, value) => {
+    const env = loadEnv({ PASSWORD_RESET_RATE_LIMIT_MAX: value });
 
     expect(env.PASSWORD_RESET_RATE_LIMIT_MAX).toBe(5);
   });
@@ -93,14 +101,14 @@ describe("password reset rate limit configuration", () => {
     ["non-numeric", "abc"],
     ["below the floor", "10"],
     ["above the ceiling", "999999999999"],
-  ])("falls back to the strict default for a %s window", async (_label, value) => {
-    const env = await loadEnv({ PASSWORD_RESET_RATE_LIMIT_WINDOW_MS: value });
+  ])("falls back to the strict default for a %s window", (_label, value) => {
+    const env = loadEnv({ PASSWORD_RESET_RATE_LIMIT_WINDOW_MS: value });
 
     expect(env.PASSWORD_RESET_RATE_LIMIT_WINDOW_MS).toBe(60 * 60 * 1000);
   });
 
-  it("never disables the limiter, whatever the configuration", async () => {
-    const env = await loadEnv({ PASSWORD_RESET_RATE_LIMIT_MAX: "100000" });
+  it("never disables the limiter, whatever the configuration", () => {
+    const env = loadEnv({ PASSWORD_RESET_RATE_LIMIT_MAX: "100000" });
 
     expect(env.PASSWORD_RESET_RATE_LIMIT_MAX).toBeGreaterThan(0);
     expect(Number.isInteger(env.PASSWORD_RESET_RATE_LIMIT_MAX)).toBe(true);

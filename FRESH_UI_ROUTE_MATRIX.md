@@ -16,17 +16,21 @@ Complete · Verified
 
 | Route | Page | Current system | Status | Notes |
 |---|---|---|---|---|
-| `/login` | `LoginPage.jsx` | **System** | **Complete** | Boundary B verified. Prop contract preserved; `?next=` orientation added as UI-only helper |
-| `/register` | `RegisterPage.jsx` | **System** | **Complete** | Boundary C verified. AUTH-001 resolved via Option A: role select removed, `company_name` added, payload matches the backend contract |
-| `/forgot-password` | `ForgotPasswordPage.jsx` | **System** | **Complete** | Boundary D verified. Confirmation replaces the form; enumeration invariance asserted against the real backend |
-| `/reset-password` | `ResetPasswordPage.jsx` | **System** | **Complete** | Boundary E verified. Independent per-field toggles; 1500 ms redirect unchanged |
+| `/login` | `LoginPage.jsx` | **System** | **Verified** | Boundary B verified. Prop contract preserved; `?next=` orientation added as UI-only helper |
+| `/register` | `RegisterPage.jsx` | **System** | **Verified** | Boundary C verified. AUTH-001 resolved via Option A: role select removed, `company_name` added, payload matches the backend contract |
+| `/forgot-password` | `ForgotPasswordPage.jsx` | **System** | **Verified** | Boundary D verified. Confirmation replaces the form; enumeration invariance asserted against the real backend |
+| `/reset-password` | `ResetPasswordPage.jsx` | **System** | **Verified** | Boundary E verified. Independent per-field toggles; 1500 ms redirect unchanged |
 
-**Shared auth surface:** `AuthShell.jsx` (+ `AuthLink`, `StructuralFrame`) —
-concept locked, `StructuralFrame` to be replaced (AUTH-003).
+**Shared auth surface:** `AuthShell.jsx` (+ `AuthLink`, `Approach`) —
+**Verified**. `StructuralFrame` removed (AUTH-003).
 
-**Auth exit criteria.** Both `styles/pages/auth.css` and
-`styles/v2/pages/auth.css` removed, zero remaining consumers proven, and no
-auth compatibility layer left behind.
+**Auth exit criteria: MET.** Both `styles/pages/auth.css` and
+`styles/v2/pages/auth.css` are deleted, 911 lines removed, all 23 legacy
+selectors classified by evidence, and no auth compatibility layer remains.
+The consumer audit now reports 0 legacy selectors.
+
+**Route guard:** `RoleRoute` presentation migrated (AUTH-007). Gating logic
+untouched.
 
 ---
 
@@ -39,7 +43,7 @@ auth compatibility layer left behind.
 | Topbar | `Topbar.jsx` | V1 + V2 | Not started |
 | Command palette | `CommandPalette.jsx` | V2 | Not started |
 | Notification centre | `NotificationCenter.jsx` | V1 | Not started |
-| Route guard loading | `RoleRoute.jsx` | inline styles | Not started (AUTH-007) |
+| Route guard loading | `RoleRoute.jsx` | **System** | **Verified** (AUTH-007 closed) |
 
 ---
 

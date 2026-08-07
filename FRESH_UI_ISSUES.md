@@ -652,3 +652,88 @@ with `aria-pressed`.
 `aria-label`, `aria-pressed`, keyboard activation and a 44px target. Revealing
 one never reveals the other, values survive toggling and focus stays on the
 control. Closes AUTH-004; Login, Register and Reset now share one pattern.
+
+
+---
+
+## AUTH-020 — Auth password-control rules leaked into UsersPage
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | visual / cross-route regression |
+| Severity | Medium |
+| Files | `styles/system/auth/auth.css`, `styles/components/forms.css` |
+| Status | **Verified** (fixed in Boundary F) |
+
+**Description.** `.password-input-wrapper` and `.password-toggle-btn` are NOT
+auth-only: `UsersPage.jsx` renders both for setting a colleague's password.
+The Boundary A rules defined them unscoped in the system layer, which wins on
+layer order, so from Boundary A onward they silently restyled a route that has
+not been migrated.
+
+**How it was found.** The Boundary F consumer audit, which classifies each
+legacy selector by whether anything OUTSIDE the auth group references it. Grep
+alone would have reported them as auth selectors; the audit's scope check is
+what caught it.
+
+**Resolution.** The system's copies are scoped to `.auth-shell`. The shared
+rules moved out of the deleted `styles/pages/auth.css` into
+`styles/components/forms.css`, where a shared form control belongs, so
+UsersPage keeps its own styling until it is migrated.
+
+---
+
+## AUTH-002 — CLOSED: legacy auth stylesheets removed
+
+Both `styles/pages/auth.css` (370 lines) and `styles/v2/pages/auth.css` (541
+lines) are **deleted**, along with their imports. 911 lines of competing auth
+CSS are gone and the four auth routes now have exactly one styling system.
+
+Removal was evidence-based, not grep-based, using
+`tools/fresh_ui/auth_css_audit.py`, which classified all 23 legacy selectors
+against static references, test references and whether each was auth-scoped:
+
+- **16** auth-scoped and already defined in the current system: deleted.
+- **3** referenced outside auth (`.error`, `.password-input-wrapper`,
+  `.password-toggle-btn`): the two password-control selectors were preserved
+  by moving their rules to `styles/components/forms.css` (AUTH-020);
+  `.error` inside auth was scoped as `.auth-card .error` and went with the
+  rest, while the generic `.error` lives in `foundation.css` and is untouched.
+- **4** with no reference (`.auth-blueprint`, `.auth-blueprint__detail`,
+  `.auth-blueprint__frame`, `.auth-brand-mark`): the retired StructuralFrame's
+  styling, deleted with it.
+
+Re-running the audit now reports **0 legacy selectors**.
+
+---
+
+## AUTH-007 — CLOSED: route guard presentation migrated
+
+`RoleRoute`'s inline `style` object is gone. The loading state is a quiet line
+of text in the design system, faded in after 240ms so a fast verification
+shows nothing at all. Deliberately not a spinner and not a progress bar.
+`role="status"` and `aria-live="polite"` are preserved exactly, and no gating
+logic, redirect or `getHomePath` behaviour was touched.
+
+---
+
+## AUTH-021 — Backend rate-limit test could not be linted
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | test defect |
+| Severity | Low |
+| Files | `backend/tests/passwordResetRateLimit.test.js` |
+| Status | **Verified** (fixed in Boundary F) |
+
+**Description.** The test was written with ESM `import`, which vitest accepted
+but eslint rejected: the backend is CommonJS via `sourceType: "commonjs"`.
+Converting to `require("vitest")` then failed at runtime, because vitest
+cannot be required from CommonJS.
+
+**Resolution.** Neither. `vitest.config.mjs` sets `globals: true`, so
+`describe`, `it`, `expect` and `vi` arrive as globals and the file stays
+CommonJS like every other backend file, satisfying both tools. Backend lint is
+clean and all 234 tests pass.

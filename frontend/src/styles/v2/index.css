@@ -50,5 +50,4 @@
 @import "./shell/overlays.css";
 
 /* Pages ------------------------------------------------------------------ */
-@import "./pages/auth.css";
 @import "./pages/dashboard.css";

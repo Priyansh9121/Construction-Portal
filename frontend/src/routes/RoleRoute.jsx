@@ -81,14 +81,8 @@ function RoleRoute({
         className="route-guard-loading"
         role="status"
         aria-live="polite"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "60vh",
-        }}
       >
-        <span>Loading…</span>
+        <span>Checking your access…</span>
       </div>
     );
   }
