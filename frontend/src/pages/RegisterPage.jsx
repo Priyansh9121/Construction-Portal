@@ -1,9 +1,10 @@
 /**
  * File purpose:
- * Self-service signup: creates a company and its first administrator.
+ * Public self-service signup: creates a company workspace and its first
+ * administrator.
  *
  * State:
- * - Local: the form fields, submitting, validation errors.
+ * - Local: the form fields, loading, validation message.
  *
  * Hooks and context:
  * - useAuth for setUser after registration
@@ -15,13 +16,33 @@
  * - None — public route
  *
  * Navigation and children:
- * - On success the user is signed in immediately and lands on the dashboard,
- * - rather than being sent back to the login screen.
+ * - On success the user is signed in immediately and lands on their role's
+ * - home page rather than being sent back to the login screen.
+ *
+ * WHAT THIS FORM ACTUALLY CREATES (see AUTH-001):
+ * The backend's register handler takes full_name, email, password and
+ * company_name, and creates a users row, a companies row and an admin
+ * company_users row in one transaction. The registrant ALWAYS becomes an
+ * administrator and the company's owner. The endpoint reads no role from the
+ * request and cannot be asked for one, because a signup producing a worker
+ * would create a company nobody could administer.
+ *
+ * This page previously offered a worker/subcontractor role selector and never
+ * sent company_name. The selector was dead UI — the API ignored it — and the
+ * missing required field meant every submission returned 400 "Company name is
+ * required", so public registration could not succeed at all. Both are fixed
+ * here by aligning the frontend with the existing backend contract, which is
+ * authoritative. Backend behaviour is unchanged.
+ *
+ * Workers, subcontractors and additional administrators are NOT created here.
+ * They are provisioned through the authenticated company workflows, where
+ * permissions apply.
  *
  * Important notes:
- * - The registrant always becomes the company OWNER and an admin. The form
- * - cannot request another role — a signup producing a worker would create a
- * - company nobody could administer.
+ * - industry, currency_code and timezone are optional and fall back to
+ *   environment defaults server-side, so they are deliberately not collected
+ *   during signup.
+ * - confirm_password is a client-side check only and is never submitted.
  */
 
 import { useState } from "react";
@@ -39,23 +60,17 @@ function RegisterPage() {
   const [form, setForm] = useState({
     full_name: "",
     email: "",
+    company_name: "",
     password: "",
     confirm_password: "",
-    role: "worker",
   });
 
-  const [showPassword, setShowPassword] =
-    useState(false);
-
-  const [message, setMessage] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (event) => {
-    const { name, value } =
-      event.target;
+    const { name, value } = event.target;
 
     setForm((previousForm) => ({
       ...previousForm,
@@ -67,68 +82,39 @@ function RegisterPage() {
     }
   };
 
-  const handleRegister = async (
-    event
-  ) => {
+  const handleRegister = async (event) => {
     event.preventDefault();
 
     if (loading) {
       return;
     }
 
-    const fullName =
-      form.full_name.trim();
-
-    const email =
-      form.email
-        .trim()
-        .toLowerCase();
-
-    const role =
-      String(form.role || "")
-        .trim()
-        .toLowerCase();
+    const fullName = form.full_name.trim();
+    const email = form.email.trim().toLowerCase();
+    const companyName = form.company_name.trim();
 
     if (!fullName) {
-      setMessage(
-        "Full name is required."
-      );
+      setMessage("Full name is required.");
       return;
     }
 
     if (!email) {
-      setMessage(
-        "Email address is required."
-      );
+      setMessage("Email address is required.");
+      return;
+    }
+
+    if (!companyName) {
+      setMessage("Company name is required.");
       return;
     }
 
     if (form.password.length < 8) {
-      setMessage(
-        "Password must contain at least 8 characters."
-      );
+      setMessage("Password must contain at least 8 characters.");
       return;
     }
 
-    if (
-      form.password !==
-      form.confirm_password
-    ) {
-      setMessage(
-        "Passwords do not match."
-      );
-      return;
-    }
-
-    if (
-      ![
-        "worker",
-        "subcontractor",
-      ].includes(role)
-    ) {
-      setMessage(
-        "Select a valid account role."
-      );
+    if (form.password !== form.confirm_password) {
+      setMessage("Passwords do not match.");
       return;
     }
 
@@ -136,59 +122,41 @@ function RegisterPage() {
       setLoading(true);
       setMessage("");
 
+      /*
+       * Exactly the fields the endpoint accepts. No role, no company_id, no
+       * company_role, no permission flags: the client cannot request its own
+       * privileges, and the backend decides what this account becomes.
+       */
       const payload = {
         full_name: fullName,
         email,
         password: form.password,
-        role,
+        company_name: companyName,
       };
 
-      const data =
-        await registerUser(payload);
+      const data = await registerUser(payload);
 
-      localStorage.setItem(
-        "token",
-        data.token
-      );
-
-      localStorage.setItem(
-        "user",
-        JSON.stringify(data.user)
-      );
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
       setUser(data.user);
 
-      const userRole =
-        String(
-          data.user?.role || ""
-        )
-          .trim()
-          .toLowerCase();
+      /*
+       * Route on what the SERVER said this account is, never on anything the
+       * form asked for. Public signup yields an administrator today, so this
+       * resolves to the dashboard; the branch stays general so it keeps
+       * agreeing with the backend if that ever changes.
+       */
+      const userRole = String(data.user?.role || "")
+        .trim()
+        .toLowerCase();
 
       if (userRole === "worker") {
-        navigate(
-          "/worker-portal",
-          {
-            replace: true,
-          }
-        );
-      } else if (
-        userRole ===
-        "subcontractor"
-      ) {
-        navigate(
-          "/subcontractor-portal",
-          {
-            replace: true,
-          }
-        );
+        navigate("/worker-portal", { replace: true });
+      } else if (userRole === "subcontractor") {
+        navigate("/subcontractor-portal", { replace: true });
       } else {
-        navigate(
-          "/dashboard",
-          {
-            replace: true,
-          }
-        );
+        navigate("/dashboard", { replace: true });
       }
     } catch (error) {
       console.error(
@@ -197,8 +165,7 @@ function RegisterPage() {
       );
 
       setMessage(
-        error.response?.data?.message ||
-          "Registration failed."
+        error.response?.data?.message || "Registration failed."
       );
     } finally {
       setLoading(false);
@@ -208,33 +175,33 @@ function RegisterPage() {
   return (
     <AuthShell
       eyebrow="Construction Portal Access"
-      title="Create account"
-      intro="Register as a worker or subcontractor to access assignments, site updates and project information."
+      title="Create your workspace"
+      intro="Set up a company workspace for your tenders, finance, workforce and site activity."
       heading="Create account"
-      subheading="Enter your account details."
+      subheading="Create your company workspace. You will become its initial administrator."
       footer={<AuthLink to="/login">Back to sign in</AuthLink>}
     >
-        <form
-          onSubmit={handleRegister}
-        >
-          {/* Feedback above the fields, so it is never below the fold. */}
-          {message && (
-            <p className="error" role="alert">
-              {message}
-            </p>
-          )}
+      <form onSubmit={handleRegister}>
+        {/* Feedback above the fields, so it is never below the fold. */}
+        {message && (
+          <p className="error" role="alert">
+            {message}
+          </p>
+        )}
 
-          {/*
-            Each label and its control share an `auth-field` wrapper, matching
-            Login, Forgot and Reset. Without it the form's uniform gap applied
-            equally between every label and every input, so each label sat
-            closer to the field ABOVE it than to its own control. Screenshot
-            review caught that; no assertion did. See AUTH-008.
-          */}
+        {/*
+          Three groups, separated by space and a hairline rather than by cards:
+          who you are, what the workspace is called, and how you will sign in.
+          Grouping gives the same relief as staging without adding navigation
+          or breaking password-manager autofill, which reads a whole form.
+        */}
+        <div className="auth-group">
+          <p className="auth-group__label">
+            Your details
+          </p>
+
           <div className="auth-field">
-            <label htmlFor="register-full-name">
-              Full Name
-            </label>
+            <label htmlFor="register-full-name">Full Name</label>
 
             <input
               id="register-full-name"
@@ -250,9 +217,7 @@ function RegisterPage() {
           </div>
 
           <div className="auth-field">
-            <label htmlFor="register-email">
-              Email
-            </label>
+            <label htmlFor="register-email">Email</label>
 
             <input
               id="register-email"
@@ -266,52 +231,66 @@ function RegisterPage() {
               required
             />
           </div>
+        </div>
+
+        <div className="auth-group">
+          <p className="auth-group__label">Your company</p>
 
           <div className="auth-field">
-          <label htmlFor="register-password">
-            Password
-          </label>
+            <label htmlFor="register-company-name">Company Name</label>
 
-          <div className="password-input-wrapper">
             <input
-              id="register-password"
-              name="password"
-              type={
-                showPassword
-                  ? "text"
-                  : "password"
-              }
-              autoComplete="new-password"
-              value={form.password}
-              placeholder="Create password"
+              id="register-company-name"
+              name="company_name"
+              type="text"
+              autoComplete="organization"
+              value={form.company_name}
+              placeholder="e.g. Shreeji Construction"
               onChange={handleChange}
               disabled={loading}
-              minLength={8}
               required
             />
 
-            <button
-              type="button"
-              className="password-toggle-btn"
-              aria-label={
-                showPassword
-                  ? "Hide passwords"
-                  : "Show passwords"
-              }
-              aria-pressed={showPassword}
-              onClick={() =>
-                setShowPassword(
-                  (previous) =>
-                    !previous
-                )
-              }
-              disabled={loading}
-            >
-              {showPassword
-                ? "Hide"
-                : "Show"}
-            </button>
+            <p className="auth-field__hint">
+              This creates a new workspace. To join a company that already
+              uses the portal, ask its administrator to add you.
+            </p>
           </div>
+        </div>
+
+        <div className="auth-group">
+          <p className="auth-group__label">Sign-in details</p>
+
+          <div className="auth-field">
+            <label htmlFor="register-password">Password</label>
+
+            <div className="password-input-wrapper">
+              <input
+                id="register-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={form.password}
+                placeholder="At least 8 characters"
+                onChange={handleChange}
+                disabled={loading}
+                minLength={8}
+                required
+              />
+
+              <button
+                type="button"
+                className="password-toggle-btn"
+                aria-label={
+                  showPassword ? "Hide passwords" : "Show passwords"
+                }
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((previous) => !previous)}
+                disabled={loading}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
 
           <div className="auth-field">
@@ -322,15 +301,9 @@ function RegisterPage() {
             <input
               id="register-confirm-password"
               name="confirm_password"
-              type={
-                showPassword
-                  ? "text"
-                  : "password"
-              }
+              type={showPassword ? "text" : "password"}
               autoComplete="new-password"
-              value={
-                form.confirm_password
-              }
+              value={form.confirm_password}
               placeholder="Confirm password"
               onChange={handleChange}
               disabled={loading}
@@ -338,41 +311,12 @@ function RegisterPage() {
               required
             />
           </div>
+        </div>
 
-          <div className="auth-field">
-            <label htmlFor="register-role">
-              Role
-            </label>
-
-            <select
-              id="register-role"
-              name="role"
-              value={form.role}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            >
-              <option value="worker">
-                Worker
-              </option>
-
-              <option value="subcontractor">
-                Subcontractor
-              </option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            className="auth-submit"
-            disabled={loading}
-          >
-            {loading
-              ? "Creating…"
-              : "Create account"}
-          </button>
-
-        </form>
+        <button type="submit" className="auth-submit" disabled={loading}>
+          {loading ? "Creating workspace…" : "Create workspace"}
+        </button>
+      </form>
     </AuthShell>
   );
 }
