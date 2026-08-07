@@ -1085,3 +1085,107 @@ the probe rather than patched. That contract belongs to the suite, which
 exercises it properly; a second, worse implementation of the same check is a
 liability. The probe keeps what it is uniquely able to measure: panel geometry
 against the viewport while open.
+
+
+---
+
+## SHELL-011 — The command palette has no dialog semantics
+
+| Field | Value |
+|---|---|
+| Class | **B** (needs a JSX change, own unit) |
+| Category | accessibility |
+| Severity | **High** |
+| Files | `components/CommandPalette.jsx` |
+| Status | **Proposed** — deliberately NOT fixed in S-A3c |
+
+**Description.** `.command-modal` is a modal surface that traps the user's
+attention behind a full-viewport backdrop, but it carries no `role="dialog"`,
+no `aria-modal`, and no accessible name. A screen-reader user is given no
+signal that a dialog opened.
+
+Three further gaps in the same component:
+
+- **No result navigation.** Only Ctrl/Cmd+K and Escape are handled. There is no
+  ArrowUp/ArrowDown movement and no Enter activation; results are reachable
+  only by Tab or pointer.
+- **No selected state.** Because nothing tracks a selection, there is no
+  "what happens if I press Enter" affordance. S-A3c styles hover and
+  `:focus-visible` identically so Tab movement is at least visible, but that is
+  a mitigation, not the contract.
+- **No focus trap or focus restoration**, so Tab can leave the dialog.
+
+**Why it was not fixed here.** S-A3c is a CSS unit. All four gaps require
+changing `CommandPalette.jsx`, which changes keyboard behaviour and needs its
+own tests. Bundling them into a styling pass would have shipped untested
+interaction changes.
+
+**Recommendation.** A dedicated unit: add dialog semantics, arrow-key
+selection with a real selected state, Enter activation, focus trap and
+restoration, plus tests for each. The styling in
+`styles/system/shell/command-palette.css` already anticipates a selected row.
+
+---
+
+## SHELL-012 — The palette's Framer animation ignores prefers-reduced-motion
+
+| Field | Value |
+|---|---|
+| Class | **B** (needs a JSX change) |
+| Category | accessibility / motion |
+| Severity | Medium |
+| Files | `components/CommandPalette.jsx` |
+| Status | **Proposed** — deliberately NOT fixed in S-A3c |
+
+**Description.** The modal's entrance and exit are inline Framer Motion props
+(`initial`/`animate`/`exit`, 0.22s, translating 35px and scaling from 0.94).
+Framer does not apply `prefers-reduced-motion` to explicit props, so a user who
+has asked for reduced motion still gets a scaling, travelling dialog. The
+project's own rule is that reduced motion is a designed mode, not a disabled
+one, and this surface currently has no such mode.
+
+**Consequence proven at runtime.** Because the entrance is a transform,
+`getBoundingClientRect()` reports the SCALED box while it runs. The first
+version of the palette probe waited 120ms in reduced mode against a 220ms
+animation and reported result rows as **43px** when they are **44px**, and
+reported Escape as failing when it works. Both were measurement artifacts of
+this gap.
+
+**Why it was not fixed here.** The stylesheet cannot reach a Framer prop, and
+overriding it with `!important` would fight the library rather than fix the
+component. The correct fix is `useReducedMotion()` inside the component,
+which belongs with SHELL-011's unit.
+
+**Probe corrected**, not the app: it now waits 500ms in both modes and 600ms
+after Escape, and the reasoning is recorded in the file.
+
+
+---
+
+## SHELL-013 — The palette inherited a glassmorphic backdrop blur
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | visual / performance |
+| Severity | Medium |
+| Files | `styles/system/shell/command-palette.css` |
+| Status | **Verified** (fixed in S-A3c) |
+
+**Description.** The new palette sheet set the backdrop's `background` but not
+its `backdrop-filter`, so the legacy blur survived:
+`core/shell.css:357` applies `blur(10px)` and `v2/shell/overlays.css:50`
+applies `blur(3px)`. The whole application rendered blurred behind the palette.
+
+**Why it matters beyond taste.** A full-viewport `backdrop-filter` forces a
+whole-screen repaint every frame on the phones this product targets, and it
+buys nothing once the palette surface itself is opaque. The brief also rules
+out glassmorphism explicitly.
+
+**How it was found.** Screenshot review at 1440. All 370 assertions passed with
+the blur on screen, and the palette probe passed too — geometry and semantics
+were correct, only the appearance was wrong.
+
+**Resolution.** `backdrop-filter: none` stated explicitly, with the
+`-webkit-` prefix for Safari. Fourth instance of SHELL-008: an unset property
+stays legacy.
