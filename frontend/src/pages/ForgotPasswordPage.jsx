@@ -3,10 +3,7 @@
  * Requests a password-reset link.
  *
  * State:
- * - Local: email, submitting, whether the request was sent.
- *
- * Hooks and context:
- * - None
+ * - Local: email, submitting, the confirmation message, the DEV-only token.
  *
  * API endpoints:
  * - POST /auth/forgot-password via services/userService.js
@@ -14,14 +11,23 @@
  * Parent:
  * - None — public route
  *
- * Navigation and children:
- * - Always shows the same confirmation, whether or not the address is
- * - registered.
+ * ANTI-ENUMERATION IS THE DESIGN CONSTRAINT, NOT AN INCONVENIENCE:
+ * The same confirmation is shown whether or not the address is registered,
+ * and the backend answers identically for the same reason. Any wording that
+ * confirms or denies that an account exists would turn this screen into an
+ * oracle for which addresses are registered. There is deliberately no
+ * "account not found", no "email not registered", and no "we found your
+ * account" anywhere in this file, and there must never be.
+ *
+ * On success the form is REPLACED by the confirmation rather than sitting
+ * above it. Leaving an editable field on screen after a successful request
+ * invites the user to submit again, which is both pointless and a way to
+ * probe timing differences.
  *
  * Important notes:
- * - That invariant response is deliberate and must be preserved. Showing
- * - 'no such account' here would let anyone enumerate registered addresses.
- * - The backend answers identically for the same reason.
+ * - The confirmation deliberately says "if an account is eligible". Eligible,
+ *   not existing: an address might be registered but disabled, and the copy
+ *   must not distinguish those cases either.
  */
 
 import { useState } from "react";
@@ -29,12 +35,28 @@ import AuthShell, { AuthLink } from "../components/auth/AuthShell";
 
 import { forgotPassword } from "../services/userService";
 
+/*
+ * Styles for the DEV-only reset-token block, loaded only in development.
+ *
+ * Vite eliminates the DEV-gated JSX from a production build, but CSS is NOT
+ * tree-shaken, so when these rules lived in auth.css they shipped as dead
+ * bytes to every user. tools/fresh_ui/verify_dev_token_absent.mjs caught it.
+ * A dynamic import behind import.meta.env.DEV is dropped entirely, chunk
+ * included.
+ */
+if (import.meta.env.DEV) {
+  import("../styles/system/auth/dev-only.css");
+}
+
 function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  /* One request has succeeded, so the form is replaced by the confirmation. */
+  const sent = Boolean(message);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -85,86 +107,90 @@ function ForgotPasswordPage() {
   return (
     <AuthShell
       eyebrow="Account Recovery"
-      title="Forgot password"
-      intro="Enter your registered email address to begin resetting access to your construction portal account."
-      heading="Reset access"
-      subheading="Enter the email address linked to your account."
+      title={sent ? "Check your email" : "Recover access"}
+      intro={
+        sent
+          ? "Reset instructions are on their way if the account is eligible."
+          : "Enter your registered email address to begin resetting access to your construction portal account."
+      }
+      heading={sent ? "Check your email" : "Reset access"}
+      subheading={
+        sent
+          ? undefined
+          : "Enter the email address linked to your account and we will send reset instructions."
+      }
       footer={<AuthLink to="/login">Back to sign in</AuthLink>}
     >
+      {sent ? (
+        <div className="auth-confirm" data-testid="forgot-confirmation">
+          {/*
+            role="status" rather than role="alert": this is a successful
+            outcome, announced politely, not an interruption.
+          */}
+          <p className="auth-success" role="status">
+            {message}
+          </p>
+
+          <div className="auth-confirm__body">
+            <p>
+              The link expires shortly, so use it soon. If nothing arrives,
+              check your spam folder, then ask your company administrator to
+              confirm the address on your account.
+            </p>
+          </div>
+
+          {import.meta.env.DEV && resetToken ? (
+            <div className="auth-devbox" data-testid="dev-reset-token">
+              <p className="auth-devbox__label">
+                Development only — not shown in production
+              </p>
+
+              <code className="auth-devbox__value">{resetToken}</code>
+
+              <AuthLink
+                to={`/reset-password?token=${encodeURIComponent(resetToken)}`}
+              >
+                Continue to reset password
+              </AuthLink>
+            </div>
+          ) : null}
+        </div>
+      ) : (
         <form onSubmit={handleSubmit}>
           {/* Feedback above the field, so it is never below the fold. */}
-          {message && (
-            <p
-              className="auth-success"
-              role="status"
-            >
-              {message}
-            </p>
-          )}
-
           {error && (
-            <p
-              className="error"
-              role="alert"
-            >
+            <p className="error" role="alert">
               {error}
             </p>
           )}
 
           <div className="auth-field">
-          <label htmlFor="forgot-password-email">
-            Email
-          </label>
+            <label htmlFor="forgot-password-email">Email</label>
 
-          <input
-            id="forgot-password-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            placeholder="email@example.com"
-            onChange={(event) => {
-              setEmail(event.target.value);
+            <input
+              id="forgot-password-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              placeholder="email@example.com"
+              onChange={(event) => {
+                setEmail(event.target.value);
 
-              if (error) {
-                setError("");
-              }
-            }}
-            disabled={submitting}
-            required
-          />
+                if (error) {
+                  setError("");
+                }
+              }}
+              disabled={submitting}
+              required
+            />
           </div>
 
-          <button
-            type="submit"
-            className="auth-submit"
-            disabled={submitting}
-          >
-            {submitting
-              ? "Sending…"
-              : "Send reset instructions"}
+          <button type="submit" className="auth-submit" disabled={submitting}>
+            {submitting ? "Sending…" : "Send reset instructions"}
           </button>
-
-          {import.meta.env.DEV && resetToken && (
-            <div className="reset-token-box">
-              <p>
-                Development Reset Token:
-              </p>
-
-              <code>{resetToken}</code>
-
-              <div className="auth-links">
-                <AuthLink
-                  to={`/reset-password?token=${encodeURIComponent(
-                    resetToken
-                  )}`}
-                >
-                  Continue to reset password
-                </AuthLink>
-              </div>
-            </div>
-          )}
         </form>
+      )}
     </AuthShell>
   );
 }

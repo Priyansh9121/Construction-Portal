@@ -653,6 +653,44 @@ const AUTH_RATE_LIMIT_MAX =
     }
   );
 
+/**
+ * Password reset is tighter still: it sends email, so it is the favourite
+ * target for both account enumeration and mail-bombing.
+ *
+ * PRODUCTION DEFAULTS ARE UNCHANGED — 5 requests per hour per IP. These were
+ * hard-coded in middleware/rateLimiter.js and are now overridable ONLY so a
+ * local end-to-end run can exercise the recovery flow more than five times an
+ * hour. Omitting both variables reproduces the previous behaviour exactly.
+ *
+ * The limiter is never disabled and there is no IP bypass: a high local value
+ * still counts requests, it just does not stop a test suite mid-run.
+ *
+ * parseInteger applies the project's standard policy, so a non-numeric or
+ * out-of-range value fails the same way every other misconfigured variable
+ * does rather than silently falling back to something permissive.
+ */
+const PASSWORD_RESET_RATE_LIMIT_WINDOW_MS =
+  parseInteger(
+    process.env
+      .PASSWORD_RESET_RATE_LIMIT_WINDOW_MS,
+    60 * 60 * 1000,
+    {
+      minimum: 1000,
+      maximum: 24 * 60 * 60 * 1000,
+    }
+  );
+
+const PASSWORD_RESET_RATE_LIMIT_MAX =
+  parseInteger(
+    process.env
+      .PASSWORD_RESET_RATE_LIMIT_MAX,
+    5,
+    {
+      minimum: 1,
+      maximum: 100000,
+    }
+  );
+
 /*
 |--------------------------------------------------------------------------
 | Site operation rules
@@ -944,6 +982,8 @@ module.exports = Object.freeze({
   DB_SSL_REJECT_UNAUTHORIZED,
 
   RATE_LIMIT_WINDOW_MS,
+  PASSWORD_RESET_RATE_LIMIT_WINDOW_MS,
+  PASSWORD_RESET_RATE_LIMIT_MAX,
   RATE_LIMIT_MAX,
   AUTH_RATE_LIMIT_MAX,
 

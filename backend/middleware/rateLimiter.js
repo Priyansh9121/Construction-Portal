@@ -53,6 +53,8 @@ const {
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX,
   AUTH_RATE_LIMIT_MAX,
+  PASSWORD_RESET_RATE_LIMIT_WINDOW_MS,
+  PASSWORD_RESET_RATE_LIMIT_MAX,
   IS_TEST,
 } = require("../config/env");
 
@@ -134,8 +136,17 @@ const authLimiter = rateLimit({
  * favourite target for enumeration and mail-bombing.
  */
 const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 5,
+  /*
+   * Defaults are 60 minutes and 5 requests, which is exactly what these were
+   * when hard-coded here. They became configurable ONLY so a local end-to-end
+   * run can exercise the recovery flow more than five times an hour; with the
+   * variables absent, production behaviour is byte-for-byte what it was.
+   *
+   * The limiter is never skipped and there is no IP bypass. See
+   * config/env.js for the validation policy applied to both values.
+   */
+  windowMs: PASSWORD_RESET_RATE_LIMIT_WINDOW_MS,
+  limit: PASSWORD_RESET_RATE_LIMIT_MAX,
 
   standardHeaders: "draft-7",
   legacyHeaders: false,

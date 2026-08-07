@@ -1,0 +1,77 @@
+/*
+ * ===========================================================================
+ * DEVELOPMENT-ONLY AUTH STYLES
+ * ===========================================================================
+ *
+ * File purpose:
+ * Styles for UI that exists ONLY under import.meta.env.DEV, currently the
+ * reset-token block on Forgot Password.
+ *
+ * Why this is a separate file:
+ * Vite eliminates the DEV-gated JSX from a production build, but CSS is not
+ * tree-shaken, so these rules shipped as dead bytes when they lived in
+ * auth.css. tools/fresh_ui/verify_dev_token_absent.mjs caught that. This file
+ * is imported through a dynamic import guarded by import.meta.env.DEV, which
+ * Vite drops entirely in production along with the chunk.
+ *
+ * Nothing here may be depended on by production UI.
+ */
+
+@layer system-components {
+  /* =========================================================================
+   * DEVELOPMENT-ONLY BLOCK
+   * =========================================================================
+   * Rendered only under import.meta.env.DEV. Styled to be unmistakably NOT
+   * part of the user journey: a dashed boundary and a sunken ground, neither
+   * of which appears anywhere else in the product. It must never read as a
+   * normal step in recovery.
+   *
+   * Deliberately NOT using the status palette. A developer aid is not a
+   * warning, and borrowing the warning colour would both misuse the semantic
+   * scale and make this look like something the user should act on.
+   * ====================================================================== */
+
+  .auth-devbox {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ui-space-3);
+
+    padding: var(--ui-space-4);
+
+    background: var(--ui-surface-sunken);
+    border: 1px dashed var(--ui-line-strong);
+    border-radius: var(--ui-radius-container);
+  }
+
+  .auth-devbox__label {
+    margin: 0;
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-semibold);
+    letter-spacing: var(--ui-tracking-wide);
+    text-transform: uppercase;
+    color: var(--ui-ink-muted);
+  }
+
+  .auth-devbox__value {
+    /* A token is a long unbroken string. Without an explicit break it forces
+     * the whole column wider than the viewport at 320px. */
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+
+    padding: var(--ui-space-2) var(--ui-space-3);
+
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: var(--ui-text-xs);
+    line-height: var(--ui-leading-normal);
+    color: var(--ui-ink);
+
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-control);
+  }
+
+}

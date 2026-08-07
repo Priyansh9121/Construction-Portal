@@ -1188,3 +1188,44 @@ decision, not a layout one.
 Tracked as **SITE-OPS-DATA-01** in `UI_UX_AUDIT.md` §8d. A test in
 `tests/portals-and-tables.spec.js` asserts the selectors stay absent and names
 the ticket in its failure message, so the guard explains itself.
+
+
+## Password reset rate limiting
+
+`POST /api/auth/forgot-password` is guarded by `passwordResetLimiter`, which is
+deliberately tighter than the rest of `/api/auth`: it sends email, so it is the
+target for both account enumeration and mail-bombing.
+
+| Variable | Production default | Purpose |
+|---|---|---|
+| `PASSWORD_RESET_RATE_LIMIT_WINDOW_MS` | `3600000` (60 minutes) | Window length |
+| `PASSWORD_RESET_RATE_LIMIT_MAX` | `5` | Requests per IP per window |
+
+**Leave both unset in production.** Omitting them reproduces the original
+hard-coded behaviour exactly. They exist so a local end-to-end run can exercise
+the recovery flow more than five times an hour.
+
+Note that `AUTH_RATE_LIMIT_MAX` does **not** relax this endpoint. That variable
+drives `authLimiter`, mounted across `/api/auth`; password reset has its own
+stricter limiter on top. Raising only `AUTH_RATE_LIMIT_MAX` and expecting the
+recovery flow to be testable is a trap that has already cost one debugging
+session.
+
+For a local browser run:
+
+```bash
+cd backend
+RATE_LIMIT_MAX=100000 \
+AUTH_RATE_LIMIT_MAX=100000 \
+PASSWORD_RESET_RATE_LIMIT_WINDOW_MS=900000 \
+PASSWORD_RESET_RATE_LIMIT_MAX=100000 \
+npm start
+```
+
+An invalid value falls back to the strict production default rather than
+becoming permissive, matching how every other bounded integer in
+`config/env.js` behaves. The limiter is never disabled and there is no IP
+bypass: a high local value still counts requests, it just does not stop a test
+suite mid-run.
+
+The counter lives in an in-memory store, so restarting the backend clears it.
