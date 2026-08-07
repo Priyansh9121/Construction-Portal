@@ -1001,3 +1001,33 @@ that is now overridden to the accent, consistent with every other control.
 the amber bar on screen. This is the third time visual review has caught a
 defect the suite could not (AUTH-012, AUTH-013, now SHELL-007), and the second
 time the cause was a property left unset while the legacy sheet still applied.
+
+
+---
+
+## SHELL-008 — Overriding a legacy rule means owning its media queries too
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | responsive / regression |
+| Severity | Medium |
+| Files | `styles/system/shell/topbar.css` |
+| Status | **Verified** (fixed in S-A2) |
+
+**Description.** The new topbar set `.sidebar-toggle { display: inline-flex }`
+unconditionally. The legacy sheet hides that button at 1024px and above, where
+the sidebar is permanent and the drawer it controls does not exist. Setting
+`display` in a later layer beat the legacy rule at every width, so the toggle
+reappeared on desktop.
+
+**How it was found.** `authenticated.spec.js:322`, *"toggle is hidden once the
+sidebar is permanent"*. This is the first shell defect a test caught rather
+than a screenshot, because it is a behavioural contract rather than an
+appearance one.
+
+**The generalised lesson**, now twice demonstrated with SHELL-007: overriding
+one property of a legacy rule means taking responsibility for **all** of that
+rule's behaviour, including its media queries and its state variants. A
+property left unset stays legacy; a property set unconditionally destroys a
+legacy conditional. Both directions are traps.
