@@ -1031,3 +1031,57 @@ one property of a legacy rule means taking responsibility for **all** of that
 rule's behaviour, including its media queries and its state variants. A
 property left unset stays legacy; a property set unconditionally destroys a
 legacy conditional. Both directions are traps.
+
+
+---
+
+## SHELL-009 — Overriding one inset left the opposite legacy inset in force
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | responsive / regression |
+| Severity | Medium |
+| Files | `styles/system/shell/notifications.css` |
+| Status | **Verified** (fixed in S-A3b) |
+
+**Description.** The new notification panel set `inset-inline-end: 0` but not
+`inset-inline-start`. The legacy sheet sets `left` on the same element, so both
+insets stayed in force, stretching the panel across its anchor and pushing it
+**226px past the right edge at 768px**, with matching document overflow.
+
+**How it was found.** The targeted notification probe, which measures the
+panel's rect against the viewport at three widths. The responsive shell probe
+did not catch it because the panel only exists while open.
+
+**Resolution.** `inset-inline-start: auto` stated explicitly. This is the third
+instance of SHELL-008's rule: overriding part of a legacy rule means owning the
+rest of it. The three faces so far are an unset property (SHELL-007), an
+unconditionally set property destroying a legacy media query (SHELL-008), and
+now one side of a paired property leaving its opposite active.
+
+---
+
+## SHELL-010 — A probe produced a false negative on Escape
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | test defect |
+| Severity | Low |
+| Files | `tools/fresh_ui/notification_probe.mjs` |
+| Status | **Verified** (fixed in S-A3b) |
+
+**Description.** The first version of the notification probe pressed Escape
+with focus still on the trigger and reported six failures across widths and
+motion modes. `authenticated.spec.js:371` and `:417`, which drive the real
+interaction including modal precedence, both pass.
+
+The probe was wrong, not the application. It was checked against the suite
+before anything was changed, so no working behaviour was "fixed".
+
+**Resolution.** The Escape and focus-restoration assertions were removed from
+the probe rather than patched. That contract belongs to the suite, which
+exercises it properly; a second, worse implementation of the same check is a
+liability. The probe keeps what it is uniquely able to measure: panel geometry
+against the viewport while open.

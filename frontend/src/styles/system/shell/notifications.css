@@ -1,0 +1,320 @@
+/*
+ * ===========================================================================
+ * NOTIFICATIONS — the operational inbox
+ * ===========================================================================
+ *
+ * File purpose:
+ * The bell trigger in the topbar and the panel it opens.
+ *
+ * SCOPE OF THIS UNIT (S-A3b):
+ * CSS only. NotificationCenter.jsx is NOT touched, so every behavioural
+ * contract — loading, unread count, mark read, mark all read, navigation, the
+ * API calls and their payloads — is preserved by construction rather than by
+ * care.
+ *
+ * SELECTOR SCOPE, CHECKED BEFORE WRITING (SHELL-003, AUTH-020):
+ *
+ *   .notification-center   shell-only
+ *   .notification-button   shell-only
+ *   .notification-panel    shell-only
+ *   .link-button           SHARED — rendered by InvoicesPage,
+ *                          SubcontractorsPage, DashboardPage,
+ *                          DailyUpdateApprovalsPage, DailySiteUpdatesPage,
+ *                          TendersPage and UsersPage
+ *   .unread                GENERIC bare class
+ *
+ * So `.link-button` and `.unread` are styled ONLY as descendants of the
+ * panel. Styling either at the top level from a shell sheet would restyle
+ * seven business routes that have not been migrated, which is exactly the
+ * AUTH-020 failure.
+ *
+ * SHELL-005 COMPLIANCE:
+ * The panel carries role="dialog" but is a DROPDOWN in the overlay hierarchy:
+ * useDismissableOverlay arbitrates it through the module-scoped stack, and it
+ * is outranked by anything matching `.command-backdrop, .modal-backdrop`. It
+ * deliberately gains NEITHER of those class names here. Adding one would
+ * promote it to modal precedence and let it swallow Escape from an open
+ * palette or dialog.
+ *
+ * UNREAD IS NEVER COLOUR ALONE:
+ * An unread item carries a positional dot, stronger ink AND heavier weight.
+ * Three cues, one of them structural.
+ *
+ * SHELL-008: any legacy conditional overridden below is restated, including
+ * media queries.
+ */
+
+@layer system-components {
+  /* =========================================================================
+   * TRIGGER
+   * ====================================================================== */
+
+  .notification-center {
+    position: relative;
+    flex: none;
+  }
+
+  .notification-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: var(--ui-target-min);
+    height: var(--ui-target-min);
+    padding: 0;
+
+    color: var(--ui-ink-muted);
+    background: none;
+    border: 0;
+    border-radius: var(--ui-radius-control);
+    box-shadow: none;
+    cursor: pointer;
+
+    transition:
+      color var(--ui-duration-fast) var(--ui-ease-move),
+      background-color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .notification-button:hover {
+    color: var(--ui-ink-strong);
+    background: var(--ui-surface-sunken);
+  }
+
+  /* =========================================================================
+   * PANEL
+   * =========================================================================
+   * Anchored to the trigger on desktop. On a phone the trigger sits near the
+   * screen edge, so a fixed-width anchored panel would hang off the viewport;
+   * below 480px it spans the gutter instead. Presentation only — the panel is
+   * the same element with the same semantics at every width.
+   * ====================================================================== */
+
+  .notification-panel {
+    position: absolute;
+
+    /* `inset-inline-start: auto` is REQUIRED, not tidiness. The legacy sheet
+     * sets `left` on this panel; setting only the end inset left both in
+     * force, which stretched the panel across the anchor and pushed it 226px
+     * past the right edge at 768. SHELL-008 again: overriding one side of a
+     * legacy rule means owning the other. */
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+    inset-block-start: calc(100% + var(--ui-space-2));
+    z-index: 50;
+
+    display: flex;
+    flex-direction: column;
+    width: 22rem;
+    max-width: calc(100vw - var(--ui-space-8));
+    max-height: min(28rem, calc(100dvh - 6rem));
+
+    overflow: hidden;
+
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-container);
+    box-shadow: var(--ui-elevation-3);
+
+    font-family: var(--ui-font-sans);
+    color: var(--ui-ink);
+
+    transform-origin: top right;
+    animation: ui-menu-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+  }
+
+  /* =========================================================================
+   * HEADER
+   * =========================================================================
+   * The panel's first child is its heading row; the mark-all-read control is
+   * the `.link-button` inside it, scoped so the seven business pages that
+   * render that class are untouched.
+   * ====================================================================== */
+
+  .notification-panel > :first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    flex: none;
+
+    padding: var(--ui-space-3) var(--ui-space-4);
+    border-bottom: 1px solid var(--ui-line-faint);
+    background: var(--ui-surface-sunken);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  .notification-panel .link-button {
+    flex: none;
+
+    min-height: var(--ui-target-min);
+    padding: 0 var(--ui-space-2);
+
+    font-family: inherit;
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-accent);
+
+    background: none;
+    border: 0;
+    border-radius: var(--ui-radius-control);
+    box-shadow: none;
+    cursor: pointer;
+
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .notification-panel .link-button:hover {
+    color: var(--ui-accent-hover);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  /* =========================================================================
+   * LIST
+   * ====================================================================== */
+
+  .notification-panel ul {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .notification-panel li + li {
+    border-top: 1px solid var(--ui-line-faint);
+  }
+
+  /* Each item is a button: the whole row is the target, so the destination is
+   * reachable without hunting for a link. */
+  .notification-panel li button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ui-space-1);
+
+    width: 100%;
+    min-height: var(--ui-target-min);
+    padding: var(--ui-space-3) var(--ui-space-4);
+
+    font-family: inherit;
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+    text-align: start;
+    color: var(--ui-ink);
+
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    cursor: pointer;
+
+    transition: background-color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .notification-panel li button:hover {
+    background: var(--ui-surface-sunken);
+  }
+
+  /* Long messages wrap rather than truncate: a half-shown notification is
+   * worse than a tall one. */
+  .notification-panel li button > * {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  /* Timestamps and supporting metadata. */
+  .notification-panel li small,
+  .notification-panel li time {
+    font-size: var(--ui-text-xs);
+    color: var(--ui-ink-muted);
+  }
+
+  /* =========================================================================
+   * UNREAD
+   * =========================================================================
+   * Scoped to the panel: `.unread` is a bare generic class name.
+   * Three cues, never colour alone — a positional dot, stronger ink and
+   * heavier weight.
+   * ====================================================================== */
+
+  .notification-panel .unread {
+    position: relative;
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  .notification-panel .unread::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: var(--ui-space-2);
+    inset-block-start: calc(var(--ui-space-4) + 1px);
+
+    width: 6px;
+    height: 6px;
+    border-radius: var(--ui-radius-pill);
+    background: var(--ui-accent);
+  }
+
+  /* The dot needs room, so an unread row is indented rather than overlapped. */
+  .notification-panel .unread button,
+  .notification-panel li button.unread {
+    padding-inline-start: var(--ui-space-6);
+  }
+
+  /* =========================================================================
+   * EMPTY AND LOADING
+   * =========================================================================
+   * A quiet line, not an illustration. An empty inbox is the normal state and
+   * should not be dramatised.
+   * ====================================================================== */
+
+  .notification-panel p {
+    margin: 0;
+    padding: var(--ui-space-6) var(--ui-space-4);
+
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+    text-align: center;
+    color: var(--ui-ink-muted);
+  }
+
+  .notification-panel :focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: calc(var(--ui-focus-ring-offset) * -1);
+    outline-color: var(--ui-focus);
+  }
+
+  /* =========================================================================
+   * PHONE
+   * =========================================================================
+   * The trigger sits near the screen edge, so an anchored fixed-width panel
+   * would overhang. Below 480px it spans the gutter instead. Same element,
+   * same semantics, different placement.
+   * ====================================================================== */
+
+  @media (max-width: 479px) {
+    .notification-panel {
+      position: fixed;
+      inset-inline: var(--ui-space-3);
+      inset-block-start: 3.75rem;
+      width: auto;
+      max-width: none;
+      max-height: calc(100dvh - 5rem);
+      transform-origin: top center;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .notification-panel {
+      animation-name: ui-fade-in;
+    }
+  }
+}
