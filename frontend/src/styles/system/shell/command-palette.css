@@ -176,6 +176,7 @@
   }
 
   .command-results button {
+    position: relative;
     display: flex;
     align-items: baseline;
     gap: var(--ui-space-3);
@@ -198,13 +199,41 @@
     transition: background-color var(--ui-duration-instant) var(--ui-ease-move);
   }
 
-  /* Hover and keyboard focus read identically, so a pointer user and a
-   * keyboard user are looking at the same "this one" state. */
+  /*
+   * The selected result.
+   *
+   * Focus stays in the combobox while the selection moves (aria-activedescendant),
+   * so `:focus-visible` can never mark the current result. `.is-selected` is
+   * the single source of that state and is driven by the same index the
+   * keyboard model uses, so pointer and keyboard converge on one appearance.
+   *
+   * NEVER COLOUR ALONE: the selected row also carries a positional marker on
+   * its leading edge and heavier weight on its name.
+   */
   .command-results button:hover,
-  .command-results button:focus-visible {
+  .command-results button.is-selected {
     background: var(--ui-accent-subtle);
     color: var(--ui-accent);
     outline: none;
+  }
+
+  .command-results button.is-selected {
+    position: relative;
+  }
+
+  .command-results button.is-selected::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block: 25%;
+
+    width: 3px;
+    border-radius: var(--ui-radius-pill);
+    background: var(--ui-accent);
+  }
+
+  .command-results button.is-selected span {
+    font-weight: var(--ui-weight-semibold);
   }
 
   .command-results button span {
@@ -224,7 +253,7 @@
   }
 
   .command-results button:hover small,
-  .command-results button:focus-visible small {
+  .command-results button.is-selected small {
     color: var(--ui-accent);
   }
 

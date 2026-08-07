@@ -139,6 +139,137 @@ for (const [label, motion] of [["normal", "no-preference"], ["reduced", "reduce"
   }
 }
 
+/* -- SHELL-011 / SHELL-012: semantics, keyboard model, focus -------------- */
+for (const [label, motion] of [["normal", "no-preference"], ["reduced", "reduce"]]) {
+  const context = await makeContext(1440, 900, motion);
+  const page = await context.newPage();
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+  await page.locator("body").click({ position: { x: 5, y: 5 } });
+
+  // Remember what had focus, so restoration can be checked.
+  await page.locator(".sidebar-toggle, .notification-button").first().focus();
+  const opener = await page.evaluate(() => document.activeElement?.className || "");
+
+  await openPalette(page);
+  await page.waitForTimeout(500);
+
+  const sem = await page.evaluate(() => {
+    const modal = document.querySelector(".command-modal");
+    const input = document.querySelector(".command-header input");
+    const list = document.querySelector('[role="listbox"]');
+    const opts = [...document.querySelectorAll('[role="option"]')];
+    return {
+      role: modal.getAttribute("role"),
+      ariaModal: modal.getAttribute("aria-modal"),
+      name: modal.getAttribute("aria-label"),
+      focusIsInput: document.activeElement === input,
+      comboRole: input.getAttribute("role"),
+      controls: input.getAttribute("aria-controls"),
+      activeDesc: input.getAttribute("aria-activedescendant"),
+      listRole: list ? list.getAttribute("role") : null,
+      optionCount: opts.length,
+      selectedCount: opts.filter((o) => o.getAttribute("aria-selected") === "true").length,
+      firstSelected: opts[0]?.getAttribute("aria-selected"),
+      // Non-colour cue on the selected option.
+      marker: opts[0]
+        ? getComputedStyle(opts[0], "::before").content !== "none"
+        : false,
+    };
+  });
+
+  check(sem.role === "dialog", `${label} role=dialog`, sem.role);
+  check(sem.ariaModal === "true", `${label} aria-modal=true`, sem.ariaModal);
+  check(Boolean(sem.name), `${label} dialog has an accessible name`, sem.name);
+  check(sem.focusIsInput, `${label} initial focus is the search input`);
+  check(sem.comboRole === "combobox", `${label} input is a combobox`, sem.comboRole);
+  check(sem.listRole === "listbox", `${label} results are a listbox`, sem.listRole);
+  check(sem.controls === "command-results", `${label} combobox controls the listbox`);
+  check(sem.optionCount > 1, `${label} options present`, String(sem.optionCount));
+  check(sem.selectedCount === 1, `${label} exactly one option is selected`, String(sem.selectedCount));
+  check(sem.firstSelected === "true", `${label} selection starts at the first option`);
+  check(sem.marker, `${label} selected option carries a non-colour marker`);
+  check(sem.activeDesc === "command-option-0", `${label} activedescendant points at it`, sem.activeDesc);
+
+  // ArrowDown / ArrowUp / Home / End move the selection.
+  await page.keyboard.press("ArrowDown");
+  const afterDown = await page.evaluate(() =>
+    document.querySelector(".command-header input").getAttribute("aria-activedescendant")
+  );
+  check(afterDown === "command-option-1", `${label} ArrowDown moves selection`, afterDown);
+
+  await page.keyboard.press("ArrowUp");
+  const afterUp = await page.evaluate(() =>
+    document.querySelector(".command-header input").getAttribute("aria-activedescendant")
+  );
+  check(afterUp === "command-option-0", `${label} ArrowUp moves selection back`, afterUp);
+
+  await page.keyboard.press("End");
+  const afterEnd = await page.evaluate(() => ({
+    active: document.querySelector(".command-header input").getAttribute("aria-activedescendant"),
+    count: document.querySelectorAll('[role="option"]').length,
+  }));
+  check(
+    afterEnd.active === `command-option-${afterEnd.count - 1}`,
+    `${label} End selects the last option`,
+    afterEnd.active
+  );
+
+  // Filtering must keep the selection in range.
+  await page.fill(".command-header input", "inv");
+  await page.waitForTimeout(150);
+  const afterFilter = await page.evaluate(() => {
+    const opts = [...document.querySelectorAll('[role="option"]')];
+    const active = document
+      .querySelector(".command-header input")
+      .getAttribute("aria-activedescendant");
+    return {
+      count: opts.length,
+      active,
+      resolves: Boolean(active && document.getElementById(active)),
+      selected: opts.filter((o) => o.getAttribute("aria-selected") === "true").length,
+    };
+  });
+  check(afterFilter.resolves, `${label} activedescendant still resolves after filtering`, afterFilter.active);
+  check(afterFilter.selected === 1, `${label} exactly one selection after filtering`);
+
+  // Tab and Shift+Tab stay inside the dialog.
+  await page.keyboard.press("Tab");
+  const afterTab = await page.evaluate(() =>
+    Boolean(document.querySelector(".command-modal")?.contains(document.activeElement))
+  );
+  check(afterTab, `${label} Tab stays inside the dialog`);
+
+  await page.keyboard.press("Shift+Tab");
+  const afterShiftTab = await page.evaluate(() =>
+    Boolean(document.querySelector(".command-modal")?.contains(document.activeElement))
+  );
+  check(afterShiftTab, `${label} Shift+Tab stays inside the dialog`);
+
+  // Enter activates the selected result.
+  await page.locator(".command-header input").focus();
+  await page.fill(".command-header input", "invoices");
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Enter");
+  await page.waitForURL(/\/invoices/, { timeout: 5000 });
+  check(true, `${label} Enter navigates to the selected result`);
+
+  // Focus restoration after close.
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
+  await page.locator(".notification-button").focus();
+  await openPalette(page);
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(600);
+  const restored = await page.evaluate(() => document.activeElement?.className || "");
+  check(
+    restored.includes("notification-button"),
+    `${label} focus returns to the opener`,
+    restored
+  );
+
+  await context.close();
+}
+
 /* -- SHELL-005: real Escape precedence ------------------------------------ */
 {
   const context = await makeContext(1440, 900, "no-preference");
@@ -175,6 +306,14 @@ for (const [label, motion] of [["normal", "no-preference"], ["reduced", "reduce"
     after.dropdown,
     "the underlying dropdown SURVIVES that Escape (SHELL-005 precedence)"
   );
+
+  // A second Escape must then close the dropdown.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+  const second = await page.evaluate(() =>
+    Boolean(document.querySelector(".account-panel"))
+  );
+  check(!second, "a second Escape closes the underlying dropdown");
 
   await context.close();
 }
