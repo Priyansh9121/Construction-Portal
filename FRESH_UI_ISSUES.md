@@ -737,3 +737,144 @@ cannot be required from CommonJS.
 `describe`, `it`, `expect` and `vi` arrive as globals and the file stays
 CommonJS like every other backend file, satisfying both tools. Backend lint is
 clean and all 234 tests pass.
+
+
+---
+
+# SHELL PROGRAMME — DISCOVERY FINDINGS
+
+Recorded before any shell implementation. The behavioural read of the shell
+components is **incomplete**; what follows is the mechanical dependency
+evidence, which is complete and verified.
+
+---
+
+## SHELL-001 — The V2 shell teardown is asymmetric, and `.v2-root` is a trap
+
+| Field | Value |
+|---|---|
+| Class | **B** (shell programme) |
+| Category | architecture |
+| Severity | **High** — it would produce a half-styled shell |
+| Files | `layouts/AppLayout.jsx`, `styles/v2/shell/app-shell.css`, `styles/v2/shell/overlays.css` |
+| Status | **Proposed** |
+
+**The shell components reference exactly one V2 class:** `v2-root`, on
+`AppLayout`. There are no other `v2-*` class names anywhere in `AppLayout`,
+`Sidebar`, `Topbar`, `CommandPalette` or `NotificationCenter`.
+
+That makes removing `.v2-root` look like a clean single-line teardown. **It is
+not**, because the two V2 shell stylesheets are scoped differently:
+
+| Sheet | Lines | Scoping | Effect of removing `.v2-root` |
+|---|---|---|---|
+| `v2/shell/overlays.css` | 374 | Scoped: `.v2-root .command-backdrop`, `.v2-root .command-modal`, … | **All 374 lines stop applying instantly** |
+| `v2/shell/app-shell.css` | 620 | **Unscoped**: bare `.app-layout`, `.sidebar`, `.main-content`, `.skip-link`, … | **Keeps applying** |
+
+So deleting one class silently strips the command palette and notification
+centre back to V1 styling while the sidebar, layout and skip link keep their
+V2 appearance. The shell would be visibly half-migrated with no test failure
+to signal it, because the specs assert behaviour rather than appearance.
+
+**Consequence for boundaries.** Overlay styling and shell-frame styling are
+NOT separable via `.v2-root`. Either the overlays and the frame migrate
+together, or `.v2-root` stays until both are done.
+
+---
+
+## SHELL-002 — V1 and V2 both define the shell's bare selectors
+
+| Field | Value |
+|---|---|
+| Class | **B** |
+| Category | css-architecture |
+| Severity | Medium |
+| Files | `styles/core/shell.css` (585 lines), `styles/v2/shell/app-shell.css` (620) |
+| Status | **Proposed** |
+
+`styles/core/shell.css` defines 33 top-level rules for the same unprefixed
+selectors V2 redefines (`.sidebar`, `.app-layout`, `.main-content`, `.topbar`,
+`.skip-link`). Neither is scoped to a route group, so **both apply to every
+authenticated page**, with layer order deciding the winner.
+
+This is the same shape as the auth debt, but larger: 1,205 lines across two
+systems for one subsystem, and unlike auth these selectors are structural, so a
+mistake reflows every business route at once.
+
+---
+
+## SHELL-003 — Unscoped shell selectors are a restyling hazard for 20+ routes
+
+| Field | Value |
+|---|---|
+| Class | **B** |
+| Category | cross-route regression risk |
+| Severity | **High** |
+| Status | **Proposed** |
+
+AUTH-020 already proved this failure mode once: `.password-input-wrapper` was
+assumed auth-only, defined unscoped in a later layer, and silently restyled
+`UsersPage` for four boundaries before an audit caught it.
+
+The shell's surface area is far larger. `.app-layout`, `.main-content`,
+`.page-content` and `.sidebar` wrap **every** authenticated route, all of which
+still run V1/V2 presentation. Any new unscoped rule on those selectors, or any
+bare element rule inside the shell layer, changes 20+ unmigrated pages at once.
+
+**Required mitigation before shell implementation begins:** a computed-style
+diff on representative unmigrated routes, captured before and after, plus
+screenshots. Test counts will not detect this.
+
+---
+
+## SHELL-004 — 252 `--v2-*` token references in shell CSS
+
+| Field | Value |
+|---|---|
+| Class | **B** |
+| Category | technical debt |
+| Severity | Medium |
+| Status | **Proposed** |
+
+`v2/shell/app-shell.css` makes 156 `--v2-*` token references and
+`overlays.css` makes 96. Those tokens live in `v2/core/tokens.css`, which must
+survive because unmigrated business routes depend on it.
+
+So the shell migration removes shell *rules*, not the V2 token layer. V2 tokens
+retire only when the last business route does.
+
+---
+
+## Shell test contracts that must survive
+
+Behavioural, in `authenticated.spec.js`, and none depend on V2 names:
+
+- drawer opens, **traps focus**, closes on Escape, **restores focus**
+- drawer links are **out of the tab order while closed**
+- the toggle is hidden once the sidebar is permanent
+- notification panel: Escape closes, focus returns to the trigger
+- Escape with nothing open does not disturb the page
+- **a modal surface outranks the notification panel for Escape** — overlay
+  precedence is already a deliberate, tested contract
+- drawer Escape still works at 768px
+- sidebar navigation reaches the route and content stays usable
+
+`useDismissableOverlay.js` (113 lines) appears to own this precedence and is
+the first file to read in the behavioural pass.
+
+---
+
+## Proposed atomic boundaries, derived from the evidence above
+
+The obvious A–E split in the brief does **not** survive SHELL-001. Revised:
+
+| Boundary | Scope | Why it is atomic |
+|---|---|---|
+| **S-A** | Shell frame **and** overlays together: `AppLayout`, `Sidebar`, `Topbar`, `CommandPalette`, `NotificationCenter`, plus removal of `.v2-root` and both V2 shell sheets | `.v2-root` cannot be removed for one and not the other (SHELL-001) |
+| **S-B** | Mobile drawer model, only if it changes shape rather than styling | Separable only if S-A keeps the current drawer contract intact |
+| **S-C** | Route transitions | Genuinely separable: no shared CSS, and policy lives in one place |
+| **S-D** | `styles/core/shell.css` removal | Last, once no consumer remains (SHELL-002) |
+
+**S-A is large and cannot be split.** It touches five components and roughly
+1,000 lines of CSS in one pass. It must not be started without the budget to
+finish it.
