@@ -1,0 +1,637 @@
+/*
+ * ===========================================================================
+ * AUTHENTICATION — shared surface
+ * ===========================================================================
+ *
+ * File purpose:
+ * Every shared style for the four unauthenticated routes. AuthShell is
+ * genuinely shared architecture, so this file lifts all four routes onto the
+ * new system at once.
+ *
+ * WHY THE CLASS NAMES ARE UNCHANGED:
+ * Four Playwright specs assert on `.auth-shell`, `.auth-brand`, `.auth-card`,
+ * `.auth-card form`, `.auth-submit`, `.password-input-wrapper` and
+ * `.password-toggle-btn`. Renaming them would break the 358-assertion
+ * baseline for no user benefit. The old rules are beaten by cascade LAYER
+ * order, not by specificity, so there is no `!important` anywhere here and no
+ * selector escalation. The obsolete sheets are deleted in the cleanup pass
+ * once their remaining selectors are proven to have zero consumers.
+ *
+ * Because the legacy sheets target the same selectors, every property that
+ * matters is set explicitly below rather than left to inherit. A property
+ * this file does not set is a property the old system still controls.
+ *
+ * Concept: signing in is an act of routing, not passing a gate.
+ * Hierarchy comes from typography, spacing and position. Not from coloured
+ * boxes, not from a card, not from a split screen.
+ *
+ * Connected to:
+ * - components/auth/AuthShell.jsx and components/auth/Approach.jsx
+ * - core/tokens.css and core/motion.css supply every value used here
+ */
+
+@layer system-components {
+  /* =========================================================================
+   * SHELL
+   * =========================================================================
+   * Asymmetric, not bisected. The form column is fixed and sits left of
+   * centre; the supporting panel takes the remaining open area. A 50/50 split
+   * is the generic SaaS auth layout and is explicitly rejected.
+   * ====================================================================== */
+
+  .auth-shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 0;
+
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: var(--ui-space-6) var(--ui-space-4);
+
+    background: var(--ui-canvas);
+    color: var(--ui-ink);
+    font-family: var(--ui-font-sans);
+  }
+
+  /* =========================================================================
+   * FORM COLUMN
+   * =========================================================================
+   * Named `.auth-card` for the test contract only. There is no card: no
+   * background, no border, no shadow. The form sits on the canvas, which is
+   * what removes "white rectangle on a gradient" structurally rather than by
+   * restraint.
+   * ====================================================================== */
+
+  .auth-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-6);
+
+    width: 100%;
+    max-width: 24rem;          /* holds an email address at 16px unwrapped */
+    margin: 0 auto;
+    padding: 0;
+
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .auth-card > * {
+    margin: 0;
+    min-width: 0;
+  }
+
+  .auth-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-3);
+  }
+
+  /* The product name. Quiet: it orients, it does not announce. */
+  .auth-card-brand {
+    display: block;
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--ui-tracking-wide);
+    text-transform: uppercase;
+    color: var(--ui-ink-muted);
+  }
+
+  /* The largest thing on screen, and it names the task, never the product. */
+  .auth-card h1 {
+    margin: 0;
+    font-size: var(--ui-text-3xl);
+    font-weight: var(--ui-weight-semibold);
+    line-height: var(--ui-leading-tight);
+    letter-spacing: var(--ui-tracking-tight);
+    color: var(--ui-ink-strong);
+  }
+
+  /*
+   * The phone's orientation mark: one resolved rule echoing the resolved
+   * vector in Approach. Decorative, ~2px tall, so mobile carries the concept
+   * without the supporting panel's cost to the fold.
+   */
+  .auth-card-rule {
+    display: block;
+    width: 3rem;
+    height: 2px;
+    border-radius: var(--ui-radius-pill);
+    background: var(--ui-accent);
+    transform-origin: left center;
+    animation: ui-rule-resolve var(--ui-duration-move) var(--ui-ease-enter) both;
+  }
+
+  .auth-card-sub {
+    font-size: var(--ui-text-base);
+    line-height: var(--ui-leading-relaxed);
+    color: var(--ui-ink-muted);
+  }
+
+  /* =========================================================================
+   * FORM
+   * ====================================================================== */
+
+  .auth-card form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-5);
+    width: 100%;
+    margin: 0;
+  }
+
+  .auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-2);
+    min-width: 0;
+  }
+
+  .auth-card label {
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    line-height: var(--ui-leading-snug);
+    color: var(--ui-ink);
+  }
+
+  .auth-card input,
+  .auth-card select {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--ui-target-min);
+    padding: var(--ui-space-3) var(--ui-space-4);
+
+    /* 16px floor. Below this iOS Safari zooms on focus and leaves the page
+     * scrolled sideways. */
+    font-family: inherit;
+    font-size: var(--ui-text-md);
+    line-height: var(--ui-leading-normal);
+    color: var(--ui-ink-strong);
+
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line-strong);
+    border-radius: var(--ui-radius-control);
+    box-shadow: none;
+
+    /* Colour only. Nothing here changes size, so the target never moves. */
+    transition:
+      border-color var(--ui-duration-fast) var(--ui-ease-move),
+      background-color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .auth-card input::placeholder {
+    color: var(--ui-ink-faint);
+  }
+
+  .auth-card input:hover:not(:disabled),
+  .auth-card select:hover:not(:disabled) {
+    border-color: var(--ui-ink-faint);
+  }
+
+  .auth-card input:disabled,
+  .auth-card select:disabled {
+    background: var(--ui-surface-sunken);
+    color: var(--ui-ink-muted);
+    cursor: not-allowed;
+  }
+
+  /* =========================================================================
+   * PASSWORD FIELD
+   * =========================================================================
+   * The toggle sits INSIDE the input's reserved padding, never on top of the
+   * typed text. A Playwright assertion measures exactly this, because an
+   * earlier version rendered a filled button over the password.
+   * ====================================================================== */
+
+  .password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .password-input-wrapper input {
+    /* Reserve the toggle's width plus breathing room. */
+    padding-right: 4.5rem;
+  }
+
+  .password-toggle-btn {
+    position: absolute;
+    right: var(--ui-space-1);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 3.5rem;
+    min-height: var(--ui-target-min);
+    padding: 0 var(--ui-space-2);
+
+    font-family: inherit;
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-muted);
+
+    background: none;
+    border: 0;
+    border-radius: var(--ui-radius-control);
+    cursor: pointer;
+
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .password-toggle-btn:hover:not(:disabled) {
+    color: var(--ui-ink-strong);
+    /* Colour only. Moving the target on hover is never acceptable. */
+  }
+
+  .password-toggle-btn:disabled {
+    color: var(--ui-ink-faint);
+    cursor: not-allowed;
+  }
+
+  /* =========================================================================
+   * PRIMARY ACTION
+   * ====================================================================== */
+
+  .auth-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    min-height: var(--ui-target-min);
+    padding: var(--ui-space-3) var(--ui-space-5);
+
+    font-family: inherit;
+    font-size: var(--ui-text-md);
+    font-weight: var(--ui-weight-medium);
+    line-height: var(--ui-leading-snug);
+    color: var(--ui-ink-on-accent);
+
+    background: var(--ui-accent);
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius-control);
+    cursor: pointer;
+
+    transition:
+      background-color var(--ui-duration-fast) var(--ui-ease-move),
+      transform var(--ui-duration-instant) var(--ui-ease-move);
+  }
+
+  .auth-submit:hover:not(:disabled) {
+    background: var(--ui-accent-hover);
+  }
+
+  /* Tactile press. Reverses on release, and 80ms is below the threshold where
+   * it could feel like a delay. */
+  .auth-submit:active:not(:disabled) {
+    transform: scale3d(0.98, 0.98, 1);
+  }
+
+  .auth-submit:disabled {
+    background: var(--ui-ink-faint);
+    color: var(--ui-surface);
+    cursor: not-allowed;
+  }
+
+  /* =========================================================================
+   * STATUS
+   * =========================================================================
+   * Errors and confirmations sit ABOVE the fields. That placement is
+   * deliberate and predates this redesign: a failure rendered under a
+   * full-width button on a phone is frequently below the fold, so the user
+   * sees nothing happen and submits again.
+   *
+   * Neither state is signalled by colour alone — each carries its own text,
+   * and a left bar gives a second, non-chromatic cue.
+   * ====================================================================== */
+
+  .auth-card .error,
+  .auth-card .auth-success {
+    margin: 0;
+    padding: var(--ui-space-3) var(--ui-space-4);
+
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+
+    border-radius: var(--ui-radius-control);
+    border-left: 3px solid;
+
+    animation: ui-status-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+  }
+
+  .auth-card .error {
+    color: var(--ui-status-danger-fg);
+    background: var(--ui-status-danger-bg);
+    border-left-color: var(--ui-status-danger-border);
+  }
+
+  .auth-card .auth-success {
+    color: var(--ui-status-success-fg);
+    background: var(--ui-status-success-bg);
+    border-left-color: var(--ui-status-success-border);
+  }
+
+  /* =========================================================================
+   * FOOTER LINKS
+   * ====================================================================== */
+
+  .auth-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ui-space-4);
+  }
+
+  .auth-link {
+    display: inline-flex;
+    align-items: center;
+
+    /* Standalone navigation controls, so the full 44px floor applies. */
+    min-height: var(--ui-target-min);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-accent);
+    text-decoration: none;
+
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .auth-link:hover {
+    color: var(--ui-accent-hover);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  /* =========================================================================
+   * FOCUS
+   * =========================================================================
+   * AuthShell no longer carries `.v2-root`, so v2's focus reset no longer
+   * reaches auth. Declared here explicitly rather than left to a global.
+   * :focus-visible only, so a mouse click does not leave a ring but every
+   * keyboard user keeps one.
+   * ====================================================================== */
+
+  .auth-shell :focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+    border-radius: var(--ui-radius-control);
+  }
+
+  /* =========================================================================
+   * SUPPORTING PANEL
+   * =========================================================================
+   * Decorative and aria-hidden. Hidden below 900px: on a phone it would push
+   * the form under the fold, which is what made the original auth screens
+   * unusable at 320px. Two Playwright assertions pin this behaviour.
+   * ====================================================================== */
+
+  /*
+   * The legacy sheets paint this as a DARK chrome plane with a grid drawn in
+   * ::before. Both are inherited, not chosen, and both are banned: a dark
+   * surface contradicts the outdoor-legibility rule, and the grid reads as
+   * blueprint or graph paper. Screenshot review caught this while all 358
+   * assertions passed, which is exactly why the images are reviewed by eye.
+   *
+   * Reset explicitly. There is no panel here: the supporting area is open
+   * canvas so the composition has no seam and cannot read as a split screen.
+   */
+  .auth-brand {
+    display: none;
+    background: none;
+    border: 0;
+    box-shadow: none;
+    color: var(--ui-ink);
+  }
+
+  .auth-brand::before,
+  .auth-brand::after {
+    content: none;
+  }
+
+  .auth-brand__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-3);
+    max-width: 24rem;
+  }
+
+  .auth-eyebrow {
+    margin: 0;
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--ui-tracking-wide);
+    text-transform: uppercase;
+    color: var(--ui-ink-faint);
+  }
+
+  .auth-brand-title {
+    margin: 0;
+    font-size: var(--ui-text-xl);
+    font-weight: var(--ui-weight-semibold);
+    line-height: var(--ui-leading-snug);
+    letter-spacing: var(--ui-tracking-tight);
+    color: var(--ui-ink-strong);
+  }
+
+  .auth-brand-intro {
+    margin: 0;
+    font-size: var(--ui-text-base);
+    line-height: var(--ui-leading-relaxed);
+    color: var(--ui-ink-muted);
+  }
+
+  .auth-brand-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-4);
+    margin-top: var(--ui-space-2);
+  }
+
+  .auth-brand-list div {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-1);
+    padding-left: var(--ui-space-4);
+    border-left: 1px solid var(--ui-line);
+  }
+
+  .auth-brand-list strong {
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink);
+  }
+
+  .auth-brand-list span {
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+    color: var(--ui-ink-muted);
+  }
+
+  /* =========================================================================
+   * APPROACH
+   * =========================================================================
+   * Occupies open area only and never sits behind text, so it cannot degrade
+   * a contrast ratio. It draws ONCE — `both` fill, no iteration count.
+   * ====================================================================== */
+
+  .auth-approach {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .auth-approach__routes path {
+    fill: none;
+    stroke: var(--ui-line);
+    stroke-width: 1;
+    stroke-linecap: round;
+
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+    animation: ui-approach-draw 1100ms var(--ui-ease-enter) both;
+  }
+
+  .auth-approach__routes path:nth-child(2) { animation-delay: 60ms; }
+  .auth-approach__routes path:nth-child(3) { animation-delay: 120ms; }
+  .auth-approach__routes path:nth-child(4) { animation-delay: 180ms; }
+  .auth-approach__routes path:nth-child(5) { animation-delay: 240ms; }
+
+  /* Heavier and last, so the eye finishes at the destination. */
+  .auth-approach__resolved path {
+    fill: none;
+    stroke: var(--ui-accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+
+    /* The keyframe reads --ui-draw-from, which MUST match this path's own
+     * dasharray. Without it the resolved vector animates from the routes'
+     * 1200 offset against a 200 dasharray, so the dash pattern repeats and
+     * the line flickers instead of drawing. */
+    --ui-draw-from: 200;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: ui-approach-draw 700ms var(--ui-ease-enter) 420ms both;
+  }
+
+  /* =========================================================================
+   * DESKTOP
+   * =========================================================================
+   * The asymmetry begins here. The form column is fixed and sits left of
+   * centre; the supporting panel takes the remaining open area. Not 50/50.
+   * ====================================================================== */
+
+  @media (min-width: 900px) {
+    .auth-shell {
+      grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+      align-items: center;
+      gap: var(--ui-space-16);
+      padding: var(--ui-space-12) clamp(var(--ui-space-8), 6vw, var(--ui-space-20));
+    }
+
+    .auth-card {
+      margin: 0;
+      justify-self: end;
+    }
+
+    /* The phone's rule is redundant once Approach is present. */
+    .auth-card-rule {
+      display: none;
+    }
+
+    .auth-brand {
+      position: relative;
+      display: flex;
+
+      /* Centred, not bottom-aligned. Register's form is much taller than
+       * Login's, and flex-end pushed the supporting text off the bottom of
+       * the viewport where it was clipped. Centring makes the panel
+       * independent of the form's height. */
+      align-items: center;
+
+      min-height: 26rem;
+      height: 100%;
+      padding: var(--ui-space-8) 0;
+
+      /* No overflow clip and no background: Approach bleeds off the right
+       * edge of the viewport rather than sitting in a bounded box. A box here
+       * would reinstate the seam and turn this back into a split screen. */
+      overflow: visible;
+    }
+
+    .auth-brand__body {
+      position: relative;   /* above Approach, which is absolutely placed */
+    }
+  }
+
+  /* Beyond the reference width the composition anchors rather than stretching;
+   * Approach simply gains open area, which is the point. */
+  @media (min-width: 1600px) {
+    .auth-shell {
+      max-width: 108rem;
+      margin: 0 auto;
+    }
+  }
+}
+
+/* ===========================================================================
+ * KEYFRAMES
+ * ===========================================================================
+ * Transform, opacity and stroke-dashoffset only. stroke-dashoffset is not
+ * compositor-accelerated, which is precisely why Approach draws once and
+ * never loops.
+ * ======================================================================== */
+
+@keyframes ui-approach-draw {
+  from { stroke-dashoffset: var(--ui-draw-from, 1200); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes ui-rule-resolve {
+  from { opacity: 0; transform: scale3d(0, 1, 1); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ui-status-in {
+  from { opacity: 0; transform: translate3d(0, -4px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * A designed mode, not a disabled one. Approach shows its RESOLVED figure
+ * immediately: the picture is the point, not the drawing of it. Status
+ * messages still appear, because their arrival is information.
+ * ======================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .auth-approach__routes path,
+    .auth-approach__resolved path {
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+
+    .auth-card-rule {
+      animation: none;
+    }
+
+    .auth-card .error,
+    .auth-card .auth-success {
+      animation-name: ui-fade-in;
+    }
+
+    .auth-submit:active:not(:disabled) {
+      transform: none;
+    }
+  }
+}

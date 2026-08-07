@@ -126,6 +126,44 @@
   --ui-focus:           var(--ui-indigo-500);
 
   /* =========================================================================
+   * 2b. STATUS
+   * =========================================================================
+   * Status colour communicates status ONLY and is never used as branding.
+   * That is why the accent is indigo: red, amber, green, blue and slate all
+   * carry meaning here and none of them may be borrowed for identity.
+   *
+   * These duplicate the V1 status scale by VALUE rather than aliasing it, so
+   * this system carries no dependency on `styles/core/tokens.css` and does
+   * not break when V1 is deleted. The meanings are unchanged from the V1
+   * system, deliberately: the semantics were correct and users have learned
+   * them.
+   *
+   * Every -fg on its -bg clears 4.5:1, verified by tools/fresh_ui/
+   * token_audit.py. State is never signalled by colour alone; every status
+   * keeps its text label and a non-chromatic cue.
+   * ====================================================================== */
+
+  --ui-status-danger-bg:      #fee2e2;
+  --ui-status-danger-fg:      #b91c1c;
+  --ui-status-danger-border:  #ef4444;
+
+  --ui-status-success-bg:     #dcfce7;
+  --ui-status-success-fg:     #15803d;
+  --ui-status-success-border: #22c55e;
+
+  --ui-status-warning-bg:     #fef3c7;
+  --ui-status-warning-fg:     #b45309;
+  --ui-status-warning-border: #f59e0b;
+
+  --ui-status-info-bg:        #dbeafe;
+  --ui-status-info-fg:        #1d4ed8;
+  --ui-status-info-border:    #3b82f6;
+
+  --ui-status-neutral-bg:     #e2e8f0;
+  --ui-status-neutral-fg:     #334155;
+  --ui-status-neutral-border: #94a3b8;
+
+  /* =========================================================================
    * 3. ELEVATION
    * =========================================================================
    * Tinted to the canvas hue, never pure black. Four steps only; a fifth

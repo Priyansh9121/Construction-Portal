@@ -92,3 +92,4 @@ coverage/
 # an earlier version of this comment referred to a checked-in
 # schema-production.sql that no longer exists in the repository.
 backend/database/snapshots/*.local.sql
+.screenshots/
