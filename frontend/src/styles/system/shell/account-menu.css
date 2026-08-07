@@ -1,0 +1,216 @@
+/*
+ * ===========================================================================
+ * ACCOUNT MENU — the panel
+ * ===========================================================================
+ *
+ * File purpose:
+ * The disclosure opened by the topbar's account trigger. Answers "who am I
+ * acting as" and carries the single destructive action in the shell.
+ *
+ * SCOPE OF THIS UNIT (S-A3a):
+ * The account PANEL only. The notification panel and the command palette are
+ * separate units, because each carries its own Escape-arbitration surface and
+ * splitting them keeps every unit verifiable on its own.
+ *
+ * SCOPE SAFETY (SHELL-003):
+ * `.account-panel`, `.account-identity` and `.account-action*` were searched
+ * across every source file and appear only in Topbar.jsx.
+ *
+ * `.badge` IS NOT STYLED HERE. The panel renders `badge badge--neutral` for
+ * the role, and `.badge` is generic across business routes. Styling it from a
+ * shell sheet is the AUTH-020 failure exactly, so the badge keeps its legacy
+ * appearance until the badge system itself is migrated.
+ *
+ * BEHAVIOUR THIS MUST NOT DISTURB (SHELL-005):
+ * Escape and outside-click are owned by useDismissableOverlay, which arbitrates
+ * via a module-scoped stack plus a DOM check on
+ * `.command-backdrop, .modal-backdrop`. This panel is a DROPDOWN, not a modal
+ * surface: it deliberately carries neither of those class names, so it stays
+ * outranked by the palette and any dialog. Adding either class here would
+ * invert the precedence and make this menu swallow Escape from a modal.
+ *
+ * OWNING THE LEGACY RULE COMPLETELY (SHELL-007, SHELL-008):
+ * core/shell.css and v2/shell/overlays.css both still define these selectors.
+ * Every property that matters is set below, and any legacy conditional this
+ * file overrides is restated. A property left unset stays legacy; a property
+ * set unconditionally destroys a legacy conditional.
+ */
+
+@layer system-components {
+  /* =========================================================================
+   * PANEL
+   * =========================================================================
+   * Anchored to `.account-menu`, which is already position: relative from the
+   * topbar unit. Right-aligned because the trigger sits at the end of the bar
+   * and a left-aligned panel would hang off the viewport on a phone.
+   * ====================================================================== */
+
+  .account-panel {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-start: calc(100% + var(--ui-space-2));
+    z-index: 50;
+
+    display: flex;
+    flex-direction: column;
+    min-width: 15rem;
+
+    /* Never wider than the viewport gutter allows. The trigger is at the
+     * screen edge on a phone, so an unbounded panel would overflow. */
+    max-width: calc(100vw - var(--ui-space-8));
+
+    padding: 0;
+    overflow: hidden;
+
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-container);
+
+    /* Elevation, not a heavy shadow. Tinted to the canvas hue. */
+    box-shadow: var(--ui-elevation-3);
+
+    font-family: var(--ui-font-sans);
+    color: var(--ui-ink);
+
+    /* Origin at the trigger, so the panel reads as coming FROM the control
+     * that opened it rather than appearing from nowhere. Transform and
+     * opacity only. */
+    transform-origin: top right;
+    animation: ui-menu-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+  }
+
+  /* =========================================================================
+   * IDENTITY
+   * =========================================================================
+   * Who you are and which role you hold. The role is the shell's answer to
+   * "who am I acting as", which the sidebar footer also carries; both exist
+   * because the sidebar is off-canvas on a phone.
+   * ====================================================================== */
+
+  .account-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ui-space-1);
+
+    padding: var(--ui-space-4);
+    border-bottom: 1px solid var(--ui-line-faint);
+    background: var(--ui-surface-sunken);
+  }
+
+  .account-identity strong {
+    max-width: 100%;
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* An email address is long and must never widen the panel. */
+  .account-identity small {
+    max-width: 100%;
+    font-size: var(--ui-text-xs);
+    color: var(--ui-ink-muted);
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Breathing room above the role badge, whose own styling stays legacy. */
+  .account-identity .badge {
+    margin-top: var(--ui-space-1);
+  }
+
+  /* =========================================================================
+   * ACTIONS
+   * ====================================================================== */
+
+  .account-action {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+
+    width: 100%;
+    min-height: var(--ui-target-min);
+    padding: var(--ui-space-3) var(--ui-space-4);
+
+    font-family: inherit;
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    text-align: start;
+    color: var(--ui-ink);
+
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    cursor: pointer;
+
+    transition:
+      color var(--ui-duration-fast) var(--ui-ease-move),
+      background-color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .account-action:hover {
+    background: var(--ui-surface-sunken);
+    color: var(--ui-ink-strong);
+  }
+
+  .account-action svg {
+    flex: none;
+    color: var(--ui-ink-faint);
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .account-action:hover svg {
+    color: currentColor;
+  }
+
+  /*
+   * Sign out. Danger ink on hover only, never a filled red button at rest:
+   * logging out is routine and reversible, and a permanently red control in
+   * the shell would read as an alarm on every screen. The label itself
+   * carries the meaning, so this is not state signalled by colour alone.
+   */
+  .account-action--danger {
+    color: var(--ui-ink);
+  }
+
+  .account-action--danger:hover {
+    color: var(--ui-status-danger-fg);
+    background: var(--ui-status-danger-bg);
+  }
+
+  .account-action--danger:hover svg {
+    color: var(--ui-status-danger-fg);
+  }
+
+  .account-panel :focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: calc(var(--ui-focus-ring-offset) * -1);
+    outline-color: var(--ui-focus);
+  }
+}
+
+@keyframes ui-menu-in {
+  from { opacity: 0; transform: scale3d(0.97, 0.97, 1) translate3d(0, -4px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * The panel still announces its arrival, it just does not scale or travel.
+ * ======================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .account-panel {
+      animation-name: ui-fade-in;
+    }
+  }
+}
