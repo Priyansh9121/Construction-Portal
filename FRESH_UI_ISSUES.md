@@ -878,3 +878,62 @@ The obvious A–E split in the brief does **not** survive SHELL-001. Revised:
 **S-A is large and cannot be split.** It touches five components and roughly
 1,000 lines of CSS in one pass. It must not be started without the budget to
 finish it.
+
+
+---
+
+## SHELL-005 — `.command-backdrop` and `.modal-backdrop` are behavioural contracts, not style hooks
+
+| Field | Value |
+|---|---|
+| Class | **B** (shell programme) |
+| Category | behaviour / architecture |
+| Severity | **High** |
+| Files | `hooks/useDismissableOverlay.js:49,91` |
+| Status | **Proposed** — must not be solved during discovery |
+
+**Description.** `useDismissableOverlay.js` arbitrates Escape between four
+listeners: the command palette (window), the mobile drawer (document), the
+account menu and the notification panel. Two rules resolve them.
+
+1. A module-scoped stack of open overlays, each holding an **object identity
+   token** rather than an index, so closing out of order stays correct. Only
+   the most recently opened dropdown responds to Escape.
+2. **A modal surface outranks every dropdown**, detected by a literal DOM
+   query:
+
+```js
+const MODAL_SURFACES = ".command-backdrop, .modal-backdrop";
+...
+if (document.querySelector(MODAL_SURFACES)) {
+  return;   // let the modal own the key
+}
+```
+
+Rule 2 is a class-selector check *by design*: the source comment states it was
+chosen so the palette's and drawer's own handlers stay completely untouched.
+
+**Why this is High.** These two class names look like styling hooks and would
+be renamed without a second thought during a shell restyle. If either is
+renamed or dropped, `document.querySelector` silently returns null, rule 2
+stops firing, and **one Escape closes an underlying notification or account
+overlay while a modal is still open.** Nothing throws. The only thing standing
+between that and production is a single existing assertion,
+`authenticated.spec.js:417` — *"a modal surface outranks the notification panel
+for Escape"*.
+
+**Consequence for S-A.** Overlay styling and overlay behaviour are entangled
+through class names, which reinforces SHELL-001: the overlays cannot be
+restyled independently of their behaviour.
+
+**Recommendation, to be decided in the implementation session, not now.**
+Either:
+
+- **Preserve both class names verbatim through S-A** — the low-risk option; or
+- **Deliberately separate the behavioural hook from styling**, for example a
+  `data-modal-surface` attribute queried instead of a class, and add tests
+  covering each overlay pairing rather than relying on the single existing
+  assertion.
+
+Choosing the second option without adding those tests would be strictly worse
+than leaving it alone.
