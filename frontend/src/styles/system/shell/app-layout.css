@@ -1,0 +1,116 @@
+/*
+ * ===========================================================================
+ * APP LAYOUT — the authenticated shell root
+ * ===========================================================================
+ *
+ * File purpose:
+ * The outer frame of every authenticated page. Its job is to establish the
+ * environment and then be invisible.
+ *
+ * SCOPE OF THIS UNIT (S-A4a1):
+ * `.app-layout` ONLY. `.main-content` and `.page-content` are deliberately
+ * untouched and keep their legacy rules; they get their own units. `.v2-root`
+ * stays on the element, per S-A5 ownership.
+ *
+ * PROPERTY OWNERSHIP MATRIX (SHELL-008)
+ * Every property currently reaching `.app-layout`, from where, and the
+ * decision taken. Nothing is left active by accident.
+ *
+ *   display
+ *     core/shell.css      flex
+ *     v2/app-shell.css    grid          <- wins today
+ *     DECISION: REPLACE with grid. The sidebar unit already assumes a grid
+ *     track at >=1024px, where `.sidebar` becomes sticky and in-flow.
+ *
+ *   grid-template-columns
+ *     v2/app-shell.css    1fr, and at >=1024px `var(--v2-sidebar-w) minmax(0,1fr)`
+ *     DECISION: REPLACE. Restated below INCLUDING the 1024px breakpoint,
+ *     because overriding the base value while leaving the media query to the
+ *     legacy sheet is exactly the SHELL-008 trap.
+ *
+ *     The desktop track no longer names a width. It was coupled to
+ *     `--v2-sidebar-w`, while the migrated sidebar is 17rem; two sources for
+ *     one measurement is a gap or an overlap waiting to happen. `auto` takes
+ *     the width from the sidebar itself, so there is now exactly one.
+ *
+ *   min-height
+ *     core/shell.css      100vh then 100dvh
+ *     v2/app-shell.css    100vh then 100dvh
+ *     DECISION: PRESERVE, verbatim. The pair is deliberate: `100dvh` accounts
+ *     for mobile browser chrome that appears and disappears on scroll, and the
+ *     `100vh` line before it is the fallback for engines without dvh. Dropping
+ *     either is a mobile regression.
+ *
+ *   background
+ *     core/shell.css      var(--bg-page)
+ *     v2/app-shell.css    var(--v2-page)   <- wins today
+ *     DECISION: REPLACE with --ui-canvas. This is the base canvas of the
+ *     authenticated product and is a bucket-A appearance change, verified by
+ *     screenshot on unmigrated routes.
+ *
+ *   color  and  font-family
+ *     v2/app-shell.css    color: var(--v2-text)
+ *     DECISION: **NOT SET HERE.** Both are INHERITED properties. Setting them
+ *     on the root cascades into every descendant that does not declare its
+ *     own, and most unmigrated page components do not. A first version of this
+ *     file set both; the leak probe reported 41 descendant differences across
+ *     five routes — card colour changing from rgb(13,16,23) to rgb(47,46,42),
+ *     and the font stack changing on buttons, inputs, selects, headings and
+ *     cards. See SHELL-016.
+ *
+ *     The authenticated root therefore owns only NON-INHERITED properties
+ *     while pages remain unmigrated. Typography and text colour move with the
+ *     pages themselves, not ahead of them.
+ *
+ *   min-width: 0
+ *     core/responsive.css:34, shared with .main-content, .page-content, .panel,
+ *     .card and others.
+ *     DECISION: PRESERVE and do not touch. A grid child will not shrink below
+ *     its content without it, and this single rule is what stops one wide
+ *     table widening the entire page. It lives in a shared rule this unit has
+ *     no business editing, so it is deliberately left where it is.
+ *
+ * WHAT THIS FILE MUST NEVER ADD (SHELL-005):
+ * no `transform`, `filter`, `backdrop-filter`, `will-change`, `perspective`
+ * or `contain`. Any of those makes this element the containing block for
+ * `position: fixed` descendants, which would trap the sidebar drawer, the
+ * command palette backdrop and the skip link inside the frame and silently
+ * break overlay layering. `isolation` is likewise not set: it is not needed,
+ * and a new stacking context here is a risk with no benefit.
+ *
+ * OVERFLOW is deliberately NOT set. `overflow-x: hidden` on the root would
+ * conceal genuine page overflow, and every responsive probe in this project
+ * depends on that overflow remaining measurable.
+ */
+
+@layer system-components {
+  .app-layout {
+    display: grid;
+
+    /* One column until the sidebar becomes structure. Below 1024px the
+     * sidebar is `position: fixed` and therefore out of flow, so the frame
+     * has a single in-flow child. */
+    grid-template-columns: 1fr;
+
+    min-height: 100vh;
+    min-height: 100dvh;
+
+    /* Not inherited, so it cannot reach descendants: safe to own now. */
+    background: var(--ui-canvas);
+  }
+
+  /* =========================================================================
+   * DESKTOP — the sidebar becomes structure
+   * =========================================================================
+   * Restated here rather than inherited, per SHELL-008. `auto` sizes the
+   * track from the sidebar itself, so the sidebar's width is stated in one
+   * place only. `minmax(0, 1fr)` on the content track is what allows a wide
+   * table to scroll inside the page instead of widening it.
+   * ====================================================================== */
+
+  @media (min-width: 1024px) {
+    .app-layout {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+  }
+}

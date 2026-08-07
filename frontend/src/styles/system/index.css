@@ -37,6 +37,7 @@
 /* Route groups. Each declares its own layer internally, so it is imported
  * without one here. Auth is the first group migrated onto this system. */
 @import "./auth/auth.css";
+@import "./shell/app-layout.css";
 @import "./shell/sidebar.css";
 @import "./shell/topbar.css";
 @import "./shell/account-menu.css";
