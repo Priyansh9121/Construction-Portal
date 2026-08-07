@@ -27,7 +27,10 @@
  */
 
 import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+
 import AuthShell, { AuthLink } from "../components/auth/AuthShell";
+import { describeDestination } from "../utils/authDestinations";
 
 function LoginPage({
   email,
@@ -40,6 +43,19 @@ function LoginPage({
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState("");
+
+  /*
+   * Orientation, not navigation.
+   *
+   * axiosClient writes /login?next=<path> when a session expires mid-task, and
+   * App.jsx already decides where sign-in leads. This only reads that value to
+   * name the destination, so a user who was bounced can see their place was
+   * kept. describeDestination allow-lists exact paths and returns a fixed
+   * string from its own table, so the raw parameter is never rendered and an
+   * unrecognised value simply shows nothing. No redirect behaviour changes.
+   */
+  const [searchParams] = useSearchParams();
+  const destination = describeDestination(searchParams.get("next"));
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -95,7 +111,11 @@ function LoginPage({
       title="Construction Portal"
       intro="Access the projects, finance, workforce and progress tools assigned to your account."
       heading="Sign in"
-      subheading="Enter your registered account details."
+      subheading={
+        destination
+          ? `Continue to ${destination}.`
+          : "Enter your registered account details."
+      }
       aside={
         <div className="auth-brand-list">
           <div>
@@ -127,15 +147,14 @@ function LoginPage({
         </div>
       }
       footer={
-        <>
-          <AuthLink to="/forgot-password">
-            Forgot password?
-          </AuthLink>
-
-          <AuthLink to="/register">
-            Create account
-          </AuthLink>
-        </>
+        /*
+         * One footer action. "Forgot password?" moved up beside the password
+         * label, which leaves account creation as the single remaining
+         * alternative rather than two links competing for the same row.
+         */
+        <AuthLink to="/register">
+          Create account
+        </AuthLink>
       }
     >
         <form onSubmit={handleSubmit}>
@@ -179,9 +198,22 @@ function LoginPage({
           </div>
 
           <div className="auth-field">
-          <label htmlFor="login-password">
-            Password
-          </label>
+          {/*
+            The recovery link sits with the password label rather than in the
+            footer, because that is the moment the user realises they have
+            forgotten it. Reading order stays logical: the field is named, then
+            its escape hatch, then the control. It is a link rather than a
+            field, so it does not interrupt the credential sequence.
+          */}
+          <div className="auth-field__row">
+            <label htmlFor="login-password">
+              Password
+            </label>
+
+            <Link className="auth-field__action" to="/forgot-password">
+              Forgot password?
+            </Link>
+          </div>
 
           <div className="password-input-wrapper">
             <input

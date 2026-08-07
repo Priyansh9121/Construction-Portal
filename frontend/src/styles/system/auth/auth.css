@@ -151,6 +151,43 @@
     min-width: 0;
   }
 
+  /*
+   * A label paired with an inline action, currently the password field's
+   * recovery link. Baseline-aligned so the label and the link read as one
+   * line rather than two stacked things.
+   */
+  .auth-field__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    min-width: 0;
+
+    /* The row carries the 44px floor so the inline link is a real target
+     * without needing padding that would push the label off its own line. */
+    min-height: var(--ui-target-min);
+  }
+
+  .auth-field__action {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ui-target-min);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-accent);
+    text-decoration: none;
+
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .auth-field__action:hover {
+    color: var(--ui-accent-hover);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
   .auth-card label {
     font-size: var(--ui-text-sm);
     font-weight: var(--ui-weight-medium);

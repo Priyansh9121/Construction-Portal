@@ -227,6 +227,133 @@ path renders no label at all.
 
 ---
 
+## AUTH-011 — Status side-bar claimed an accessibility role it did not have
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | accessibility / visual |
+| Severity | Medium |
+| Files | `styles/system/auth/auth.css` |
+| Status | **Verified** (fixed in `2765857`) |
+
+**Description.** Auth status messages carried a 3px coloured left border,
+documented in the stylesheet as "a second, non-chromatic cue" supporting the
+product rule that state is never signalled by colour alone. The border was
+drawn in the same hue family as the message background and text, so it
+conveyed nothing additional to a colour-blind reader. The design detector
+separately flagged it as a side-tab accent, a generated-UI tell.
+
+**Why it mattered.** A decorative stripe carrying a false accessibility
+justification is worse than an unjustified stripe: it makes the codebase
+assert a guarantee it is not delivering.
+
+**Resolution.** Border removed, replaced by a 1px border in the status hue for
+legibility only. The real cue is the message text, always present and
+announced via `role="alert"` or `role="status"`. Comment corrected to state
+the actual mechanism. Detector clean.
+
+---
+
+## AUTH-012 — Supporting panel inherited a dark plane and a grid
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | visual / accessibility |
+| Severity | High |
+| Files | `styles/system/auth/auth.css` |
+| Status | **Verified** (fixed in `bd6ff45`) |
+
+**Description.** During the shared migration `.auth-brand` had `display` set
+but not `background`, so the legacy dark chrome plane and its `::before` grid
+still applied. The panel rendered near-black with a grid, and the supporting
+text rendered dark-on-dark.
+
+**User impact.** A live contrast failure, a dark surface contradicting the
+confirmed outdoor-legibility rule, and a grid reading as the blueprint
+vocabulary the direction rejects.
+
+**How it was found.** Screenshot review. All 358 assertions passed while this
+was on screen, which is why images are reviewed by eye rather than trusted to
+automated checks.
+
+---
+
+## AUTH-013 — Register labels sat closer to the wrong field
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | accessibility / visual |
+| Severity | Medium |
+| Route | `/register` |
+| Files | `pages/RegisterPage.jsx` |
+| Status | **Verified** (fixed in `bd6ff45`) |
+
+**Description.** Register was the only auth route without `auth-field`
+wrappers, so the form's uniform gap applied equally between every label and
+every control. Each label sat nearer the field above it than its own input,
+inverting the proximity relationship.
+
+**Resolution.** Wrappers added, matching the three sibling routes. Markup
+only; no behaviour, validation or payload change. Closes AUTH-008.
+
+---
+
+## AUTH-014 — Inline recovery link had no touch-target floor
+
+| Field | Value |
+|---|---|
+| Class | **A** |
+| Category | accessibility |
+| Severity | Medium |
+| Route | `/login` |
+| Files | `styles/system/auth/auth.css` |
+| Status | **Verified** (fixed in Boundary B) |
+
+**Description.** Moving "Forgot password?" beside the password label
+introduced `.auth-field__action`, initially styled as plain inline text with
+no height floor. PRODUCT.md records 44 × 44 px as a tested guarantee.
+
+**Resolution.** The label row carries `min-height: var(--ui-target-min)` and
+the link is `inline-flex` at the same floor, so the target is real without
+padding that would push the label off its line. Measured at 105 × 44.
+
+---
+
+## AUTH-009 — RESOLVED: ?next= orientation implemented safely
+
+Superseding the earlier "Needs Manual Decision" status.
+
+| Field | Value |
+|---|---|
+| Class | **A** (presentational only) |
+| Status | **Verified** (Boundary B) |
+| Files | `utils/authDestinations.js`, `pages/LoginPage.jsx` |
+
+**Implementation.** `describeDestination` allow-lists exact paths against a
+fixed table and returns a string from that table. Login renders it as its
+subheading: `Continue to Payments.`
+
+**Security properties, each verified at runtime by
+`tools/fresh_ui/verify_login_pass.mjs`:**
+
+- an allow-listed path names its destination;
+- an unknown path falls back to the normal copy;
+- **the raw parameter never reaches the DOM**, verified by injecting
+  `/evil<script>x</script>` and asserting the substring is absent from
+  `document.body.innerHTML`;
+- an absolute URL such as `https://evil.example/dashboard` is refused;
+- paths with extra segments, for example `/tenders/482`, do not match, so no
+  record ID is ever disclosed.
+
+**No routing change.** The helper performs no navigation and is consulted by
+no routing decision. `axiosClient` still writes the parameter and `App.jsx`
+still decides the destination, both untouched.
+
+---
+
 ## AUTH-010 — Login and Register have no success state
 
 | Field | Value |
