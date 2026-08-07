@@ -1,0 +1,286 @@
+/*
+ * ===========================================================================
+ * COMMAND PALETTE — the navigation instrument
+ * ===========================================================================
+ *
+ * File purpose:
+ * The Ctrl/Cmd+K surface: type, see where you can go, press Enter.
+ *
+ * SCOPE OF THIS UNIT (S-A3c):
+ * CSS only. CommandPalette.jsx is NOT touched, so the shortcut, the filter,
+ * Escape, outside-click, activation and every destination are preserved by
+ * construction.
+ *
+ * SELECTOR SCOPE, CHECKED BEFORE WRITING:
+ * `.command-backdrop`, `.command-modal`, `.command-header`, `.command-results`
+ * and `.command-empty` appear in no file other than CommandPalette.jsx. The
+ * result rows and the input are BARE elements, so they are styled only as
+ * descendants — `.command-results button`, `.command-header input` — never as
+ * element rules, which would reach every unmigrated business route.
+ *
+ * SHELL-005: `.command-backdrop` IS THE BEHAVIOURAL HOOK.
+ * useDismissableOverlay queries `.command-backdrop, .modal-backdrop` to decide
+ * that this surface outranks every dropdown for Escape. The class name is
+ * preserved exactly and is styled here rather than replaced. `.modal-backdrop`
+ * is NOT added, because this component never used it and adding it would
+ * change nothing except widen the hook's surface.
+ *
+ * MOTION IS OWNED BY THE COMPONENT, NOT BY THIS FILE.
+ * CommandPalette.jsx animates the modal inline through Framer Motion
+ * (`initial`/`animate`/`exit`, 0.22s). This stylesheet therefore does NOT
+ * animate `.command-modal`: two systems animating one element fight over the
+ * same frames. Only the backdrop, which Framer does not drive, gets a CSS
+ * transition. See SHELL-012 for the reduced-motion consequence of that
+ * ownership, recorded rather than patched from here.
+ *
+ * SHELL-008 and SHELL-009 are in force: legacy conditionals overridden below
+ * are restated, and paired insets are neutralised explicitly.
+ */
+
+@layer system-components {
+  /* =========================================================================
+   * BACKDROP
+   * =========================================================================
+   * Covers the viewport completely, including behind the sticky topbar, so
+   * the palette reads as taking over rather than floating on top of a live
+   * interface. Dim rather than blurred: a heavy backdrop-filter costs a
+   * full-screen repaint on the phones this product targets, and it buys
+   * nothing once the palette itself is opaque.
+   * ====================================================================== */
+
+  .command-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+
+    /* Sits below the top of the viewport rather than dead-centre: the eye
+     * starts high, and a centred dialog on a tall desktop pushes results
+     * further from the input than they need to be. */
+    padding: clamp(var(--ui-space-8), 12vh, 9rem) var(--ui-space-4)
+      var(--ui-space-8);
+
+    background: color-mix(in srgb, var(--ui-neutral-900) 42%, transparent);
+
+    /* The legacy sheet blurs the backdrop. Cleared explicitly: a full-screen
+     * backdrop-filter costs a whole-viewport repaint on the phones this
+     * product targets, and it buys nothing once the palette itself is opaque.
+     * Screenshot review caught the inherited blur; no assertion did.
+     * SHELL-008 once more — an unset property stays legacy. */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+
+    animation: ui-fade-in var(--ui-duration-fast) var(--ui-ease-enter) both;
+  }
+
+  /* =========================================================================
+   * MODAL
+   * =========================================================================
+   * No transform, no animation, no transition here: Framer Motion owns this
+   * element's motion inline. Layout, surface and type only.
+   * ====================================================================== */
+
+  .command-modal {
+    display: flex;
+    flex-direction: column;
+
+    width: 100%;
+    max-width: 34rem;
+    max-height: min(30rem, calc(100dvh - 8rem));
+    overflow: hidden;
+
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-container);
+    box-shadow: var(--ui-elevation-3);
+
+    font-family: var(--ui-font-sans);
+    color: var(--ui-ink);
+  }
+
+  /* =========================================================================
+   * HEADER
+   * =========================================================================
+   * The input is the whole header. It carries no border of its own because
+   * the header's bottom rule already separates it from the results; a boxed
+   * input inside a box is the "dialog with a form in it" look this is not.
+   * ====================================================================== */
+
+  .command-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+    flex: none;
+
+    padding: var(--ui-space-2) var(--ui-space-4);
+    border-bottom: 1px solid var(--ui-line-faint);
+    background: none;
+  }
+
+  .command-header input {
+    flex: 1;
+    min-width: 0;
+    min-height: var(--ui-target-min);
+    padding: 0;
+
+    font-family: inherit;
+    /* 16px floor: below this iOS Safari zooms the whole dialog on focus. */
+    font-size: var(--ui-text-md);
+    color: var(--ui-ink-strong);
+
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    outline: none;
+  }
+
+  .command-header input::placeholder {
+    color: var(--ui-ink-faint);
+  }
+
+  /* The ESC hint. A quiet key cap, not a button: it is a statement about the
+   * keyboard, not something to click. */
+  .command-header span {
+    flex: none;
+
+    padding: var(--ui-space-1) var(--ui-space-2);
+
+    font-size: var(--ui-text-2xs);
+    font-weight: var(--ui-weight-semibold);
+    letter-spacing: var(--ui-tracking-wide);
+    color: var(--ui-ink-muted);
+
+    background: var(--ui-surface-sunken);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-control);
+  }
+
+  /* =========================================================================
+   * RESULTS
+   * =========================================================================
+   * Name first, destination second. The path is shown because this palette
+   * navigates: seeing where Enter lands is the whole point, and it is the
+   * wayfinding answer to "what happens next".
+   * ====================================================================== */
+
+  .command-results {
+    flex: 1;
+    min-height: 0;
+    padding: var(--ui-space-2);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .command-results button {
+    display: flex;
+    align-items: baseline;
+    gap: var(--ui-space-3);
+
+    width: 100%;
+    min-height: var(--ui-target-min);
+    padding: var(--ui-space-2) var(--ui-space-3);
+
+    font-family: inherit;
+    font-size: var(--ui-text-sm);
+    text-align: start;
+    color: var(--ui-ink);
+
+    background: none;
+    border: 0;
+    border-radius: var(--ui-radius-control);
+    box-shadow: none;
+    cursor: pointer;
+
+    transition: background-color var(--ui-duration-instant) var(--ui-ease-move);
+  }
+
+  /* Hover and keyboard focus read identically, so a pointer user and a
+   * keyboard user are looking at the same "this one" state. */
+  .command-results button:hover,
+  .command-results button:focus-visible {
+    background: var(--ui-accent-subtle);
+    color: var(--ui-accent);
+    outline: none;
+  }
+
+  .command-results button span {
+    flex: 1;
+    min-width: 0;
+    font-weight: var(--ui-weight-medium);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The destination. Muted and tabular-free; it is reference, not a label. */
+  .command-results button small {
+    flex: none;
+    font-size: var(--ui-text-xs);
+    color: var(--ui-ink-faint);
+  }
+
+  .command-results button:hover small,
+  .command-results button:focus-visible small {
+    color: var(--ui-accent);
+  }
+
+  /* =========================================================================
+   * EMPTY
+   * ====================================================================== */
+
+  .command-empty {
+    padding: var(--ui-space-8) var(--ui-space-4);
+
+    font-size: var(--ui-text-sm);
+    text-align: center;
+    color: var(--ui-ink-muted);
+  }
+
+  /* =========================================================================
+   * PHONE
+   * =========================================================================
+   * Not a shrunken desktop dialog: the palette starts near the top so the
+   * keyboard does not cover the results, and the destination path is dropped
+   * because at 320px it competes with the name it is describing.
+   * ====================================================================== */
+
+  @media (max-width: 479px) {
+    .command-backdrop {
+      padding: var(--ui-space-4) var(--ui-space-3) var(--ui-space-8);
+      align-items: flex-start;
+    }
+
+    .command-modal {
+      max-height: calc(100dvh - 6rem);
+    }
+
+    .command-results button small {
+      display: none;
+    }
+  }
+}
+
+/* ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * Only the backdrop is CSS-driven, so only the backdrop can be calmed here.
+ * The modal's entrance is a Framer Motion prop inside the component and is
+ * NOT reachable from a stylesheet; that gap is recorded as SHELL-012 rather
+ * than papered over with an !important override that would fight the library.
+ * ======================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .command-backdrop {
+      animation-duration: 1ms;
+    }
+
+    .command-results button {
+      transition: none;
+    }
+  }
+}
