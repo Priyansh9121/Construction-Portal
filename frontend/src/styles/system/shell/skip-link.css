@@ -1,0 +1,102 @@
+/*
+ * ===========================================================================
+ * SKIP LINK
+ * ===========================================================================
+ *
+ * File purpose:
+ * The first thing a keyboard user reaches on any authenticated page, and the
+ * only way past fifteen navigation links to the content they came for.
+ *
+ * SCOPE OF THIS UNIT (S-A4c):
+ * `.skip-link` only. The rest of the frame — `.app-layout`, `.main-content`,
+ * `.page-content` — is deliberately NOT migrated here. Those three wrap every
+ * unmigrated business route and changing their geometry is the single highest
+ * leakage risk in the shell (SHELL-003), so they get their own unit with a
+ * before/after computed-style comparison. The skip link changes no page
+ * geometry at all, which is exactly why it can ship alone.
+ *
+ * SELECTOR SCOPE, VERIFIED:
+ * `.skip-link` appears only in AppLayout.jsx. No business route uses it.
+ *
+ * BEHAVIOUR PRESERVED:
+ * AppLayout.jsx is untouched. The link's target, its position as the first
+ * focusable element and its activation are unchanged; this file governs only
+ * whether it can be seen.
+ *
+ * OWNING THE LEGACY RULE (SHELL-008):
+ * `v2/shell/app-shell.css:65` positions it absolutely, paints it with
+ * `--v2-action`, and reveals it through a `:focus` rule. Every one of those
+ * properties is restated below rather than left half-overridden, including the
+ * reveal mechanism, because a skip link that fails to appear on focus is
+ * invisible to exactly the user it exists for.
+ *
+ * WHY IT IS HIDDEN BY POSITION, NOT BY `display` OR `visibility`:
+ * Both of those remove an element from the accessibility tree and the tab
+ * order, which would defeat the entire control. It stays in the document,
+ * translated off the top edge, and returns on focus.
+ */
+
+@layer system-components {
+  .skip-link {
+    position: fixed;
+    inset-inline-start: var(--ui-space-4);
+
+    /* SHELL-009: the legacy rule sets a physical `top`. Neutralised so the
+     * two do not both apply. */
+    inset-block-start: 0;
+    inset-inline-end: auto;
+
+    /* Above every shell surface. The topbar is 40, the sidebar 60 and the
+     * command palette 80; a skip link that appears behind the topbar it is
+     * meant to skip is not a skip link. */
+    z-index: 90;
+
+    display: inline-flex;
+    align-items: center;
+
+    min-height: var(--ui-target-min);
+    padding: var(--ui-space-2) var(--ui-space-4);
+
+    font-family: var(--ui-font-sans);
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-on-accent);
+    text-decoration: none;
+
+    background: var(--ui-accent);
+    border: 0;
+    border-radius: 0 0 var(--ui-radius-control) var(--ui-radius-control);
+    box-shadow: var(--ui-elevation-2);
+
+    /* Off the top edge until focused. Transform only, so revealing it costs
+     * no layout and cannot shift the page underneath. */
+    transform: translate3d(0, -110%, 0);
+    transition: transform var(--ui-duration-fast) var(--ui-ease-enter);
+  }
+
+  /*
+   * `:focus`, not `:focus-visible`. This control is only ever reached by
+   * keyboard, and `:focus-visible` heuristics differ between engines; a skip
+   * link that a browser decides not to reveal is a broken skip link.
+   */
+  .skip-link:focus {
+    transform: none;
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+  }
+}
+
+/* ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * It still appears and still disappears; it simply arrives immediately. The
+ * control must never depend on an animation completing.
+ * ======================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .skip-link {
+      transition-duration: 1ms;
+    }
+  }
+}

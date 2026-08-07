@@ -1189,3 +1189,49 @@ were correct, only the appearance was wrong.
 **Resolution.** `backdrop-filter: none` stated explicitly, with the
 `-webkit-` prefix for Safari. Fourth instance of SHELL-008: an unset property
 stays legacy.
+
+
+---
+
+## SHELL-014 — Frame selectors are shell-only, which narrows the S-A4 risk
+
+| Field | Value |
+|---|---|
+| Class | **B** |
+| Category | architecture / planning |
+| Severity | Informational |
+| Status | **Verified** (measured in S-A4c) |
+
+`.app-layout`, `.main-content`, `.page-content` and `.skip-link` were each
+searched across the frontend. **None is used as a class by any business page**;
+all four appear only in `AppLayout.jsx`.
+
+That materially narrows SHELL-003 for the remaining frame work. The danger is
+no longer that a business page renders one of these classes, but that a frame
+rule reaches page content through **geometry** (width, gutters, offsets) or
+through a **descendant or bare element rule**. Those are different failure
+modes and need a different check: the leak probe's computed-style diff catches
+descendant styling, but a deliberate geometry change is expected and must be
+classified rather than flagged.
+
+**Consequence for the remaining subunits.** S-A4a (`.app-layout`,
+`.main-content`) and S-A4b (`.page-content`, gutters and width policy) still
+need a before/after comparison, but it must distinguish intended frame geometry
+from unintended descendant restyling. The current probe reports both as
+"no change" only because S-A4c altered neither.
+
+---
+
+## S-A4 SUBDIVISION
+
+S-A4 was split on the dependency evidence above rather than shipped whole:
+
+| Subunit | Scope | State |
+|---|---|---|
+| **S-A4c** | `.skip-link` | **Done** — changes no page geometry, so it ships alone |
+| S-A4a | `.app-layout`, `.main-content` — sidebar and topbar offsets | pending |
+| S-A4b | `.page-content` — gutters, width policy | pending |
+
+S-A4c was taken first precisely because it is the only part of the frame with
+**zero** effect on page layout, so it carries none of the SHELL-003 risk the
+other two do.
