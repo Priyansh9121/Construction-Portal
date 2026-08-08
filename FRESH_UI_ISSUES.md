@@ -3111,3 +3111,96 @@ clean.
   on attention rows, the caught-up block, Business Health and the chart
 - CSS 131.44 → **132.19 kB** raw (22.36 → 22.59 gzip); JS entry unchanged
 - route isolation: **clean**; accessibility: **unchanged and green**
+
+---
+
+## V2 — Typographic identity
+
+**Class:** visual system (second unit of the visual programme)
+**Status:** COMPLETE
+
+Makes the Indian numeral function as the product's identity signature. No font
+changed, no value changed, no shared type token changed.
+
+### Ownership inventory came first
+
+Every `--ui-text-*` token was mapped to its consumers before anything moved:
+
+- `--ui-text-sm` (12 files), `-xs` (10), `-lg` (5) — consumed by **shell and
+  auth**. Untouched.
+- `--ui-text-3xl`, `-base`, `-md`, `-xl` — consumed by **auth**. Untouched.
+- `--ui-text-4xl` — **zero consumers**, a dormant token. Now the hero numeral's
+  size, so it gains a consumer rather than a new token being invented.
+
+**No shared token value was changed.** Every new role is Dashboard-scoped.
+
+### Currency architecture
+
+`formatCurrencyParts` added to `utils/currency.js` — beside `CURRENCY_CONFIG`,
+not in the component. It returns the **same string `formatCurrency` returns, in
+pieces**, using `Intl.NumberFormat.formatToParts` so the segmentation is the
+formatter's own. The 2-2-3 grouping therefore comes from the locale, correct by
+construction rather than by string handling.
+
+It carries a guarantee: if the reassembled parts do not reproduce the canonical
+string exactly, the split is abandoned and the whole string renders untreated. A
+prettier number that disagrees with the product's own formatter is precisely
+what this product must never ship.
+
+`Money.jsx` is pure presentation and knows nothing about currencies. Nothing is
+`aria-hidden`, spans are adjacent with no whitespace, so text content, copy and
+screen-reader output are all byte-identical to `formatCurrency`.
+
+### Two defects found by measuring, not looking
+
+**V2-a — the optical reduction did not scale.** The first draft used one
+em-relative ratio everywhere, on the assumption that a proportional
+relationship holds at any size. Measured at runtime: at metric scale the symbol
+rendered at **8.1px** and the fraction at **7.5px** — illegible, and this
+product's priority reader is a supervisor outdoors in sunlight.
+
+The reduction is now a **display treatment only**. At body sizes the fraction is
+not reduced at all and the symbol steps down slightly: 11.2px symbol, 13px
+fraction. Hero is unchanged at 37.2px / 34.8px.
+
+**V2-b — negative values lost the treatment.** The part-bucketing put the minus
+sign into the digits, which reassembles as `₹-1,00,000.00` while the formatter
+produces `-₹1,00,000.00`. The equality guard correctly refused to split — so the
+safety net worked — but the figure fell back to untreated exactly when it
+matters most, because a negative cash position means obligations exceed
+receipts. The sign is now its own part, rendered at full digit weight: a minus
+shrunk to symbol scale is a minus that can be missed.
+
+Found because a probe assertion failed. The assertion's own pattern was also
+wrong (it rejected a legitimate leading minus) — both were fixed, and the
+product defect was the more important of the two.
+
+### New probe
+
+`tools/fresh_ui/currency_typography_probe.mjs` — the value table from the brief
+(`₹0.00` through `₹1,23,45,678.90`), plus per-width DOM checks at 320 / 390 /
+768 / 1440 / 1920: every figure tabular, no figure wrapping, no document
+overflow, Indian grouping present in the DOM, and every rendered value complete
+including negatives. All pass.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit and finance/status gate pass · shell computed-style diff **no
+change** · leak probe **no descendant change on any route**, all four unmigrated
+routes byte-identical · finance chart probe **Payments byte-identical** ·
+structure, first-run, activity and pipeline probes clean · responsive matrix
+clean · **Gujarati conditional font verified at runtime** — English-only
+sessions still fetch no Gujarati face · grayscale reviewed at 1920 ·
+`git diff --check` clean.
+
+### Measured
+
+- type roles implemented **3** (`hero`, `metric`, `inline`) — each with a
+  current consumer; the other seven named in the identity document were **not**
+  built, having none
+- shared tokens changed **0**; dormant token given a consumer **1**
+- hero numeral: **38.1px** at 390 → **60px** at 1440+, fluid, no breakpoint jump
+- Money consumers: 4 components, 8 rendered figures on the populated Dashboard
+- CSS 132.19 → **132.63 kB**; JS entry unchanged
+- Gujarati: unaffected — no family, tracking or metric is set by V2

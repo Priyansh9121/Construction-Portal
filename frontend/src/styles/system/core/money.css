@@ -1,0 +1,161 @@
+/*
+ * ===========================================================================
+ * MONEY — the product's typographic signature
+ * ===========================================================================
+ *
+ * File purpose:
+ * Optical treatment for currency. `VISUAL_PRINCIPLES.md` §7 makes numerals the
+ * identity, because money is the contested thing and the figure is what every
+ * user looks at in every session.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE DIGITS CARRY THE MASS
+ * ─────────────────────────────────────────────────────────────────────────
+ * Three parts, three jobs:
+ *
+ *   ₹        supports. Optically smaller and raised, because at matching size
+ *            the rupee mark reads heavier than a digit -- it has a crossbar
+ *            and a full-height stem where digits have counters and curves --
+ *            and a symbol that outweighs the amount is a symbol claiming to be
+ *            the subject.
+ *
+ *   2,55,000 the subject. Full size, tabular, tracking closed slightly at
+ *            display sizes where default spacing opens up.
+ *
+ *   .00      precise but subordinate. Smaller, never removed, never faded
+ *            below readable ink. Precision that is present is never hidden
+ *            (§2), and muted small text is where the contrast floor gets
+ *            broken (AUTH-015).
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * TABULAR, ALWAYS
+ * ─────────────────────────────────────────────────────────────────────────
+ * `tabular-nums` on every size. A figure that changes width as it changes
+ * value cannot be compared to the figure above it, and comparison is the only
+ * reason it is on the screen.
+ *
+ * `2,55,000` also depends on it more than a Western figure does: the 2-2-3
+ * rhythm puts group separators at uneven intervals, so proportional digits
+ * make two similar amounts look structurally different.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE REDUCTION IS A DISPLAY TREATMENT, AND ONLY A DISPLAY TREATMENT (V2-a)
+ * ─────────────────────────────────────────────────────────────────────────
+ * The first draft used one em-relative ratio everywhere, on the assumption
+ * that a proportional relationship holds at any size. Measured, it does not:
+ * at metric scale the symbol rendered at 8.1px and the fraction at 7.5px --
+ * illegible, and this product's priority reader is a supervisor outdoors in
+ * sunlight.
+ *
+ * So the reduction scales with the role. At display sizes there is room to
+ * spend on optical hierarchy inside a number; at body sizes there is not, and
+ * spending it anyway trades legibility for a refinement nobody can see.
+ *
+ * Below display size the fraction is not reduced at all. Only the symbol
+ * steps down, and only slightly.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * GUJARATI
+ * ─────────────────────────────────────────────────────────────────────────
+ * Nothing here sets a family, so the existing metric-matched stack and its
+ * unicode-range loading are untouched. Digits render from the Latin face in
+ * both scripts, and `tabular-nums` is a Latin-face feature, so a Gujarati
+ * label beside a figure is unaffected. Verified at runtime rather than assumed.
+ */
+
+@layer system-components {
+  .ui-money {
+    /* Load-bearing: see the header. */
+    font-variant-numeric: tabular-nums;
+
+    /* Keeps a value from breaking across lines at a group separator, which
+     * would turn one amount into two. */
+    white-space: nowrap;
+  }
+
+  /*
+   * The mark supports the amount. 0.62em and a small rise put its optical
+   * centre near the digits' x-height rather than their cap line.
+   */
+  .ui-money__symbol {
+    /* Gentle by default; the display role overrides below. */
+    font-size: 0.86em;
+    font-weight: var(--ui-weight-medium);
+
+    /* Relative to the symbol's own reduced size, so it scales with it. */
+    transform: translateY(-0.14em);
+    display: inline-block;
+
+    /* Optical, not metric: the mark's own sidebearing already leaves space,
+     * so the gap is trimmed rather than added. */
+    margin-inline-end: 0.06em;
+  }
+
+  /* Full digit size. A minus sign shrunk to symbol scale is a minus sign that
+   * can be missed, and this is the one figure where the sign changes the
+   * meaning entirely. */
+  .ui-money__sign {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-money__digits {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Subordinate, never absent. Ink stays at body strength; only size and
+   * weight step down.
+   */
+  .ui-money__fraction {
+    /* Not reduced at body sizes. See V2-a in the header. */
+    font-weight: var(--ui-weight-medium);
+    margin-inline-start: 0.04em;
+  }
+
+  /*
+   * ---- Optical roles ---------------------------------------------------
+   *
+   * `data-size` names a JOB, not a size. The caller says what the figure is
+   * for; this file decides what that costs typographically.
+   */
+
+  /*
+   * HERO — the primary diagnostic. The largest figure in the product, and the
+   * only place the identity is stated at full volume.
+   *
+   * Uses --ui-text-4xl, which had no consumer before this. Tracking is closed
+   * because display sizes need less letterspacing than the scale's default,
+   * and the leading is tightened so the figure reads as one object.
+   */
+  .ui-money[data-size="hero"] .ui-money__symbol {
+    font-size: 0.62em;
+  }
+
+  .ui-money[data-size="hero"] .ui-money__fraction {
+    font-size: 0.58em;
+  }
+
+  .ui-money[data-size="hero"] {
+    font-size: var(--ui-text-4xl);
+    font-weight: var(--ui-weight-semibold);
+    line-height: var(--ui-leading-tight);
+    letter-spacing: var(--ui-tracking-tight);
+    color: var(--ui-ink-strong);
+  }
+
+  /*
+   * METRIC — a figure being compared against its neighbours in a list or row.
+   * Inherits its size from the row so it never outgrows the object it
+   * describes; only the numeric treatment applies.
+   */
+  .ui-money[data-size="metric"] {
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-strong);
+  }
+
+  /* INLINE — a figure inside a sentence. Treatment only, no size claim. */
+  .ui-money[data-size="inline"] {
+    font-weight: inherit;
+    color: inherit;
+  }
+}

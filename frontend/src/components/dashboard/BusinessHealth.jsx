@@ -54,6 +54,7 @@
 import { useMemo, useState } from "react";
 
 import AppLink from "../ui/AppLink";
+import Money from "../ui/Money";
 import { formatCurrency } from "../../utils/currency";
 
 /*
@@ -223,11 +224,12 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
         <div className="ui-health__position">
           <p className="ui-health__label">Cash position</p>
 
+          {/* The product's identity, stated at full volume. */}
           <p
             className="ui-health__figure"
             data-state={negative ? "negative" : "neutral"}
           >
-            {formatCurrency(figures.cashPosition)}
+            <Money value={figures.cashPosition} size="hero" />
           </p>
 
           <p className="ui-health__context">
@@ -296,7 +298,7 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
                     />
                   </span>
                   <span className="ui-health__bar-value">
-                    {formatCurrency(figures.rangeIn)}
+                    <Money value={figures.rangeIn} size="metric" />
                   </span>
                 </dd>
               </div>
@@ -312,7 +314,7 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
                     />
                   </span>
                   <span className="ui-health__bar-value">
-                    {formatCurrency(figures.rangeOut)}
+                    <Money value={figures.rangeOut} size="metric" />
                   </span>
                 </dd>
               </div>
@@ -321,7 +323,7 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
                 <dt>Net</dt>
                 <dd>
                   <span className="ui-health__bar-value">
-                    {formatCurrency(figures.rangeNet)}
+                    <Money value={figures.rangeNet} size="metric" />
                   </span>
                 </dd>
               </div>
@@ -341,13 +343,13 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
       {figures.owedToYou > 0 ? (
         <AppLink to="/invoices" className="ui-health__receivable">
           <span className="ui-health__receivable-main">
-            <strong>{formatCurrency(figures.owedToYou)}</strong> owed to you
+            <strong><Money value={figures.owedToYou} size="metric" /></strong> owed to you
             across unpaid invoices
           </span>
 
           {figures.overdueCount > 0 ? (
             <span className="ui-health__receivable-flag">
-              {formatCurrency(figures.overdueValue)} overdue
+              <Money value={figures.overdueValue} size="metric" /> overdue
             </span>
           ) : null}
         </AppLink>

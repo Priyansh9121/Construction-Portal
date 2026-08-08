@@ -82,7 +82,7 @@ import { useMemo } from "react";
 import AppLink from "../ui/AppLink";
 import EmptyState from "./EmptyState";
 import Icon from "../ui/Icon";
-import { formatCurrency } from "../../utils/currency";
+import Money from "../ui/Money";
 
 /** Deliberately shallow. The Activity Log owns real history. */
 const VISIBLE_LIMIT = 8;
@@ -304,7 +304,7 @@ function ActivityStream({ payments = [], invoices = [], tenders = [] }) {
 
                           {event.amount ? (
                             <span className="ui-activity__amount">
-                              {formatCurrency(event.amount)}
+                              <Money value={event.amount} size="metric" />
                             </span>
                           ) : null}
                         </span>
