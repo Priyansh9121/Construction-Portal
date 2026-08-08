@@ -9,6 +9,13 @@
  * Captures every surface with the overlays OPEN, since a closed overlay has no
  * computed style to compare.
  *
+ * PROBE DEFECT FIXED (SHELL-024)
+ * The first version opened the account menu, the notification panel and the
+ * palette in sequence and then measured once. That silently lost every account
+ * surface: the dropdowns are mutually exclusive, so opening notifications
+ * dismisses the account menu. Each overlay is now opened, measured and closed
+ * in its own pass, and the results are merged.
+ *
  * Usage:
  *   node tools/fresh_ui/shell_style_diff.mjs before.json
  *   node tools/fresh_ui/shell_style_diff.mjs after.json --compare before.json
@@ -43,6 +50,7 @@ const PROPS = [
   "borderRadius", "boxShadow", "fontFamily", "fontSize", "fontWeight",
   "letterSpacing", "textTransform", "padding", "margin", "minHeight",
   "width", "opacity", "transform", "outlineColor", "outlineWidth",
+  "backdropFilter", "webkitBackdropFilter", "filter",
 ];
 
 const SURFACES = [
@@ -50,6 +58,8 @@ const SURFACES = [
   ["sidebar-group-heading", ".sidebar-group-heading"],
   ["sidebar-link", ".sidebar-link:not(.active-link)"],
   ["sidebar-link-active", ".sidebar-link.active-link"],
+  ["sidebar-link-icon", ".sidebar-link:not(.active-link) .icon"],
+  ["sidebar-link-active-icon", ".sidebar-link.active-link .icon"],
   ["sidebar-user", ".sidebar-user"],
   ["sidebar-avatar", ".sidebar-avatar"],
   ["topbar", ".topbar"],
@@ -99,34 +109,61 @@ const page = await context.newPage();
 await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
 await page.waitForTimeout(600);
 
-/* Open every overlay so each has a live computed style, then focus the skip
- * link so its revealed state is what gets measured. */
+const measure = (only) =>
+  page.evaluate(
+    ({ surfaces, props, only }) => {
+      const out = {};
+      for (const [label, selector] of surfaces) {
+        if (only && !only.includes(label)) continue;
+        const el = document.querySelector(selector);
+        if (!el) {
+          out[label] = "absent";
+          continue;
+        }
+        const cs = getComputedStyle(el);
+        out[label] = Object.fromEntries(props.map((p) => [p, cs[p]]));
+      }
+      return out;
+    },
+    { surfaces: SURFACES, props: PROPS, only }
+  );
+
+const ACCOUNT = ["account-panel", "account-identity", "account-action"];
+const NOTIFY = ["notification-panel"];
+const PALETTE = [
+  "command-backdrop", "command-modal", "command-input",
+  "command-result", "command-result-selected",
+];
+const OVERLAY = new Set([...ACCOUNT, ...NOTIFY, ...PALETTE]);
+const BASE_SURFACES = SURFACES.map(([l]) => l).filter((l) => !OVERLAY.has(l));
+
+/* The skip link only has a meaningful computed style once focused. */
+await page.evaluate(() => document.querySelector(".skip-link")?.focus());
+await page.waitForTimeout(150);
+const result = await measure(BASE_SURFACES);
+
+/* Each overlay gets its own pass. The account menu and the notification panel
+ * are mutually exclusive dropdowns, so measuring them together loses one. */
 await page.locator(".account-trigger").click();
 await page.waitForSelector(".account-panel");
+await page.waitForTimeout(400);
+Object.assign(result, await measure(ACCOUNT));
+await page.keyboard.press("Escape");
+await page.waitForTimeout(250);
+
 await page.locator(".notification-button").click();
 await page.waitForSelector(".notification-panel");
+await page.waitForTimeout(400);
+Object.assign(result, await measure(NOTIFY));
+await page.keyboard.press("Escape");
+await page.waitForTimeout(250);
+
+/* 600ms clears the 220ms palette entrance. SHELL-010: a short wait measured a
+ * mid-animation transform and reported a 43px target. */
 await page.keyboard.press("Control+k");
 await page.waitForSelector(".command-modal");
 await page.waitForTimeout(600);
-await page.evaluate(() => document.querySelector(".skip-link")?.focus());
-await page.waitForTimeout(200);
-
-const result = await page.evaluate(
-  ({ surfaces, props }) => {
-    const out = {};
-    for (const [label, selector] of surfaces) {
-      const el = document.querySelector(selector);
-      if (!el) {
-        out[label] = "absent";
-        continue;
-      }
-      const cs = getComputedStyle(el);
-      out[label] = Object.fromEntries(props.map((p) => [p, cs[p]]));
-    }
-    return out;
-  },
-  { surfaces: SURFACES, props: PROPS }
-);
+Object.assign(result, await measure(PALETTE));
 
 await browser.close();
 fs.writeFileSync(outPath, JSON.stringify(result, null, 2));

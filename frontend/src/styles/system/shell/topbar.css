@@ -184,11 +184,27 @@
     box-shadow: none;
     cursor: pointer;
 
-    transition: background-color var(--ui-duration-fast) var(--ui-ease-move);
+    /*
+     * SHELL-025. Load-bearing, and not obviously so.
+     *
+     * `foundation.css` paints every bare `button` with `var(--accent-text)`,
+     * which is the WHITE meant for text on an accent fill. This control has no
+     * fill, so without an explicit colour its label renders white on the white
+     * topbar. It was legible only because the deleted `core/shell.css` set
+     * `color: var(--text-secondary)` on it; nothing in this file did.
+     *
+     * `.notification-button` already declared its own ink, which is why the
+     * defect appeared on one of the two topbar controls and not both.
+     */
+    color: var(--ui-ink-muted);
+
+    transition: background-color var(--ui-duration-fast) var(--ui-ease-move),
+      color var(--ui-duration-fast) var(--ui-ease-move);
   }
 
   .account-trigger:hover {
     background: var(--ui-surface-sunken);
+    color: var(--ui-ink);
   }
 
   .account-avatar {

@@ -1704,3 +1704,226 @@ shell surface with all overlays open and diffs before/after. It needs
 
 Deleting the sheet without that evidence would leave conditions 5–12 of the
 S-D completion definition unmet.
+
+---
+
+## SHELL-024 — Probe defect: mutually exclusive dropdowns lost the account surfaces
+
+**Class:** probe/test defect
+**Status:** FIXED in `tools/fresh_ui/shell_style_diff.mjs`
+
+The first version of the shell computed-style probe opened the account menu,
+then the notification panel, then the palette, and measured once at the end.
+It reported `account-panel`, `account-identity` and `account-action` as
+`absent`.
+
+The app was correct and the probe was wrong: the account menu and the
+notification panel are mutually exclusive dropdowns, so opening the second
+dismisses the first. Each overlay now gets its own open/measure/close pass and
+the results are merged. 26 surfaces captured, none absent.
+
+Two further gaps in the same tool, both of which would have hidden the very
+findings S-D exists to catch:
+
+- `backdrop-filter` was not in the measured property list, so SHELL-023 would
+  have been invisible.
+- `.sidebar-link .icon` was not in the surface list, so SHELL-021 would have
+  been invisible. The probe measured `.sidebar-link`, whose own opacity is 1.
+
+---
+
+## SHELL-025 — Account trigger text was only legible because of the legacy sheet
+
+**Class:** hidden legacy dependency (severe)
+**Found by:** `shell_style_diff.mjs`, S-D post-deletion diff
+**Status:** FIXED
+
+Deleting `core/shell.css` turned the account trigger's ink WHITE on a white
+topbar:
+
+```
+account-trigger / color   before rgb(51, 65, 85)   after rgb(255, 255, 255)
+```
+
+The border and outline colours followed it to white, because the system rule
+sets `border: 0` and they resolve to `currentColor`.
+
+**This is not inheritance.** The parent `.account-menu` computes to
+`rgb(47, 46, 42)`. CDP matched-rule inspection shows the real source:
+
+```css
+button, .login-box button:not(.password-toggle-btn), .payment-form button {
+  color: var(--accent-text);   /* white */
+}
+```
+
+A global bare-`button` rule paints every button's text the accent-on-colour
+white. The legacy `.account-trigger { color: var(--text-secondary) }` was the
+only thing masking it. The system rule declared background, border, radius,
+padding and transition but never `color`, so it inherited the defect the
+moment the mask was removed.
+
+**Fix:** the system now owns the trigger's ink, `--ui-ink-muted` at rest and
+`--ui-ink` on hover, matching its sibling `.notification-button` which already
+declared `color: var(--ui-ink-muted)`. That sibling is why the defect showed on
+only one of the two topbar controls.
+
+**Wider debt, deliberately NOT fixed here.** The global rule still paints every
+unmigrated page's bare buttons white. It is masked route by route today. That
+is a real problem and is recorded as SHELL-026; sweeping it inside S-D would
+have changed unmigrated business pages, which this unit forbids.
+
+---
+
+## SHELL-026 — Global `button { color: var(--accent-text) }` is a latent trap
+
+**Class:** shared selector ownership / debt
+**Status:** RECORDED, out of S-D scope
+
+`styles/core/foundation.css:214` and `styles/components/forms.css:2` paint
+every bare `<button>` with the accent's on-colour white. Any button that does
+not restate `color` renders white-on-white. SHELL-025 is one instance that
+happened to be masked by a sheet now deleted; others are likely masked by
+sheets still present.
+
+Fixing it means auditing every unmigrated page's buttons, which is page
+migration work, not shell teardown. Recorded for the component-system unit.
+
+---
+
+## SHELL-027 — Expected teardown differences, classified
+
+**Class:** expected teardown difference
+**Status:** ACCEPTED, no migration
+
+The remaining 16 computed differences are the subtraction working as intended.
+
+**Sidebar loses a 16px outer inset** (`.sidebar` padding 16px → 0, and the
+consequent child width 215px → 247px). The system pads the CHILDREN, not the
+container: `.sidebar-user` and `.sidebar-group-heading` carry their own
+`--ui-space-4`. `.sidebar-user` is designed as a full-bleed footer band with
+`background: var(--ui-surface-sunken)` and a `border-top`. The legacy container
+padding was insetting that band by 16px on each side, so it read as a floating
+tile rather than a footer. Removing it restores the intended edge-to-edge
+footer.
+
+**`.sidebar-user` loses `margin-top: 12px`** for the same reason: the system
+separates the footer with a border, not a gap.
+
+**`.account-identity` loses `margin-bottom: 4px`**, likewise. The system gives
+it `background: var(--ui-surface-sunken)` and a `border-bottom`, a flush
+divider that a 4px gap was breaking.
+
+**`.account-panel` width 260px → 240px.** The system declares
+`min-width: 15rem` (240px) with a viewport-bounded `max-width`; legacy declared
+a fixed `width: min(260px, …)`. The panel now sits at its own system-specified
+minimum. Confirmed in screenshots to show no truncation.
+
+**`.sidebar-link .icon` opacity 0.75 → 1** is SHELL-021, the purpose of this
+teardown.
+
+**`.topbar` backdrop-filter `blur(10px)` → `none`** is SHELL-023, confirmed
+below.
+
+---
+
+## SHELL-023 — CONFIRMED at runtime: the legacy topbar blur was inert
+
+**Status:** CONFIRMED, no migration
+
+Measured before deletion: `.topbar` had `backdrop-filter: blur(10px)` ACTIVE
+while `background-color` computed to `rgb(255, 255, 255)` — fully opaque. The
+system rule `background: var(--ui-surface)` → `--ui-neutral-0` → `#ffffff`
+wins the cascade over the legacy `rgba(255, 255, 255, 0.85)`, so the blur had
+nothing visible to sample.
+
+After deletion the filter is `none` and the background is unchanged at
+`rgb(255, 255, 255)`. Screenshot comparison shows no visible difference.
+
+The hypothesis recorded at f40e02a held, but it was confirmed by measurement
+rather than trusted, because SHELL-013 was the same argument and was wrong.
+Glassmorphism was NOT reintroduced.
+
+---
+
+## SHELL-028 — Shell selectors surviving in two cross-cutting legacy sheets
+
+**Class:** cascade residue / debt
+**Status:** RECORDED, deliberately out of S-D scope
+
+`core/shell.css` is deleted, so no legacy sheet exists whose PURPOSE is the
+shell. Shell selectors do still appear in two cross-cutting legacy sheets:
+
+- `core/animations.css` — `.command-*` (a full palette block from ~375-435),
+  `.modal-backdrop`, `.sidebar`, `.page-content`, `.main-content`, and the dead
+  `.mobile-page-nav a` from SHELL-022
+- `core/responsive.css` — `.app-layout`, `.main-content`, `.page-content`,
+  `.notification-panel`, `.sidebar`, `.sidebar-scrim`, `.topbar`
+
+These were left untouched on purpose. `core/animations.css:323` owns the
+deliberate `.main-content` stacking context preserved in S-A4a2, and both files
+serve unmigrated business pages, so editing them is page-migration work rather
+than shell teardown. S-D was scoped to the last legacy shell STYLESHEET, and
+that objective is met.
+
+The S-D verification shows this residue is currently inert for the shell: the
+computed-style diff accounts for every one of the 18 differences, and no
+unexplained shell change appeared.
+
+**Owner:** S-C should absorb the `.command-*` and `.modal-backdrop` animation
+blocks when it relocates route-transition keyframes, since it is already moving
+motion out of the legacy sheets.
+
+---
+
+## S-D — COMPLETE
+
+`frontend/src/styles/core/shell.css` (585 lines, 49 distinct selectors) is
+deleted and its single import removed from `src/index.css`. Sections in that
+file were renumbered so the sequence stays contiguous.
+
+**Exactly one behaviour was migrated:** the account trigger's ink (SHELL-025).
+Everything else was subtraction.
+
+**All 18 computed-style differences classified**, none unexplained: 1 required
+migration (SHELL-025), 2 intended fixes (SHELL-021, SHELL-023), 15 consequences
+of the sidebar and account panel returning to their system-specified geometry
+(SHELL-027).
+
+**Verification**
+- shell computed-style diff: 26 surfaces, none absent, every difference classified
+- leak probe vs `baselines/shell-c1bb6cf.json`: **bucket B empty** — no
+  descendant style change on Dashboard, Tenders, Payments, Users or Site Operations
+- frame probe: coherent at every width, both motion modes; `main.x 272` ==
+  `sidebar.right 272`, no gap and no double offset
+- account menu, notifications, command palette, skip link, page content,
+  navigation consistency: all clean
+- SHELL-005 precedence re-verified at runtime: one Escape closes the palette and
+  the dropdown survives; a second closes the dropdown
+- responsive matrix: no shell overflow and no sub-44px target at any width, both
+  motion modes
+- screenshot review: before/after at 390 and 1440 on four routes plus four shell states
+- Playwright + axe **370 passed, 0 failed**; lint clean; detector clean; token audit passes
+- `git diff --check` clean
+
+**Measured result**
+
+| | before | after |
+|---|---|---|
+| `core/shell.css` lines | 585 | 0 |
+| legacy shell stylesheets | 1 | 0 |
+| CSS raw | 122.27 kB | 115.19 kB |
+| CSS gzip | 21.32 kB | 20.34 kB |
+| JS entry | 469.14 kB | 469.14 kB |
+
+**Screenshot review found an improvement the assertions did not measure.**
+Removing the legacy 16px sidebar inset and the 12px footer margin recovered
+enough vertical space that the Administration group (Master Data, Analytics &
+Reports) is now visible without scrolling at 1440×900. It was cut off before.
+The identity footer also now reads as the full-bleed band the system designed,
+rather than an inset floating tile.
+
+**Note on stale pointers.** Comments in `system/shell/*.css` cite
+`core/shell.css:NN` as the legacy rule each system rule replaced. Those line
+references are now historical and resolve against commit `f40e02a`, the last
+commit where the file existed. They are kept as provenance rather than deleted.
