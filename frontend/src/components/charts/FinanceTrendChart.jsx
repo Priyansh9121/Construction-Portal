@@ -16,6 +16,8 @@
  * - it reflects what the session has fetched.
  */
 
+import { useMemo } from "react";
+
 import EmptyState from "../dashboard/EmptyState";
 import {
     AreaChart,
@@ -28,7 +30,109 @@ import {
     Legend,
   } from "recharts";
   
-  function FinanceTrendChart({ payments = [], emptyState = null }) {
+  /**
+   * The two visual languages this chart can speak.
+   *
+   * Named by MEANING, not by migration history: "legacy" is the inherited
+   * appearance, "finance" is the product's finance visual language. A caller
+   * that says nothing keeps what it has today, so an unmigrated route needs no
+   * edit to stay identical (F-03).
+   *
+   * Every value is a token name. The component holds no colour literals; F-02
+   * moved the legacy hexes into `--ui-finance-legacy-*` precisely so this file
+   * could stop carrying them.
+   */
+  const PALETTES = {
+    legacy: {
+      income: "--ui-finance-legacy-income",
+      expense: "--ui-finance-legacy-expense",
+      profit: "--ui-finance-legacy-profit",
+      /* Inherited fill weights, reproduced exactly. */
+      fill: { income: 0.35, expense: 0.3, profit: 0.35 },
+      /* Profit is drawn as a third filled area, as it always was here. */
+      profitFilled: true,
+      profitDash: null,
+      /* null means "leave Recharts' own defaults alone", which is what the
+       * unmigrated appearance is. */
+      grid: null,
+      axis: null,
+    },
+    finance: {
+      income: "--ui-finance-income",
+      expense: "--ui-finance-expense",
+      profit: "--ui-finance-profit",
+      fill: {
+        income: "--ui-series-fill-opacity",
+        expense: "--ui-series-fill-opacity",
+        profit: 0,
+      },
+      /*
+       * Profit is `income - expense`, which on a chart already drawing both is
+       * the GAP BETWEEN THEM. Filling it a third time draws the same
+       * information twice and demands a third identity colour the palette
+       * deliberately does not have. It becomes a thin dashed line in ink:
+       * present and readable, visibly derived, and distinguished from the two
+       * primary series by dash pattern as well as tone, so the three do not
+       * depend on hue alone.
+       */
+      profitFilled: false,
+      profitDash: "5 4",
+      /* Chrome moves with the series. A chart whose lines are system tokens
+       * and whose grid is still a library default speaks two languages at
+       * once, which is the mixed-palette failure this unit exists to avoid. */
+      grid: "--ui-finance-grid",
+      axis: "--ui-finance-axis-label",
+    },
+  };
+
+  /**
+   * Resolve token names against the live document.
+   *
+   * SVG presentation attributes do not accept `var()`, so the values have to be
+   * real colours by the time they reach `stroke` and `stop-color`. Reading them
+   * from the cascade keeps `finance.css` the single source of truth rather than
+   * duplicating the ramp here.
+   */
+  function resolvePalette(name) {
+    const spec = PALETTES[name] || PALETTES.legacy;
+    const root =
+      typeof document === "undefined"
+        ? null
+        : getComputedStyle(document.documentElement);
+
+    const read = (token) =>
+      typeof token === "string" && token.startsWith("--")
+        ? root?.getPropertyValue(token).trim() || null
+        : token;
+
+    return {
+      income: read(spec.income),
+      expense: read(spec.expense),
+      profit: read(spec.profit),
+      fill: {
+        income: Number(read(spec.fill.income)),
+        expense: Number(read(spec.fill.expense)),
+        profit: Number(read(spec.fill.profit)),
+      },
+      profitFilled: spec.profitFilled,
+      profitDash: spec.profitDash,
+      grid: read(spec.grid),
+      axis: read(spec.axis),
+    };
+  }
+
+  function FinanceTrendChart({ payments = [], emptyState = null, palette = "legacy" }) {
+    /* Resolved once per render, keyed on the palette name. */
+    const paint = useMemo(() => resolvePalette(palette), [palette]);
+
+    /*
+     * Gradient ids are DOCUMENT-GLOBAL in SVG. Two charts on one page using
+     * different palettes would otherwise share `incomeGradient`, and whichever
+     * rendered last would silently repaint the other. Scoping by palette name
+     * removes that latent collision (FIN-004).
+     */
+    const gid = (series) => `finance-${palette}-${series}`;
+
     const monthlyData = Object.values(
       payments.reduce((acc, payment) => {
         const date = payment.payment_date || payment.created_at;
@@ -123,54 +227,63 @@ import {
           <ResponsiveContainer width="100%" height={340}>
             <AreaChart data={monthlyData}>
               <defs>
-                <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#16a34a" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                <linearGradient id={gid("income")} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={paint.income} stopOpacity={paint.fill.income} />
+                  <stop offset="95%" stopColor={paint.income} stopOpacity={0} />
                 </linearGradient>
-  
-                <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#dc2626" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
+
+                <linearGradient id={gid("expense")} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={paint.expense} stopOpacity={paint.fill.expense} />
+                  <stop offset="95%" stopColor={paint.expense} stopOpacity={0} />
                 </linearGradient>
-  
-                <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+
+                <linearGradient id={gid("profit")} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={paint.profit} stopOpacity={paint.fill.profit} />
+                  <stop offset="95%" stopColor={paint.profit} stopOpacity={0} />
                 </linearGradient>
               </defs>
-  
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" />
-              <YAxis />
+
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke={paint.grid ?? undefined}
+              />
+              <XAxis dataKey="month" stroke={paint.axis ?? undefined} />
+              <YAxis stroke={paint.axis ?? undefined} />
               <Tooltip />
               <Legend />
-  
+
               <Area
                 type="monotone"
                 dataKey="income"
-                stroke="#16a34a"
+                stroke={paint.income}
                 strokeWidth={3}
-                fill="url(#incomeGradient)"
+                fill={`url(#${gid("income")})`}
                 activeDot={{ r: 6 }}
                 animationDuration={1200}
               />
-  
+
               <Area
                 type="monotone"
                 dataKey="expense"
-                stroke="#dc2626"
+                stroke={paint.expense}
                 strokeWidth={3}
-                fill="url(#expenseGradient)"
+                fill={`url(#${gid("expense")})`}
                 activeDot={{ r: 6 }}
                 animationDuration={1400}
               />
-  
+
+              {/*
+                Profit. Filled in the legacy language, a dashed derived line in
+                the finance one -- see PALETTES.
+              */}
               <Area
                 type="monotone"
                 dataKey="profit"
-                stroke="#2563eb"
-                strokeWidth={3}
-                fill="url(#profitGradient)"
+                stroke={paint.profit}
+                strokeWidth={paint.profitFilled ? 3 : 2}
+                strokeDasharray={paint.profitDash ?? undefined}
+                fill={paint.profitFilled ? `url(#${gid("profit")})` : "none"}
                 activeDot={{ r: 6 }}
                 animationDuration={1600}
               />

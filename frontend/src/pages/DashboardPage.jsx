@@ -486,6 +486,7 @@ function DashboardPage({
       */}
       <FinanceTrendChart
         payments={payments}
+        palette="finance"
         emptyState={{ action: { to: "/payments", label: "Record a payment" } }}
       />
 

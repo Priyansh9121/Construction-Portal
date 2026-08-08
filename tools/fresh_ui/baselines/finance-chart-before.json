@@ -1,0 +1,692 @@
+{
+  "dashboard@390": {
+    "chart": "rendered",
+    "series": [
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#incomeGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#16a34a",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#expenseGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#dc2626",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#profitGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#2563eb",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      }
+    ],
+    "gradients": [
+      {
+        "id": "incomeGradient",
+        "stops": [
+          {
+            "color": "#16a34a",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#16a34a",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "expenseGradient",
+        "stops": [
+          {
+            "color": "#dc2626",
+            "opacity": "0.3"
+          },
+          {
+            "color": "#dc2626",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "profitGradient",
+        "stops": [
+          {
+            "color": "#2563eb",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#2563eb",
+            "opacity": "0"
+          }
+        ]
+      }
+    ],
+    "legend": [
+      {
+        "text": "expense",
+        "swatch": "none"
+      },
+      {
+        "text": "income",
+        "swatch": "none"
+      },
+      {
+        "text": "profit",
+        "swatch": "none"
+      }
+    ],
+    "grid": "rgb(204, 204, 204)",
+    "axisLabel": "rgb(102, 102, 102)",
+    "box": {
+      "w": 358,
+      "h": 384
+    },
+    "overflow": 0
+  },
+  "dashboard@768": {
+    "chart": "rendered",
+    "series": [
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#incomeGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#16a34a",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#expenseGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#dc2626",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#profitGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#2563eb",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      }
+    ],
+    "gradients": [
+      {
+        "id": "incomeGradient",
+        "stops": [
+          {
+            "color": "#16a34a",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#16a34a",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "expenseGradient",
+        "stops": [
+          {
+            "color": "#dc2626",
+            "opacity": "0.3"
+          },
+          {
+            "color": "#dc2626",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "profitGradient",
+        "stops": [
+          {
+            "color": "#2563eb",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#2563eb",
+            "opacity": "0"
+          }
+        ]
+      }
+    ],
+    "legend": [
+      {
+        "text": "expense",
+        "swatch": "none"
+      },
+      {
+        "text": "income",
+        "swatch": "none"
+      },
+      {
+        "text": "profit",
+        "swatch": "none"
+      }
+    ],
+    "grid": "rgb(204, 204, 204)",
+    "axisLabel": "rgb(102, 102, 102)",
+    "box": {
+      "w": 722,
+      "h": 384
+    },
+    "overflow": 0
+  },
+  "dashboard@1440": {
+    "chart": "rendered",
+    "series": [
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#incomeGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#16a34a",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#expenseGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#dc2626",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#profitGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#2563eb",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      }
+    ],
+    "gradients": [
+      {
+        "id": "incomeGradient",
+        "stops": [
+          {
+            "color": "#16a34a",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#16a34a",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "expenseGradient",
+        "stops": [
+          {
+            "color": "#dc2626",
+            "opacity": "0.3"
+          },
+          {
+            "color": "#dc2626",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "profitGradient",
+        "stops": [
+          {
+            "color": "#2563eb",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#2563eb",
+            "opacity": "0"
+          }
+        ]
+      }
+    ],
+    "legend": [
+      {
+        "text": "expense",
+        "swatch": "none"
+      },
+      {
+        "text": "income",
+        "swatch": "none"
+      },
+      {
+        "text": "profit",
+        "swatch": "none"
+      }
+    ],
+    "grid": "rgb(204, 204, 204)",
+    "axisLabel": "rgb(102, 102, 102)",
+    "box": {
+      "w": 1104,
+      "h": 384
+    },
+    "overflow": 0
+  },
+  "payments@390": {
+    "chart": "rendered",
+    "series": [
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#incomeGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#16a34a",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#expenseGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#dc2626",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#profitGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#2563eb",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      }
+    ],
+    "gradients": [
+      {
+        "id": "incomeGradient",
+        "stops": [
+          {
+            "color": "#16a34a",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#16a34a",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "expenseGradient",
+        "stops": [
+          {
+            "color": "#dc2626",
+            "opacity": "0.3"
+          },
+          {
+            "color": "#dc2626",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "profitGradient",
+        "stops": [
+          {
+            "color": "#2563eb",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#2563eb",
+            "opacity": "0"
+          }
+        ]
+      }
+    ],
+    "legend": [
+      {
+        "text": "expense",
+        "swatch": "none"
+      },
+      {
+        "text": "income",
+        "swatch": "none"
+      },
+      {
+        "text": "profit",
+        "swatch": "none"
+      }
+    ],
+    "grid": "rgb(204, 204, 204)",
+    "axisLabel": "rgb(102, 102, 102)",
+    "box": {
+      "w": 358,
+      "h": 384
+    },
+    "overflow": 0
+  },
+  "payments@768": {
+    "chart": "rendered",
+    "series": [
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#incomeGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#16a34a",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#expenseGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#dc2626",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#profitGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#2563eb",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      }
+    ],
+    "gradients": [
+      {
+        "id": "incomeGradient",
+        "stops": [
+          {
+            "color": "#16a34a",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#16a34a",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "expenseGradient",
+        "stops": [
+          {
+            "color": "#dc2626",
+            "opacity": "0.3"
+          },
+          {
+            "color": "#dc2626",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "profitGradient",
+        "stops": [
+          {
+            "color": "#2563eb",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#2563eb",
+            "opacity": "0"
+          }
+        ]
+      }
+    ],
+    "legend": [
+      {
+        "text": "expense",
+        "swatch": "none"
+      },
+      {
+        "text": "income",
+        "swatch": "none"
+      },
+      {
+        "text": "profit",
+        "swatch": "none"
+      }
+    ],
+    "grid": "rgb(204, 204, 204)",
+    "axisLabel": "rgb(102, 102, 102)",
+    "box": {
+      "w": 722,
+      "h": 384
+    },
+    "overflow": 0
+  },
+  "payments@1440": {
+    "chart": "rendered",
+    "series": [
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#incomeGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#16a34a",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#expenseGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#dc2626",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      },
+      {
+        "area": {
+          "stroke": "none",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "url(#profitGradient)",
+          "fillOpacity": "0.6"
+        },
+        "curve": {
+          "stroke": "#2563eb",
+          "strokeWidth": "3",
+          "strokeDasharray": null,
+          "fill": "none",
+          "fillOpacity": "0.6"
+        }
+      }
+    ],
+    "gradients": [
+      {
+        "id": "incomeGradient",
+        "stops": [
+          {
+            "color": "#16a34a",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#16a34a",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "expenseGradient",
+        "stops": [
+          {
+            "color": "#dc2626",
+            "opacity": "0.3"
+          },
+          {
+            "color": "#dc2626",
+            "opacity": "0"
+          }
+        ]
+      },
+      {
+        "id": "profitGradient",
+        "stops": [
+          {
+            "color": "#2563eb",
+            "opacity": "0.35"
+          },
+          {
+            "color": "#2563eb",
+            "opacity": "0"
+          }
+        ]
+      }
+    ],
+    "legend": [
+      {
+        "text": "expense",
+        "swatch": "none"
+      },
+      {
+        "text": "income",
+        "swatch": "none"
+      },
+      {
+        "text": "profit",
+        "swatch": "none"
+      }
+    ],
+    "grid": "rgb(204, 204, 204)",
+    "axisLabel": "rgb(102, 102, 102)",
+    "box": {
+      "w": 1104,
+      "h": 384
+    },
+    "overflow": 0
+  }
+}
