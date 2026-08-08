@@ -2115,3 +2115,116 @@ clean both motion modes · screenshots at 390 and 1440 · `git diff --check` cle
 
 `DashboardPage.jsx` 1714 → 1475 lines. CSS 117.16 → 122.52 kB raw
 (20.67 → 21.34 gzip); JS 469.14 → 468.84 kB.
+
+---
+
+## D3 — Pipeline: work in flight, split from attention by condition
+
+**Class:** product redesign (Dashboard programme, unit 3)
+**Status:** COMPLETE
+
+### What changed
+
+Three overlapping sections are gone:
+
+- **Project Portfolio** — 4 filled status tiles (Running green, Pending amber,
+  Completed neutral, Overdue red)
+- **Project Status** — 9 table rows plus a completion-rate `RatioRow`
+- **Upcoming Tenders** — a 4-column table of `dueSoonTenders.slice(0, 6)`
+
+Between them: Running counted twice, Pending twice, Completed three times,
+Overdue twice, Due Soon twice, and three separate links to the tender register.
+
+Replaced by `components/dashboard/Pipeline.jsx`.
+
+### The finding that decided the design
+
+`dueSoonTenders` — the entire content of "Upcoming Tenders" — is **exactly the
+set the attention spine already renders as objects** at the top of the same
+page. That panel was a strictly worse duplicate: same rows, less identity, no
+action, and a status badge coloured by fallback.
+
+So the split is not by entity type. It is by **condition**:
+
+> **D1 owns work that needs intervention** — overdue, due inside 7 days, or
+> awaiting submission.
+> **D3 owns work that is moving normally** — running now, or due beyond that
+> horizon.
+
+`ATTENTION_HORIZON_DAYS = 7` in `Pipeline.jsx` is the complement of the spine's
+own window, so no tender can appear in both sections. The constant carries a
+comment saying the two must change together. Verified on the fixture: "New2"
+(awaiting submission) appears only in Attention, "New" (running, due in 21
+days) only in Pipeline.
+
+### Colour
+
+The section introduces **no semantic colour at all**. Every item it shows is by
+construction not late; anything late is in D1, where red still means something.
+The progress rail is neutral ink, because progress is a fact.
+
+Status strings are printed verbatim from the source row and never remapped, so
+D3 does not inherit the `getStatusClass` unknown-status defect. That defect
+still exists for the remaining activity tables and is recorded below.
+
+### Progress is real data
+
+`progress_percent` is a source field, so the rail reflects recorded progress
+and is rendered only when the field is present and numeric. Null and zero are
+deliberately different: a tender with no recorded progress shows **no rail**,
+rather than an empty rail implying a measured 0%.
+
+### Defect found in my own code
+
+**D3-a — one class name for two elements.** `.ui-pipe__title` was used for both
+the section `<h2>` and the row title span, so the row rule (`--ui-text-sm`)
+silently overrode the heading and "Work in flight" rendered at small-body size
+next to "Business health" at `--ui-text-lg`.
+
+I noticed this in the screenshot review and talked myself out of it. It was
+caught mechanically by the wrap probe, whose `closest(".ui-pipe__row")` returned
+`null` when it matched the heading instead of a row. Renamed to
+`.ui-pipe__item-title`.
+
+### Long and mixed-script content
+
+`tools/fresh_ui/pipeline_wrap_probe.mjs` added. It substitutes a 78-character
+Latin name and a Gujarati equivalent into a pipeline row and measures document
+overflow, title overflow and row right-edge at 320 / 390 / 768 / 1440.
+All eight combinations pass with zero overflow.
+
+### Leak probe
+
+One bucket-B difference, `dashboard / card: present -> absent` — the deleted
+Project Portfolio tiles, which is precisely this unit's intent. Tenders,
+Payments, Users and Site Operations are **byte-identical** in bucket B.
+`baselines/shell-d3.json` supersedes `shell-d2.json`.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit clean · shell computed-style diff **no change** · responsive matrix
+clean both motion modes · wrap probe 8/8 · screenshots at 390 / 768 / 1440 ·
+`git diff --check` clean.
+
+`DashboardPage.jsx` 1475 → 1281 lines. CSS 122.52 → 125.78 kB raw
+(21.34 → 21.66 gzip). JS entry unchanged at 468.84 kB.
+
+---
+
+## SHELL-029 — `getStatusClass` still assigns colour by fallback
+
+**Class:** semantic colour misuse / unknown-status fallback
+**Status:** RECORDED, out of D3 scope — belongs to D4
+
+`DashboardPage.jsx` still defines `getStatusClass`, which greens a known list,
+reds a known list, and returns `badge yellow` for **anything else**. An
+unrecognised status silently renders as amber caution.
+
+D3 does not inherit it: `Pipeline.jsx` prints status verbatim and applies no
+status colour. But the remaining activity tables (Recent Payments, Recent
+Invoices, Recent Tenders, Recent Workers, Recent Sites) still call it, so the
+defect is live on the page.
+
+D4 owns those tables and should remove the helper with them. An unknown status
+must render neutrally and visibly as text, never as a warning.

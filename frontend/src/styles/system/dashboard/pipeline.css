@@ -1,0 +1,260 @@
+/*
+ * ===========================================================================
+ * PIPELINE — work in flight
+ * ===========================================================================
+ *
+ * File purpose:
+ * The Dashboard's third section. Two grouped lists of tenders that are moving
+ * normally, plus one link out.
+ *
+ * NO STATUS COLOUR, DELIBERATELY
+ * There is not a single semantic colour in this file. Every item this section
+ * renders is by construction not late — anything late is in the attention
+ * spine. The three panels this replaced painted Running green, Pending amber
+ * and Overdue red as filled tiles, which made routine work the loudest thing
+ * below Business Health. Removing that colour is most of the improvement.
+ *
+ * QUIETER THAN WHAT SITS ABOVE IT
+ * The section deliberately carries LESS visual weight than Attention and
+ * Business Health: no card border around the whole thing, rows separated by
+ * hairlines rather than boxed individually, and a group heading one step below
+ * the section title. Pipeline is the answer to "what's moving", which is
+ * context, not an alarm. The page must get quieter as it descends.
+ *
+ * TWO GROUPS, NOT TWO CARDS
+ * "Running now" and "Coming up" are headings over shared list styling, not
+ * separate panels. Panels would restate the repeated-hierarchy problem this
+ * whole programme is removing.
+ *
+ * PROGRESS RAIL
+ * Fixed width at desktop so the rails align into a readable column, and hidden
+ * below 48rem where the space belongs to the tender's name. The percentage is
+ * always printed as text beside it, so nothing depends on the graphic, and the
+ * rail carries an aria-label for assistive technology.
+ */
+
+@layer system-components {
+  .ui-pipe {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-4);
+
+    margin-block-end: var(--ui-space-8);
+  }
+
+  .ui-pipe__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    flex-wrap: wrap;
+  }
+
+  .ui-pipe__title {
+    margin: 0;
+    font-size: var(--ui-text-lg);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  /* Committed value as a sentence, not a tile. */
+  .ui-pipe__context {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-pipe__groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-5);
+  }
+
+  .ui-pipe__group-title {
+    margin: 0 0 var(--ui-space-2);
+
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--ui-tracking-wide);
+    text-transform: uppercase;
+
+    /* Not --ui-ink-faint: 3.5:1 fails the 4.5 floor at this size (D2-a). */
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-pipe__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    border-block-start: 1px solid var(--ui-line-faint);
+  }
+
+  /* Hairline separation rather than a box per row. */
+  .ui-pipe__item {
+    border-block-end: 1px solid var(--ui-line-faint);
+  }
+
+  .ui-pipe__row {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-4);
+
+    padding-block: var(--ui-space-3);
+    /* The whole row is the target, so it clears 44px on its own. */
+    min-height: var(--ui-target-min);
+
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .ui-pipe__row:hover .ui-pipe__item-title {
+    color: var(--ui-accent);
+  }
+
+  .ui-pipe__row:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: calc(var(--ui-focus-ring-offset) * -1);
+    border-radius: var(--ui-radius-control);
+  }
+
+  .ui-pipe__detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    /* Load-bearing: lets a long tender name shrink instead of pushing the
+     * progress rail off the row. */
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  /*
+   * DISTINCT from `.ui-pipe__title`, the section heading. The first draft gave
+   * both the same class, so this rule silently overrode the h2 and rendered
+   * "Work in flight" at small-body size. Caught by a wrap probe whose
+   * `closest(".ui-pipe__row")` returned null on the heading.
+   */
+  .ui-pipe__item-title {
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-strong);
+
+    /* Wraps rather than truncating: a tender name is the identity of the row,
+     * and a half-shown name is worse than a second line. */
+    overflow-wrap: anywhere;
+
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .ui-pipe__facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--ui-space-1) var(--ui-space-3);
+
+    font-size: var(--ui-text-xs);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-pipe__value {
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink);
+  }
+
+  .ui-pipe__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-2);
+    flex: none;
+  }
+
+  .ui-pipe__progress-rail {
+    display: block;
+    inline-size: 5rem;
+    block-size: 0.375rem;
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--ui-radius-pill);
+    overflow: hidden;
+  }
+
+  /* Neutral ink, not a semantic colour: progress is a fact, not a state. */
+  .ui-pipe__progress-fill {
+    display: block;
+    block-size: 100%;
+    background: var(--ui-ink-muted);
+    border-radius: inherit;
+
+    transition: inline-size var(--ui-duration-enter) var(--ui-ease-move);
+  }
+
+  .ui-pipe__progress-value {
+    inline-size: 2.5rem;
+    text-align: end;
+
+    font-size: var(--ui-text-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-pipe__empty {
+    margin: 0;
+    padding: var(--ui-space-5);
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--ui-radius-container);
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+
+  .ui-pipe__all {
+    align-self: flex-start;
+
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ui-target-min);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-pipe__all:hover {
+    color: var(--ui-accent);
+  }
+
+  .ui-pipe__all:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+    border-radius: var(--ui-radius-control);
+  }
+}
+
+/*
+ * Below 48rem the rail's width is worth more to the tender's name. The
+ * percentage stays, because it is the actual information.
+ */
+@media (max-width: 48rem) {
+  @layer system-components {
+    .ui-pipe__progress-rail {
+      display: none;
+    }
+
+    .ui-pipe__progress-value {
+      inline-size: auto;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .ui-pipe__progress-fill,
+    .ui-pipe__item-title {
+      transition-duration: 0.01ms;
+    }
+  }
+}

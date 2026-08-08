@@ -170,3 +170,76 @@ first, because every later unit inherits it.
 - **D6 — Motion and polish.**
 
 Each ships independently, leaves the page functional, and passes the full gate.
+
+---
+
+# D3 — Pipeline thesis
+
+## Inventory
+
+Three sections currently express pipeline.
+
+**Project Portfolio** — 4 filled status tiles: Running (green), Pending
+(amber), Completed (neutral), Overdue (red).
+
+**Project Status** — 9 table rows: Total Tenders, Running, Pending,
+Completed/Passed, Due Soon, Overdue, Completion Rate (a `RatioRow`), Running
+Tender Value, Total Estimated Value.
+
+**Upcoming Tenders** — a 4-column table of `dueSoonTenders.slice(0, 6)`:
+title, status badge, due date, value.
+
+## Duplicated counts
+
+Running ×2 · Pending ×2 · Completed ×3 (two counts plus a completion-rate
+ratio) · Overdue ×2 · Due Soon ×2. Three separate "View Tenders" / "View all"
+links to the same register.
+
+## The finding that decides the design
+
+**D1 already renders, as objects, everything "Upcoming Tenders" renders as a
+table.** The attention spine selects overdue tenders, tenders due within 7
+days, and tenders awaiting submission. `dueSoonTenders` is *precisely* the
+"due within 7 days" set. So the Upcoming Tenders panel is a strictly worse
+duplicate of a section 900 pixels above it — same rows, less identity, no
+action, and a status badge whose colour is assigned by fallback.
+
+Project Portfolio's Pending tile duplicates D1's awaiting-submission item, and
+its Overdue tile duplicates D1's overdue items.
+
+So the split is not "D1 gets some tenders and D3 gets others". It is:
+
+> **D1 owns work that needs intervention. D3 owns work that is moving normally.**
+
+Which leaves D3 a genuinely distinct and currently unanswered question: what is
+actually *running* right now, and what is coming after the urgent horizon?
+
+## What D3 shows
+
+**Active** — running tenders as objects. These appear nowhere in D1, because
+running-and-not-late is not attention-worthy. `progress_percent` is a real
+source field, so progress is shown from data rather than inferred.
+
+**Next up** — tenders with a due date beyond D1's 7-day horizon. Explicitly the
+complement of the attention window, so no tender is ever in both sections.
+
+**Committed value** — the sum of running estimated value, as compact context in
+the header rather than as its own tile.
+
+## What D3 deletes
+
+Project Portfolio, Project Status and Upcoming Tenders in full. Completed
+counts and the completion-rate ratio go with them: completion is history, it
+supports no decision on this page, and the tender register already holds it.
+
+## Colour
+
+No filled status tiles. Running and pending are ordinary lifecycle states and
+render neutrally. D3 introduces no status colour at all — every item it shows
+is, by construction, not late. Anything that *is* late is in D1, where the
+colour means something.
+
+## Ordering
+
+Deterministic, documented: soonest due date first; undated last; estimated
+value breaks ties, larger first.
