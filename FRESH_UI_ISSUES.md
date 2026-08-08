@@ -3204,3 +3204,90 @@ sessions still fetch no Gujarati face · grayscale reviewed at 1920 ·
 - Money consumers: 4 components, 8 rendered figures on the populated Dashboard
 - CSS 132.19 → **132.63 kB**; JS entry unchanged
 - Gujarati: unaffected — no family, tracking or metric is set by V2
+
+---
+
+## V3 — Section composition
+
+**Class:** visual system (third unit of the visual programme)
+**Status:** COMPLETE
+
+Gives the page rhythm. No content added, no section moved, no copy changed.
+
+### Ownership inventory came first, and it decided the approach
+
+`.section-title-row` has **29 JSX consumers** — Tenders (8 tab components),
+Invoices, Subcontractors, Worker Portal, Daily Update Approvals, Activity, and
+six finance components — and is styled in legacy `core/foundation.css`.
+
+**Nothing in V3 touches it.** The chart's heading is reached only through
+`.ui-chart`, the palette-scoped class F-03 established, so the migrated caller
+changes and twenty-nine unmigrated ones do not. The four Dashboard section
+titles already had their own classes and were safe.
+
+### A vocabulary of relationships, not a set of gaps
+
+The uniform trailing space on all four sections is replaced by four named
+intervals, each describing how two sections are related:
+
+| relationship | between | desktop | mobile |
+|---|---|---|---|
+| `--ui-flow-kin` | Health → Trend — diagnosis and its own context | 20px | 16px |
+| `--ui-flow-sequence` | Attention → Health — coupled, different questions | 32px | 24px |
+| `--ui-flow-chapter` | Trend → Pipeline — money gives way to operations | 48px | 40px |
+| `--ui-flow-epilogue` | Pipeline → Activity — present gives way to past | 64px | 48px |
+
+The epilogue is the largest interval on the page, and deliberately **not**
+because history matters most — it is the distance between two tenses.
+
+Mobile keeps the same ordering with smaller values: the relationships have not
+changed, only the room to express them.
+
+`composition.css` is now the sole owner of the page's rhythm; the four sections
+no longer carry their own trailing space.
+
+### Why the four section titles still match each other
+
+They ask the same *kind* of question, so §12 requires they look alike;
+differentiating them would be variation for visual interest.
+
+The flatness was never that the four matched. It was that a section heading at
+19px sat above internal titles at 14px — a difference of degree, not of rank.
+The section role moves one step to `--ui-text-xl` with closed tracking, so
+24px reads as a chapter marker against 14px rows.
+
+### Measure, applied only to prose
+
+Sentences are capped at 60ch. Operational rows are **not** capped: an amount, a
+date and a name are scanned in columns, and capping them would waste the width
+the user's screen actually has.
+
+### New probe
+
+`tools/fresh_ui/dashboard_composition_probe.mjs` gates **relationships, not
+pixels** — a specific gap is an implementation detail later units may retune;
+the ordering is the design. It asserts `kin < sequence < chapter < epilogue`,
+no overlap, reading order, and no overflow, at 390 / 768 / 1440 / 1920, **both
+populated and with every list empty**.
+
+Measured: desktop 20 < 32 < 48 < 64; mobile 16 < 24 < 40 < 48. The rhythm
+survives the empty state, which was the specific risk — a rhythm tuned on
+populated rows can collapse into dead zones when sections recede.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit and finance/status gate pass · shell computed-style diff **no
+change** · leak probe **no descendant change on any route**, all four unmigrated
+routes byte-identical · finance chart probe **Payments byte-identical** ·
+structure, first-run, activity, pipeline and currency probes clean · composition
+probe clean populated and empty · responsive matrix clean both motion modes ·
+grayscale reviewed · `git diff --check` clean.
+
+### Measured
+
+- shared selectors changed **0**; `.section-title-row` deliberately untouched
+  across 29 consumers
+- composition roles added **4** spacing relationships + 1 section-rank rule
+- section heading 19px → **24px**; internal titles unchanged at 14px
+- CSS 132.63 → **133.47 kB**; JS entry unchanged

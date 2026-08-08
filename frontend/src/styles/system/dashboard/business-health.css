@@ -42,7 +42,6 @@
     gap: var(--ui-space-5);
 
     padding: var(--ui-space-6);
-    margin-block-end: var(--ui-space-8);
   }
 
   .ui-health__head {
