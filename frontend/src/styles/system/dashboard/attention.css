@@ -1,0 +1,318 @@
+/*
+ * ===========================================================================
+ * ATTENTION — the Dashboard's spine
+ * ===========================================================================
+ *
+ * File purpose:
+ * The opening block of the Dashboard. One ordered list of things that need the
+ * user, most urgent first.
+ *
+ * WHY A LIST AND NOT CARDS
+ * The block this replaces was a row of equal-width count tiles. Equal width is
+ * equal weight, so the user had to read every tile to find the worst one. A
+ * list has hierarchy for free: position IS priority, and the first row is the
+ * answer. That also means this section never becomes a grid at any width — it
+ * stays a list and only its internal wrapping changes.
+ *
+ * HIERARCHY WITHIN A ROW
+ * Three levels, so the eye lands in the right place without colour doing the
+ * work:
+ *   1. the object's name, at body size and semibold — this is what the user
+ *      is looking for
+ *   2. the facts beneath it, one step down and in muted ink
+ *   3. the action, right-aligned, revealed on hover and focus but always
+ *      present to assistive technology
+ *
+ * STATUS COLOUR
+ * `data-tone` paints ONE element: a 3px rail on the inline start edge, plus
+ * the icon. Never the row background, never the text, never the amount. A
+ * tinted row background would make money look like a warning, which is exactly
+ * the misuse this redesign removes.
+ *
+ * Tone is never the only signal. Each row prints its state in words and the
+ * ordering repeats it positionally, so the list survives greyscale and
+ * colour-blindness.
+ *
+ * TOUCH TARGET
+ * The whole row is the link, so the target is the full row height — far above
+ * the 44px floor at every width. The action label is decoration on top of an
+ * already-large target, not the target itself.
+ */
+
+@layer system-components {
+  .ui-attention {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-4);
+
+    margin-block-end: var(--ui-space-8);
+  }
+
+  .ui-attention__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-1);
+  }
+
+  .ui-attention__greeting {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  /*
+   * The largest type on the page, and the only place that competes for first
+   * read. Everything below is deliberately a step down.
+   */
+  .ui-attention__headline {
+    margin: 0;
+    font-size: var(--ui-text-2xl);
+    font-weight: var(--ui-weight-semibold);
+    line-height: var(--ui-leading-tight);
+    letter-spacing: var(--ui-tracking-tight);
+    color: var(--ui-ink-strong);
+    text-wrap: balance;
+  }
+
+  .ui-attention__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-2);
+
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ui-attention__item {
+    position: relative;
+
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-container);
+
+    /* Clips the tone rail to the rounded corner. */
+    overflow: hidden;
+
+    transition: border-color var(--ui-duration-fast) var(--ui-ease-move),
+      box-shadow var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .ui-attention__item:hover {
+    border-color: var(--ui-line-strong);
+    box-shadow: var(--ui-elevation-1);
+  }
+
+  /*
+   * The only coloured surface in the row. A rail rather than a fill, so the
+   * state is unmistakable while the facts stay neutral.
+   */
+  .ui-attention__item::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block: 0;
+    inline-size: 3px;
+    background: var(--ui-line-strong);
+  }
+
+  .ui-attention__item[data-tone="danger"]::before {
+    background: var(--ui-status-danger-fg);
+  }
+
+  .ui-attention__item[data-tone="warning"]::before {
+    background: var(--ui-status-warning-fg);
+  }
+
+  .ui-attention__row {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+
+    /* The extra inline-start space clears the tone rail. */
+    padding: var(--ui-space-4);
+    padding-inline-start: calc(var(--ui-space-4) + 3px);
+
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .ui-attention__row:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: calc(var(--ui-focus-ring-offset) * -1);
+  }
+
+  .ui-attention__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+
+    border-radius: var(--ui-radius-control);
+    background: var(--ui-surface-sunken);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-attention__item[data-tone="danger"] .ui-attention__mark {
+    color: var(--ui-status-danger-fg);
+  }
+
+  .ui-attention__item[data-tone="warning"] .ui-attention__mark {
+    color: var(--ui-status-warning-fg);
+  }
+
+  .ui-attention__detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-1);
+
+    /* Load-bearing: without it a long tender name refuses to shrink and
+     * pushes the action off the row. */
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .ui-attention__title {
+    font-size: var(--ui-text-base);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /*
+   * The facts line. Wraps rather than truncates, because an amount that is
+   * half visible is worse than an amount on a second line.
+   */
+  .ui-attention__facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--ui-space-1) var(--ui-space-2);
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  /* The state in words, so nothing depends on the rail's colour. */
+  .ui-attention__state {
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink);
+  }
+
+  /* Money is a fact. It is never tinted by state. */
+  .ui-attention__amount {
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink);
+  }
+
+  .ui-attention__meta,
+  .ui-attention__timing {
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-attention__action {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ui-space-1);
+    flex: none;
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+
+    /*
+     * Neutral at rest, accent on hover and focus.
+     *
+     * The first draft dimmed the accent with `opacity: 0.72` and restored it
+     * on hover. Measured, that composites to 4.30:1 on the surface, under the
+     * 4.5 floor for text this size -- the same mistake as SHELL-021, where a
+     * legacy opacity quietly invalidated a measured contrast decision. Ink
+     * changes colour instead of transparency, so both states are legible.
+     */
+    color: var(--ui-ink-muted);
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .ui-attention__row:hover .ui-attention__action,
+  .ui-attention__row:focus-visible .ui-attention__action {
+    color: var(--ui-accent);
+  }
+
+  /* ---- All clear ------------------------------------------------------- */
+
+  .ui-attention__clear {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+    flex-wrap: wrap;
+
+    padding: var(--ui-space-5);
+
+    background: var(--ui-surface-sunken);
+    border: 1px solid var(--ui-line-faint);
+    border-radius: var(--ui-radius-container);
+  }
+
+  .ui-attention__clear-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+
+    border-radius: 50%;
+    background: var(--ui-surface);
+    color: var(--ui-status-success-fg);
+  }
+
+  .ui-attention__clear-text {
+    margin: 0;
+    flex: 1 1 16rem;
+    min-width: 0;
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-attention__clear-link,
+  .ui-attention__more {
+    align-self: flex-start;
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-accent);
+
+    /* Meets the 44px floor without a border, since these sit alone. */
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ui-target-min);
+  }
+
+  .ui-attention__clear-link:focus-visible,
+  .ui-attention__more:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+    border-radius: var(--ui-radius-control);
+  }
+}
+
+/*
+ * Reduced motion: the hover emphasis and border change are state, not travel,
+ * so they are kept but resolved instantly rather than removed. Nothing here
+ * moves position in either mode.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .ui-attention__item,
+    .ui-attention__action {
+      transition-duration: 0.01ms;
+    }
+  }
+}

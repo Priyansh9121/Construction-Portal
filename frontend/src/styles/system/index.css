@@ -46,3 +46,6 @@
 @import "./shell/notifications.css";
 @import "./shell/command-palette.css";
 @import "./shell/skip-link.css";
+
+/* Route groups ------------------------------------------------------------ */
+@import "./dashboard/attention.css";
