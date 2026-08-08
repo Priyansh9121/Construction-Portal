@@ -16,7 +16,8 @@
  * - AppLayout, via AppRoutes
  *
  * Navigation and children:
- * - Renders AttentionSpine, BusinessHealth, Pipeline and FinanceTrendChart.
+ * - Renders AttentionSpine, BusinessHealth, Pipeline, FinanceTrendChart
+ * - and ActivityStream.
  *
  * Important notes:
  * - Office-only. Workers and subcontractors land on their portals instead —
@@ -30,6 +31,7 @@ import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
 import BusinessHealth from "../components/dashboard/BusinessHealth";
 import Pipeline from "../components/dashboard/Pipeline";
+import ActivityStream from "../components/dashboard/ActivityStream";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useEffect, useState } from "react";
@@ -94,12 +96,6 @@ function RatioRow({ label, value, tone }) {
 }
 
 
-const RECENT_TABS = [
-  { key: "payments", label: "Payments & deadlines" },
-  { key: "invoices", label: "Invoices & tenders" },
-  { key: "workforce", label: "Workforce & sites" },
-];
-
 function DashboardPage({
   payments = [],
   workers = [],
@@ -113,38 +109,10 @@ function DashboardPage({
 
   const money = formatCurrency;
 
-  const dateOnly = (value) =>
-    value ? String(value).slice(0, 10) : "-";
-
   const normaliseStatus = (value) =>
     String(value || "")
       .trim()
       .toLowerCase();
-
-  const getStatusClass = (status) => {
-    const value = normaliseStatus(status);
-
-    if (
-      [
-        "active",
-        "approved",
-        "paid",
-        "running",
-        "completed",
-        "passed",
-      ].includes(value)
-    ) {
-      return "badge green";
-    }
-
-    if (
-      ["overdue", "rejected", "inactive", "failed"].includes(value)
-    ) {
-      return "badge red";
-    }
-
-    return "badge yellow";
-  };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -165,12 +133,6 @@ function DashboardPage({
       date.getFullYear() === currentYear
     );
   };
-
-  /*
-   * Which recent-activity tab is showing. Local presentation state only —
-   * every table below still receives exactly the data it always did.
-   */
-  const [recentTab, setRecentTab] = useState("payments");
 
   const [
     subcontractors,
@@ -444,52 +406,6 @@ function DashboardPage({
     (subcontractor) =>
       normaliseStatus(subcontractor.status) === "active"
   ).length;
-
-  const recentPayments = [...payments]
-    .sort(
-      (a, b) =>
-        new Date(
-          b.payment_date || b.created_at || 0
-        ) -
-        new Date(
-          a.payment_date || a.created_at || 0
-        )
-    )
-    .slice(0, 6);
-
-  const recentInvoices = [...invoices]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at || 0) -
-        new Date(a.created_at || 0)
-    )
-    .slice(0, 6);
-
-  const recentTenders = [...tenders]
-    .sort(
-      (a, b) =>
-        new Date(
-          b.created_at || b.due_date || 0
-        ) -
-        new Date(
-          a.created_at || a.due_date || 0
-        )
-    )
-    .slice(0, 6);
-
-  const recentWorkers = [...workers]
-    .sort(
-      (a, b) =>
-        Number(b.id || 0) - Number(a.id || 0)
-    )
-    .slice(0, 6);
-
-  const recentSites = [...sites]
-    .sort(
-      (a, b) =>
-        Number(b.id || 0) - Number(a.id || 0)
-    )
-    .slice(0, 6);
 
   const cashPosition =
     totalIncome -
@@ -889,392 +805,22 @@ function DashboardPage({
 
 
       {/*
-        V2-I028. Six "Recent X" tables used to stack vertically here, about
-        four of the page's five screens of scroll. Nothing is removed — the
-        same three sections, the same six tables, the same links — they are
-        now one at a time behind a tab strip.
+        D4. A tab strip over six tables stood here: Recent Payments, Recent
+        Invoices, Recent Tenders, Recent Workers and Recent Sites. Six
+        interfaces organised by database table, each with its own heading and
+        its own "View all".
 
-        Real tab semantics: role="tablist", aria-selected, aria-controls, and
-        each panel is a labelled tabpanel, so a screen reader announces "tab 2
-        of 3" rather than meeting three unexplained regions.
+        ActivityStream is one chronological stream. Workers and sites are
+        deliberately absent: neither carries any timestamp, and the old tables
+        sorted them by row id and called the result "recent". See the
+        component header.
       */}
-      <section className="v2-dash__zone" aria-labelledby="recent-activity-heading">
-        <div className="v2-dash__zone-head">
-          <h2 className="v2-dash__zone-title" id="recent-activity-heading">
-            Recent activity
-          </h2>
-        </div>
+      <ActivityStream
+        payments={payments}
+        invoices={invoices}
+        tenders={tenders}
+      />
 
-        <div className="tabs" role="tablist" aria-label="Recent activity">
-          {RECENT_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              id={`recent-tab-${tab.key}`}
-              aria-selected={recentTab === tab.key}
-              aria-controls={`recent-panel-${tab.key}`}
-              tabIndex={recentTab === tab.key ? 0 : -1}
-              className={recentTab === tab.key ? "active-tab" : undefined}
-              onClick={() => setRecentTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div
-          className="v2-recent__panel"
-          role="tabpanel"
-          id={`recent-panel-${recentTab}`}
-          aria-labelledby={`recent-tab-${recentTab}`}
-          tabIndex={0}
-        >
-        {recentTab === "payments" && (
-      <section className="dashboard-grid two-column-dashboard">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Recent Payments</h2>
-              <p className="muted-text">
-                Latest income and expense entries.
-              </p>
-            </div>
-
-            <Link to="/payments">View all</Link>
-          </div>
-
-          <div className="table-wrapper" tabIndex={0}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Description</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {recentPayments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td>
-                      {dateOnly(
-                        payment.payment_date ||
-                          payment.created_at
-                      )}
-                    </td>
-
-                    <td>
-                      <span
-                        className={getStatusClass(
-                          payment.payment_type
-                        )}
-                      >
-                        {payment.payment_type || "-"}
-                      </span>
-                    </td>
-
-                    <td>
-                      {payment.description ||
-                        payment.details ||
-                        payment.payment_sub_type ||
-                        "-"}
-                    </td>
-
-                    <td className="amount-cell">
-                      {money(payment.amount)}
-                    </td>
-                  </tr>
-                ))}
-
-                {recentPayments.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="4"
-                      className="empty-table-message"
-                    >
-                      No payments added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </section>
-        )}
-
-        {recentTab === "invoices" && (
-      <section className="dashboard-grid two-column-dashboard">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Recent Invoices</h2>
-              <p className="muted-text">
-                Latest billing records and statuses.
-              </p>
-            </div>
-
-            <Link to="/invoices">View all</Link>
-          </div>
-
-          <div className="table-wrapper" tabIndex={0}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Invoice No.</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {recentInvoices.map((invoice) => (
-                  <tr key={invoice.id}>
-                    <td>
-                      {invoice.invoice_number || "-"}
-                    </td>
-
-                    <td className="amount-cell">
-                      {money(invoice.amount)}
-                    </td>
-
-                    <td>
-                      <span
-                        className={getStatusClass(
-                          invoice.status
-                        )}
-                      >
-                        {invoice.status || "-"}
-                      </span>
-                    </td>
-
-                    <td>
-                      {dateOnly(invoice.created_at)}
-                    </td>
-                  </tr>
-                ))}
-
-                {recentInvoices.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="4"
-                      className="empty-table-message"
-                    >
-                      No invoices added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Recent Tenders</h2>
-              <p className="muted-text">
-                Recently created or updated tenders.
-              </p>
-            </div>
-
-            <Link to="/tenders">View all</Link>
-          </div>
-
-          <div className="table-wrapper" tabIndex={0}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Tender</th>
-                  <th>Status</th>
-                  <th>Value</th>
-                  <th>Due</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {recentTenders.map((tender) => (
-                  <tr key={tender.id}>
-                    <td>
-                      <Link
-                        to={`/tenders/${tender.id}`}
-                        className="table-link-button"
-                      >
-                        {tender.title ||
-                          tender.tender_name ||
-                          "-"}
-                      </Link>
-                    </td>
-
-                    <td>
-                      <span
-                        className={getStatusClass(
-                          tender.status
-                        )}
-                      >
-                        {tender.status || "-"}
-                      </span>
-                    </td>
-
-                    <td className="amount-cell">
-                      {money(tender.estimated_value)}
-                    </td>
-
-                    <td>{dateOnly(tender.due_date)}</td>
-                  </tr>
-                ))}
-
-                {recentTenders.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="4"
-                      className="empty-table-message"
-                    >
-                      No tenders added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-        )}
-
-        {recentTab === "workforce" && (
-      <section className="dashboard-grid two-column-dashboard">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Recent Workers</h2>
-              <p className="muted-text">
-                Latest worker records in the portal.
-              </p>
-            </div>
-
-            <Link to="/workers">View all</Link>
-          </div>
-
-          <div className="table-wrapper" tabIndex={0}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Worker</th>
-                  <th>Role</th>
-                  <th>Salary</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {recentWorkers.map((worker) => (
-                  <tr key={worker.id}>
-                    <td>{worker.full_name || "-"}</td>
-                    <td>{worker.role || "-"}</td>
-
-                    <td className="amount-cell">
-                      {money(worker.salary)}
-                    </td>
-
-                    <td>
-                      <span
-                        className={getStatusClass(
-                          worker.status
-                        )}
-                      >
-                        {worker.status || "-"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-
-                {recentWorkers.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="4"
-                      className="empty-table-message"
-                    >
-                      No workers added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Recent Sites</h2>
-              <p className="muted-text">
-                Latest construction sites in the portal.
-              </p>
-            </div>
-
-            <Link to="/sites">View all</Link>
-          </div>
-
-          <div className="table-wrapper" tabIndex={0}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Site</th>
-                  <th>Type</th>
-                  <th>Address</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {recentSites.map((site) => (
-                  <tr key={site.id}>
-                    <td>
-                      <Link
-                        to={`/sites/${site.id}`}
-                        className="table-link-button"
-                      >
-                        {site.site_name || "-"}
-                      </Link>
-                    </td>
-
-                    <td>{site.site_type || "-"}</td>
-                    <td>{site.address || "-"}</td>
-
-                    <td>
-                      <span
-                        className={getStatusClass(
-                          site.status
-                        )}
-                      >
-                        {site.status || "-"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-
-                {recentSites.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="4"
-                      className="empty-table-message"
-                    >
-                      No sites added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-        )}
-        </div>
-      </section>
     </>
   );
 }
