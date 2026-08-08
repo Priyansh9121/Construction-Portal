@@ -259,12 +259,20 @@
    * rail is strong ink, the outbound a muted step down. The figure beside it
    * is the precise value; the rail only conveys relative size.
    */
+  /*
+   * Full width, scaled horizontally. The rail's value is expressed as a
+   * transform rather than a width so a timeframe change animates on the
+   * compositor -- D6 motion-performance rule: never animate a layout property
+   * where a cheaper one does the same job.
+   */
   .ui-health__bar-fill {
     display: block;
+    inline-size: 100%;
     block-size: 100%;
     border-radius: inherit;
 
-    transition: inline-size var(--ui-duration-enter) var(--ui-ease-move);
+    transform-origin: left center;
+    transition: transform var(--ui-duration-enter) var(--ui-ease-move);
   }
 
   .ui-health__bar-fill[data-flow="in"] {

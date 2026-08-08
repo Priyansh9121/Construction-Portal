@@ -285,7 +285,9 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
                     <span
                       className="ui-health__bar-fill"
                       data-flow="in"
-                      style={{ inlineSize: `${inWidth}%` }}
+                      /* scaleX, not width: a compositor property, so changing
+                       * the timeframe costs no layout or paint. */
+                      style={{ transform: `scaleX(${inWidth / 100})` }}
                     />
                   </span>
                   <span className="ui-health__bar-value">
@@ -301,7 +303,7 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
                     <span
                       className="ui-health__bar-fill"
                       data-flow="out"
-                      style={{ inlineSize: `${outWidth}%` }}
+                      style={{ transform: `scaleX(${outWidth / 100})` }}
                     />
                   </span>
                   <span className="ui-health__bar-value">

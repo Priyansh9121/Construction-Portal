@@ -1,0 +1,160 @@
+/*
+ * ===========================================================================
+ * DASHBOARD — composition, entrance and chart container (D6)
+ * ===========================================================================
+ *
+ * File purpose:
+ * The craft pass over the finished Dashboard. It adds no content and changes
+ * no information architecture: one page entrance, and the container alignment
+ * that makes the finance chart belong to the same composition as the sections
+ * around it.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ONE ENTRANCE, NOT FIVE
+ * ─────────────────────────────────────────────────────────────────────────
+ * Every section animating independently reads as five things arriving, which
+ * is the opposite of the "one composition" this page is meant to be. The
+ * sections share a single keyframe and differ only by delay, so the page
+ * resolves top-down in the order the user reads it: what needs me, then how
+ * are we doing, then the rest.
+ *
+ * The whole sequence completes in 400ms (160ms of stagger + a 240ms move,
+ * --ui-duration-enter).
+ * It is deliberately short: an entrance the user can perceive as an *effect*
+ * is already too slow for a page they open many times a day.
+ *
+ * NOTHING IS BLOCKED. These are CSS animations on opacity and transform, so
+ * scrolling, clicking, keyboard navigation and focus all work from the first
+ * frame. No overlay, no pointer-events gate, no JS gate.
+ *
+ * TRANSFORM AND OPACITY ONLY. Both are compositor properties, so the entrance
+ * costs no layout or paint. The travel is 8px — enough to read as arrival,
+ * short enough never to look like the page is assembling itself.
+ *
+ * WHY `.ui-chart` AND NOT `.premium-chart-panel`
+ * The chart component is shared with Payments (DASH-008, F-03). Animating or
+ * restyling `.premium-chart-panel` would reach an unmigrated route. `.ui-chart`
+ * is applied only when the caller asks for the finance palette, which today is
+ * the Dashboard alone, so the class is the same opt-in signal F-03 established
+ * rather than a second mechanism.
+ */
+
+:root {
+  /* Single source for the finance chart's plot height; consumed by the CSS
+   * shell and passed to the chart's own container so they cannot disagree. */
+  --ui-chart-plot-height: 260px;
+}
+
+@layer system-components {
+  /*
+   * Container alignment for the finance chart.
+   *
+   * Measured before changing anything: the chart's heading rendered at 18px
+   * against 19px for every system section, and its padding at 20px against
+   * 24px. Small, but it is the one section still wearing legacy panel chrome,
+   * and a single element a step off the scale is what makes a page read as
+   * assembled rather than designed.
+   */
+  .ui-chart.premium-chart-panel {
+    padding: var(--ui-space-6);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-container);
+    background: var(--ui-surface);
+    box-shadow: none;
+  }
+
+  .ui-chart .section-title-row {
+    margin-block-end: var(--ui-space-4);
+  }
+
+  .ui-chart .section-title-row h2 {
+    font-size: var(--ui-text-lg);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+    letter-spacing: normal;
+  }
+
+  .ui-chart .section-title-row .muted-text {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  /*
+   * The chart is SUBORDINATE to Business Health above it.
+   *
+   * Measured: at the inherited 340px plot the panel stood 425px tall against
+   * Business Health's 225px -- nearly double the section it supports, which
+   * inverts the page's hierarchy. The plot drops to 260px.
+   *
+   * The shell and the plot must move TOGETHER. A first attempt capped only
+   * this shell at 320px while the component still requested 340px, so the
+   * chart overflowed into `overflow: hidden` and was silently clipped. The
+   * height now comes from the palette spec so one value drives both.
+   */
+  .ui-chart .premium-chart-shell {
+    height: var(--ui-chart-plot-height);
+  }
+}
+
+/* ---- Entrance ---------------------------------------------------------- */
+
+@keyframes ui-dash-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer system-components {
+  .ui-attention,
+  .ui-health,
+  .ui-chart,
+  .ui-pipe,
+  .ui-activity {
+    animation: ui-dash-enter var(--ui-duration-enter) var(--ui-ease-enter) both;
+  }
+
+  /*
+   * Reading order, top to bottom. 40ms apart: enough to be sequential, not
+   * enough to be noticed as a queue.
+   */
+  .ui-health {
+    animation-delay: 40ms;
+  }
+
+  .ui-chart {
+    animation-delay: 80ms;
+  }
+
+  .ui-pipe {
+    animation-delay: 120ms;
+  }
+
+  .ui-activity {
+    animation-delay: 160ms;
+  }
+}
+
+/*
+ * Reduced motion: no travel and no stagger. The page is simply there.
+ *
+ * The animation is not merely shortened — the delays are removed too, because
+ * a stagger a user cannot see is just content arriving late for no reason.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .ui-attention,
+    .ui-health,
+    .ui-chart,
+    .ui-pipe,
+    .ui-activity {
+      animation: none;
+      animation-delay: 0ms;
+    }
+  }
+}

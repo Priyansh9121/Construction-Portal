@@ -158,7 +158,8 @@ function PipelineRow({ item }) {
             >
               <span
                 className="ui-pipe__progress-fill"
-                style={{ inlineSize: `${item.progress}%` }}
+                /* scaleX rather than width; see business-health.css. */
+                style={{ transform: `scaleX(${item.progress / 100})` }}
               />
             </span>
             <span className="ui-pipe__progress-value">{item.progress}%</span>

@@ -2898,3 +2898,107 @@ CSS 130.29 → 130.30 kB. JS entry 469.89 kB unchanged. `FinanceTrendChart` chun
 on data, not palette.
 
 `baselines/finance-chart-f03.json` records the post-migration state for F-04.
+
+---
+
+## D6 — Motion, micro-interactions and final polish
+
+**Class:** craft pass (Dashboard programme, final unit)
+**Status:** COMPLETE
+
+No information architecture changed. No section added or removed.
+
+### Review first, then implement
+
+Measured the finished page at 1440 before touching anything. **Vertical rhythm
+was already correct** — every section 32px apart with `margin-block-end` of
+`--ui-space-8`, no drift. That result was worth having: it meant D6 did not need
+a spacing pass, and inventing one would have been change for its own sake.
+
+Two real inconsistencies were found, both in one place:
+
+- the finance chart's heading rendered at **18px** against **19px** for every
+  system section
+- its padding was **20px** against **24px**
+
+It was the only section still wearing legacy `.panel` chrome. F-03 had migrated
+its series colours but not its container.
+
+### Container alignment, on the existing opt-in
+
+`.panel` is shared with Payments, so restyling it would reach an unmigrated
+route (DASH-008). The chart now takes a `ui-chart` class **only when the caller
+asks for the finance palette** — the same signal F-03 established, not a second
+mechanism. Payments keeps legacy chrome untouched.
+
+### One entrance, not five
+
+`ui-dash-enter`: opacity plus an 8px rise, shared by all five sections and
+differing only by delay (0 / 40 / 80 / 120 / 160ms). The page resolves in the
+order it is read. Total 400ms.
+
+Transform and opacity only, so the entrance costs no layout or paint and
+nothing is blocked — scrolling, clicking, keyboard and focus all work from the
+first frame. There is no overlay and no JS gate.
+
+**Reduced motion removes the animation entirely, delays included.** A stagger a
+user cannot perceive is just content arriving late. Verified at runtime:
+`animation-name: none`, `delay: 0s` on all five sections under
+`prefers-reduced-motion: reduce`.
+
+### Motion performance
+
+Both progress rails animated `inline-size`, a layout property. They now animate
+`transform: scaleX()` from a `transform-origin: left` — compositor-only. Applies
+to Business Health's flow bars, which move on every timeframe change, and
+Pipeline's progress rail, which moves only when the recorded value moves.
+
+`grep` confirms **no layout-property animations remain** in the Dashboard
+components.
+
+### Two defects I introduced, caught by measurement
+
+**D6-a — I clipped the chart.** Capping `.premium-chart-shell` at 320px while
+the component still requested a 340px plot pushed the chart into
+`overflow: hidden`. The height now comes from the palette spec and
+`--ui-chart-plot-height` together, so shell and plot cannot disagree.
+
+**D6-b — the chart was dominating.** At the inherited 340px plot the panel stood
+**425px** against Business Health's 225px — nearly double the section it
+supports, inverting the hierarchy. The plot drops to 260px, panel 365px.
+
+### A probe threshold of mine was wrong
+
+`dashboard_firstrun_probe` asserted the empty chart was `< 260px`, calibrated to
+a single observation (257px). D6's legitimate move onto 24px system padding made
+it 264px and the check failed. The threshold encoded an accident, not a
+requirement. It is now `< 300px`, derived from the ~380px void DASH-003 actually
+guards against, and documented as a ceiling rather than a fingerprint.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit all pass incl. the finance/status gate · shell computed-style diff
+no change · leak probe **no descendant change on any route** · structure,
+first-run, activity and pipeline probes clean · finance chart probe **PASS,
+Payments byte-identical** · responsive matrix clean both motion modes ·
+reduced-motion verified at runtime · `git diff --check` clean.
+
+**Payments remains pixel-identical to its pre-F-03 state**, re-confirmed by
+SHA-256 at 1440 and 390 after D6.
+
+### Measured
+
+- `DashboardPage.jsx` **512 lines** (1831 at programme start)
+- Dashboard-owned system CSS: **6 files**
+- CSS bundle 130.30 → **131.44 kB** raw (22.18 → 22.36 gzip)
+- JS entry **469.89 kB**, unchanged
+- `FinanceTrendChart` chunk 365.04 → **365.17 kB** (+0.13)
+- animations introduced: **1** (a single shared entrance keyframe)
+- animations removed: **2** layout-property transitions, replaced by transforms
+- keyboard focus order verified from the skip link through the shell
+
+The +1.14 kB of CSS buys the page entrance, the chart's container alignment and
+the transform-based rails. It earns its cost by removing two layout animations
+from every timeframe change, which is a runtime saving rather than a one-off
+download.
