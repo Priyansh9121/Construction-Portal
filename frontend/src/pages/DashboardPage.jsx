@@ -16,7 +16,7 @@
  * - AppLayout, via AppRoutes
  *
  * Navigation and children:
- * - Renders AnimatedStatCard, DashboardHero and FinanceTrendChart.
+ * - Renders AttentionSpine, AnimatedStatCard and FinanceTrendChart.
  *
  * Important notes:
  * - Office-only. Workers and subcontractors land on their portals instead —
@@ -29,7 +29,7 @@ import { Link } from "react-router-dom";
 import AppLink from "../components/ui/AppLink";
 import AnimatedStatCard from "../components/AnimatedStatCard";
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
-import DashboardHero from "../components/DashboardHero";
+import AttentionSpine from "../components/dashboard/AttentionSpine";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useEffect, useState } from "react";
@@ -718,66 +718,23 @@ function DashboardPage({
     },
   ];
 
-  const nextActions = [
-    {
-      label: "Pending invoices to review",
-      value: pendingInvoices.length,
-      path: "/invoices",
-      urgent: pendingInvoices.length > 0,
-    },
-    {
-      label: "Overdue invoices",
-      value: overdueInvoices.length,
-      path: "/invoices",
-      urgent: overdueInvoices.length > 0,
-    },
-    {
-      label: "Tenders due within 7 days",
-      value: dueSoonTenders.length,
-      path: "/tenders",
-      urgent: dueSoonTenders.length > 0,
-    },
-    {
-      label: "Overdue tenders",
-      value: overdueTenders.length,
-      path: "/tenders",
-      urgent: overdueTenders.length > 0,
-    },
-    {
-      label: "Inactive workers",
-      value: inactiveWorkers,
-      path: "/workers",
-      urgent: false,
-    },
-    {
-      label: "Inactive sites",
-      value: inactiveSites,
-      path: "/sites",
-      urgent: false,
-    },
-  ];
-
   return (
     <>
   
       {/*
-        The opening block now leads with what needs a decision rather than
-        with the product's own name. Every figure below is already computed
-        above for the stat cards — nothing new is derived here, and the
-        finance totals it used to duplicate are left to the cards that own
-        them.
+        D1. The page opens with the OBJECTS that need the user, not counts of
+        them. This replaced DashboardHero's six count tiles and absorbed the
+        "Suggested Next Actions" table 900 lines below, which showed the same
+        six counts a second time.
 
-        `pendingTenders` is already a count; the invoice and deadline lists
-        are arrays, hence `.length`.
+        It takes the tender and invoice rows directly, because the objects it
+        names live in them. Nothing new is fetched and no figure elsewhere on
+        the page changed.
       */}
-      <DashboardHero
+      <AttentionSpine
         userName={user?.full_name || ""}
-        overdueInvoices={overdueInvoices.length}
-        overdueInvoiceTotal={overdueInvoiceTotal}
-        overdueTenders={overdueTenders.length}
-        dueSoonTenders={dueSoonTenders.length}
-        pendingInvoices={pendingInvoices.length}
-        pendingTenders={pendingTenders}
+        tenders={tenders}
+        invoices={invoices}
       />
 
       {/*
@@ -1749,80 +1706,6 @@ function DashboardPage({
         </div>
       </section>
         )}
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="section-title-row">
-          <div>
-            <h2>Suggested Next Actions</h2>
-
-            <p className="muted-text">
-              Items that may need operational or financial attention.
-            </p>
-          </div>
-        </div>
-
-        <div className="table-wrapper" tabIndex={0}>
-          <table>
-            <thead>
-              <tr>
-                <th>Action</th>
-                <th>Open Items</th>
-                <th>Priority</th>
-                <th>Open Module</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {nextActions.map((action) => (
-                <tr key={action.label}>
-                  <td>{action.label}</td>
-
-                  <td className="number-cell">
-                    {action.value}
-                  </td>
-
-                  <td>
-                    <span
-                      className={
-                        action.urgent && action.value > 0
-                          ? "badge red"
-                          : action.value > 0
-                          ? "badge yellow"
-                          : "badge green"
-                      }
-                    >
-                      {action.urgent && action.value > 0
-                        ? "Attention"
-                        : action.value > 0
-                        ? "Review"
-                        : "Clear"}
-                    </span>
-                  </td>
-
-                  <td>
-                    <Link to={action.path}>Open</Link>
-                  </td>
-                </tr>
-              ))}
-
-              <tr>
-                <td>Generate executive company report</td>
-                <td className="number-cell">—</td>
-                <td>
-                  <span className="badge blue">
-                    Reporting
-                  </span>
-                </td>
-                <td>
-                  <Link to="/reports">
-                    Open Reports Centre
-                  </Link>
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </section>
     </>

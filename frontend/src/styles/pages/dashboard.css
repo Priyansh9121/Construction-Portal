@@ -28,23 +28,8 @@
  * strip below uses auto-fit, so both reflow with no breakpoint.
  * ======================================================================== */
 
-.page-intro {
-  margin-bottom: var(--space-4);
-}
 
-.page-intro-greeting {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-tight);
-  color: var(--text-primary);
-}
 
-.page-intro-summary {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-base);
-  color: var(--text-secondary);
-}
 
 /* ===========================================================================
  * ATTENTION STRIP
@@ -52,108 +37,20 @@
  * Only rendered when something is actually wrong — see DashboardHero.jsx.
  * ======================================================================== */
 
-.attention-strip {
-  display: grid;
-  /* auto-fit + minmax collapses to one column with no media query. */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--section-gap);
-}
 
-.attention-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 
-  min-height: var(--touch-target);
-  padding: var(--space-3) var(--space-4);
 
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  /* The tone is carried by a left bar as well as the icon colour, so the
-   * severity is never communicated by colour alone. */
-  border-inline-start: 3px solid var(--border-default);
-  border-radius: var(--radius-md);
 
-  text-decoration: none;
-  color: inherit;
-  transition: border-color var(--transition-base),
-    box-shadow var(--transition-base);
-}
 
-.attention-card:hover {
-  box-shadow: var(--shadow-sm);
-}
 
-.attention-card[data-tone="danger"] {
-  border-inline-start-color: var(--status-danger-border);
-}
 
-.attention-card[data-tone="warning"] {
-  border-inline-start-color: var(--status-warning-border);
-}
 
-.attention-card[data-tone="info"] {
-  border-inline-start-color: var(--status-info-border);
-}
 
-.attention-icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
 
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-}
 
-.attention-card[data-tone="danger"] .attention-icon {
-  background: var(--status-danger-bg);
-  color: var(--status-danger-fg);
-}
 
-.attention-card[data-tone="warning"] .attention-icon {
-  background: var(--status-warning-bg);
-  color: var(--status-warning-fg);
-}
 
-.attention-card[data-tone="info"] .attention-icon {
-  background: var(--status-info-bg);
-  color: var(--status-info-fg);
-}
 
-.attention-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.attention-count {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
-  /* Tabular figures so a column of counts does not jitter. */
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-
-.attention-label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-}
-
-.attention-detail {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.attention-chevron {
-  flex: 0 0 auto;
-  color: var(--text-muted);
-}
 
 /* ===========================================================================
  * QUICK ACTIONS

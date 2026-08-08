@@ -1927,3 +1927,98 @@ rather than an inset floating tile.
 `core/shell.css:NN` as the legacy rule each system rule replaced. Those line
 references are now historical and resolve against commit `f40e02a`, the last
 commit where the file existed. They are kept as provenance rather than deleted.
+
+---
+
+## D1 — Attention: the Dashboard opens with objects, not counts
+
+**Class:** product redesign (Dashboard programme, unit 1)
+**Status:** COMPLETE
+
+### What changed
+
+`DashboardHero`'s six count tiles and the "Suggested Next Actions" table 900
+lines below it were the same six numbers rendered twice. Both are gone,
+replaced by `components/dashboard/AttentionSpine.jsx`: one ordered list of the
+actual objects that need the user.
+
+Measured on the local fixture, the opening block went from
+
+> **1** / Tender to submit / Awaiting submission
+
+to
+
+> **New2** — Awaiting submission · Dharmik2 · ₹10,000.00 · Due in 28 days — Review →
+
+Same underlying row. The old version reduced it to `.length` and discarded the
+object; the object was in props the whole time.
+
+### Design decisions
+
+**A list, not a grid.** Equal-width cards give every item equal weight, so the
+user must read all of them to find the worst. Position is priority: sorted by
+lateness, then by value, so the largest exposure at the longest delay leads.
+
+**Colour is confined to a 3px rail** and the icon. Never the row background,
+never the amount. A tinted row would make money look like a warning, which is
+the misuse this programme exists to remove. Every row also states its condition
+in words, so nothing depends on the rail.
+
+**Honest about what the data knows.** Tenders carry `due_date`, so timing is
+stated as fact. Invoices carry NO due date — only `created_at` — so an overdue
+invoice reads "Raised 12 days ago", never "12 days overdue". Deriving a due
+date from `created_at` would fabricate a backend field and would be wrong for
+any non-zero payment terms.
+
+**Capped at 4 rows.** An unbounded attention list becomes the metric wall it
+replaced. The remainder collapses to one link — the single honest use of a
+count, because no individual object is left to name.
+
+### Defects found and fixed during the unit
+
+**D1-a — I dropped a real action.** The first cut selected tenders purely by
+due date, so a tender sitting in `pending` with a distant date vanished. The
+old hero did surface it ("Tender to submit"). Lateness and outstanding work are
+two independent reasons to need someone; the filter now treats them separately.
+Caught by comparing screenshots against the old hero, not by any assertion.
+
+**D1-b — I reintroduced SHELL-021 in new code.** The action label was styled
+`color: var(--ui-accent)` with `opacity: 0.72` at rest. That composites to
+**4.30:1**, below the 4.5 floor for text that size — the exact defect class
+where an opacity silently invalidates a measured contrast decision. Replaced
+with a colour change: `--ui-ink-muted` at rest, `--ui-accent` on hover and
+focus. Both states legible.
+
+### Leak probe — Dashboard is now intentionally different
+
+The probe reported 14 bucket-B differences, **all on `dashboard`**. They are
+this unit: its `heading` sample moved from the retired 11px uppercase label to
+the 32px headline, `link` from the old attention card to the new row, and
+`badge` disappeared with the deleted Suggested Next Actions table.
+
+Verified that the four unmigrated routes are untouched: comparing `styles`
+(bucket B) for tenders, payments, users and site-operations against
+`shell-c1bb6cf.json` gives **zero differences**; only `geometry` (bucket A)
+differs, and that is the pre-existing 264→272 sidebar width predating S-D.
+
+`baselines/shell-d1.json` supersedes `shell-c1bb6cf.json` for future runs, since
+the Dashboard's descendant styles are now deliberately migrated. Shell work
+should compare against the newer file; comparing against c1bb6cf will keep
+reporting this unit forever.
+
+### Deleted
+
+`components/DashboardHero.jsx` (193 lines) and 18 now-orphaned rule blocks from
+`styles/pages/dashboard.css` (246 → 143 lines). No JSX outside the deleted hero
+referenced any of those classes.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit passes · shell computed-style diff **no change** (the shell is
+untouched) · responsive matrix clean both motion modes · screenshot review at
+390 and 1440 · `git diff --check` clean.
+
+CSS 115.19 → 117.16 kB raw (20.34 → 20.67 kB gzip): the new system stylesheet
+costs more than the legacy rules it retired, which is expected while the page
+is half migrated. JS entry unchanged at 469.14 kB.
