@@ -56,6 +56,8 @@ import {
        * unmigrated appearance is. */
       grid: null,
       axis: null,
+      /* The inherited plot height; unmigrated callers keep it exactly. */
+      plotHeight: 340,
     },
     finance: {
       income: "--ui-finance-income",
@@ -82,6 +84,9 @@ import {
        * once, which is the mixed-palette failure this unit exists to avoid. */
       grid: "--ui-finance-grid",
       axis: "--ui-finance-axis-label",
+      /* Must match --ui-chart-plot-height in dashboard.css, or the plot
+       * overflows the shell and `overflow: hidden` clips it. */
+      plotHeight: 260,
     },
   };
 
@@ -118,6 +123,7 @@ import {
       profitDash: spec.profitDash,
       grid: read(spec.grid),
       axis: read(spec.axis),
+      plotHeight: spec.plotHeight,
     };
   }
 
@@ -189,7 +195,7 @@ import {
       const noPayments = monthlyData.length === 0;
 
       return (
-        <div className="panel premium-chart-panel">
+        <div className={`panel premium-chart-panel${palette === "finance" ? " ui-chart" : ""}`}>
           <div className="section-title-row">
             <div>
               <h2>Monthly Finance Trend</h2>
@@ -213,7 +219,13 @@ import {
     }
 
     return (
-      <div className="panel premium-chart-panel">
+      /*
+       * `ui-chart` carries the system container styling and the Dashboard
+       * entrance. It rides on the SAME opt-in as the palette rather than
+       * introducing a second mechanism, so an unmigrated caller keeps legacy
+       * panel chrome untouched (DASH-008).
+       */
+      <div className={`panel premium-chart-panel${palette === "finance" ? " ui-chart" : ""}`}>
         <div className="section-title-row">
           <div>
             <h2>Monthly Finance Trend</h2>
@@ -224,7 +236,7 @@ import {
         </div>
   
         <div className="premium-chart-shell">
-          <ResponsiveContainer width="100%" height={340}>
+          <ResponsiveContainer width="100%" height={paint.plotHeight}>
             <AreaChart data={monthlyData}>
               <defs>
                 <linearGradient id={gid("income")} x1="0" y1="0" x2="0" y2="1">

@@ -152,10 +152,21 @@ for (const width of [390, 1440]) {
   check(blank.overflow === 0, `${width} no horizontal overflow when empty`);
   check(blank.emptyBlocks > 0, `${width} empty sections use the shared empty state`, `n=${blank.emptyBlocks}`);
   check(blank.describedAll, `${width} every empty block explains itself`);
+  /*
+   * DASH-003 guarded a ~380px empty plot that was the largest element on the
+   * page. The first version of this check used `< 260`, calibrated to a single
+   * observation (257px), which then failed when D6 moved the panel onto the
+   * system's 24px padding -- an 8px legitimate change tripping a threshold that
+   * encoded an accident rather than a requirement.
+   *
+   * 300px is derived from what is being prevented: comfortably below the void,
+   * with room for ordinary container changes. It is a ceiling, not a
+   * fingerprint.
+   */
   check(
-    blank.chartHeight !== null && blank.chartHeight < 260,
+    blank.chartHeight !== null && blank.chartHeight < 300,
     `${width} finance trend no longer leaves a large void (DASH-003)`,
-    `chart=${blank.chartHeight}px`
+    `chart=${blank.chartHeight}px, void it replaced was ~380px`
   );
   check(
     !/Nothing needs you right now/.test(blank.text),

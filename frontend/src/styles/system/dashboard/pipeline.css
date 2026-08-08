@@ -183,11 +183,15 @@
   /* Neutral ink, not a semantic colour: progress is a fact, not a state. */
   .ui-pipe__progress-fill {
     display: block;
+    inline-size: 100%;
     block-size: 100%;
     background: var(--ui-ink-muted);
     border-radius: inherit;
 
-    transition: inline-size var(--ui-duration-enter) var(--ui-ease-move);
+    /* Compositor-only, and it moves only when the recorded value moves --
+     * a progress rail that animates continuously is decoration. */
+    transform-origin: left center;
+    transition: transform var(--ui-duration-enter) var(--ui-ease-move);
   }
 
   .ui-pipe__progress-value {
