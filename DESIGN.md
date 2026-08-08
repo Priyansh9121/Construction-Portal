@@ -2,6 +2,11 @@
 
 <!-- impeccable:design-system 1 -->
 
+> **STALE — pending rewrite.** This records the design system as it stood
+> after the authentication group shipped. That system is being reset. Do not
+> treat it as current; it is kept because CI's documenter agent targets this
+> path, and it will be regenerated from the new system once Phase 1 lands.
+>
 > **This describes what is BUILT, not what was planned.** It was written after
 > the authentication group shipped and was verified, from the code that exists.
 > Where the built world diverged from the concept, the built world wins and the
