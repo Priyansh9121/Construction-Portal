@@ -26,7 +26,6 @@
  * - reflect what this session has fetched rather than a server aggregate.
  */
 
-import { Link } from "react-router-dom";
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
 import BusinessHealth from "../components/dashboard/BusinessHealth";
@@ -37,63 +36,6 @@ import { formatCurrency } from "../utils/currency";
 import { useEffect, useState } from "react";
 import { getSubcontractors } from "../services/subcontractorService";
 import { useAuth } from "../contexts/authContext";
-
-
-/**
- * A bullet-style ratio row.
- *
- * UI/UX Pro Max returns Bullet Chart for "multiple KPIs side by side;
- * space-constrained contexts where a gauge is too large" — which is exactly
- * these four percentages, previously rendered as bare text in a table cell.
- * A number alone gives no sense of position; a bar does, at a glance, in the
- * same vertical space.
- *
- * Not a gauge, donut or progress circle: all three cost far more width for
- * less precision, and none of them sit inside a table row.
- *
- * The fill animates from 0 to its value once, on mount, via a CSS transition
- * on inline-size. Under reduced motion the transition is dropped and the bar
- * is simply already at its value — nothing is lost, because the bar itself is
- * the information, not its arrival.
- *
- * `role="img"` with an aria-label gives a screen reader the value as a
- * sentence rather than a decorative bar. The exact figure is still printed
- * beside it, so nothing depends on the graphic.
- */
-function RatioRow({ label, value, tone }) {
-  const [grown, setGrown] = useState(false);
-
-  useEffect(() => {
-    // Next frame, so the browser paints 0 first and the transition runs.
-    const id = requestAnimationFrame(() => setGrown(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  const safe = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-
-  return (
-    <tr>
-      <td>{label}</td>
-      <td className="amount-cell">
-        <span className="v2-ratio">
-          <span
-            className="v2-ratio__track"
-            role="img"
-            aria-label={`${label}: ${safe.toFixed(2)} percent`}
-          >
-            <span
-              className="v2-ratio__fill"
-              data-tone={tone}
-              style={{ inlineSize: grown ? `${safe}%` : "0%" }}
-            />
-          </span>
-
-          <span className="v2-ratio__value">{safe.toFixed(2)}%</span>
-        </span>
-      </td>
-    </tr>
-  );
-}
 
 
 function DashboardPage({
@@ -295,13 +237,9 @@ function DashboardPage({
       normaliseStatus(worker.status) === "active"
   ).length;
 
-  const inactiveWorkers = workers.length - activeWorkers;
-
   const activeSites = sites.filter(
     (site) => normaliseStatus(site.status) === "active"
   ).length;
-
-  const inactiveSites = sites.length - activeSites;
 
   const runningTenders = tenders.filter(
     (tender) =>
@@ -354,28 +292,7 @@ function DashboardPage({
     );
   });
 
-  const paidInvoices = invoices.filter(
-    (invoice) =>
-      normaliseStatus(invoice.status) === "paid"
-  );
-
-  const pendingInvoices = invoices.filter(
-    (invoice) =>
-      normaliseStatus(invoice.status) === "pending"
-  );
-
-  const overdueInvoices = invoices.filter(
-    (invoice) =>
-      normaliseStatus(invoice.status) === "overdue"
-  );
-
   const invoiceTotal = invoices.reduce(
-    (sum, invoice) =>
-      sum + Number(invoice.amount || 0),
-    0
-  );
-
-  const paidInvoiceTotal = paidInvoices.reduce(
     (sum, invoice) =>
       sum + Number(invoice.amount || 0),
     0
@@ -392,12 +309,6 @@ function DashboardPage({
       0
     );
 
-  const overdueInvoiceTotal = overdueInvoices.reduce(
-    (sum, invoice) =>
-      sum + Number(invoice.amount || 0),
-    0
-  );
-
   const activeSubcontractors = (
     Array.isArray(subcontractors)
       ? subcontractors
@@ -407,25 +318,9 @@ function DashboardPage({
       normaliseStatus(subcontractor.status) === "active"
   ).length;
 
-  const cashPosition =
-    totalIncome -
-    totalExpense -
-    Math.max(gstPending, 0) -
-    Math.max(companyChargePending, 0);
-
   const profitMargin =
     totalIncome > 0
       ? (netProfit / totalIncome) * 100
-      : 0;
-
-  const expenseRatio =
-    totalIncome > 0
-      ? (totalExpense / totalIncome) * 100
-      : 0;
-
-  const invoiceCollectionRate =
-    invoiceTotal > 0
-      ? (paidInvoiceTotal / invoiceTotal) * 100
       : 0;
 
   const dashboardExportRows = [
@@ -581,227 +476,17 @@ function DashboardPage({
         window: work that is running now or due beyond it, so no tender is ever
         shown twice.
       */}
-      <Pipeline tenders={tenders} />
-
+      {/*
+        DASH-002. Moved up from between Pipeline and Activity, where deleting
+        the three legacy panels had stranded it. It is the only financial
+        section outside Business Health, and it answers something D2 cannot:
+        trajectory over months rather than position now. Keeping the two
+        adjacent means the page tells one financial story instead of
+        interrupting Pipeline with a second one.
+      */}
       <FinanceTrendChart payments={payments} />
 
-      <section className="dashboard-grid two-column-dashboard">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Finance Health</h2>
-              <p className="muted-text">
-                Company profitability and obligations.
-              </p>
-            </div>
-
-            <Link to="/payments">Open Finance</Link>
-          </div>
-
-          <table>
-            <tbody>
-              <tr>
-                <td>Total Income</td>
-                <td className="amount-cell">
-                  {money(totalIncome)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Total Expense</td>
-                <td className="amount-cell">
-                  {money(totalExpense)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Net Profit</td>
-                <td className="amount-cell">
-                  {money(netProfit)}
-                </td>
-              </tr>
-
-              <RatioRow
-                label="Profit Margin"
-                value={profitMargin}
-                tone="success"
-              />
-
-              <RatioRow
-                label="Expense Ratio"
-                value={expenseRatio}
-                tone="warning"
-              />
-
-              <tr>
-                <td>GST Outstanding</td>
-                <td className="amount-cell">
-                  {money(gstPending)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Company Charge Outstanding</td>
-                <td className="amount-cell">
-                  {money(companyChargePending)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Estimated Cash Position</td>
-                <td className="amount-cell">
-                  <strong>{money(cashPosition)}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Invoice Health</h2>
-              <p className="muted-text">
-                Billing and collection overview.
-              </p>
-            </div>
-
-            <Link to="/invoices">View Invoices</Link>
-          </div>
-
-          <table>
-            <tbody>
-              <tr>
-                <td>Total Invoice Value</td>
-                <td className="amount-cell">
-                  {money(invoiceTotal)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Paid Invoice Value</td>
-                <td className="amount-cell">
-                  {money(paidInvoiceTotal)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Outstanding Invoice Value</td>
-                <td className="amount-cell">
-                  {money(pendingInvoiceTotal)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Overdue Invoice Value</td>
-                <td className="amount-cell">
-                  {money(overdueInvoiceTotal)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Paid Invoices</td>
-                <td className="number-cell">
-                  {paidInvoices.length}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Pending Invoices</td>
-                <td className="number-cell">
-                  {pendingInvoices.length}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Overdue Invoices</td>
-                <td className="number-cell">
-                  {overdueInvoices.length}
-                </td>
-              </tr>
-
-              <RatioRow
-                label="Collection Rate"
-                value={invoiceCollectionRate}
-                tone="success"
-              />
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="dashboard-grid">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Operational Capacity</h2>
-              <p className="muted-text">
-                Workforce, sites and subcontractor coverage.
-              </p>
-            </div>
-          </div>
-
-          <table>
-            <tbody>
-              <tr>
-                <td>Total Workers</td>
-                <td className="number-cell">
-                  {workers.length}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Active Workers</td>
-                <td className="number-cell">
-                  {activeWorkers}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Inactive Workers</td>
-                <td className="number-cell">
-                  {inactiveWorkers}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Total Sites</td>
-                <td className="number-cell">
-                  {sites.length}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Active Sites</td>
-                <td className="number-cell">
-                  {activeSites}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Inactive Sites</td>
-                <td className="number-cell">
-                  {inactiveSites}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Total Subcontractors</td>
-                <td className="number-cell">
-                  {subcontractors.length}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Active Subcontractors</td>
-                <td className="number-cell">
-                  {activeSubcontractors}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <Pipeline tenders={tenders} />
 
 
       {/*
