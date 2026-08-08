@@ -2789,3 +2789,112 @@ token audit **all checks pass, now including section 4** · shell computed-style
 diff no change · leak probe **no change on any route** · structure, activity,
 first-run and pipeline probes all clean · responsive matrix clean both motion
 modes · `git diff --check` clean.
+
+---
+
+## F-03 — FinanceTrendChart migrates Dashboard, Payments stays put
+
+**Class:** shared-component migration
+**Status:** COMPLETE. Closes DASH-004 for the Dashboard route.
+
+### API
+
+`palette="legacy" | "finance"`, defaulting to `legacy`. Named by meaning, not by
+migration history. Dashboard passes `palette="finance"`; **`PaymentsPage` was
+not edited at all** — an unmigrated caller needs no change to stay identical.
+
+The component owns two coherent palettes rather than exposing
+`incomeColor`/`gridColor`/etc., which would push presentation responsibility
+into every caller. No route name is inspected and no `window.location` is read;
+the caller states its language explicitly.
+
+### Literals
+
+`FinanceTrendChart` hard-coded finance hex: **9 → 0**. Legacy values now come
+from the `--ui-finance-legacy-*` tokens F-02 created for exactly this. Token
+values are resolved against the live document because SVG presentation
+attributes do not accept `var()`, which keeps `finance.css` the single source of
+truth instead of duplicating the ramp in the component.
+
+### The Dashboard chart
+
+Income `--ui-finance-income` `#4c1fa6`, expense `--ui-finance-expense`
+`#5f6461`, profit `--ui-finance-profit` `#868a87`. No green, no red, no blue.
+
+Profit is no longer a third filled area. It is `income − expense` — the gap
+already drawn between the two — so it became a thin dashed line. The three
+series differ by **hue, fill and dash**, so nothing depends on hue alone.
+
+Chart chrome moved with the series: grid and axis take `--ui-finance-grid` and
+`--ui-finance-axis-label` on the finance palette, and are left untouched on
+legacy. A chart whose lines are system tokens and whose grid is a library
+default speaks two languages at once, which is the mixed-palette failure this
+unit exists to avoid.
+
+### Correction found by screenshot review
+
+The first cut set `--ui-series-derived` to `--ui-ink-strong` (#1a1917,
+17.57:1), which made the **derived** line the highest-contrast element on the
+chart — louder than either series it is computed from. Now `--ui-neutral-500`
+(#868a87, 3.50:1): above the 3.0 non-text floor, clearly lighter than the
+expense series at 6.03:1, and separated from it by dash as well as weight.
+
+### FIN-004 — gradient ids were document-global
+
+**Class:** shared component coupling
+
+SVG gradient ids are global to the document. `incomeGradient`,
+`expenseGradient` and `profitGradient` were fixed strings, so two charts on one
+page using different palettes would share a definition and whichever rendered
+last would silently repaint the other. Ids are now scoped
+`finance-<palette>-<series>`. Latent today (the routes are separate) and fixed
+before F-04 makes it reachable.
+
+### Route isolation — the point of the unit
+
+`tools/fresh_ui/finance_chart_probe.mjs` added. It reads the **painted SVG** on
+both routes at 390 / 768 / 1440.
+
+**The local fixture has no payment records**, so both routes render an empty
+chart and the palette is never painted — a probe run against real data would
+have reported "no change" while proving nothing. `--seed` fulfils three months
+of synthetic payments in the browser's network layer; no request reaches the API
+and no fixture is mutated (AUTH-018).
+
+Result: Dashboard `[#4c1fa6, #5f6461, #868a87]`, Payments
+`[#16a34a, #dc2626, #2563eb]`. **PASS: Payments byte-identical, Dashboard
+changed at 3 viewports as intended.**
+
+**Pixel proof, obtained before any probe normalisation.** The gradient-id
+scoping did change Payments' DOM (`url(#incomeGradient)` →
+`url(#finance-legacy-income)`), which the probe initially reported as a
+failure. Rather than assume it was cosmetic, the `.premium-chart-panel` element
+was screenshotted on `/payments` at 1440 and 390 with the F-03 changes stashed
+and again with them applied: **SHA-256 identical at both widths**, while
+`/dashboard` differed. Only then was the comparison taught to canonicalise
+internal identifiers, with that evidence recorded in the probe itself. The gate
+was not relaxed to fit the implementation.
+
+### Two probe defects found and fixed
+
+- The stub first returned `{success, data}`, but `paymentService` reads
+  `res.data.payments ?? []`, so it silently resolved to an empty list and the
+  probe would have passed as a no-op.
+- Series were read via `panel.querySelector("svg")`, which returns a **legend
+  icon's** surface — Recharts renders one `svg.recharts-surface` per legend
+  item. The probe reported 0 series on a fully drawn chart. Now scoped from
+  `.recharts-wrapper`.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit all pass including the finance/status gate · shell diff no change ·
+leak probe **no descendant change on any route** · structure, first-run and
+activity probes clean · finance chart probe PASS · responsive matrix clean both
+motion modes · Payments pixel-identical · `git diff --check` clean.
+
+CSS 130.29 → 130.30 kB. JS entry 469.89 kB unchanged. `FinanceTrendChart` chunk
+364.87 → 365.04 kB (+0.17). D5 empty-state behaviour unchanged and still keyed
+on data, not palette.
+
+`baselines/finance-chart-f03.json` records the post-migration state for F-04.

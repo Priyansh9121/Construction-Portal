@@ -78,10 +78,17 @@
   --ui-series-2: var(--ui-neutral-600);
 
   /*
-   * Derived quantities get ink, not a third identity. A derived series is not
-   * a peer of the values it is computed from; see `--ui-finance-profit`.
+   * Derived quantities get a de-emphasised neutral, not a third identity and
+   * not the darkest ink available.
+   *
+   * The first draft used --ui-ink-strong (#1a1917, 17.57:1) and screenshot
+   * review showed the derived line becoming the highest-contrast element on
+   * the chart -- louder than either series it is computed from, which is
+   * backwards. --ui-neutral-500 measures 3.50:1 on white: above the 3.0
+   * non-text floor, clearly lighter than the expense series at 6.03:1, and
+   * separated from it by dash pattern as well as weight.
    */
-  --ui-series-derived: var(--ui-ink-strong);
+  --ui-series-derived: var(--ui-neutral-500);
 
   /* Area fill opacity. The stroke carries identity; the fill only suggests
    * volume, so it stays well below the stroke to avoid two adjacent areas
