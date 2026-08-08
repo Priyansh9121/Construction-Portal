@@ -54,7 +54,7 @@ import { useMemo } from "react";
 
 import AppLink from "../ui/AppLink";
 import EmptyState from "./EmptyState";
-import { formatCurrency } from "../../utils/currency";
+import Money from "../ui/Money";
 
 /**
  * Days of lookahead that belong to the ATTENTION spine, not here.
@@ -143,7 +143,7 @@ function PipelineRow({ item }) {
           <span className="ui-pipe__facts">
             {item.client ? <span>{item.client}</span> : null}
             {item.value > 0 ? (
-              <span className="ui-pipe__value">{formatCurrency(item.value)}</span>
+              <span className="ui-pipe__value"><Money value={item.value} size="metric" /></span>
             ) : null}
             <span>{relativeDue(item.days)}</span>
           </span>
@@ -219,7 +219,7 @@ function Pipeline({ tenders = [] }) {
 
         {committed > 0 ? (
           <p className="ui-pipe__context">
-            {formatCurrency(committed)} committed across {active.length}{" "}
+            <Money value={committed} size="metric" /> committed across {active.length}{" "}
             {active.length === 1 ? "project" : "projects"}
           </p>
         ) : null}

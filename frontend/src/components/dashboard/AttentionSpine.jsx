@@ -56,7 +56,7 @@ import { useMemo } from "react";
 import AppLink from "../ui/AppLink";
 import EmptyState from "./EmptyState";
 import Icon from "./../ui/Icon";
-import { formatCurrency } from "../../utils/currency";
+import Money from "../ui/Money";
 
 /** Beyond this the list stops being a shortlist and becomes a register. */
 const VISIBLE_LIMIT = 4;
@@ -300,7 +300,7 @@ function AttentionSpine({ userName = "", tenders = [], invoices = [] }) {
 
                     {item.amount ? (
                       <span className="ui-attention__amount">
-                        {formatCurrency(item.amount)}
+                        <Money value={item.amount} size="metric" />
                       </span>
                     ) : null}
 

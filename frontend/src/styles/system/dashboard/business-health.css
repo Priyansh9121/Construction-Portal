@@ -118,20 +118,20 @@
    * figures so the digits align and the number reads as a quantity rather
    * than as text.
    */
+  /*
+   * The wrapper no longer sets size, weight, tracking or numeric variant --
+   * those belong to the Money component's `hero` role, so the treatment is
+   * identical wherever a hero figure appears. This rule keeps only what is
+   * specific to THIS figure: its margin and its state colour.
+   */
   .ui-health__figure {
     margin: 0;
-
-    font-size: var(--ui-text-3xl);
-    font-weight: var(--ui-weight-semibold);
-    line-height: var(--ui-leading-tight);
-    letter-spacing: var(--ui-tracking-tight);
-    font-variant-numeric: tabular-nums;
-    color: var(--ui-ink-strong);
   }
 
   /* The one operational condition worth colouring, and it is also written
-   * out in `.ui-health__alarm` below. */
-  .ui-health__figure[data-state="negative"] {
+   * out in `.ui-health__alarm` below. Applied to the digits and the mark
+   * together so the figure stays one object. */
+  .ui-health__figure[data-state="negative"] .ui-money {
     color: var(--ui-status-danger-fg);
   }
 
