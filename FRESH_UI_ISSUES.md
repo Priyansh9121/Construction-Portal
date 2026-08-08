@@ -2360,3 +2360,130 @@ Not touched here because D4's scope is the activity tables. It is the strongest
 candidate for the next Dashboard unit, alongside `Finance Health` and
 `Invoice Health`, which are two more bordered panels holding ratios that D2
 already summarises.
+
+---
+
+## DASH-002 — CLOSED: the lower half deleted, not redesigned
+
+**Class:** hierarchy defect / sections existing by convention
+**Status:** COMPLETE
+
+Three legacy reporting panels were evaluated against one test: *what decision
+does this help the user make?* All three failed, and all three were deleted
+rather than restyled. No replacement section was created — the point was
+conceptual subtraction, not a renamed container holding the same numbers.
+
+### Finance Health — DELETE (8 of 8 rows redundant)
+
+| row | why it went |
+|---|---|
+| Total Income | D2 shows it under the "All time" lens |
+| Total Expense | as above |
+| Net Profit | derived (`income − expense`), and D2 shows Net per lens |
+| Profit Margin | derived (`net ÷ income`), **and painted green** for being a margin |
+| Expense Ratio | derived (`expense ÷ income`), **and painted amber** for being expense |
+| GST Outstanding | D2 names it in the cash-position sentence |
+| Company Charge Outstanding | as above |
+| Estimated Cash Position | **D2's headline figure** |
+
+The panel restated D2's entire story one screen lower, with two status-colour
+misuses of exactly the kind this programme removes: a ratio is not a success
+and an expense is not a warning.
+
+### Invoice Health — DELETE (8 of 8 rows redundant)
+
+Outstanding and Overdue invoice value are D2's receivables line. Pending and
+Overdue invoice *counts* are the objects D1 already renders individually, in a
+weaker form. Paid Invoice Value is derivable (`total − outstanding`).
+Collection Rate is derived (`paid ÷ total`) and was painted green for being a
+rate.
+
+A count of overdue invoices is strictly worse than the overdue invoices
+themselves, which are four sections above it.
+
+### Operational Capacity — DELETE (9 rows, 0 decisions)
+
+Total / Active / Inactive for workers, sites and subcontractors. Three of the
+nine are `total − active`. Every row is present-tense state.
+
+Raw headcount does not prove capacity. Turning it into "understaffed" or
+"capacity risk" would need required-versus-available data the backend does not
+provide, so the honest options were to leave nine meaningless counts or remove
+them. Removed.
+
+### One relocation, and why
+
+Deleting those panels left `FinanceTrendChart` stranded between Pipeline and
+Activity — the only financial section outside Business Health, interrupting two
+non-financial sections. It moved up to sit directly under D2.
+
+It survived the same test the panels failed: it answers **trajectory** (income
+and expense by month), which D2 explicitly does not, since D2 states position
+now and shows no trend. That is a different question, not a restatement.
+
+### Result
+
+Five sections, in one reading order, with no second hierarchy underneath:
+
+> Attention → Business Health → Finance Trend → Pipeline → Activity
+
+Full page height at 1440 is now **1486px** — the entire Dashboard fits one
+screen, against roughly five before the programme. Zero horizontal overflow at
+1440 and 390.
+
+### New probe
+
+`tools/fresh_ui/dashboard_structure_probe.mjs` — 24 assertions. Confirms all 14
+retired headings are absent from the page text, the four programme sections
+render in top-to-bottom order, no duplicate heading, no skipped heading rank,
+no `aria-labelledby` pointing at a removed id, no legacy filled status tiles,
+no ratio rows, no tab semantics, no orphaned "View all", and that the page ends
+with the activity stream. All pass.
+
+### Measured
+
+- `DashboardPage.jsx` **827 → 512 lines** (1831 → 512 across D1–DASH-002)
+- panels removed: **3**; metrics removed: **25**; derived metrics removed: **7**
+- duplicate links removed: **3** ("Open Finance", "View Invoices", one more)
+- helpers deleted: `RatioRow`, plus 10 now-unused derivations
+- CSS unchanged at 128.67 kB raw / 21.91 gzip (no new CSS was written)
+- JS entry 468.84 → 468.83 kB
+- major Dashboard sections: **5**
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit clean · shell computed-style diff **no change** · responsive matrix
+clean both motion modes · structure probe 24/24 · activity probe clean ·
+pipeline wrap probe clean · full-page screenshots at 390 and 1440 ·
+`git diff --check` clean.
+
+Leak probe: one bucket-B difference, `dashboard / table-cell: present ->
+absent` — the deleted panels' `<td>` elements. Tenders, Payments, Users and
+Site Operations **byte-identical**. `baselines/shell-dash002.json` supersedes
+`shell-d4.json`.
+
+---
+
+## DASH-003 — Finance trend renders an empty 380px box with no data
+
+**Class:** zero-data defect
+**Status:** RECORDED for D5 — **highest priority**
+
+`FinanceTrendChart` draws axes and an empty plot area roughly 380px tall when
+no payments exist. With the legacy panels gone it is now the **largest element
+on the Dashboard**, larger than Business Health.
+
+**This unit made it more visible.** Relocating the chart under Business Health
+is the correct information architecture, but it moved a pre-existing broken
+zero state from the lower page into the second screen. That trade was taken
+deliberately rather than hidden: the alternative was leaving the chart stranded
+between two unrelated sections to keep a defect out of sight.
+
+It was not fixed here because suppressing or replacing the chart is a first-run
+design decision, and D5 is scoped to design zero-data behaviour holistically
+against the final structure — which now exists. A one-line guard would have
+pre-empted that decision.
+
+D5 must decide what the chart becomes before any data exists: guidance, a
+smaller placeholder, or omission until the first payment is recorded.
