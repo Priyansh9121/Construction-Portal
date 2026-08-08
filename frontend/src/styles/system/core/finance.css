@@ -1,0 +1,162 @@
+/*
+ * ===========================================================================
+ * FINANCE VISUAL TOKENS
+ * ===========================================================================
+ *
+ * File purpose:
+ * The one place financial colour is declared. Every finance chart, card and
+ * table reads from here instead of hard-coding a literal.
+ *
+ * WHY THIS FILE EXISTS (FIN-003)
+ * Before it, colour was hard-coded at each call site: nine literals in
+ * `FinanceTrendChart`, a different conditional mapping in
+ * `FinanceSummaryCards`, and no shared constant between them. The same concept
+ * was expressed three inconsistent ways, and the next chart would have made it
+ * four. See FRESH_UI_FINANCE_VISUAL_LANGUAGE.md for the full audit.
+ *
+ * NOTHING CONSUMES THIS YET.
+ * F-02 is architecture only and produces zero visual change by construction —
+ * no component imports these names. F-03 makes `FinanceTrendChart` the first
+ * consumer, behind an explicit opt-in so that Dashboard migrates while
+ * Payments stays byte-identical.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE TWO LAYERS, AND WHY THERE ARE TWO
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ *   --ui-series-*         the language. Abstract, unnumbered by meaning:
+ *                         "series 1" carries no opinion about income.
+ *
+ *   --ui-finance-*        the vocabulary components consume. Maps a financial
+ *                         concept onto a series slot.
+ *
+ * Splitting them means a future chart with different categories (site
+ * profitability, subcontractor spend) reuses the same visual language without
+ * inheriting income/expense naming, and remapping the language later touches
+ * three declarations rather than every consumer.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * IDENTITY IS NOT STATUS
+ * ─────────────────────────────────────────────────────────────────────────
+ * No token here resolves to a `--ui-status-*` value, and none ever should.
+ *
+ * The audit found the current implementation sitting exactly on the status
+ * hues: income at 0° from status-success, expense at 0° from status-danger,
+ * profit at 3° from status-info, all at full chroma. Because identity had
+ * claimed the palette, status had nowhere left to go — an overdue payment and
+ * an ordinary expense render the same red, so the one signal that should
+ * interrupt the user is indistinguishable from the most common row on screen.
+ *
+ * Financial categories are FACTS. Income is not a success and expense is not a
+ * danger. Colour here distinguishes series; it never evaluates them.
+ */
+
+:root {
+  /*
+   * ---- The language ---------------------------------------------------
+   *
+   * Two saturated-or-neutral steps that are mutually distinguishable without
+   * touching a status hue. Measured against three rules: at least 3.0:1 on
+   * white (the non-text graphic floor), and — for anything carrying real
+   * chroma — at least 30° from every status hue.
+   *
+   *   series-1  #4c1fa6  chroma 0.813   10.22:1 on white   36° from status-info
+   *   series-2  #5f6461  chroma 0.050    6.03:1 on white   neutral, so it
+   *                                                        carries no hue
+   *                                                        identity and cannot
+   *                                                        collide at all
+   *
+   * Both also clear the sunken ground #f6f6f4: 9.45:1 and 5.57:1.
+   *
+   * WHY ONLY TWO. A first draft used three saturated steps and failed its own
+   * test: series 1 against series 3 measured 1.64:1, which is not
+   * distinguishable, and the third step fell to 2.34:1 on white, under the
+   * floor. Three filled areas is one too many for a palette that has
+   * deliberately given up two thirds of the hue wheel.
+   */
+  --ui-series-1: var(--ui-indigo-700);
+  --ui-series-2: var(--ui-neutral-600);
+
+  /*
+   * Derived quantities get ink, not a third identity. A derived series is not
+   * a peer of the values it is computed from; see `--ui-finance-profit`.
+   */
+  --ui-series-derived: var(--ui-ink-strong);
+
+  /* Area fill opacity. The stroke carries identity; the fill only suggests
+   * volume, so it stays well below the stroke to avoid two adjacent areas
+   * muddying into a third apparent colour. */
+  --ui-series-fill-opacity: 0.14;
+  --ui-series-fill-opacity-end: 0;
+
+  /*
+   * ---- Financial vocabulary -------------------------------------------
+   *
+   * Concept onto slot. These are the names components use.
+   */
+  --ui-finance-income: var(--ui-series-1);
+  --ui-finance-expense: var(--ui-series-2);
+
+  /*
+   * Profit is `income - expense`. On a chart already drawing both, it is the
+   * GAP BETWEEN THEM — rendering it as a third filled area draws the same
+   * information twice and forces a third colour into a palette with no room
+   * for one. It is therefore ink, and intended as a thin derived line rather
+   * than an area. F-03 decides whether it is drawn at all.
+   */
+  --ui-finance-profit: var(--ui-series-derived);
+
+  /*
+   * ---- Transitional --------------------------------------------------
+   *
+   * The exact literals currently hard-coded in `FinanceTrendChart`, named so
+   * that an unmigrated caller has a token rather than a magic value. These
+   * are NOT the language; they are what the language replaces.
+   *
+   * Their only purpose is to let F-03 move Dashboard onto the new palette
+   * while Payments keeps rendering byte-identically from a named source.
+   *
+   * DELETE these together with the last caller that passes the legacy
+   * palette — F-04, when the Payments route group migrates. If they outlive
+   * that unit, the migration is not finished.
+   */
+  --ui-finance-legacy-income: #16a34a;
+  --ui-finance-legacy-expense: #dc2626;
+  --ui-finance-legacy-profit: #2563eb;
+
+  /*
+   * ---- Chart chrome ----------------------------------------------------
+   *
+   * Grid, axes and labels are currently Recharts library defaults — no
+   * literal was ever chosen for them, so unlike the series above there is no
+   * legacy value to preserve. These take system values directly and become
+   * active when a consumer wires them.
+   */
+  --ui-finance-grid: var(--ui-line-faint);
+  --ui-finance-axis: var(--ui-line);
+  --ui-finance-axis-label: var(--ui-ink-muted);
+  --ui-finance-reference: var(--ui-line-strong);
+
+  /*
+   * ---- Interaction -----------------------------------------------------
+   *
+   * Interaction is expressed by EMPHASIS, never by hue. A series that changes
+   * colour on hover has changed identity, which is precisely the confusion
+   * this file exists to prevent.
+   */
+
+  /* Applied to the series NOT under the pointer, so the hovered one leads by
+   * contrast rather than by changing. */
+  --ui-finance-inactive-opacity: 0.32;
+
+  /* Selection reads as weight, not colour. */
+  --ui-finance-selection-width: 3px;
+  --ui-finance-series-width: 2px;
+
+  /*
+   * Deliberately an alias, not a new value. Charts must not invent their own
+   * focus treatment; a keyboard user should meet one ring everywhere in the
+   * product. Named here only so chart code has a single place to look.
+   */
+  --ui-finance-focus: var(--ui-focus);
+}

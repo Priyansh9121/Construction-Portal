@@ -150,10 +150,15 @@ too many for a palette that has given up two-thirds of the hue wheel.
 **The hue-collision test itself is wrong for near-greys.** `#5f6461` reports hue
 144°, 2° from status-success, which looks like a hard collision. It is an
 artefact: at chroma 0.050 the hue angle is numerically unstable and perceptually
-absent. Any hue test applied to finance colours **must gate on chroma first**
-(floor ≈ 0.15). `tools/fresh_ui/token_audit.py` shares this weakness; it has not
-mattered yet because it only tests saturated accent candidates, but it would
-misreport a neutral series colour. Recorded as **FIN-001** below.
+absent. Any hue test applied to finance colours **must gate on chroma first**.
+Recorded as **FIN-001** below.
+
+> **Correction, made during F-02.** This section originally also claimed that
+> `tools/fresh_ui/token_audit.py` shared the weakness. It did not — the tool
+> already gated at `sat < 0.18` and returned `neutral`. The defect was in the
+> ad-hoc script used to derive the ramp for this audit, not in the project's
+> tooling. F-02 therefore justified and documented the existing threshold
+> rather than adding one.
 
 ### Profit should not be a third series
 
