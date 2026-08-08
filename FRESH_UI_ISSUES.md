@@ -2611,3 +2611,76 @@ the misuse D2 removed from the metric cards, still present in the one chart.
 Not fixed here: D5 owns zero-data behaviour, and the chart is shared with
 PaymentsPage (DASH-008), so recolouring it would change an unmigrated route.
 It belongs to D6 or the Finance route group.
+
+---
+
+## F-01 — Shared finance visual audit
+
+**Class:** audit (documentation only)
+**Status:** COMPLETE — see `FRESH_UI_FINANCE_VISUAL_LANGUAGE.md`
+
+Documentation only. No source file changed.
+
+**Two components cross route boundaries and account for the whole problem:**
+`FinanceTrendChart` (Dashboard + Payments) and `FinanceSummaryCards` (Payments +
+Tender details). Everything else in the finance folder is Payments-local.
+
+`useFinanceStatistics` returns numbers only and carries no tone, so every
+semantic conflict is introduced in presentation. The fix needs no calculation
+change and no backend involvement.
+
+**DASH-004 confirmed by measurement.** The chart's three series sit *exactly* on
+status hues: income `#16a34a` 0° from status-success, expense `#dc2626` 0° from
+status-danger, profit `#2563eb` 3° from status-info, all at full chroma.
+
+**Verdict on what the colours represent: accidental convention.** They are the
+Tailwind 600 defaults, hard-coded per call site with no shared constant; the
+product's accent is indigo and green/red appear nowhere in the brand surface;
+and the accounting convention being imitated is a print convention for signed
+numbers, not a category convention.
+
+**One language can serve all four routes.** Finance series need to be
+distinguishable, not evaluated, and distinguishability is available from hue
+distance, lightness and stroke without touching the status palette. Proposed:
+income `--ui-indigo-700` (10.22:1, 36° from the nearest status hue), expense
+`--ui-neutral-600` (6.03:1, chroma 0.050 so it carries no hue identity at all).
+
+### Two corrections found while deriving it
+
+**My first candidate ramp failed its own test.** `indigo-700 / neutral-400 /
+indigo-500` gave income-versus-profit separation of 1.64:1 — indistinguishable —
+and `neutral-400` measured 2.34:1 against white, under the 3.0 non-text floor.
+The useful part is why: three filled areas is one too many for a palette that
+has deliberately given up two-thirds of the hue wheel. Profit is
+`income − expense`, i.e. the gap already drawn between the other two, so it
+should be a derived line or omitted — the same "arithmetic is not insight"
+finding as D2, applied to a chart.
+
+**FIN-001 — the hue test is invalid for near-greys.** `#5f6461` reports hue 144°,
+2° from status-success, which reads as a hard collision. It is an artefact: at
+chroma 0.050 the hue angle is numerically unstable and perceptually absent. Any
+finance colour check must gate on chroma (floor ~0.15) before comparing hue.
+`tools/fresh_ui/token_audit.py` shares this weakness — latent today because it
+only tests saturated accent candidates, but it would misreport a neutral series
+colour.
+
+### Also raised
+
+**FIN-002** — `FinanceSummaryCards` paints ordinary accounting states as
+judgements: outstanding GST amber, outstanding company charge red, owing nothing
+green. A company holding GST it has not yet remitted is operating normally, not
+in a warning condition. Live on Payments and Tender details.
+
+**FIN-003** — no shared finance colour module exists. Every call site hard-codes
+literals, which is why one concept is expressed three inconsistent ways and why
+the next chart would repeat it.
+
+### Migration order
+
+F-02 tokens only (zero visual change) → F-03 `FinanceTrendChart` behind an
+opt-in `palette` prop so Dashboard migrates and Payments stays byte-identical,
+mirroring the `emptyState` prop added for DASH-008 → F-04 Payments route group →
+F-05 `FinanceSummaryCards`, last because it is shared with Tender details →
+F-06 Reports, not yet audited.
+
+**Only F-02 is safe to implement without touching a route group.**
