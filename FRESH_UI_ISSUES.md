@@ -3002,3 +3002,112 @@ The +1.14 kB of CSS buys the page entrance, the chart's container alignment and
 the transform-based rails. It earns its cost by removing two layout animations
 from every timeframe change, which is a runtime saving rather than a one-off
 download.
+
+---
+
+## V1 — Material foundation
+
+**Class:** visual system (first implementation unit of the visual programme)
+**Status:** COMPLETE
+
+Implements the material language from `VISUAL_PRINCIPLES.md` §4–§6. No
+information architecture, content, data, routing or interaction change.
+
+### Materials implemented: four, not five
+
+`VISUAL_IDENTITY.md` documents five. **OVERLAY was not built**: its only
+consumers are shell surfaces (account menu, notifications, command palette),
+which are signed off and use the existing elevation ramp. Building an unused
+material would be speculative styling. The reasoning is preserved; the token is
+not.
+
+The four are applied through `data-material` — an attribute set from **state**,
+not a class baked into a component's identity. That is what makes elevation
+revocable (law 3): when an object stops needing judgement the attribute changes
+and the depth goes with it.
+
+### Elevation, verified per consumer rather than applied mechanically
+
+| surface | material | why |
+|---|---|---|
+| Attention rows | **raised** | each row *is* an action |
+| Attention "caught up" | **inset** | nothing outstanding — the depth belonged to the work, not the section |
+| Business Health | **raised** | the one diagnostic the page exists to deliver |
+| Finance Trend | **ground** | answers "where are finances moving"; holds no action |
+| Pipeline, Activity | **ground** | context; already flat |
+| Empty states | **inset** | nothing here awaits a decision |
+
+The clearest demonstration of the law is the attention section: it carries
+raised objects while work is outstanding and **recedes into a well when it is
+not**. The same section, two materials, driven by state.
+
+### Two constraints discovered before writing code
+
+**The elevation ramp could not be redefined.** `--ui-elevation-1..3` is consumed
+by four shell files that render on *every* route. Redefining it to the new light
+environment would have restyled Payments, Tenders, Users and Site Operations.
+New material tokens were added instead and the shell keeps the old ramp until
+its own migration — a documented seam, not an oversight.
+
+**Canvas luminance was deferred, with evidence.** The page ground is
+`.page-content`, which is shell-owned and whose own ownership matrix states it
+deliberately carries no background: *"a surface here would make every route look
+like a card inside a card."* Painting it would leak to all routes; the only
+alternative was a Dashboard-scoped wrapper, which is a composition change V1
+forbids. **The canvas instead gains presence by contrast** — raised objects
+sitting on it and context settling onto it — which satisfies "presence without
+decoration" without touching a shared primitive.
+
+### One conflict resolved against a governing document
+
+`VISUAL_PRINCIPLES.md` §5 prefers light over borders. Raised surfaces here keep
+a hairline anyway.
+
+§5 itself permits a line "where light cannot reliably establish a boundary", and
+that is this product's *normal* case: `PRODUCT.md` records the stated trade-off
+as "legibility over visual subtlety" and the priority persona is a supervisor
+outdoors on a phone. A shadow subtle enough to be tasteful indoors is invisible
+in sunlight, and a surface that loses its boundary in daylight loses it exactly
+when the record is being shown to someone.
+
+`PRODUCT.md` outranks `VISUAL_PRINCIPLES.md` in the stated source order, so the
+hairline stays — quieter than before, with the shadow now carrying the depth.
+
+### One disclosed dimensional change
+
+Grounding the finance trend also removed its inline padding. A section with
+invisible walls would have sat 24px inboard of every other grounded section and
+read as a misalignment defect. V1 otherwise changes no dimensions; this was
+accepted because the alternative was applying the law and then visibly breaking
+the page. Plot height is unchanged.
+
+### Probe defect found
+
+The first grayscale check applied `filter: grayscale(1)` to the document, and
+the chart series vanished while the axes survived. That is a **rendering
+artefact** — an ancestor filter invalidates SVG `url(#gradient)` references —
+not a product defect. Re-tested by converting an unperturbed capture to
+greyscale offline, which is also closer to what a greyscale viewer actually
+sees. All three series are present and distinguishable by weight and dash.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit and finance/status gate pass · shell computed-style diff **no
+change** · leak probe **no descendant change on any route**, all four unmigrated
+routes byte-identical · finance chart probe **Payments byte-identical** ·
+structure, first-run, activity and pipeline probes clean · responsive matrix
+clean both motion modes · **grayscale hierarchy verified** · `git diff --check`
+clean.
+
+### Measured
+
+- tokens added **7**, removed **0**
+- material roles implemented **4** (canvas by contrast, raised, inset, ground) +
+  interactive as a layered response
+- surfaces migrated **6**; `data-material` consumers **4 components**
+- obsolete rules removed: the dead `data-tone="calm"` empty-state rule and its
+  unused `tone` prop; per-component background/border/radius/shadow declarations
+  on attention rows, the caught-up block, Business Health and the chart
+- CSS 131.44 → **132.19 kB** raw (22.36 → 22.59 gzip); JS entry unchanged
+- route isolation: **clean**; accessibility: **unchanged and green**

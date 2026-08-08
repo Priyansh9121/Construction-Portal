@@ -29,6 +29,7 @@
 @import "./core/tokens.css" layer(system-tokens);
 @import "./core/motion.css" layer(system-tokens);
 @import "./core/finance.css" layer(system-tokens);
+@import "./core/material.css";
 
 /* @font-face is unaffected by cascade layers, so typography.css is imported
  * without one. Putting it in a layer would imply an ordering that does not

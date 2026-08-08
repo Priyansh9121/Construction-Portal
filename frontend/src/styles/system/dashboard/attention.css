@@ -84,23 +84,19 @@
     list-style: none;
   }
 
+  /*
+   * Surface, border, radius and shadow all come from the RAISED material,
+   * applied via `data-material` in the component. Nothing about being an
+   * attention row grants depth -- holding an action does. See material.css.
+   */
   .ui-attention__item {
     position: relative;
-
-    background: var(--ui-surface);
-    border: 1px solid var(--ui-line);
-    border-radius: var(--ui-radius-container);
 
     /* Clips the tone rail to the rounded corner. */
     overflow: hidden;
 
     transition: border-color var(--ui-duration-fast) var(--ui-ease-move),
       box-shadow var(--ui-duration-fast) var(--ui-ease-move);
-  }
-
-  .ui-attention__item:hover {
-    border-color: var(--ui-line-strong);
-    box-shadow: var(--ui-elevation-1);
   }
 
   /*

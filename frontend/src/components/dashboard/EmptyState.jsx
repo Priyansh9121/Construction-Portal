@@ -32,9 +32,14 @@
 
 import AppLink from "../ui/AppLink";
 
-function EmptyState({ title, description, action = null, tone = "default" }) {
+function EmptyState({ title, description, action = null }) {
   return (
-    <div className="ui-empty" data-tone={tone}>
+    /*
+     * INSET, always. An empty section holds nothing awaiting judgement, so it
+     * recedes rather than rising. The `tone` prop this component used to carry
+     * was never set by any caller and is gone.
+     */
+    <div className="ui-empty" data-material="inset">
       <p className="ui-empty__title">{title}</p>
 
       <p className="ui-empty__description">{description}</p>

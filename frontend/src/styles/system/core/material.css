@@ -1,0 +1,192 @@
+/*
+ * ===========================================================================
+ * MATERIALS
+ * ===========================================================================
+ *
+ * File purpose:
+ * The product's physical language. Every surface the user sees belongs to
+ * exactly one material, and the material is a statement about what kind of
+ * thing the surface is.
+ *
+ * Governed by VISUAL_PRINCIPLES.md §4, §5, §6. This file is the mechanism;
+ * that document is the reason.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE LAW THIS FILE EXISTS TO ENFORCE
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ *   A surface earns elevation. It is never granted by category.
+ *   Raising a surface makes one claim: THIS MAY REQUIRE YOUR JUDGEMENT.
+ *
+ * So materials are applied through `data-material`, an attribute a component
+ * sets from STATE, rather than through a class baked into a component's
+ * identity. That is what makes elevation revocable: when an object stops
+ * needing judgement, the attribute changes and the depth goes with it. A card
+ * that is raised because it is a card cannot do that, which is precisely the
+ * failure the law forbids.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ONE LIGHT ENVIRONMENT
+ * ─────────────────────────────────────────────────────────────────────────
+ * A single implied source, high and slightly forward. Every raised surface in
+ * the product is lit by it and by nothing else; a page lit from several
+ * directions reads as a collage rather than as a space.
+ *
+ * Two shadow layers, because one reads as a sticker:
+ *   - a tight CONTACT shadow, describing where the object meets the ground
+ *   - a wide AMBIENT shadow, describing the room
+ *
+ * Both are tinted with the accent's dark end rather than neutral black. A warm
+ * ground lit by a warm environment does not cast a black shadow, and the
+ * difference is felt before it is noticed — which is the correct order.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY RAISED SURFACES KEEP A HAIRLINE
+ * ─────────────────────────────────────────────────────────────────────────
+ * VISUAL_PRINCIPLES §5 prefers light over borders, and §5 itself allows a line
+ * "where light cannot reliably establish a boundary".
+ *
+ * That case is this product's normal case. PRODUCT.md records the stated
+ * trade-off rule as "legibility over visual subtlety", and the priority
+ * persona is a supervisor outdoors on a phone. A shadow subtle enough to be
+ * tasteful indoors is invisible in direct sunlight, and a surface that loses
+ * its boundary in daylight has lost it exactly when the record is being shown
+ * to someone.
+ *
+ * PRODUCT.md outranks VISUAL_PRINCIPLES in the stated source order, so the
+ * hairline stays. It is quieter than before and the shadow now carries the
+ * depth; the line is insurance, not structure.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY THERE ARE FOUR MATERIALS AND NOT FIVE
+ * ─────────────────────────────────────────────────────────────────────────
+ * VISUAL_IDENTITY.md documents five, including OVERLAY. Overlay has no
+ * Dashboard consumer: the only overlays in the product are shell surfaces
+ * (account menu, notifications, command palette) which are signed off and use
+ * the existing elevation ramp.
+ *
+ * Adding an unused material would be speculative styling, so it is not added.
+ * The reasoning is preserved; the token is not.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY THE EXISTING ELEVATION RAMP IS LEFT ALONE
+ * ─────────────────────────────────────────────────────────────────────────
+ * `--ui-elevation-1..3` is consumed by four shell files that render on EVERY
+ * route. Redefining it to the new light environment would restyle Payments,
+ * Tenders, Users and Site Operations, which route isolation forbids.
+ *
+ * The shell therefore keeps the old ramp until its own migration. Two shadow
+ * systems coexist for now; that is a documented seam, not an oversight.
+ */
+
+:root {
+  /*
+   * The light. One source for the whole product.
+   *
+   * Tinted from the accent's darkest step rather than black. Alphas are low
+   * enough that the surface is perceived before the shadow is.
+   */
+  --ui-shadow-tint: 44, 17, 99;
+
+  --ui-material-contact: 0 1px 2px rgba(var(--ui-shadow-tint), 0.05);
+  --ui-material-ambient: 0 8px 20px -6px rgba(var(--ui-shadow-tint), 0.08);
+
+  /* Hover deepens the ambient layer only. The object does not move; the room
+   * around it does. */
+  --ui-material-ambient-hover: 0 12px 28px -8px rgba(var(--ui-shadow-tint), 0.11);
+
+  /* The lit top edge. What a real edge does when light falls on it. */
+  --ui-material-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  /*
+   * Shape grammar. A rule, not a constant: a large surface needs a larger
+   * radius to read as intentionally rounded rather than merely softened, and
+   * a recessed well reads as a well only if it is tighter than the objects
+   * standing on the ground beside it.
+   */
+  --ui-material-raised-radius: 1rem;
+  --ui-material-inset-radius: 0.75rem;
+}
+
+@layer system-components {
+  /*
+   * RAISED — this object may require your judgement.
+   *
+   * Applied only to surfaces holding something actionable or to the page's
+   * primary diagnostic. Never to a container for containing things.
+   */
+  [data-material="raised"] {
+    background: var(--ui-surface);
+
+    /* Quieter than the border it replaces; the shadow now carries the depth. */
+    border: 1px solid var(--ui-line-faint);
+    border-radius: var(--ui-material-raised-radius);
+
+    box-shadow: var(--ui-material-edge), var(--ui-material-contact),
+      var(--ui-material-ambient);
+  }
+
+  /*
+   * INSET — a quiet well. Absence, grouping, or a state that is not content.
+   *
+   * Recessed rather than raised, because nothing here is awaiting a decision.
+   * No shadow at all: a well is defined by its ground being lower, not by
+   * casting light of its own.
+   */
+  [data-material="inset"] {
+    background: var(--ui-surface-sunken);
+    border: 1px solid transparent;
+    border-radius: var(--ui-material-inset-radius);
+    box-shadow: none;
+  }
+
+  /*
+   * GROUND — on the canvas, not above it.
+   *
+   * The material for context: information that is checkable and true and is
+   * not asking for anything. It has no surface of its own, which is the point.
+   * Declared rather than left implicit so that a component can state that its
+   * grounding is a decision.
+   */
+  [data-material="ground"] {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /*
+   * INTERACTIVE — a response layered onto whatever material is underneath.
+   *
+   * Deliberately not a material of its own: an interactive row is still a
+   * raised object or still on the ground, and hovering it must not change what
+   * kind of thing it is.
+   *
+   * V1 establishes only the base response. The full interaction programme is
+   * a later unit.
+   */
+  [data-material="raised"][data-interactive]:hover {
+    border-color: var(--ui-line);
+    box-shadow: var(--ui-material-edge), var(--ui-material-contact),
+      var(--ui-material-ambient-hover);
+  }
+
+  [data-material="ground"][data-interactive]:hover,
+  [data-material="inset"][data-interactive]:hover {
+    background: var(--ui-surface-sunken);
+  }
+}
+
+/*
+ * Reduced motion: materials do not move, so nothing here is disabled. The
+ * shadow change on hover is a state, not travel, and it resolves instantly
+ * rather than being removed — losing it would remove a hover affordance, which
+ * is information, not decoration.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    [data-material] {
+      transition-duration: 0.01ms;
+    }
+  }
+}

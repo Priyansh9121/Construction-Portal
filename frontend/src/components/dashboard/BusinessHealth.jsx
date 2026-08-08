@@ -185,7 +185,12 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
     RANGES.find((option) => option.key === range)?.label.toLowerCase() ?? "";
 
   return (
-    <section className="ui-health" aria-labelledby="health-heading">
+    <section
+      className="ui-health"
+      /* RAISED: the one diagnostic the page exists to deliver. */
+      data-material="raised"
+      aria-labelledby="health-heading"
+    >
       <div className="ui-health__head">
         <h2 id="health-heading" className="ui-health__title">
           Business health
