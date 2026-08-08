@@ -17,10 +17,9 @@
  * above it already names the region; repeating it here would give an empty
  * section two headings and a populated one, one.
  *
- * `data-tone="calm"` is for the case that is not a gap at all — the attention
- * spine with genuinely nothing outstanding. That is an achievement, not an
- * absence, so it gets a plain surface rather than the sunken well used for
- * "there is nothing here yet".
+ * The surface itself is the INSET material, applied via `data-material`. An
+ * empty section is never raised: there is nothing here awaiting a decision,
+ * and depth would be claiming otherwise.
  */
 
 @layer system-components {
@@ -31,15 +30,6 @@
     gap: var(--ui-space-2);
 
     padding: var(--ui-space-5);
-
-    background: var(--ui-surface-sunken);
-    border-radius: var(--ui-radius-container);
-  }
-
-  /* Caught up, rather than not started. */
-  .ui-empty[data-tone="calm"] {
-    background: var(--ui-surface);
-    border: 1px solid var(--ui-line-faint);
   }
 
   /*

@@ -55,11 +55,28 @@
    * and a single element a step off the scale is what makes a page read as
    * assembled rather than designed.
    */
+  /*
+   * GROUND, not raised.
+   *
+   * Verified against the law rather than assumed: the trend answers "where are
+   * finances moving", which is diagnostic context supporting the cash position
+   * above it. Nothing inside it can be acted on and nothing in it awaits a
+   * decision, so it has not earned depth. It settles onto the canvas beside
+   * Pipeline and Activity, which are context for the same reason.
+   *
+   * CONSEQUENCE, disclosed: dropping the surface also drops its inline
+   * padding, because a section with invisible walls would sit 24px inboard of
+   * every other grounded section and read as a misalignment defect. That is a
+   * dimensional change V1 otherwise avoids; it is accepted because the
+   * alternative is applying the elevation law and then visibly breaking the
+   * page, and the law outranks the isolation preference. Plot height is
+   * unchanged.
+   */
   .ui-chart.premium-chart-panel {
-    padding: var(--ui-space-6);
-    border: 1px solid var(--ui-line);
-    border-radius: var(--ui-radius-container);
-    background: var(--ui-surface);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     box-shadow: none;
   }
 

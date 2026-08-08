@@ -251,7 +251,7 @@ function AttentionSpine({ userName = "", tenders = [], invoices = [] }) {
            * one and given a plain surface rather than the sunken well used for
            * "nothing here yet".
            */
-          <div className="ui-attention__clear">
+          <div className="ui-attention__clear" data-material="inset">
             <span className="ui-attention__clear-mark" aria-hidden="true">
               <Icon name="approvals" size={20} />
             </span>
@@ -269,7 +269,19 @@ function AttentionSpine({ userName = "", tenders = [], invoices = [] }) {
       ) : (
         <ul className="ui-attention__list">
           {visible.map((item) => (
-            <li key={item.key} className="ui-attention__item" data-tone={item.tone}>
+            <li
+              key={item.key}
+              className="ui-attention__item"
+              data-tone={item.tone}
+              /*
+               * RAISED because this row holds an action, not because it is a
+               * row. Every item in this list is actionable by construction; if
+               * that ever stops being true the attribute changes and the depth
+               * goes with it. See VISUAL_PRINCIPLES.md law 3.
+               */
+              data-material="raised"
+              data-interactive=""
+            >
               <AppLink to={item.to} className="ui-attention__row">
                 <span className="ui-attention__mark" aria-hidden="true">
                   <Icon name={item.icon} size={18} />

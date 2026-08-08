@@ -31,6 +31,11 @@
  */
 
 @layer system-components {
+  /*
+   * RAISED. The one diagnostic the page exists to deliver, and the figure a
+   * user acts on. Material comes from `data-material`; this rule owns only
+   * layout.
+   */
   .ui-health {
     display: flex;
     flex-direction: column;
@@ -38,10 +43,6 @@
 
     padding: var(--ui-space-6);
     margin-block-end: var(--ui-space-8);
-
-    background: var(--ui-surface);
-    border: 1px solid var(--ui-line);
-    border-radius: var(--ui-radius-container);
   }
 
   .ui-health__head {
@@ -173,6 +174,7 @@
     padding: 2px;
     margin-block-end: var(--ui-space-2);
 
+    /* Grouped control: an INSET well holding the options. */
     background: var(--ui-surface-sunken);
     border-radius: var(--ui-radius-control);
   }

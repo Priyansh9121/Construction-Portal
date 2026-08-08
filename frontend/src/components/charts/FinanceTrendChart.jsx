@@ -225,7 +225,12 @@ import {
        * introducing a second mechanism, so an unmigrated caller keeps legacy
        * panel chrome untouched (DASH-008).
        */
-      <div className={`panel premium-chart-panel${palette === "finance" ? " ui-chart" : ""}`}>
+      <div
+        className={`panel premium-chart-panel${palette === "finance" ? " ui-chart" : ""}`}
+        /* Context, not a decision -- see dashboard.css. Only the migrated
+         * caller declares a material; the legacy panel keeps its own chrome. */
+        data-material={palette === "finance" ? "ground" : undefined}
+      >
         <div className="section-title-row">
           <div>
             <h2>Monthly Finance Trend</h2>
