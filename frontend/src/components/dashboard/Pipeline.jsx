@@ -53,6 +53,7 @@
 import { useMemo } from "react";
 
 import AppLink from "../ui/AppLink";
+import EmptyState from "./EmptyState";
 import { formatCurrency } from "../../utils/currency";
 
 /**
@@ -224,11 +225,32 @@ function Pipeline({ tenders = [] }) {
       </div>
 
       {nothingMoving ? (
-        <p className="ui-pipe__empty">
-          {tenders.length === 0
-            ? "No tenders yet. Work appears here once a tender is created and starts running."
-            : "Nothing is running beyond the next seven days. Anything needing you now is at the top of this page."}
-        </p>
+        tenders.length === 0 ? (
+          /* Never started: the next step is creating work. */
+          /*
+           * DASH-007. No action here, deliberately. On a first-run page the
+           * attention spine already offers "Create your first tender", and
+           * repeating the same destination two sections later is the
+           * duplicated-workflow problem this programme has been removing. One
+           * primary action per page; this section explains, and lets the spine
+           * ask.
+           */
+          <EmptyState
+            title="No work in flight"
+            description="Tenders you create appear here while they are running, so you can see what is progressing without opening the register."
+          />
+        ) : (
+          /*
+           * Tenders exist, but all of them are either urgent (and therefore in
+           * the attention spine above) or closed. Not a first-run state, so it
+           * points at where they actually are rather than telling the user to
+           * create something they already have.
+           */
+          <EmptyState
+            title="Nothing running right now"
+            description="Every open tender either needs you at the top of this page or is due within the next seven days."
+          />
+        )
       ) : (
         <div className="ui-pipe__groups">
           {active.length > 0 ? (
@@ -259,11 +281,15 @@ function Pipeline({ tenders = [] }) {
 
       {/*
         One link out of this section, not the three the replaced panels had
-        between them.
+        between them — and none at all when the section is empty, since the
+        empty state above already explains where work comes from and a link to
+        an empty register helps nobody (DASH-007).
       */}
-      <AppLink to="/tenders" className="ui-pipe__all">
-        Open the tender register
-      </AppLink>
+      {nothingMoving ? null : (
+        <AppLink to="/tenders" className="ui-pipe__all">
+          Open the tender register
+        </AppLink>
+      )}
     </section>
   );
 }

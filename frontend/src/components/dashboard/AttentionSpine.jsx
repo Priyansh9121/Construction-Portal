@@ -54,7 +54,8 @@
 import { useMemo } from "react";
 
 import AppLink from "../ui/AppLink";
-import Icon from "../ui/Icon";
+import EmptyState from "./EmptyState";
+import Icon from "./../ui/Icon";
 import { formatCurrency } from "../../utils/currency";
 
 /** Beyond this the list stops being a shortlist and becomes a register. */
@@ -204,6 +205,9 @@ function greetingFor(date) {
 }
 
 function AttentionSpine({ userName = "", tenders = [], invoices = [] }) {
+  /* No work of any kind has been created. Distinct from "nothing is wrong". */
+  const firstRun = tenders.length === 0 && invoices.length === 0;
+
   const items = useMemo(
     () => buildAttentionItems({ tenders, invoices }),
     [tenders, invoices]
@@ -221,31 +225,47 @@ function AttentionSpine({ userName = "", tenders = [], invoices = [] }) {
 
         <h2 id="attention-heading" className="ui-attention__headline">
           {items.length === 0
-            ? "Nothing needs you right now."
+            ? firstRun
+              ? "Let's get your first project set up."
+              : "Nothing needs you right now."
             : `${items.length} ${items.length === 1 ? "thing needs" : "things need"} you today.`}
         </h2>
       </header>
 
       {items.length === 0 ? (
-        /*
-         * Not a shrug. An empty attention list is the GOOD state, so it is
-         * stated as an achievement and then points at the work that keeps it
-         * that way, rather than leaving the user on a dead end.
-         */
-        <div className="ui-attention__clear">
-          <span className="ui-attention__clear-mark" aria-hidden="true">
-            <Icon name="approvals" size={20} />
-          </span>
+        firstRun ? (
+          /*
+           * DASH-005. "Nothing needs you right now" is TRUE for a brand-new
+           * company and completely misleading: it implies work exists and is
+           * under control. Nothing exists. An empty attention list means two
+           * different things and must say two different things.
+           */
+          <EmptyState
+            title="Nothing to track yet"
+            description="Once you create a tender or raise an invoice, anything overdue or awaiting you appears here first."
+            action={{ to: "/tenders", label: "Create your first tender" }}
+          />
+        ) : (
+          /*
+           * Genuinely caught up. An achievement, not a gap, so it is stated as
+           * one and given a plain surface rather than the sunken well used for
+           * "nothing here yet".
+           */
+          <div className="ui-attention__clear">
+            <span className="ui-attention__clear-mark" aria-hidden="true">
+              <Icon name="approvals" size={20} />
+            </span>
 
-          <p className="ui-attention__clear-text">
-            Nothing overdue, nothing awaiting submission, and no tender
-            deadlines inside the next seven days.
-          </p>
+            <p className="ui-attention__clear-text">
+              Nothing overdue, nothing awaiting submission, and no tender
+              deadlines inside the next seven days.
+            </p>
 
-          <AppLink to="/tenders" className="ui-attention__clear-link">
-            Open the tender pipeline
-          </AppLink>
-        </div>
+            <AppLink to="/tenders" className="ui-attention__clear-link">
+              Open the tender pipeline
+            </AppLink>
+          </div>
+        )
       ) : (
         <ul className="ui-attention__list">
           {visible.map((item) => (

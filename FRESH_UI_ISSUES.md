@@ -2487,3 +2487,127 @@ pre-empted that decision.
 
 D5 must decide what the chart becomes before any data exists: guidance, a
 smaller placeholder, or omission until the first payment is recorded.
+
+---
+
+## D5 — First run: zero data is the start of a workflow, not an error
+
+**Class:** product redesign (Dashboard programme, unit 5)
+**Status:** COMPLETE
+
+### Audit before implementation
+
+| section | zero-data behaviour | verdict |
+|---|---|---|
+| Attention | "Nothing overdue, nothing awaiting submission…" | **MISLEADING** |
+| Business Health | ₹0.00 + "Nothing owed onward in GST or company charge" | **MISLEADING** |
+| Finance Trend | axes drawn around an empty 340px plot | **BROKEN** |
+| Pipeline | explained, but offered no next step | **EMPTY** |
+| Activity | "Nothing has changed yet…" | **READY** |
+
+Two sections were actively lying to a new company. Both statements are *true*
+and both imply work exists and is under control, when nothing exists at all.
+
+### DASH-003 — CLOSED
+
+`FinanceTrendChart` now returns an explanatory block instead of an empty plot.
+
+**Hiding it was rejected.** The user would never learn the view exists, and the
+page would gain an unexplained gap. The section keeps its title and explains
+itself in a fraction of the height — the tallest empty region on the page is
+now **160px**, against the 380px void it replaced.
+
+The threshold is **fewer than two months**, not zero payments, because a single
+point is not a trend either: plotting one month draws a chart that cannot show
+direction. The two cases say different things — "No payments recorded yet" with
+an action, versus "Not enough history yet" with none, because the second user
+has already done the thing and simply has to wait.
+
+### Zero ≠ nothing
+
+- **Attention** distinguishes never-started from caught-up. First run reads
+  *"Let's get your first project set up"* with one action. Caught-up keeps the
+  calm confirmation. Same empty list, two different meanings.
+- **Business Health** keeps ₹0.00, which is a truthful position, but the
+  sentence beneath now separates *"no payments recorded yet, so this is a
+  starting point rather than a balance"* from a real cleared balance.
+- **Activity** offers **no action**, deliberately: it fills as a side effect of
+  work done elsewhere, so a button here would be a false affordance.
+
+### DASH-007 — one destination, once
+
+Screenshot review of the first-run page found **three tender destinations**
+("Create your first tender", "Create a tender", "Open the tender register") and
+later **two payment destinations**. On a page whose entire job is to point a new
+user at one next step, that is the duplicated-workflow defect this programme
+has been removing, in miniature.
+
+Resolved by: Pipeline's empty state explains without repeating the spine's call
+to action; Pipeline's register link is suppressed while the section is empty;
+Business Health's "Open finance" is suppressed until a payment exists, because
+the adjacent trend section offers the same route as better guidance. Each
+returns as soon as there is something to open.
+
+### DASH-008 — I leaked a system component onto an unmigrated route
+
+**Class:** shared-component ownership (AUTH-020 precedent)
+
+The first version of the DASH-003 guard applied unconditionally.
+`FinanceTrendChart` is **not Dashboard-only** — `PaymentsPage.jsx:446` renders
+it too. The result was a system-styled empty block on an unmigrated route, and
+worse, a **self-referential link**: "Record a payment" pointing at `/payments`
+while the user was already on `/payments`.
+
+Caught by the leak probe reporting `payments / link: presence changed`, which is
+precisely the failure it exists to detect. I had assumed the component's folder
+implied its ownership — the same wrong assumption as AUTH-020.
+
+The empty state is now **opt-in**: a caller must pass `emptyState` and supply
+its own action. The Dashboard does; Payments does not, so that route is
+byte-identical again. The empty chart on Payments remains as debt for the
+Finance route group rather than being fixed across a boundary this unit does not
+own.
+
+### New probe
+
+`tools/fresh_ui/dashboard_firstrun_probe.mjs` renders the Dashboard twice — real
+fixture, then with every list endpoint stubbed empty **in the browser's network
+layer**, so no request reaches the API and no fixture is mutated (AUTH-018).
+
+It asserts all four sections still render when empty, no empty region exceeds
+200px, no destination appears twice, no horizontal overflow, every empty block
+carries a real explanation, the trend chart no longer leaves a void, first run
+does not claim the user is caught up, and zero cash is explained as a starting
+point. 16/16 pass at 390 and 1440.
+
+**A probe defect of my own:** the first version asserted the empty page was
+shorter than the populated one. That measured nothing — the local fixture has no
+payments and one row per section, so "populated" is itself nearly blank. Replaced
+with bounds that measure the real property.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit clean · shell computed-style diff **no change** · leak probe **no
+descendant change on ANY route** · structure probe clean · activity probe clean ·
+pipeline wrap probe clean · responsive matrix clean both motion modes ·
+first-run probe 16/16 · full-page screenshots, populated and empty, at 390 and
+1440 · `git diff --check` clean.
+
+CSS 128.67 → 129.59 kB raw (21.91 → 22.00 gzip). JS 468.83 → 469.89 kB.
+Components added: `EmptyState`. No dead placeholder code remains.
+
+---
+
+## DASH-004 — Finance trend uses status colour for facts
+
+**Class:** semantic colour misuse
+**Status:** RECORDED, out of D5 scope
+
+`FinanceTrendChart` hard-codes `#16a34a` for income, `#dc2626` for expense and
+`#2563eb` for profit. Green-because-income and red-because-expense is exactly
+the misuse D2 removed from the metric cards, still present in the one chart.
+
+Not fixed here: D5 owns zero-data behaviour, and the chart is shared with
+PaymentsPage (DASH-008), so recolouring it would change an unmigrated route.
+It belongs to D6 or the Finance route group.

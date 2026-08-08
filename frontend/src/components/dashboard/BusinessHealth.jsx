@@ -192,9 +192,19 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
         </h2>
 
         <div className="ui-health__head-actions">
-          <AppLink to="/payments" className="ui-health__link">
-            Open finance
-          </AppLink>
+          {/*
+            DASH-007. Suppressed before any payment exists. "Open finance" is a
+            standing navigation utility; on a first-run page it points at an
+            empty register, and the adjacent trend section already offers the
+            same route as real guidance ("Record a payment"). Two links to
+            /payments on a blank page is the duplicated-workflow problem in
+            miniature. It returns as soon as there is finance to open.
+          */}
+          {figures.hasAnyRecord ? (
+            <AppLink to="/payments" className="ui-health__link">
+              Open finance
+            </AppLink>
+          ) : null}
 
           {/* The dashboard export lives here because 15 of its 18 rows are
               financial. It previously sat under a "Jump to" heading whose only
@@ -216,7 +226,19 @@ function BusinessHealth({ payments = [], invoices = [], actions = null }) {
           </p>
 
           <p className="ui-health__context">
-            {obligations > 0 ? (
+            {/*
+              DASH-006. Zero has two meanings and they are not
+              interchangeable. "Nothing owed onward in GST or company charge"
+              is true for a company that has traded and cleared its
+              obligations, and equally true for one that opened the product
+              five minutes ago -- but only the first is a financial position.
+              Stating it the same way in both cases tells a new company its
+              balance is zero, when the honest statement is that nothing has
+              been recorded yet.
+            */}
+            {!figures.hasAnyRecord ? (
+              "No payments recorded yet, so this is a starting point rather than a balance."
+            ) : obligations > 0 ? (
               <>
                 After {formatCurrency(figures.gstOwed)} GST and{" "}
                 {formatCurrency(figures.chargeOwed)} company charge still owed.

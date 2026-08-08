@@ -16,6 +16,7 @@
  * - it reflects what the session has fetched.
  */
 
+import EmptyState from "../dashboard/EmptyState";
 import {
     AreaChart,
     Area,
@@ -27,7 +28,7 @@ import {
     Legend,
   } from "recharts";
   
-  function FinanceTrendChart({ payments = [] }) {
+  function FinanceTrendChart({ payments = [], emptyState = null }) {
     const monthlyData = Object.values(
       payments.reduce((acc, payment) => {
         const date = payment.payment_date || payment.created_at;
@@ -58,6 +59,55 @@ import {
       }, {})
     ).sort((a, b) => a.month.localeCompare(b.month));
   
+    /*
+     * DASH-003. A trend needs at least two months to BE a trend.
+     *
+     * OPT-IN, because this component is NOT Dashboard-only. PaymentsPage
+     * renders it too (DASH-008). The first version of this guard applied
+     * unconditionally and put a "Record a payment" link -- pointing at
+     * /payments -- onto the /payments page itself, and changed the appearance
+     * of an unmigrated route. A caller now has to ask for the empty state and
+     * supply its own action, so the Dashboard gets it and Payments is
+     * untouched until the finance route group is migrated.
+     *
+     * The chart previously rendered its axes and an empty 340px plot whatever
+     * the data, so a brand-new company met a void that was the largest element
+     * on the Dashboard. Hiding the section outright was rejected: the user
+     * would never learn the view exists, and the page would gain an unexplained
+     * gap in its rhythm. Instead the section keeps its title and explains
+     * itself in a fraction of the height.
+     *
+     * The threshold is two months, not zero payments, because a single point
+     * is not a trend either — plotting one month draws a chart that cannot
+     * show direction and implies a measurement it does not have.
+     */
+    if (emptyState && monthlyData.length < 2) {
+      const noPayments = monthlyData.length === 0;
+
+      return (
+        <div className="panel premium-chart-panel">
+          <div className="section-title-row">
+            <div>
+              <h2>Monthly Finance Trend</h2>
+              <p className="muted-text">
+                Income, expenses and profit by month
+              </p>
+            </div>
+          </div>
+
+          <EmptyState
+            title={noPayments ? "No payments recorded yet" : "Not enough history yet"}
+            description={
+              noPayments
+                ? "Once payments are recorded, this shows how income and expenses move month by month."
+                : "A trend needs at least two months of records. This fills in as the next month is recorded."
+            }
+            action={noPayments ? emptyState.action ?? null : null}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="panel premium-chart-panel">
         <div className="section-title-row">
