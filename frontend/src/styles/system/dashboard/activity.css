@@ -1,0 +1,233 @@
+/*
+ * ===========================================================================
+ * ACTIVITY — what changed
+ * ===========================================================================
+ *
+ * File purpose:
+ * The Dashboard's closing section. One chronological stream, grouped by local
+ * calendar day.
+ *
+ * QUIETEST SECTION ON THE PAGE, BY DESIGN
+ * The page descends in weight: Attention (largest type, coloured rails) →
+ * Business Health (a card, one dominant figure) → Pipeline (no card, hairline
+ * rows) → Activity (no card, no rails, smallest type). History is the least
+ * urgent thing here, and it should look it. The six tables this replaced each
+ * carried a panel border and an h2, so the bottom of the page was as loud as
+ * the top.
+ *
+ * NO STATUS COLOUR AT ALL
+ * There is not one semantic colour in this file, and there is no status
+ * rendered in the markup either. An activity item is a past-tense fact;
+ * "created" is neither success nor warning. This is what closes SHELL-029:
+ * the amber-by-fallback helper had nowhere left to be called from.
+ *
+ * TIME COLUMN
+ * Fixed width and right-aligned so timestamps form a scannable column rather
+ * than floating after variable-length sentences. Below 40rem it moves under
+ * the sentence, because at that width a fixed time column costs more than the
+ * alignment is worth.
+ *
+ * The day heading is a real `h3` inside an `ol` of groups, so the chronology
+ * is structural rather than visual — a screen reader gets "Today", then the
+ * events of today, in order.
+ */
+
+@layer system-components {
+  .ui-activity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-4);
+
+    margin-block-end: var(--ui-space-8);
+  }
+
+  .ui-activity__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    flex-wrap: wrap;
+  }
+
+  .ui-activity__title {
+    margin: 0;
+    font-size: var(--ui-text-lg);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  .ui-activity__all {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ui-target-min);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-activity__all:hover {
+    color: var(--ui-accent);
+  }
+
+  .ui-activity__all:focus-visible,
+  .ui-activity__row:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+    border-radius: var(--ui-radius-control);
+  }
+
+  .ui-activity__groups,
+  .ui-activity__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ui-activity__groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-5);
+  }
+
+  .ui-activity__day {
+    margin: 0 0 var(--ui-space-2);
+
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--ui-tracking-wide);
+    text-transform: uppercase;
+
+    /* Not --ui-ink-faint: 3.5:1 fails the 4.5 floor at this size (D2-a). */
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-activity__item + .ui-activity__item {
+    border-block-start: 1px solid var(--ui-line-faint);
+  }
+
+  .ui-activity__row {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+
+    padding-block: var(--ui-space-2);
+    /* Whole row is the target, so it clears the floor on its own. */
+    min-height: var(--ui-target-min);
+
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .ui-activity__row:hover .ui-activity__action {
+    color: var(--ui-accent);
+  }
+
+  .ui-activity__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+
+    border-radius: var(--ui-radius-control);
+    background: var(--ui-surface-sunken);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-activity__detail {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--ui-space-1) var(--ui-space-3);
+
+    /* Load-bearing: lets a long subject wrap instead of pushing the time
+     * column off the row. */
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .ui-activity__action {
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-strong);
+
+    /* A long object name is the identity of the event, so it wraps rather
+     * than truncating. */
+    overflow-wrap: anywhere;
+
+    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  /* The object, one step quieter than the verb that precedes it. */
+  .ui-activity__subject {
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-activity__amount {
+    font-size: var(--ui-text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink);
+  }
+
+  .ui-activity__time {
+    flex: none;
+    inline-size: 5.5rem;
+    text-align: end;
+
+    font-size: var(--ui-text-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-activity__empty {
+    margin: 0;
+    padding: var(--ui-space-5);
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--ui-radius-container);
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+
+  /* The disclosure about excluded sources. Smallest thing on the page. */
+  .ui-activity__note {
+    margin: 0;
+    font-size: var(--ui-text-xs);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+}
+
+/*
+ * Under 40rem the time drops below the sentence. A fixed 5.5rem column on a
+ * 320px screen takes a sixth of the width from the event itself.
+ */
+@media (max-width: 40rem) {
+  @layer system-components {
+    .ui-activity__row {
+      align-items: flex-start;
+    }
+
+    .ui-activity__detail {
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .ui-activity__time {
+      inline-size: auto;
+      align-self: flex-start;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .ui-activity__action {
+      transition-duration: 0.01ms;
+    }
+  }
+}

@@ -2228,3 +2228,135 @@ defect is live on the page.
 
 D4 owns those tables and should remove the helper with them. An unknown status
 must render neutrally and visibly as text, never as a warning.
+
+---
+
+## D4 — Activity: one chronology, and an honest one
+
+**Class:** product redesign (Dashboard programme, unit 4)
+**Status:** COMPLETE
+
+### What changed
+
+A tab strip over six tables — Recent Payments, Recent Invoices, Recent Tenders,
+Recent Workers, Recent Sites — is replaced by
+`components/dashboard/ActivityStream.jsx`: one chronological stream grouped by
+local calendar day.
+
+Organising by database table answers "what kinds of record exist", which nobody
+asks. The stream answers "what changed".
+
+### The finding that shaped the unit: two sources cannot be dated
+
+An activity stream makes a claim about time, so every source was checked rather
+than assumed:
+
+| source | temporal field | verdict |
+|---|---|---|
+| payments | `created_at` | INCLUDED |
+| invoices | `created_at` | INCLUDED |
+| tenders | `created_at` | INCLUDED |
+| workers | *none* — id, full_name, phone, role, salary, status | **EXCLUDED** |
+| sites | *none* — id, site_name, site_type, address, status, progress_percent | **EXCLUDED** |
+
+The old "Recent Workers" and "Recent Sites" tables sorted by `id` descending and
+called the result recent. A higher id usually does mean a later insert, but that
+is an assumption about the database, not a field the API returns. Rendering
+"Raj Patel joined 2 hours ago" from a row id would invent an event nothing
+proves happened.
+
+Both are therefore dropped, and the section states so in a footnote rather than
+letting a reader wonder where workforce went.
+
+**A worse pattern was also removed.** The old tender sort used
+`created_at || due_date`. `due_date` is in the FUTURE, so a tender lacking
+`created_at` sorted into a "recent" list by its deadline. Only `created_at` is
+used now, and a row without it is excluded entirely.
+
+### Precision the timestamp actually carries
+
+"42 min ago" needs a clock. If `created_at` is a bare date, the parsed value is
+local midnight and any hour derived from it is fabricated. `hasClockTime`
+inspects the RAW string for a time component, and only then is a sub-day
+relative phrase used; date-only values fall back to the day heading, which is
+all they support.
+
+Day grouping uses local date components (`getFullYear`/`getMonth`/`getDate`),
+never string slicing, so "Today" follows the viewer rather than UTC.
+
+### What the sentences may claim
+
+`created_at` proves exactly one thing: the record was created. So every sentence
+is a creation sentence — "Invoice raised", "Payment recorded", "Tender created".
+Nothing says "updated" (no source carries `updated_at`) or "approved" (no source
+carries a transition time).
+
+Current status is deliberately NOT rendered. Status is present-tense state, and
+mixing it into a past-tense feed is what made the old tables read as a register.
+
+### SHELL-029 — CLOSED
+
+`getStatusClass` in `DashboardPage.jsx` mapped known values to tones and
+returned `badge yellow` for **anything else**, so an unrecognised status
+silently became an amber warning.
+
+Its six callers were the six tables now deleted, so the helper is deleted with
+them. The activity stream has no status to colour, so the fallback has nowhere
+to reappear. Verified at runtime: `.badge.yellow` count is **0** on the
+Dashboard at all four probed widths.
+
+Note for later route groups: `SubcontractorsPage`, `InvoicesPage`,
+`TenderSitesTab` and `WorkerPortalPage` each define their OWN local
+`getStatusClass`. Those are separate copies on unmigrated routes and are not in
+D4's scope; each route group should remove its own when it is migrated.
+
+### Also removed
+
+The tab strip and its `RECENT_TABS` constant and `recentTab` state; the five
+`recent*` slice helpers; the `dateOnly` formatter. Five "View all" links
+collapse to one "Full activity log" route, using the existing `/activity` path
+from the navigation policy.
+
+### New probe
+
+`tools/fresh_ui/dashboard_activity_probe.mjs` — 4 widths × 9 checks. Verifies
+chronological order from `<time datetime>` instants, day headings matching the
+local calendar day, the 8-item cap, absence of the tab strip, absence of the
+amber fallback, exactly one history route, no object duplicated by the
+three-source merge, and long Latin + Gujarati names wrapping without overflow.
+All pass.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit clean · shell computed-style diff **no change** · responsive matrix
+clean both motion modes · activity probe clean · pipeline wrap probe still
+clean · screenshots 390 / 1440 · `git diff --check` clean.
+
+Leak probe: one bucket-B difference, `dashboard / table-header: present ->
+absent` — the deleted tables' `<th>` elements. Tenders, Payments, Users and Site
+Operations **byte-identical**. `baselines/shell-d4.json` supersedes
+`shell-d3.json`.
+
+`DashboardPage.jsx` **1281 → 827 lines** (1831 → 827 across D1–D4).
+CSS 125.78 → 128.67 kB raw (21.66 → 21.91 gzip). JS entry unchanged 468.84 kB.
+
+---
+
+## DASH-002 — "Operational Capacity" is a wall of current-state counts
+
+**Class:** hierarchy defect / sections existing by convention
+**Status:** RECORDED, out of D4 scope
+
+`Operational Capacity` remains: eight rows of Total/Active/Inactive for workers,
+sites and subcontractors. Every row is present-tense state, five of the eight
+are derivable (`inactive = total - active`), and none supports a decision on
+this page.
+
+It is now the last count wall on the Dashboard and sits directly above the
+activity stream, where it is the loudest thing in the lower half of the page.
+
+Not touched here because D4's scope is the activity tables. It is the strongest
+candidate for the next Dashboard unit, alongside `Finance Health` and
+`Invoice Health`, which are two more bordered panels holding ratios that D2
+already summarises.
