@@ -16,7 +16,7 @@
  * - AppLayout, via AppRoutes
  *
  * Navigation and children:
- * - Renders AttentionSpine, AnimatedStatCard and FinanceTrendChart.
+ * - Renders AttentionSpine, BusinessHealth and FinanceTrendChart.
  *
  * Important notes:
  * - Office-only. Workers and subcontractors land on their portals instead —
@@ -26,10 +26,9 @@
  */
 
 import { Link } from "react-router-dom";
-import AppLink from "../components/ui/AppLink";
-import AnimatedStatCard from "../components/AnimatedStatCard";
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
+import BusinessHealth from "../components/dashboard/BusinessHealth";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useEffect, useState } from "react";
@@ -93,41 +92,6 @@ function RatioRow({ label, value, tone }) {
   );
 }
 
-
-/**
- * The metric grid's loading state.
- *
- * It reuses the real grid classes and renders the real number of cards, so
- * the skeleton occupies exactly the box the content will occupy. That is the
- * point: a skeleton whose shape differs from its content is a layout shift
- * with extra steps.
- *
- * No spinner. A spinner says "something is happening"; this says "twelve
- * figures are coming, and here is where they will be".
- */
-function MetricSkeleton() {
-  return (
-    <div aria-hidden="true">
-      <div className="v2-metrics v2-metrics--primary">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="card v2-metric-skeleton">
-            <span className="v2-skeleton v2-skeleton--label" />
-            <span className="v2-skeleton v2-skeleton--value" />
-          </div>
-        ))}
-      </div>
-
-      <div className="v2-metrics v2-metrics--secondary">
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <div key={i} className="card v2-metric-skeleton">
-            <span className="v2-skeleton v2-skeleton--label" />
-            <span className="v2-skeleton v2-skeleton--value" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 const RECENT_TABS = [
   { key: "payments", label: "Payments & deadlines" },
@@ -201,15 +165,6 @@ function DashboardPage({
     );
   };
 
-  const isToday = (value) => {
-    if (!value) return false;
-
-    const date = new Date(value);
-    date.setHours(0, 0, 0, 0);
-
-    return date.getTime() === today.getTime();
-  };
-
   /*
    * Which recent-activity tab is showing. Local presentation state only —
    * every table below still receives exactly the data it always did.
@@ -221,21 +176,6 @@ function DashboardPage({
     setSubcontractors,
   ] = useState([]);
 
-  /*
-   * V2-I033. First-load signal, inferred locally.
-   *
-   * The five register arrays arrive as props and carry no loading flag, so
-   * "empty" and "not yet fetched" are indistinguishable from here — a company
-   * with no records would otherwise skeleton forever.
-   *
-   * This page already runs its own request, so that is used as the signal
-   * instead: while it is in flight the first load has not finished, and when
-   * it settles (either way) the skeleton clears. True for an empty account as
-   * well as a full one, and it needs nothing threaded from AppRoutes — so no
-   * data-flow or business-logic change was required.
-   */
-  const [firstLoad, setFirstLoad] = useState(true);
-  
   useEffect(() => {
     let cancelled = false;
   
@@ -260,7 +200,6 @@ function DashboardPage({
                 ? records
                 : []
             );
-            setFirstLoad(false);
           }
         } catch (error) {
           console.error(
@@ -271,7 +210,6 @@ function DashboardPage({
   
           if (!cancelled) {
             setSubcontractors([]);
-            setFirstLoad(false);
           }
         }
       };
@@ -322,24 +260,6 @@ function DashboardPage({
     );
 
   const monthProfit = monthIncome - monthExpense;
-
-  const todayIncome = incomePayments
-    .filter((payment) =>
-      isToday(payment.payment_date || payment.created_at)
-    )
-    .reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
-      0
-    );
-
-  const todayExpense = expensePayments
-    .filter((payment) =>
-      isToday(payment.payment_date || payment.created_at)
-    )
-    .reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
-      0
-    );
 
   const gstTotal = payments
     .filter(
@@ -710,14 +630,6 @@ function DashboardPage({
     "Active Workers": activeWorkers,
   };
 
-  const quickActions = [
-    {
-      label: "Add Tender",
-      description: "Create a tender for a personal or subcontractor site",
-      path: "/tenders",
-    },
-  ];
-
   return (
     <>
   
@@ -738,19 +650,19 @@ function DashboardPage({
       />
 
       {/*
-        V2-I032. This was a full bordered panel wrapping a heading, a sentence
-        of description and six links. The heading restated the page the user
-        had just navigated to, and the description described the product to
-        someone already inside it. Both are gone; the export control and the
-        quick actions remain, now as a plain row.
+        D2. Twelve equal-weight metric cards and a "Today's Finance" panel
+        stood here: twenty-one figures, nine of them arithmetic restatements of
+        the others, with income, expense and profit each appearing three times
+        because the page rendered {metric x timeframe} as sibling cards.
 
-        Typography and spacing carry the hierarchy here instead of a border —
-        one less box between the user and the first real figure.
+        BusinessHealth states the POSITION once and puts the FLOWS behind a
+        single timeframe control. It derives its own figures from the same
+        payment and invoice rows, so nothing new is fetched.
       */}
-      <section className="v2-dash__zone" aria-label="Quick actions">
-        <div className="v2-dash__zone-head">
-          <h2 className="v2-dash__zone-title">Jump to</h2>
-
+      <BusinessHealth
+        payments={payments}
+        invoices={invoices}
+        actions={
           <ExportButtons
             filename="dashboard-summary"
             title="Executive Dashboard Summary"
@@ -759,161 +671,10 @@ function DashboardPage({
             columns={dashboardExportColumns}
             summary={dashboardExportSummary}
           />
-        </div>
+        }
+      />
 
-        <div className="v2-dash__actions">
-          {quickActions.map((action) => (
-            <AppLink
-              key={action.path}
-              to={action.path}
-              className="v2-dash__action"
-            >
-              <span className="v2-dash__action-text">
-                <strong>{action.label}</strong>
-                <span>{action.description}</span>
-              </span>
-            </AppLink>
-          ))}
-        </div>
-      </section>
-
-      {/*
-        V2-I027. These twelve figures used to render in one flat
-        `repeat(4, 1fr)` grid — Cash Position and Month Expense at identical
-        size and weight, so nothing read as important and the user had to
-        scan all twelve to find out whether anything was wrong.
-
-        They are now tiered. The primary row is what someone opens the
-        product to check: how much money there is, whether it is profitable,
-        what is owed, and how much work is running. The rest is the
-        supporting band — still present, still exact, just no longer
-        competing with the headline.
-
-        No figure was removed and none changed its source.
-      */}
-      {firstLoad ? <MetricSkeleton /> : null}
-
-      <section
-        className="v2-metrics v2-metrics--primary"
-        aria-label="Key position"
-        hidden={firstLoad}
-      >
-        <AnimatedStatCard
-        title="Cash Position"
-        value={cashPosition}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Net Profit"
-        value={netProfit}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Invoice Outstanding"
-        value={pendingInvoiceTotal}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Running Tenders"
-        value={runningTenders}
-        />
-      </section>
-
-      <section
-        className="v2-metrics v2-metrics--secondary"
-        aria-label="Supporting figures"
-        hidden={firstLoad}
-      >
-        <AnimatedStatCard
-        title="Total Income"
-        value={totalIncome}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Total Expense"
-        value={totalExpense}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Month Income"
-        value={monthIncome}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Month Expense"
-        value={monthExpense}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Month Profit"
-        value={monthProfit}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="GST Outstanding"
-        value={gstPending}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Company Charge Outstanding"
-        value={companyChargePending}
-        currency
-        />
-
-        <AnimatedStatCard
-        title="Active Workers"
-        value={activeWorkers}
-        />
-      </section>
-
-      <section className="dashboard-grid two-column-dashboard">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Today's Finance</h2>
-              <p className="muted-text">
-                Transactions recorded today.
-              </p>
-            </div>
-
-            <Link to="/payments">Open Finance</Link>
-          </div>
-
-          <section className="summary-cards">
-            <div className="card highlight-success">
-              <p>Today's Income</p>
-              <h2>{money(todayIncome)}</h2>
-            </div>
-
-            <div className="card highlight-danger">
-              <p>Today's Expense</p>
-              <h2>{money(todayExpense)}</h2>
-            </div>
-
-            <div
-              className={
-                todayIncome - todayExpense >= 0
-                  ? "card highlight-success"
-                  : "card highlight-danger"
-              }
-            >
-              <p>Today's Net</p>
-              <h2>
-                {money(todayIncome - todayExpense)}
-              </h2>
-            </div>
-          </section>
-        </div>
-
+      <section className="dashboard-grid">
         <div className="panel">
           <div className="section-title-row">
             <div>

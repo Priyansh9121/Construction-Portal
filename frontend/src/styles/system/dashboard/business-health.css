@@ -1,0 +1,375 @@
+/*
+ * ===========================================================================
+ * BUSINESS HEALTH — one diagnosis, not a KPI grid
+ * ===========================================================================
+ *
+ * File purpose:
+ * The Dashboard's health section. One dominant figure, one supporting flow
+ * reading, one receivables line.
+ *
+ * THE LAYOUT IS THE ARGUMENT
+ * A two-column split at desktop, deliberately UNEQUAL: the position takes the
+ * larger share and the flows the smaller. The old page gave twelve figures
+ * identical boxes, so nothing read as important. Here the ratio itself says
+ * which number matters, before any type or colour is applied.
+ *
+ * Below 60rem it stacks, position first, so the reading order is identical to
+ * the visual order at every width.
+ *
+ * TYPE CARRIES THE HIERARCHY, NOT BOXES
+ * There is exactly one surface in this section — the section itself. The
+ * position and the flows are separated by a rule, not by nested cards. Cards
+ * inside a card was the previous page's defining texture and it is the reason
+ * it read as an enterprise portal.
+ *
+ * STATUS COLOUR
+ * `data-state="negative"` is the ONLY conditional colour on the headline, and
+ * only for a genuinely operational condition: obligations exceed receipts. The
+ * flow bars are NOT red and green. Money in and money out are facts, so they
+ * are distinguished by ink weight and rail fill, not by semantics — the exact
+ * misuse this redesign removes.
+ */
+
+@layer system-components {
+  .ui-health {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-5);
+
+    padding: var(--ui-space-6);
+    margin-block-end: var(--ui-space-8);
+
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-container);
+  }
+
+  .ui-health__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    flex-wrap: wrap;
+  }
+
+  .ui-health__title {
+    margin: 0;
+    font-size: var(--ui-text-lg);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  .ui-health__head-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+    flex-wrap: wrap;
+  }
+
+  .ui-health__link {
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-muted);
+
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ui-target-min);
+  }
+
+  .ui-health__link:hover {
+    color: var(--ui-accent);
+  }
+
+  .ui-health__link:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+    border-radius: var(--ui-radius-control);
+  }
+
+  /*
+   * Unequal on purpose. 1.15fr / 1fr is a deliberate imbalance — enough that
+   * the eye starts on the position, not so much that the flows read as an
+   * afterthought.
+   */
+  .ui-health__body {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: var(--ui-space-6);
+    align-items: start;
+  }
+
+  .ui-health__label {
+    margin: 0 0 var(--ui-space-2);
+
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--ui-tracking-wide);
+    text-transform: uppercase;
+
+    /* NOT --ui-ink-faint. At 3.5:1 it fails the 4.5 floor for text this size,
+     * which axe rejected outright — the same trap as AUTH-015, where faint ink
+     * was used for a small group label. */
+    color: var(--ui-ink-muted);
+  }
+
+  /*
+   * The largest figure on the page below the attention headline. Tabular
+   * figures so the digits align and the number reads as a quantity rather
+   * than as text.
+   */
+  .ui-health__figure {
+    margin: 0;
+
+    font-size: var(--ui-text-3xl);
+    font-weight: var(--ui-weight-semibold);
+    line-height: var(--ui-leading-tight);
+    letter-spacing: var(--ui-tracking-tight);
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink-strong);
+  }
+
+  /* The one operational condition worth colouring, and it is also written
+   * out in `.ui-health__alarm` below. */
+  .ui-health__figure[data-state="negative"] {
+    color: var(--ui-status-danger-fg);
+  }
+
+  .ui-health__context {
+    margin: var(--ui-space-2) 0 0;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+
+  .ui-health__alarm {
+    margin: var(--ui-space-2) 0 0;
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-status-danger-fg);
+  }
+
+  /* ---- Flows ----------------------------------------------------------- */
+
+  /*
+   * Separated by a rule rather than by a nested card. On a phone the rule
+   * moves to the top edge, since the columns become rows.
+   */
+  .ui-health__flow {
+    border-inline-start: 1px solid var(--ui-line-faint);
+    padding-inline-start: var(--ui-space-6);
+  }
+
+  .ui-health__flow-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-2);
+    flex-wrap: wrap;
+  }
+
+  .ui-health__range {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    margin-block-end: var(--ui-space-2);
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--ui-radius-control);
+  }
+
+  .ui-health__range-option {
+    /*
+     * Full 44px. The first draft made these 28px on the argument that a
+     * segmented control's options may be compact because the group as a whole
+     * is large. The project's own touch-target test disagreed, and the test is
+     * the contract: these are the only way to change the timeframe, so they
+     * are real targets regardless of how they are grouped.
+     */
+    min-height: var(--ui-target-min);
+    padding: 0 var(--ui-space-4);
+
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-muted);
+
+    background: none;
+    border: 0;
+    border-radius: calc(var(--ui-radius-control) - 2px);
+    cursor: pointer;
+
+    transition: background-color var(--ui-duration-fast) var(--ui-ease-move),
+      color var(--ui-duration-fast) var(--ui-ease-move);
+  }
+
+  .ui-health__range-option:hover {
+    color: var(--ui-ink);
+  }
+
+  .ui-health__range-option[aria-pressed="true"] {
+    background: var(--ui-surface);
+    color: var(--ui-ink-strong);
+    box-shadow: var(--ui-elevation-1);
+  }
+
+  .ui-health__range-option:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: 1px;
+  }
+
+  .ui-health__bars {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-3);
+    margin: 0;
+  }
+
+  .ui-health__bar-row {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    align-items: center;
+    gap: var(--ui-space-3);
+  }
+
+  .ui-health__bar-row dt {
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-health__bar-row dd {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-3);
+    margin: 0;
+    min-width: 0;
+  }
+
+  .ui-health__bar {
+    flex: 1 1 auto;
+    min-width: 0;
+    block-size: 0.5rem;
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--ui-radius-pill);
+    overflow: hidden;
+  }
+
+  /*
+   * NOT red and green. Money in and money out are facts, so the two rails are
+   * separated by weight of ink rather than by semantic colour: the inbound
+   * rail is strong ink, the outbound a muted step down. The figure beside it
+   * is the precise value; the rail only conveys relative size.
+   */
+  .ui-health__bar-fill {
+    display: block;
+    block-size: 100%;
+    border-radius: inherit;
+
+    transition: inline-size var(--ui-duration-enter) var(--ui-ease-move);
+  }
+
+  .ui-health__bar-fill[data-flow="in"] {
+    background: var(--ui-ink-strong);
+  }
+
+  .ui-health__bar-fill[data-flow="out"] {
+    background: var(--ui-line-strong);
+  }
+
+  .ui-health__bar-value {
+    flex: none;
+    font-size: var(--ui-text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink);
+  }
+
+  .ui-health__bar-row--net {
+    padding-block-start: var(--ui-space-3);
+    border-block-start: 1px solid var(--ui-line-faint);
+  }
+
+  .ui-health__bar-row--net dt,
+  .ui-health__bar-row--net .ui-health__bar-value {
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  .ui-health__quiet {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+
+  /* ---- Receivables ----------------------------------------------------- */
+
+  .ui-health__receivable {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    flex-wrap: wrap;
+
+    padding: var(--ui-space-3) var(--ui-space-4);
+    min-height: var(--ui-target-min);
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--ui-radius-control);
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink);
+    text-decoration: none;
+  }
+
+  .ui-health__receivable:hover {
+    background: var(--ui-surface-hover, var(--ui-surface-sunken));
+    color: var(--ui-ink-strong);
+  }
+
+  .ui-health__receivable:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: calc(var(--ui-focus-ring-offset) * -1);
+  }
+
+  .ui-health__receivable-main strong {
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink-strong);
+  }
+
+  /* Overdue is a real operational state, so it keeps its colour. */
+  .ui-health__receivable-flag {
+    flex: none;
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-status-danger-fg);
+  }
+}
+
+@media (max-width: 60rem) {
+  @layer system-components {
+    .ui-health__body {
+      grid-template-columns: 1fr;
+      gap: var(--ui-space-5);
+    }
+
+    /* The columns became rows, so the divider moves to the block edge. */
+    .ui-health__flow {
+      border-inline-start: 0;
+      padding-inline-start: 0;
+
+      border-block-start: 1px solid var(--ui-line-faint);
+      padding-block-start: var(--ui-space-5);
+    }
+  }
+}
+
+/*
+ * Reduced motion: the bars arrive already at width instead of growing. The
+ * bar IS the information, not its arrival, so nothing is lost.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .ui-health__bar-fill,
+    .ui-health__range-option {
+      transition-duration: 0.01ms;
+    }
+  }
+}

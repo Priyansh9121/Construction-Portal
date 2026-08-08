@@ -2022,3 +2022,96 @@ untouched) · responsive matrix clean both motion modes · screenshot review at
 CSS 115.19 → 117.16 kB raw (20.34 → 20.67 kB gzip): the new system stylesheet
 costs more than the legacy rules it retired, which is expected while the page
 is half migrated. JS entry unchanged at 469.14 kB.
+
+---
+
+## D2 — Business health: one diagnosis instead of twelve cards
+
+**Class:** product redesign (Dashboard programme, unit 2)
+**Status:** COMPLETE
+
+### What changed
+
+Twelve equal-weight metric cards, the `MetricSkeleton` that shaped them, and the
+"Today's Finance" panel are gone — twenty-one figures, of which nine were
+arithmetic restatements of the others. Replaced by
+`components/dashboard/BusinessHealth.jsx`.
+
+### The idea: positions are not flows
+
+This is the distinction the old page lacked, and the reason it needed twelve
+cards.
+
+A **position** is true at a moment. Cash position has no "this month" version —
+what you hold is what you hold. A **flow** happens over a period, and money in,
+money out and net are meaningless without one.
+
+The old page had no way to express that difference, so it rendered the
+cross-product of `{metric × timeframe}` as sibling cards: income, expense and
+profit each appearing three times. Now the position is stated once and
+permanently, and the flows sit behind a single timeframe control. Time became a
+lens rather than a multiplier.
+
+**Cash position leads** because it is the only figure that answers "can we keep
+operating": it nets off outstanding GST and unpaid company charge, money that is
+legally not the company's. Net profit does not, so a healthy profit can sit
+beside an inability to pay wages. Those obligations are named in a sentence
+beneath the headline rather than given their own cards, because they explain the
+figure rather than compete with it.
+
+### Status colour
+
+The flow bars are deliberately NOT red and green. Money in and money out are
+facts, so the rails differ by ink weight (`--ui-ink-strong` against
+`--ui-line-strong`), not by semantics. The only conditional colour is a negative
+cash position — a genuine operational state — and it is stated in words as well.
+
+### Empty state
+
+Zero payments produces "No payments recorded yet. Finance figures appear once
+the first payment is logged", not a confident ₹0.00 for a figure that has never
+been measured. The position still shows, because zero cash IS the true position.
+
+### Defects found in my own code, by the gate
+
+**D2-a — contrast.** `.ui-health__label` used `--ui-ink-faint` (#868a87, 3.5:1)
+at 12px. axe rejected it on Dashboard at both desktop and mobile. The same trap
+as AUTH-015. Now `--ui-ink-muted`.
+
+**D2-b — touch target.** The timeframe options were 28px tall, and the code
+comment argued that a segmented control's options may be compact because the
+group is large. The project's own 44px test disagreed, and the test is the
+contract: these are the only way to change the timeframe, so they are real
+targets regardless of grouping. Now `--ui-target-min`.
+
+Both were caught only by the suite. Neither was visible in a screenshot.
+
+### Also removed
+
+The "Jump to" zone — a section heading whose only content was one link the
+sidebar already provides and the FAB duplicates. It sat between the attention
+spine and business health, separating the two strongest elements of the first
+viewport. `ExportButtons` moved into the Business health header, where 15 of its
+18 exported rows belong.
+
+`AnimatedStatCard.jsx` deleted; it had no remaining JSX consumers.
+`v2-metrics` CSS retained — `FinanceOverview.jsx` still uses it.
+
+### Leak probe
+
+One bucket-B difference, on `dashboard` only: the `card` sample's background
+went white → `rgb(220, 252, 231)`. That is the sample MOVING, not a style
+change — the first `.card` used to be a deleted metric card and is now Project
+Portfolio's existing green tile, which D3 will remove. The four unmigrated
+routes are byte-identical in `styles`.
+
+`baselines/shell-d2.json` supersedes `shell-d1.json`.
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit clean · shell computed-style diff **no change** · responsive matrix
+clean both motion modes · screenshots at 390 and 1440 · `git diff --check` clean.
+
+`DashboardPage.jsx` 1714 → 1475 lines. CSS 117.16 → 122.52 kB raw
+(20.67 → 21.34 gzip); JS 469.14 → 468.84 kB.
