@@ -484,7 +484,10 @@ function DashboardPage({
         adjacent means the page tells one financial story instead of
         interrupting Pipeline with a second one.
       */}
-      <FinanceTrendChart payments={payments} />
+      <FinanceTrendChart
+        payments={payments}
+        emptyState={{ action: { to: "/payments", label: "Record a payment" } }}
+      />
 
       <Pipeline tenders={tenders} />
 

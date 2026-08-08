@@ -1,0 +1,85 @@
+/*
+ * ===========================================================================
+ * EMPTY STATE — the shape a section takes before it has data
+ * ===========================================================================
+ *
+ * File purpose:
+ * One block used by every Dashboard section that can be empty.
+ *
+ * QUIETER THAN POPULATED CONTENT, ALWAYS
+ * The failure this replaces is an empty section occupying MORE space than a
+ * full one — the finance chart drew a 380px void and became the largest
+ * element on the page (DASH-003). A section with nothing to say must take less
+ * room than a section with something to say, or the Dashboard's hierarchy
+ * inverts the moment a company is new.
+ *
+ * So: sunken ground, no border, no heading rank of its own. The section title
+ * above it already names the region; repeating it here would give an empty
+ * section two headings and a populated one, one.
+ *
+ * `data-tone="calm"` is for the case that is not a gap at all — the attention
+ * spine with genuinely nothing outstanding. That is an achievement, not an
+ * absence, so it gets a plain surface rather than the sunken well used for
+ * "there is nothing here yet".
+ */
+
+@layer system-components {
+  .ui-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ui-space-2);
+
+    padding: var(--ui-space-5);
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--ui-radius-container);
+  }
+
+  /* Caught up, rather than not started. */
+  .ui-empty[data-tone="calm"] {
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-line-faint);
+  }
+
+  /*
+   * Deliberately a <p>, not a heading. The section already owns the heading
+   * rank; a second one here would make empty sections structurally louder
+   * than populated ones for a screen reader too, not just visually.
+   */
+  .ui-empty__title {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  .ui-empty__description {
+    margin: 0;
+    max-width: 52ch;
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+
+  .ui-empty__action {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ui-target-min);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-accent);
+  }
+
+  .ui-empty__action:hover {
+    text-decoration: underline;
+  }
+
+  .ui-empty__action:focus-visible {
+    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
+    outline-offset: var(--ui-focus-ring-offset);
+    border-radius: var(--ui-radius-control);
+  }
+}

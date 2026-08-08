@@ -80,6 +80,7 @@
 import { useMemo } from "react";
 
 import AppLink from "../ui/AppLink";
+import EmptyState from "./EmptyState";
 import Icon from "../ui/Icon";
 import { formatCurrency } from "../../utils/currency";
 
@@ -264,10 +265,15 @@ function ActivityStream({ payments = [], invoices = [], tenders = [] }) {
       </div>
 
       {isEmpty ? (
-        <p className="ui-activity__empty">
-          Nothing has changed yet. Payments, invoices and tenders appear here as
-          they are recorded.
-        </p>
+        /*
+         * No action offered, deliberately. Activity fills as a SIDE EFFECT of
+         * work done elsewhere; there is nothing a user can do to "add an
+         * activity", so inventing a button here would be a false affordance.
+         */
+        <EmptyState
+          title="Nothing has happened yet"
+          description="Payments, invoices and tenders appear here as they are recorded, newest first."
+        />
       ) : (
         <ol className="ui-activity__groups">
           {groups.map((group) => (
