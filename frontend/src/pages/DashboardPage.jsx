@@ -16,7 +16,7 @@
  * - AppLayout, via AppRoutes
  *
  * Navigation and children:
- * - Renders AttentionSpine, BusinessHealth and FinanceTrendChart.
+ * - Renders AttentionSpine, BusinessHealth, Pipeline and FinanceTrendChart.
  *
  * Important notes:
  * - Office-only. Workers and subcontractors land on their portals instead —
@@ -29,6 +29,7 @@ import { Link } from "react-router-dom";
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
 import BusinessHealth from "../components/dashboard/BusinessHealth";
+import Pipeline from "../components/dashboard/Pipeline";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useEffect, useState } from "react";
@@ -391,23 +392,6 @@ function DashboardPage({
     );
   });
 
-  const estimatedTenderValue = tenders.reduce(
-    (sum, tender) =>
-      sum + Number(tender.estimated_value || 0),
-    0
-  );
-
-  const runningTenderValue = tenders
-    .filter(
-      (tender) =>
-        normaliseStatus(tender.status) === "running"
-    )
-    .reduce(
-      (sum, tender) =>
-        sum + Number(tender.estimated_value || 0),
-      0
-    );
-
   const paidInvoices = invoices.filter(
     (invoice) =>
       normaliseStatus(invoice.status) === "paid"
@@ -526,11 +510,6 @@ function DashboardPage({
   const invoiceCollectionRate =
     invoiceTotal > 0
       ? (paidInvoiceTotal / invoiceTotal) * 100
-      : 0;
-
-  const tenderCompletionRate =
-    tenders.length > 0
-      ? (completedTenders / tenders.length) * 100
       : 0;
 
   const dashboardExportRows = [
@@ -674,42 +653,19 @@ function DashboardPage({
         }
       />
 
-      <section className="dashboard-grid">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Project Portfolio</h2>
-              <p className="muted-text">
-                Tender pipeline and portfolio value.
-              </p>
-            </div>
+      {/*
+        D3. "Project Portfolio" (4 filled status tiles), "Project Status" (9
+        table rows) and "Upcoming Tenders" (a table of the next seven days)
+        stood here and below. Between them Running was counted twice, Pending
+        twice, Completed three times, Overdue twice and Due Soon twice.
 
-            <Link to="/tenders">View Tenders</Link>
-          </div>
-
-          <section className="summary-cards">
-            <div className="card highlight-success">
-              <p>Running</p>
-              <h2>{runningTenders}</h2>
-            </div>
-
-            <div className="card highlight-warning">
-              <p>Pending</p>
-              <h2>{pendingTenders}</h2>
-            </div>
-
-            <div className="card">
-              <p>Completed</p>
-              <h2>{completedTenders}</h2>
-            </div>
-
-            <div className="card highlight-danger">
-              <p>Overdue</p>
-              <h2>{overdueTenders.length}</h2>
-            </div>
-          </section>
-        </div>
-      </section>
+        Crucially, "Upcoming Tenders" rendered `dueSoonTenders`, which is
+        exactly the set the attention spine already shows as objects at the top
+        of this page. Pipeline therefore takes the COMPLEMENT of the attention
+        window: work that is running now or due beyond it, so no tender is ever
+        shown twice.
+      */}
+      <Pipeline tenders={tenders} />
 
       <FinanceTrendChart payments={payments} />
 
@@ -858,86 +814,7 @@ function DashboardPage({
         </div>
       </section>
 
-      <section className="dashboard-grid two-column-dashboard">
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Project Status</h2>
-              <p className="muted-text">
-                Tender performance and current workload.
-              </p>
-            </div>
-
-            <Link to="/tenders">View Tenders</Link>
-          </div>
-
-          <table>
-            <tbody>
-              <tr>
-                <td>Total Tenders</td>
-                <td className="number-cell">
-                  {tenders.length}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Running</td>
-                <td className="number-cell">
-                  {runningTenders}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Pending</td>
-                <td className="number-cell">
-                  {pendingTenders}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Completed / Passed</td>
-                <td className="number-cell">
-                  {completedTenders}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Due Soon</td>
-                <td className="number-cell">
-                  {dueSoonTenders.length}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Overdue</td>
-                <td className="number-cell">
-                  {overdueTenders.length}
-                </td>
-              </tr>
-
-              <RatioRow
-                label="Completion Rate"
-                value={tenderCompletionRate}
-                tone="info"
-              />
-
-              <tr>
-                <td>Running Tender Value</td>
-                <td className="amount-cell">
-                  {money(runningTenderValue)}
-                </td>
-              </tr>
-
-              <tr>
-                <td>Total Estimated Value</td>
-                <td className="amount-cell">
-                  {money(estimatedTenderValue)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
+      <section className="dashboard-grid">
         <div className="panel">
           <div className="section-title-row">
             <div>
@@ -1126,77 +1003,6 @@ function DashboardPage({
           </div>
         </div>
 
-        <div className="panel">
-          <div className="section-title-row">
-            <div>
-              <h2>Upcoming Tenders</h2>
-              <p className="muted-text">
-                Tenders due in the next seven days.
-              </p>
-            </div>
-
-            <Link to="/tenders">View all</Link>
-          </div>
-
-          <div className="table-wrapper" tabIndex={0}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Tender</th>
-                  <th>Status</th>
-                  <th>Due Date</th>
-                  <th>Value</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {dueSoonTenders
-                  .slice(0, 6)
-                  .map((tender) => (
-                    <tr key={tender.id}>
-                      <td>
-                        <Link
-                          to={`/tenders/${tender.id}`}
-                          className="table-link-button"
-                        >
-                          {tender.title ||
-                            tender.tender_name ||
-                            "-"}
-                        </Link>
-                      </td>
-
-                      <td>
-                        <span
-                          className={getStatusClass(
-                            tender.status
-                          )}
-                        >
-                          {tender.status || "-"}
-                        </span>
-                      </td>
-
-                      <td>{dateOnly(tender.due_date)}</td>
-
-                      <td className="amount-cell">
-                        {money(tender.estimated_value)}
-                      </td>
-                    </tr>
-                  ))}
-
-                {dueSoonTenders.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="4"
-                      className="empty-table-message"
-                    >
-                      No tenders are due in the next seven days.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </section>
         )}
 
