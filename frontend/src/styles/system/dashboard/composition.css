@@ -1,0 +1,167 @@
+/*
+ * ===========================================================================
+ * COMPOSITION — the rhythm between the five questions
+ * ===========================================================================
+ *
+ * File purpose:
+ * Makes the Dashboard read as one composed sequence rather than five modules
+ * stacked at equal intervals. It adds no content and moves no section.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE PROBLEM V3 SOLVES
+ * ─────────────────────────────────────────────────────────────────────────
+ * Every section carried the same trailing space, so the page read:
+ *
+ *   section · gap · section · gap · section · gap · section
+ *
+ * Even spacing is regular, and regular is not composed. `VISUAL_PRINCIPLES.md`
+ * §10 is explicit: space is the visible evidence of a decision, and uniform
+ * spacing across dissimilar content is repetition mistaken for consistency.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE VOCABULARY — THREE RELATIONSHIPS, NOT THREE SIZES
+ * ─────────────────────────────────────────────────────────────────────────
+ * Each token names a relationship between two sections. The value follows
+ * from the relationship; it is not chosen and then justified.
+ *
+ *   --ui-flow-kin       two sections that answer ONE question together.
+ *                       Business Health and the trend beside it are diagnosis
+ *                       and the context for that diagnosis: one chapter,
+ *                       two materials.
+ *
+ *   --ui-flow-sequence  two sections in the same movement, asking different
+ *                       questions. "What needs me?" then "Where do we stand?"
+ *                       -- coupled, but not the same thought.
+ *
+ *   --ui-flow-chapter   a change of subject. Money gives way to operations.
+ *
+ *   --ui-flow-epilogue  a change of TIME. Everything above is the present;
+ *                       Activity is the past. This is the largest interval on
+ *                       the page, and it is not a claim that history matters
+ *                       most -- it is the distance between two tenses.
+ *
+ * Four names for four relationships. A fifth would mean inventing a
+ * relationship the page does not have.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY THE FOUR SECTION TITLES STAY THE SAME SIZE
+ * ─────────────────────────────────────────────────────────────────────────
+ * They ask the same KIND of question, so by §12 they must look alike;
+ * differentiating them would be variation for visual interest, which that
+ * section forbids.
+ *
+ * The flatness was never that the four matched each other. It was that they
+ * sat too close to the internal titles beneath them -- a section heading at
+ * 19px above row titles at 14px is a difference of degree, not of rank. The
+ * section role moves up one step and closes its tracking, so a section
+ * heading now reads as a chapter marker rather than as slightly larger text.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ROUTE ISOLATION
+ * ─────────────────────────────────────────────────────────────────────────
+ * `.section-title-row` has 29 consumers across Tenders, Invoices,
+ * Subcontractors, Activity, the portals and the finance components, and is
+ * styled in legacy `core/foundation.css`. Nothing here touches it. The chart's
+ * heading is reached only through `.ui-chart`, the palette-scoped class F-03
+ * established, so the migrated caller changes and the unmigrated one does not.
+ */
+
+:root {
+  /*
+   * The four intervals. Ordered, and each step is perceptible: an interval a
+   * reader cannot distinguish from its neighbour is not communicating a
+   * relationship.
+   */
+  --ui-flow-kin: var(--ui-space-5);
+  --ui-flow-sequence: var(--ui-space-8);
+  --ui-flow-chapter: var(--ui-space-12);
+  --ui-flow-epilogue: var(--ui-space-16);
+}
+
+@layer system-components {
+  /*
+   * ---- The page's rhythm ------------------------------------------------
+   *
+   *   Attention    what needs me            ─┐ sequence
+   *   Health       where do we stand         ─┐ kin
+   *   Trend        how did we get here       ─┘
+   *   Pipeline     what is moving           ─┐ chapter
+   *   Activity     what changed             ─┘ epilogue
+   */
+
+  .ui-attention {
+    margin-block-end: var(--ui-flow-sequence);
+  }
+
+  /* Diagnosis and its context are one chapter. The tightest interval between
+   * two sections on the page, so they read as a pair. */
+  .ui-health {
+    margin-block-end: var(--ui-flow-kin);
+  }
+
+  .ui-chart {
+    margin-block-end: var(--ui-flow-chapter);
+  }
+
+  .ui-pipe {
+    margin-block-end: var(--ui-flow-epilogue);
+  }
+
+  /* The page ends here. Nothing follows, so nothing is reserved. */
+  .ui-activity {
+    margin-block-end: 0;
+  }
+
+  /*
+   * ---- Section rank -----------------------------------------------------
+   *
+   * One step up from internal titles, tracking closed. Applied to all four
+   * identically, because they are four instances of one role.
+   */
+  .ui-health__title,
+  .ui-pipe__title,
+  .ui-activity__title,
+  .ui-chart .section-title-row h2 {
+    font-size: var(--ui-text-xl);
+    letter-spacing: var(--ui-tracking-tight);
+  }
+
+  /*
+   * ---- Heading-to-content coupling --------------------------------------
+   *
+   * A heading belongs to what follows it. The gap below a section title is
+   * deliberately smaller than the gap above the section, so the title reads as
+   * attached to its content rather than floating between two blocks.
+   */
+  .ui-pipe__head,
+  .ui-activity__head {
+    margin-block-end: var(--ui-space-1);
+  }
+
+  /*
+   * ---- Measure ----------------------------------------------------------
+   *
+   * Prose is capped; operational rows are not. An amount, a date and a name in
+   * a row are scanned in columns, and capping them would waste the width the
+   * user's screen actually has. Only sentences get a measure.
+   */
+  .ui-health__context,
+  .ui-empty__description,
+  .ui-activity__note {
+    max-width: 60ch;
+  }
+}
+
+/*
+ * Mobile keeps the same RELATIONSHIPS with smaller intervals. The ordering of
+ * the four steps is preserved -- kin < sequence < chapter < epilogue -- because
+ * the relationships have not changed, only the room available to express them.
+ */
+@media (max-width: 48rem) {
+  :root {
+    --ui-flow-kin: var(--ui-space-4);
+    --ui-flow-sequence: var(--ui-space-6);
+    --ui-flow-chapter: var(--ui-space-10);
+    --ui-flow-epilogue: var(--ui-space-12);
+  }
+}
