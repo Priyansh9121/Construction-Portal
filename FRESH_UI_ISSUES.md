@@ -2684,3 +2684,108 @@ F-05 `FinanceSummaryCards`, last because it is shared with Tender details →
 F-06 Reports, not yet audited.
 
 **Only F-02 is safe to implement without touching a route group.**
+
+---
+
+## F-02 — Shared finance visual tokens
+
+**Class:** infrastructure (token architecture)
+**Status:** COMPLETE — zero visual change
+
+Creates `styles/system/core/finance.css`, the single place financial colour is
+declared, imported into the `system-tokens` layer. **Nothing consumes it yet**,
+so zero visual change holds by construction rather than by careful matching;
+F-03 makes `FinanceTrendChart` the first consumer.
+
+### Two layers, deliberately
+
+`--ui-series-*` is the language — abstract slots carrying no opinion about
+income. `--ui-finance-*` is the vocabulary components consume, mapping a
+financial concept onto a slot. A future chart with different categories (site
+profitability, subcontractor spend) can reuse the language without inheriting
+income/expense naming, and remapping later touches three declarations instead of
+every consumer.
+
+**19 tokens added, 0 removed.** Identity (2 series + 1 derived + 2 fill
+opacities), chart chrome (4), interaction (3), transitional legacy (3), and a
+focus alias.
+
+Two series, not three: profit is `income − expense`, the gap already drawn
+between the other two, so it takes ink rather than a third identity colour. The
+audit's first candidate ramp failed on exactly this — 1.64:1 separation between
+series 1 and 3.
+
+`--ui-finance-focus` is an explicit alias of `--ui-focus`, commented as such:
+charts must not invent their own focus treatment, and the alias exists only so
+chart code has one place to look.
+
+### Transitional tokens, with a deletion condition
+
+`--ui-finance-legacy-income/expense/profit` hold the exact literals currently in
+`FinanceTrendChart`, so an unmigrated caller has a named token rather than a
+magic value. They are marked for deletion **with the last caller that passes the
+legacy palette — F-04**. If they outlive that unit, the migration is unfinished.
+
+### FIN-001 — CLOSED, and a correction to F-01
+
+**F-01 claimed `token_audit.py` shared the near-grey hue weakness. That was
+wrong.** The tool already gated at `sat < 0.18` and returned `neutral`. The
+defect was in the ad-hoc script used to derive the ramp for the audit, not in
+the project's tooling. `FRESH_UI_FINANCE_VISUAL_LANGUAGE.md` now carries that
+correction inline.
+
+So F-02's actual work was the brief's real requirement — **no magic constants**:
+
+The `0.18` threshold was an unexplained literal. It is now `CHROMA_FLOOR`, with
+its value derived from measurements of this palette and every figure verified:
+
+- the neutral ramp measures **0.000 – 0.115**; the floor clears the highest
+  neutral by **0.065**
+- the lowest *saturated* hue token, `--ui-indigo-200`, measures **0.249**,
+  sitting **0.069** above the floor
+- so the floor separates the two populations with comparable margin either side
+
+**A known false negative is documented rather than hidden.** `--ui-indigo-50`
+(`#f0ebfd`) is a pale accent tint measuring **0.071** — *below* the highest
+neutral. No single saturation threshold can separate it from grey, and the tool
+will call it neutral. Accepted because the check exists to catch identity and
+status colliding, and indigo-50 is a background wash, never an identity colour.
+A palette using pale tints *as* identity would need perceptual chroma (OKLCH).
+
+I asserted these figures in the code comment and then measured them: my first
+draft claimed indigo-50 sat at ~0.24 and that the populations were cleanly
+separated. Both were false. The comment now states what the palette actually
+measures, including the overlap.
+
+Added `CHROMA_BORDERLINE = 0.28`, just above `--ui-indigo-200`, so the palest
+intentional hue is reported as uncertain rather than asserted. LIMITATIONS now
+explains why HSV saturation is not perceptual chroma and what that cannot catch.
+
+### New gated check, validated by negative control
+
+Section 4, **FINANCE SERIES / STATUS SEPARATION**, resolves every
+`--ui-series-*` through the core ramps and fails if one acquires a status hue.
+Legacy tokens are deliberately excluded — they are the known-bad values being
+migrated from, and gating on them would block every build until F-04.
+
+Verified it can actually fail: setting `--ui-series-1` to the legacy income
+green produced `FAIL: --ui-series-1 #16a34a reads as 'green', which a status
+colour also uses` and **exit code 1**. Restored, and the file diff is empty.
+
+### Measured
+
+- tokens added **19**, removed **0**
+- hard-coded finance literals remaining: **9**, all in `FinanceTrendChart`
+  (F-03 removes them). No other finance component contains a colour literal.
+- finance components still using literals: **1 of 10**
+- routes changed: **0** — leak probe reports *no descendant style change on any
+  probed route*, and the shell diff reports no change
+- CSS 129.59 → 130.29 kB raw (22.00 → 22.18 gzip); JS 469.89 kB unchanged
+
+### Verification
+
+lint · build · Playwright + axe **370 passed, 0 failed** · detector clean ·
+token audit **all checks pass, now including section 4** · shell computed-style
+diff no change · leak probe **no change on any route** · structure, activity,
+first-run and pipeline probes all clean · responsive matrix clean both motion
+modes · `git diff --check` clean.

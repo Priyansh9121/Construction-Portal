@@ -25,6 +25,19 @@ LIMITATIONS
   * Hue-family classification uses HSV hue arcs, which is a coarse model. It
     is good enough to catch "the accent is the same blue as the info status"
     and is not intended for fine colour science.
+  * HSV saturation is NOT perceptual chroma (FIN-001). It is computed as
+    (max - min) / max, so it depends on the brightest channel alone: a dark
+    colour reports higher saturation than it looks, and a pale tint reports
+    lower. Two consequences that this tool cannot fix without an OKLCH
+    conversion:
+      - a colour just above CHROMA_FLOOR may still read as grey to a viewer,
+        which is why the BORDERLINE band below reports rather than asserts;
+      - a very dark saturated colour may fall below the floor and be called
+        neutral when a viewer would perceive its hue.
+    What the floor DOES reliably prevent is the failure that motivated it: a
+    near-grey being assigned a hue family and reported as colliding with a
+    status colour, when its hue angle is numerically unstable and
+    perceptually absent.
   * This tool reads source only. It never touches production data, needs no
     secrets, and deletes nothing.
 
@@ -39,6 +52,11 @@ import sys
 from pathlib import Path
 
 TOKENS = Path(__file__).resolve().parents[2] / "frontend/src/styles/system/core/tokens.css"
+
+# Finance declares its own namespace in a sibling file (FIN-003). It is read
+# alongside the core tokens so `--ui-series-*` can be resolved through the core
+# ramps it references, and so section 4 below can see it at all.
+FINANCE_TOKENS = TOKENS.parent / "finance.css"
 
 # Gated pairs: (foreground token, background token, required ratio, why)
 GATED_PAIRS = [
@@ -81,8 +99,11 @@ HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 def load_tokens() -> dict[str, str]:
-    text = TOKENS.read_text(encoding="utf-8")
-    return {m.group(1): m.group(2).strip() for m in DECL.finditer(text)}
+    """Every `--ui-*: value` declaration across the system token files."""
+    text = TOKENS.read_text()
+    if FINANCE_TOKENS.exists():
+        text += "\n" + FINANCE_TOKENS.read_text()
+    return dict(re.findall(r"(--ui-[a-z0-9-]+):\s*([^;]+);", text))
 
 
 def resolve(name: str, tokens: dict[str, str], depth: int = 0) -> str | None:
@@ -111,20 +132,80 @@ def contrast(fg: str, bg: str) -> float:
     return (max(a, b) + 0.05) / (min(a, b) + 0.05)
 
 
+# ---------------------------------------------------------------------------
+# FIN-001: chroma is evaluated BEFORE hue, and the threshold is justified.
+#
+# Below CHROMA_FLOOR a colour carries no usable hue identity: the HSV hue angle
+# of a near-grey is numerically unstable (tiny channel differences swing it
+# tens of degrees) and perceptually absent (a viewer reads it as grey). Asking
+# "which hue family is this" is then a category error, and answering it
+# produces false collisions.
+#
+# Concretely, the project's own --ui-neutral-600 (#5f6461) computes to hue 144
+# degrees, two degrees from status-success at 142. Without a floor that reads
+# as a hard collision with the success colour. Its chroma is 0.050: it is grey.
+#
+# WHY 0.18. Set from measurements of this palette, not chosen abstractly.
+# Every colour in the neutral ramp (--ui-neutral-0 through -900) measures
+# between 0.000 and 0.115 saturation, the top end reached by the warm dark
+# greys. A floor of 0.18 clears the highest neutral with 0.065 of margin, and
+# the lowest SATURATED hue token, --ui-indigo-200 at 0.249, sits 0.069 above
+# it. The floor therefore separates the two populations with comparable margin
+# on each side.
+#
+# KNOWN FALSE NEGATIVE, accepted deliberately. --ui-indigo-50 (#f0ebfd) is a
+# pale tint of the accent and measures 0.071, which is BELOW the highest
+# neutral. No single saturation threshold can separate it from grey, and this
+# tool will call it neutral. That is tolerable because the check exists to
+# catch identity and status colours colliding; indigo-50 is a background wash,
+# never a series or accent identity. A palette that used pale tints AS
+# identity would need perceptual chroma (OKLCH) rather than HSV saturation.
+#
+# The value is a property of THIS palette. A system with cooler greys or more
+# saturated tints would need a different one, which is why it is named and
+# derived here rather than inlined as a literal.
+CHROMA_FLOOR = 0.18
+
+# Between the floor and this bound, classification is reported as uncertain
+# rather than asserted. HSV saturation is not perceptual chroma, so a colour
+# just above the floor may still read as grey; saying so is more honest than
+# silently committing to a family.
+#
+# 0.28 sits just above --ui-indigo-200 (0.249), the palest token intended to
+# carry a hue, so the palest intentional colour is reported as uncertain rather
+# than asserted. Anything more saturated is classified outright.
+CHROMA_BORDERLINE = 0.28
+
+
+def chroma(hex_colour: str) -> float:
+    """HSV saturation. See LIMITATIONS: an approximation of chroma, not chroma."""
+    h = hex_colour.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    return colorsys.rgb_to_hsv(r, g, b)[1]
+
+
 def hue_family(hex_colour: str) -> str:
     h = hex_colour.lstrip("#")
     r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
     hue, sat, _ = colorsys.rgb_to_hsv(r, g, b)
-    if sat < 0.18:
+    # Chroma first, always. Hue is only meaningful once there is enough of it.
+    if sat < CHROMA_FLOOR:
         return "neutral"
     deg = hue * 360
+    family = "unclassified"
     for name, lo, hi in HUE_FAMILIES:
         if lo > hi:
             if deg >= lo or deg < hi:
-                return name
+                family = name
+                break
         elif lo <= deg < hi:
-            return name
-    return "unclassified"
+            family = name
+            break
+
+    if sat < CHROMA_BORDERLINE:
+        return f"{family} (borderline chroma {sat:.2f} - may read as neutral)"
+
+    return family
 
 
 def main() -> int:
@@ -191,6 +272,46 @@ def main() -> int:
             failures += 1
         else:
             print(f"  pass: {family} carries no status meaning in this system")
+
+    # ---- 4. finance series must not drift into status -----------------
+    #
+    # FIN-003 gave finance its own token namespace. This is the check that
+    # keeps it honest: a series colour that acquires a status hue reproduces
+    # exactly the defect the namespace was created to remove, and would do so
+    # silently. The legacy --ui-finance-legacy-* values are deliberately NOT
+    # checked; they are the known-bad literals being migrated away from, and
+    # failing on them would block every build until F-04 finishes.
+    print("\n4. FINANCE SERIES / STATUS SEPARATION")
+
+    status_families = {
+        hue_family(resolve(f"--ui-status-{name}-fg", tokens) or "#000000").split(" ")[0]
+        for name in ("danger", "warning", "success", "info")
+    }
+
+    series = sorted(
+        n for n in tokens
+        if n.startswith("--ui-series-") and "opacity" not in n
+    )
+
+    if not series:
+        print("  no --ui-series-* tokens declared")
+
+    for name in series:
+        value = resolve(name, tokens)
+        if not value or not value.startswith("#"):
+            print(f"  skip: {name} does not resolve to a hex value")
+            continue
+
+        family = hue_family(value)
+        base = family.split(" ")[0]
+
+        if base == "neutral":
+            print(f"  pass: {name} {value} is neutral (chroma {chroma(value):.3f}), no hue identity to collide")
+        elif base in status_families:
+            failures += 1
+            print(f"  FAIL: {name} {value} reads as '{family}', which a status colour also uses")
+        else:
+            print(f"  pass: {name} {value} reads as '{family}', distinct from every status hue")
 
     print(f"\n{'ALL CHECKS PASS' if failures == 0 else f'{failures} FAILING CHECK(S)'}")
     print("Contrast is computed on token values, not rendered pixels. See LIMITATIONS.")
