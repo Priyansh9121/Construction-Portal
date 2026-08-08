@@ -48,10 +48,7 @@
 /* 2. Foundation ------------------------------------------------------------ */
 @import "./styles/core/foundation.css" layer(legacy);
 
-/* 3. Shell ----------------------------------------------------------------- */
-@import "./styles/core/shell.css" layer(legacy);
-
-/* 4. Components ------------------------------------------------------------ */
+/* 3. Components ------------------------------------------------------------ */
 @import "./styles/core/utilities.css" layer(legacy);
 @import "./styles/core/animations.css" layer(legacy);
 @import "./styles/components/cards.css" layer(legacy);
@@ -62,7 +59,7 @@
 @import "./styles/components/activity.css" layer(legacy);
 @import "./styles/components/portal.css" layer(legacy);
 
-/* 5. Pages ----------------------------------------------------------------- */
+/* 4. Pages ----------------------------------------------------------------- */
 @import "./styles/pages/dashboard.css" layer(legacy);
 @import "./styles/pages/payments.css" layer(legacy);
 @import "./styles/pages/reports.css" layer(legacy);
@@ -73,15 +70,15 @@
 @import "./styles/pages/subcontractor-portal.css" layer(legacy);
 @import "./styles/pages/site-operations.css" layer(legacy);
 
-/* 6. Responsive ------------------------------------------------------------ */
+/* 5. Responsive ------------------------------------------------------------ */
 @import "./styles/core/responsive.css" layer(legacy);
 
-/* 7. UI v2 ------------------------------------------------------------------
+/* 6. UI v2 ------------------------------------------------------------------
  * Declares its own layers and imports the v2 tree. Loaded last so its
  * layers sit after `legacy` in the cascade. */
 @import "./styles/v2/index.css";
 
-/* 8. The design system ------------------------------------------------------
+/* 7. The design system ------------------------------------------------------
  * The current system. Deliberately NOT version-named: the finished product
  * must not reveal that it passed through a v1 and a v2, and version numbers
  * in a token namespace age into exactly that.
