@@ -104,6 +104,7 @@
    * inherits it by opting into `.ctl` instead of restating it.
    */
   .ctl:focus-visible,
+  .field:focus-visible,
   .focusable:focus-visible {
     outline: var(--focus-width) solid var(--focus-color);
     outline-offset: var(--focus-offset);
@@ -118,6 +119,7 @@
    * light element, not a dark one.
    */
   [data-scheme="dark"] .ctl:focus-visible,
+  [data-scheme="dark"] .field:focus-visible,
   [data-scheme="dark"] .focusable:focus-visible {
     --focus-contrast: rgba(0, 0, 0, 0.55);
     --focus-color: var(--ui-indigo-200);
@@ -150,6 +152,20 @@
     gap: var(--ui-space-2);
 
     min-height: var(--ctl-min);
+
+    /*
+     * Explicit, not inherited. `core/foundation.css` styles the bare `button`
+     * and `input` elements, so anything this file leaves unstated is a
+     * property the LEGACY system still controls -- and margin was exactly
+     * that. The auth surface shipped a 44px gap between every label and its
+     * field before a measurement caught it: `label { margin-bottom: 16px }`
+     * plus `input { margin-top: 8px }`, arriving from a stylesheet neither
+     * this file nor the caller mentions.
+     *
+     * A primitive whose box depends on an unrelated sheet is not a primitive.
+     */
+    margin: 0;
+
     border: 0;
     border-radius: var(--shape-control);
     background: none;
@@ -199,6 +215,16 @@
     font-weight: 500;
   }
   .ctl--primary:hover:not(:disabled) { background: var(--ui-ink); }
+
+  /*
+   * Hover has to travel the same DIRECTION in both schemes -- toward the
+   * light source. `--ui-ink` is a step down from `--ui-ink-strong`, which
+   * reads as engaging in daylight and as receding at dusk, so the dark scheme
+   * brightens instead. Same gesture, opposite arithmetic.
+   */
+  [data-scheme="dark"] .ctl--primary:hover:not(:disabled) {
+    background: #ffffff;
+  }
 
   /* Equal-weight alternative. Carries a frame so it reads as a control at
    * rest rather than as text. */
@@ -283,20 +309,53 @@
   .field {
     inline-size: 100%;
     min-height: 2.75rem;
+
+    /* See `.ctl` above: the legacy element rules own margin otherwise. */
+    margin: 0;
     padding: var(--ui-space-2) var(--ui-space-3);
 
     background: var(--ui-surface);
     border: var(--rule-frame);
     border-radius: var(--shape-control);
 
-    font: inherit;
+    font-family: inherit;
+
+    /*
+     * 16px, and it is not negotiable by an optical argument.
+     *
+     * `font: inherit` was here first, and the auth surface -- this file's
+     * first real consumer -- caught what that costs. Below 16px, iOS Safari
+     * zooms the page when the field takes focus and leaves it scrolled
+     * sideways, so the user's next tap misses. Inheriting means the floor
+     * depends on whatever the ancestor happens to set, which is exactly the
+     * kind of accident a foundation exists to prevent.
+     */
+    font-size: var(--ui-text-md);
+    line-height: var(--ui-leading-normal);
     color: var(--ui-ink-strong);
 
     transition: border-color var(--t-attach) var(--e-state);
   }
 
+  /*
+   * On a dark ground an input is RECESSED, not raised.
+   *
+   * The light scheme can afford a white field on a near-white canvas because
+   * the frame carries it. The dark scheme cannot: the measured separation
+   * between any two dark surfaces is around 1.2:1, so a field sharing the
+   * plane's fill is a border floating on nothing. Sinking it inverts the
+   * relationship that already governs the light scheme -- the thing you type
+   * into is a well, and the thing that acts is raised.
+   */
+  [data-scheme="dark"] .field {
+    background: var(--ui-surface-sunken);
+  }
+
   .field:hover:not(:disabled) { border-color: var(--ui-line-strong); }
+  .field:focus-visible { border-color: var(--ui-accent); }
   .field:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .field::placeholder { color: var(--ui-ink-faint); }
 
   /* Invalid is stated by the message beneath; the border repeats it. Never
    * colour alone. */
@@ -304,8 +363,11 @@
 
   .field--area { min-height: 5.5rem; resize: vertical; }
 
-  /* Field ergonomics, matching .ctl--field. */
-  .field--field { min-height: 3.25rem; font-size: var(--ui-text-base); }
+  /* Field ergonomics, matching .ctl--field. The size is deliberately NOT
+   * restated here: `.field` already sets the 16px iOS floor, and an ergonomic
+   * variant that made the target bigger while making the text smaller would be
+   * arguing with itself. */
+  .field--field { min-height: 3.25rem; }
 }
 
 /*

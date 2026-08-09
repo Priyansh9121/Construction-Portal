@@ -49,6 +49,8 @@ documented at its definition site; this is the index.
 | `inert` on the sidebar wrapper | `layouts/AppLayout.jsx` | removes the off-canvas drawer from the accessibility tree below 1024px; must be a JS attribute because `inert` is not media-queryable |
 | `view-transition-name` on `.page-content` | `styles/system/shell/page-content.css` | route transitions; its keyframes still live in `styles/v2/core/motion.css` |
 | `data-material` | `styles/system/core/material.css` | elevation is applied from **state**, so it can be revoked when an object stops needing judgement |
+| `data-scheme="dark"` | `components/auth/AuthScene.jsx` | the scene declares its own environment; `auth/scene.css` answers it by re-pointing the semantic tokens, which is what makes `.ctl`, `.field`, focus and status correct on dark with no auth-specific copy of any of them |
+| `.auth-shell`, `.auth-card`, `.auth-brand`, `.auth-submit`, `.password-input-wrapper`, `.password-toggle-btn`, `.auth-success`, `.auth-confirm__body` | `components/auth/AuthShell.jsx` and the four auth pages | 22 Playwright assertions. `.auth-card` has not described a card since 2025 and does not now — it names the form column |
 
 ### Authentication — scene and transition
 
@@ -64,7 +66,45 @@ precondition for signing in** — canvas needs JS to paint, video needs a reques
 and a decode, WebGL needs a context and a shader compile. SVG paints with the
 first frame of HTML.
 
-Ambient motion is one element: the crane, 48s per sweep, `transform` only.
+Ambient motion is one element: the crane, 48s per sweep, `transform` only. The
+rig layer sits **behind** the structure layer, which is the opposite of the
+list's reading order and the physically true arrangement: a tower crane stands
+among the buildings it is raising. Drawn over them, the mast read as a bright
+scratch ruled down a silhouette.
+
+**The scene's geometry is arithmetic, not composition by eye.**
+`preserveAspectRatio="slice"` crops, and what it crops is derivable:
+`scale = max(cw/1600, ch/900)`. The tightest real case is the 768px band at
+ratio 2.74, which sees only the bottom 583 units, so nothing essential sits
+above `y = 340` or outside `x = 200..1400`. The first version was composed
+without that arithmetic and cut the crane's apex off the screen at 1440x900.
+
+**Two properties, not one.** `--auth-artwork` is how tall the drawing is;
+`--auth-band` is how much vertical room the layout must yield to it. They are
+equal on a phone and deliberately unequal on a short one, where the sky covers
+the viewport while the band is zero. Collapsing them into a single number
+pushes the form a full screen down.
+
+### Authentication — the working surface
+
+Two materials, and the reason they are drawn the way they are is a measurement:
+**on a dark ground, fill cannot carry elevation.** Every plane colour that still
+reads as dark measures 1.08–1.23:1 against the veiled scene. So `--auth-plane`
+(raised, holds the action) and `--auth-well` (recessed, receives input) are
+separated by an **edge** — `VISUAL_IDENTITY` Signature 3 arriving where a dark
+surface finally makes the lit top edge structural rather than decorative.
+
+The form is raised, and that is the elevation rule applied rather than
+suspended: it is the only thing on the screen that can be acted on. The
+previous direction's ban on "a card on a gradient" was right about the cliché
+and wrong about the mechanism.
+
+The controls are `foundation/interaction.css`, not auth copies of it. Being its
+first real consumer is what surfaced three foundation defects: `.field`
+inherited its font size and so missed the 16px iOS-zoom floor; `.field` was not
+in the focus-ring selector; and both `.ctl` and `.field` inherited margin from
+the legacy bare-element rules, which put a 44px gutter between every label and
+its control.
 
 **`utils/authTransition.js` makes "authentication never waits for animation"
 structural rather than a discipline.** `runAuthTransition(commit)` calls
@@ -84,7 +124,9 @@ sky is not pure black and the canvas is not pure white, precisely so neither
 end is a flash.
 
 `tools/fresh_ui/auth_transition_probe.mjs` asserts all of it in both motion
-modes.
+modes. `tools/fresh_ui/auth_screenshots.mjs` captures all four routes at nine
+widths in both modes, because assertions on this surface have repeatedly passed
+while it was visually wrong.
 
 ### Motion — the spring rule
 

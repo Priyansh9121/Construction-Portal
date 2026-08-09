@@ -204,6 +204,7 @@ function RegisterPage() {
             <label htmlFor="register-full-name">Full Name</label>
 
             <input
+              className="field"
               id="register-full-name"
               name="full_name"
               type="text"
@@ -220,6 +221,7 @@ function RegisterPage() {
             <label htmlFor="register-email">Email</label>
 
             <input
+              className="field"
               id="register-email"
               name="email"
               type="email"
@@ -240,6 +242,7 @@ function RegisterPage() {
             <label htmlFor="register-company-name">Company Name</label>
 
             <input
+              className="field"
               id="register-company-name"
               name="company_name"
               type="text"
@@ -266,6 +269,7 @@ function RegisterPage() {
 
             <div className="password-input-wrapper">
               <input
+                className="field"
                 id="register-password"
                 name="password"
                 type={showPassword ? "text" : "password"}
@@ -280,7 +284,7 @@ function RegisterPage() {
 
               <button
                 type="button"
-                className="password-toggle-btn"
+                className="password-toggle-btn ctl ctl--quiet"
                 aria-label={
                   showPassword ? "Hide passwords" : "Show passwords"
                 }
@@ -299,6 +303,7 @@ function RegisterPage() {
             </label>
 
             <input
+              className="field"
               id="register-confirm-password"
               name="confirm_password"
               type={showPassword ? "text" : "password"}
@@ -313,7 +318,12 @@ function RegisterPage() {
           </div>
         </div>
 
-        <button type="submit" className="auth-submit" disabled={loading}>
+        <button
+            type="submit"
+            className="auth-submit ctl ctl--primary ctl--field"
+          disabled={loading}
+          aria-busy={loading}
+        >
           {loading ? "Creating workspace…" : "Create workspace"}
         </button>
       </form>

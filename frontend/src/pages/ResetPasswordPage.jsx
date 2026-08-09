@@ -180,6 +180,7 @@ function ResetPasswordPage() {
             <label htmlFor="reset-token">Reset Token</label>
 
             <input
+              className="field"
               id="reset-token"
               name="token"
               type="text"
@@ -209,6 +210,7 @@ function ResetPasswordPage() {
 
             <div className="password-input-wrapper">
               <input
+                className="field"
                 id="new-password"
                 name="new_password"
                 type={showNew ? "text" : "password"}
@@ -230,7 +232,7 @@ function ResetPasswordPage() {
 
               <button
                 type="button"
-                className="password-toggle-btn"
+                className="password-toggle-btn ctl ctl--quiet"
                 aria-label={
                   showNew ? "Hide new password" : "Show new password"
                 }
@@ -248,6 +250,7 @@ function ResetPasswordPage() {
 
             <div className="password-input-wrapper">
               <input
+                className="field"
                 id="confirm-password"
                 name="confirm_password"
                 type={showConfirm ? "text" : "password"}
@@ -268,7 +271,7 @@ function ResetPasswordPage() {
 
               <button
                 type="button"
-                className="password-toggle-btn"
+                className="password-toggle-btn ctl ctl--quiet"
                 aria-label={
                   showConfirm
                     ? "Hide password confirmation"
@@ -283,7 +286,12 @@ function ResetPasswordPage() {
             </div>
           </div>
 
-          <button type="submit" className="auth-submit" disabled={submitting}>
+          <button
+            type="submit"
+            className="auth-submit ctl ctl--primary ctl--field"
+            disabled={submitting}
+            aria-busy={submitting}
+          >
             {submitting ? "Resetting…" : "Reset password"}
           </button>
         </form>

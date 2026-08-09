@@ -1,67 +1,125 @@
 /*
  * ===========================================================================
- * AUTHENTICATION — shared surface
+ * AUTHENTICATION — the surface
  * ===========================================================================
  *
  * File purpose:
- * Every shared style for the four unauthenticated routes. AuthShell is
- * genuinely shared architecture, so this file lifts all four routes onto the
- * new system at once.
+ * Composition and materials for the four unauthenticated routes. `scene.css`
+ * owns the environment and the dark scheme; `transition.css` owns the
+ * departure; `foundation/interaction.css` owns every control. This file owns
+ * only what is left: where things sit, and what they are made of.
  *
- * WHY THE CLASS NAMES ARE UNCHANGED:
- * Four Playwright specs assert on `.auth-shell`, `.auth-brand`, `.auth-card`,
- * `.auth-card form`, `.auth-submit`, `.password-input-wrapper` and
- * `.password-toggle-btn`. Renaming them would break the 358-assertion
- * baseline for no user benefit. The old rules are beaten by cascade LAYER
- * order, not by specificity, so there is no `!important` anywhere here and no
- * selector escalation. The obsolete sheets are deleted in the cleanup pass
- * once their remaining selectors are proven to have zero consumers.
+ * That division is why this file is now roughly half its former length. The
+ * previous version restated input padding, button colour, focus rings, hover
+ * transitions and disabled states, because there was no foundation to defer
+ * to. There is now. A rule that appears here and also appears in the
+ * foundation is a bug, not redundancy.
  *
- * Because the legacy sheets target the same selectors, every property that
- * matters is set explicitly below rather than left to inherit. A property
- * this file does not set is a property the old system still controls.
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHAT CHANGED, AND WHY IT IS NOT A CARD ON A GRADIENT
+ * ─────────────────────────────────────────────────────────────────────────
+ * The previous direction put the form on open canvas and explicitly rejected
+ * "a card on a gradient" as the generic SaaS auth screen. That rejection was
+ * right about the cliché and wrong about the mechanism, and the reset settled
+ * it with a rule the whole product already obeys:
  *
- * Concept: signing in is an act of routing, not passing a gate.
- * Hierarchy comes from typography, spacing and position. Not from coloured
- * boxes, not from a card, not from a split screen.
+ *   `VISUAL_IDENTITY` Signature 2 — a surface is raised if, and only if, it
+ *   holds something the user can act on right now.
+ *
+ * On this screen exactly one thing is actionable, and it is the form. Refusing
+ * it elevation would not be restraint; it would be the one place in the
+ * product where the elevation rule is suspended for taste. So the form is
+ * raised — as a PLANE, not a card: no drop shadow doing the work, no rounded
+ * marketing panel, a hairline frame and a lit top edge.
+ *
+ * The cliché was never the elevation. It was decorating a gradient with a
+ * white rectangle that meant nothing.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE CLASS NAMES ARE A CONTRACT
+ * ─────────────────────────────────────────────────────────────────────────
+ * `.auth-shell`, `.auth-card`, `.auth-brand`, `.auth-card form`,
+ * `.auth-submit`, `.password-input-wrapper`, `.password-toggle-btn`,
+ * `.auth-success` and `.auth-confirm__body` are asserted by Playwright. They
+ * are kept exactly. `.auth-card` in particular has never described a card
+ * since the previous redesign and does not now; it names the form column.
+ *
+ * Renaming them would buy nothing a user can see and would cost the baseline
+ * that catches the defects screenshot review misses.
  *
  * Connected to:
- * - components/auth/AuthShell.jsx and components/auth/Approach.jsx
- * - core/tokens.css and core/motion.css supply every value used here
+ * - components/auth/AuthScene.jsx, components/auth/AuthShell.jsx
+ * - styles/system/auth/scene.css supplies every colour used here
  */
 
 @layer system-components {
   /* =========================================================================
-   * SHELL
+   * THE STAGE
    * =========================================================================
-   * Asymmetric, not bisected. The form column is fixed and sits left of
-   * centre; the supporting panel takes the remaining open area. A 50/50 split
-   * is the generic SaaS auth layout and is explicitly rejected.
+   * `scene.css` builds the scene but deliberately does not size it, because
+   * sizing is a composition decision and auth is the composition. The chain is
+   * three grids deep and each one exists:
+   *
+   *   .auth-scene           the viewport, and the clipping context
+   *   .auth-scene__content  the z-index that puts the form above five layers
+   *   .auth-shell           the columns
+   *
+   * Grid children stretch by default, so the height propagates without a
+   * single explicit `height: 100%`.
+   * ====================================================================== */
+
+  .auth-scene {
+    display: grid;
+    min-block-size: 100dvh;
+    font-family: var(--ui-font-sans);
+  }
+
+  .auth-scene__content {
+    display: grid;
+  }
+
+  /* =========================================================================
+   * COLUMNS
+   * =========================================================================
+   * Mobile first, and mobile is genuinely a different composition rather than
+   * desktop with a column removed: the artwork is a band overhead (scene.css)
+   * and the form stands under it.
    * ====================================================================== */
 
   .auth-shell {
     display: grid;
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
 
-    min-height: 100vh;
-    min-height: 100dvh;
-    margin: 0;
-    padding: var(--ui-space-6) var(--ui-space-4);
+    /*
+     * Centred in whatever the band leaves, not pinned under it. On a 768x1024
+     * tablet `start` left 220px of empty ground below the form and made the
+     * composition read as unfinished. When the form is taller than the space
+     * -- Register on a phone -- the grid row grows instead, so there is no
+     * clipped-above-the-fold failure mode here.
+     */
+    align-content: center;
+    justify-items: center;
+    gap: var(--ui-space-6);
 
-    background: var(--ui-canvas);
+    /*
+     * The band's height plus a gap. `--auth-band` is published by scene.css
+     * for exactly this: the layout must yield to the artwork without knowing
+     * how tall the artwork chose to be, and in the short-phone mode the
+     * artwork covers the viewport while the band is zero.
+     */
+    padding: calc(var(--auth-band, 0px) + var(--ui-space-8))
+      var(--ui-space-4) var(--ui-space-10);
+
     color: var(--ui-ink);
-    font-family: var(--ui-font-sans);
   }
 
   /* =========================================================================
-   * FORM COLUMN
+   * THE PLANE
    * =========================================================================
-   * Named `.auth-card` for the test contract only. There is no card: no
-   * background, no border, no shadow. The form sits on the canvas, which is
-   * what removes "white rectangle on a gradient" structurally rather than by
-   * restraint.
+   * The one raised object on the screen. Everything about how it is drawn
+   * follows from a measurement recorded in scene.css: on a dark ground, fill
+   * cannot carry elevation. So the fill only says which material this is, and
+   * the EDGE says it is above the scene.
    * ====================================================================== */
 
   .auth-card {
@@ -69,78 +127,98 @@
     flex-direction: column;
     gap: var(--ui-space-6);
 
-    width: 100%;
-    max-width: 24rem;          /* holds an email address at 16px unwrapped */
-    margin: 0 auto;
-    padding: 0;
+    inline-size: 100%;
+    max-inline-size: 26rem;
+    padding: var(--ui-space-6) var(--ui-space-5);
 
-    background: none;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
+    background: var(--auth-plane);
+    border: 1px solid var(--auth-edge);
+    border-radius: var(--ui-radius-container);
+
+    /*
+     * Two shadows, and neither is doing the separating.
+     *
+     * The inset top hairline is the lit edge -- Signature 3, arriving where a
+     * dark surface finally makes it structural rather than decorative. The
+     * outer shadow is cast, not drawn: it is what a plane standing off a wall
+     * does, and it is tinted toward the scene's own indigo-adjacent dark
+     * rather than being neutral black, which on a warm dusk reads as a hole.
+     */
+    box-shadow:
+      inset 0 1px 0 var(--auth-edge-lit),
+      0 1.5rem 3.5rem -1.5rem rgb(6 8 20 / 0.7);
   }
 
   .auth-card > * {
     margin: 0;
-    min-width: 0;
+    min-inline-size: 0;
   }
 
   .auth-card-head {
     display: flex;
     flex-direction: column;
-    gap: var(--ui-space-3);
+    gap: var(--ui-space-2);
   }
 
-  /* The product name. Quiet: it orients, it does not announce. */
+  /* The product name. It orients; it does not announce. */
   .auth-card-brand {
     display: block;
-    font-size: var(--ui-text-xs);
+    font-size: var(--ui-text-2xs);
     font-weight: var(--ui-weight-medium);
-    letter-spacing: var(--ui-tracking-wide);
+
+    /* Chrome, so tracking is permitted -- see foundation/type.css. This string
+     * is owned by the application and is never a value someone typed. */
+    letter-spacing: var(--type-track-chrome);
     text-transform: uppercase;
     color: var(--ui-ink-muted);
   }
 
-  /* The largest thing on screen, and it names the task, never the product. */
+  /* The largest thing on screen, and it names the TASK, never the product. */
   .auth-card h1 {
     margin: 0;
-    font-size: var(--ui-text-3xl);
+    font-size: var(--ui-text-2xl);
     font-weight: var(--ui-weight-semibold);
     line-height: var(--ui-leading-tight);
-    letter-spacing: var(--ui-tracking-tight);
-    color: var(--ui-ink-strong);
-  }
 
-  /*
-   * The phone's orientation mark: one resolved rule echoing the resolved
-   * vector in Approach. Decorative, ~2px tall, so mobile carries the concept
-   * without the supporting panel's cost to the fold.
-   */
-  .auth-card-rule {
-    display: block;
-    width: 3rem;
-    height: 2px;
-    border-radius: var(--ui-radius-pill);
-    background: var(--ui-accent);
-    transform-origin: left center;
-    animation: ui-rule-resolve var(--ui-duration-move) var(--ui-ease-enter) both;
+    /*
+     * Untracked, matching `.t-display`. A negative optical correction would
+     * read marginally better in Latin and would compress Gujarati conjuncts,
+     * and this system's answer to that trade is settled: precision comes from
+     * alignment, not from micro-tracking.
+     */
+    letter-spacing: var(--type-track-normal);
+    color: var(--ui-ink-strong);
+    text-wrap: balance;
   }
 
   .auth-card-sub {
     font-size: var(--ui-text-base);
     line-height: var(--ui-leading-relaxed);
     color: var(--ui-ink-muted);
+    text-wrap: pretty;
   }
+
+  /*
+   * The mobile orientation mark from the previous direction is GONE, not
+   * restyled. It existed because the phone had no supporting visual and
+   * needed something to carry the concept for 2px of height. The phone now
+   * gets the scene itself, so a decorative rule under the heading would be a
+   * second answer to a question already answered.
+   */
 
   /* =========================================================================
    * FORM
+   * =========================================================================
+   * The controls themselves come from foundation/interaction.css. What is
+   * here is the rhythm between them, which is the part that belongs to this
+   * surface.
    * ====================================================================== */
 
   .auth-card form {
     display: flex;
     flex-direction: column;
     gap: var(--ui-space-5);
-    width: 100%;
+    inline-size: 100%;
     margin: 0;
   }
 
@@ -148,59 +226,72 @@
     display: flex;
     flex-direction: column;
     gap: var(--ui-space-2);
-    min-width: 0;
+    min-inline-size: 0;
+  }
+
+  .auth-card label {
+    /*
+     * `core/foundation.css` gives every bare `label` a 16px bottom margin, and
+     * `.auth-field` already owns the gap. Left inherited, the two stack into a
+     * 44px gutter between a label and the control it names -- which reads as
+     * two unrelated things rather than one.
+     *
+     * `label` is not a foundation primitive (there is no `.label` class to
+     * carry the reset), so the reset belongs to the surface that renders them.
+     */
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    line-height: var(--ui-leading-snug);
+    color: var(--ui-ink);
   }
 
   /*
    * A named group of related fields, used by Register: who you are, what the
-   * workspace is called, how you will sign in. Separated by space and one
-   * hairline rather than by cards, which gives the same cognitive relief as
-   * splitting the form into steps without adding navigation or breaking
-   * password-manager autofill, which reads a whole form at once.
+   * workspace is called, how you will sign in. Separated by a zone hairline
+   * rather than by cards, which gives the same relief as splitting the form
+   * into steps without adding navigation and without breaking password-manager
+   * autofill, which reads a whole form at once.
    */
   .auth-group {
     display: flex;
     flex-direction: column;
     gap: var(--ui-space-4);
-    min-width: 0;
+    min-inline-size: 0;
   }
 
   .auth-group + .auth-group {
-    padding-top: var(--ui-space-5);
-    border-top: 1px solid var(--ui-line-faint);
+    padding-block-start: var(--ui-space-5);
+    border-block-start: var(--rule-zone);
   }
 
   .auth-group__label {
     margin: 0;
-    font-size: var(--ui-text-xs);
+    font-size: var(--ui-text-2xs);
     font-weight: var(--ui-weight-semibold);
-    letter-spacing: var(--ui-tracking-wide);
+    letter-spacing: var(--type-track-chrome);
     text-transform: uppercase;
 
-    /* --ui-ink-faint was used here first and axe rejected it: 3.50:1 against
-     * the canvas, short of the 4.5:1 that normal-size text needs. That token
-     * is gated at 3.0 in the audit as "meta text, large or non-essential",
-     * which these 12px labels are not. --ui-ink-muted measures 6.03:1. */
+    /* Not `--ui-ink-faint`. At this size the 4.5:1 floor applies and faint
+     * fails it -- the AUTH-015 and D2-a defect, twice. */
     color: var(--ui-ink-muted);
   }
 
   /*
-   * A field whose value already arrived correct, currently the reset token
+   * A field whose value already arrived correct -- currently the reset token
    * when it came from the emailed link.
    *
    * De-emphasised, never disabled and never hidden: the user should not be
-   * asked to think about a field that is already right, but they must still
-   * be able to correct it if they pasted the token by hand. The control keeps
-   * its full contrast on focus, so editing it never feels second-class.
+   * asked to think about a field that is already right, but they must still be
+   * able to correct one they pasted by hand. Full contrast returns on focus,
+   * so editing it never feels second-class.
    */
   .auth-field--resolved input {
     color: var(--ui-ink-muted);
-    background: var(--ui-surface-sunken);
   }
 
   .auth-field--resolved input:focus {
     color: var(--ui-ink-strong);
-    background: var(--ui-surface);
   }
 
   /* Explanatory text under a control. States what the field does; it never
@@ -210,217 +301,90 @@
     font-size: var(--ui-text-sm);
     line-height: var(--ui-leading-relaxed);
     color: var(--ui-ink-muted);
+    text-wrap: pretty;
   }
 
   /*
-   * A label paired with an inline action, currently the password field's
-   * recovery link. Baseline-aligned so the label and the link read as one
-   * line rather than two stacked things.
+   * A label paired with an inline action -- currently the password field's
+   * recovery link, which sits here rather than in the footer because this is
+   * the moment the user realises they have forgotten it.
    */
   .auth-field__row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--ui-space-3);
-    min-width: 0;
+    min-inline-size: 0;
 
     /* The row carries the 44px floor so the inline link is a real target
-     * without needing padding that would push the label off its own line. */
-    min-height: var(--ui-target-min);
-  }
-
-  .auth-field__action {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--ui-target-min);
-
-    font-size: var(--ui-text-sm);
-    font-weight: var(--ui-weight-medium);
-    color: var(--ui-accent);
-    text-decoration: none;
-
-    transition: color var(--ui-duration-fast) var(--ui-ease-move);
-  }
-
-  .auth-field__action:hover {
-    color: var(--ui-accent-hover);
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
-  }
-
-  .auth-card label {
-    font-size: var(--ui-text-sm);
-    font-weight: var(--ui-weight-medium);
-    line-height: var(--ui-leading-snug);
-    color: var(--ui-ink);
-  }
-
-  .auth-card input,
-  .auth-card select {
-    width: 100%;
-    min-width: 0;
-    min-height: var(--ui-target-min);
-    padding: var(--ui-space-3) var(--ui-space-4);
-
-    /* 16px floor. Below this iOS Safari zooms on focus and leaves the page
-     * scrolled sideways. */
-    font-family: inherit;
-    font-size: var(--ui-text-md);
-    line-height: var(--ui-leading-normal);
-    color: var(--ui-ink-strong);
-
-    background: var(--ui-surface);
-    border: 1px solid var(--ui-line-strong);
-    border-radius: var(--ui-radius-control);
-    box-shadow: none;
-
-    /* Colour only. Nothing here changes size, so the target never moves. */
-    transition:
-      border-color var(--ui-duration-fast) var(--ui-ease-move),
-      background-color var(--ui-duration-fast) var(--ui-ease-move);
-  }
-
-  .auth-card input::placeholder {
-    color: var(--ui-ink-faint);
-  }
-
-  .auth-card input:hover:not(:disabled),
-  .auth-card select:hover:not(:disabled) {
-    border-color: var(--ui-ink-faint);
-  }
-
-  .auth-card input:disabled,
-  .auth-card select:disabled {
-    background: var(--ui-surface-sunken);
-    color: var(--ui-ink-muted);
-    cursor: not-allowed;
+     * without padding that would push the label off its own line. */
+    min-block-size: var(--ui-target-min);
   }
 
   /* =========================================================================
    * PASSWORD FIELD
    * =========================================================================
-   * The toggle sits INSIDE the input's reserved padding, never on top of the
-   * typed text. A Playwright assertion measures exactly this, because an
-   * earlier version rendered a filled button over the password.
+   * The toggle sits INSIDE the input's reserved padding, never over the typed
+   * text. A Playwright assertion measures exactly that, because an earlier
+   * version rendered a filled button on top of the password.
+   *
+   * WHY THE CONTROL IS A WORD AND NOT AN EYE ICON
+   * The brief expected this to be the product's first icon consumer. It is
+   * not, and the reason is the same rule that governs every other primitive
+   * here: nothing is established before something needs it.
+   *
+   * An eye glyph would require inventing a whole icon grammar -- family,
+   * stroke weight, optical size, the crossed-out state -- for one control,
+   * and the crossed-eye is genuinely ambiguous: users disagree about whether
+   * it shows the current state or the action. "Show" and "Hide" are unambiguous
+   * in one word, need no legend, and localise. The icon system will be
+   * established by a surface that needs more than one icon.
    * ====================================================================== */
 
-  /* SCOPED TO AUTH DELIBERATELY. `.password-input-wrapper` and
-   * `.password-toggle-btn` are NOT auth-only: UsersPage.jsx uses both for its
-   * own password control. Unscoped, these rules silently restyled a route
-   * that has not been migrated yet. See AUTH-020. */
+  /*
+   * SCOPED TO AUTH DELIBERATELY. `.password-input-wrapper` and
+   * `.password-toggle-btn` are NOT auth-only -- UsersPage.jsx uses both for
+   * its own password control. Unscoped, these rules would silently restyle a
+   * route that has not been migrated. See AUTH-020.
+   */
   .auth-shell .password-input-wrapper {
     position: relative;
     display: flex;
     align-items: center;
-    min-width: 0;
+    min-inline-size: 0;
   }
 
   .auth-shell .password-input-wrapper input {
     /* Reserve the toggle's width plus breathing room. */
-    padding-right: 4.5rem;
+    padding-inline-end: 4.75rem;
   }
 
   .auth-shell .password-toggle-btn {
     position: absolute;
-    right: var(--ui-space-1);
+    inset-inline-end: var(--ui-space-1);
 
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    min-width: 3.5rem;
-    min-height: var(--ui-target-min);
-    padding: 0 var(--ui-space-2);
-
-    font-family: inherit;
+    min-inline-size: 3.75rem;
     font-size: var(--ui-text-sm);
     font-weight: var(--ui-weight-medium);
-    color: var(--ui-ink-muted);
-
-    background: none;
-    border: 0;
-    border-radius: var(--ui-radius-control);
-    cursor: pointer;
-
-    transition: color var(--ui-duration-fast) var(--ui-ease-move);
-  }
-
-  .auth-shell .password-toggle-btn:hover:not(:disabled) {
-    color: var(--ui-ink-strong);
-    /* Colour only. Moving the target on hover is never acceptable. */
-  }
-
-  .auth-shell .password-toggle-btn:disabled {
-    color: var(--ui-ink-faint);
-    cursor: not-allowed;
-  }
-
-  /* =========================================================================
-   * PRIMARY ACTION
-   * ====================================================================== */
-
-  .auth-submit {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    width: 100%;
-    min-height: var(--ui-target-min);
-    padding: var(--ui-space-3) var(--ui-space-5);
-
-    font-family: inherit;
-    font-size: var(--ui-text-md);
-    font-weight: var(--ui-weight-medium);
-    line-height: var(--ui-leading-snug);
-    color: var(--ui-ink-on-accent);
-
-    background: var(--ui-accent);
-    border: 1px solid transparent;
-    border-radius: var(--ui-radius-control);
-    cursor: pointer;
-
-    transition:
-      background-color var(--ui-duration-fast) var(--ui-ease-move),
-      transform var(--ui-duration-instant) var(--ui-ease-move);
-  }
-
-  .auth-submit:hover:not(:disabled) {
-    background: var(--ui-accent-hover);
-  }
-
-  /* Tactile press. Reverses on release, and 80ms is below the threshold where
-   * it could feel like a delay. */
-  .auth-submit:active:not(:disabled) {
-    transform: scale3d(0.98, 0.98, 1);
-  }
-
-  .auth-submit:disabled {
-    background: var(--ui-ink-faint);
-    color: var(--ui-surface);
-    cursor: not-allowed;
   }
 
   /* =========================================================================
    * STATUS
    * =========================================================================
-   * Errors and confirmations sit ABOVE the fields. That placement is
-   * deliberate and predates this redesign: a failure rendered under a
-   * full-width button on a phone is frequently below the fold, so the user
-   * sees nothing happen and submits again.
+   * Errors and confirmations sit ABOVE the fields. That placement predates
+   * this redesign and survives it: a failure rendered under a full-width
+   * button on a phone is frequently below the fold, so the user sees nothing
+   * happen and submits again.
    *
-   * Neither state is signalled by colour alone. The cue that carries that
+   * Neither state is signalled by colour alone. The cue carrying that
    * guarantee is the message TEXT, which is always present and is announced
-   * through role="alert" or role="status".
+   * through `role="alert"` or `role="status"`.
    *
-   * An earlier version added a 3px coloured left bar and described it as "a
-   * second, non-chromatic cue". That was wrong twice over: the bar was drawn
-   * in the same hue family as the background and the text, so it conveyed
-   * nothing additional to a colour-blind reader, and a thick accent border on
-   * one edge is a recognisable generated-UI tell. It was a decorative stripe
-   * wearing an accessibility justification, so it is gone rather than
-   * restyled. A hairline in the status hue keeps the region legible against
-   * the canvas without pretending to be a semantic signal.
+   * An earlier version added a 3px coloured left bar and called it "a second,
+   * non-chromatic cue". That was wrong twice: the bar was drawn in the same
+   * hue as the text, so it told a colour-blind reader nothing extra, and a
+   * thick accent edge on one side is a recognisable generated-UI tell. It was
+   * a decorative stripe wearing an accessibility justification.
    * ====================================================================== */
 
   .auth-card .error,
@@ -432,9 +396,9 @@
     line-height: var(--ui-leading-relaxed);
 
     border: 1px solid;
-    border-radius: var(--ui-radius-control);
+    border-radius: var(--shape-control);
 
-    animation: ui-status-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+    animation: ui-status-in var(--t-place) var(--e-place) both;
   }
 
   .auth-card .error {
@@ -450,57 +414,22 @@
   }
 
   /* =========================================================================
-   * ROUTE GUARD LOADING
-   * =========================================================================
-   * Shown while AuthProvider verifies the cached session against /auth/me.
-   * RoleRoute holds the route rather than redirecting, because redirecting
-   * before the real role is known bounces a legitimate user off a page they
-   * are entitled to.
-   *
-   * Deliberately a quiet line of text, not a spinner and not a progress bar.
-   * The wait is normally one round trip; a spinner would draw attention to
-   * something that is usually over before it is noticed, and a percentage
-   * would be invented, since nothing here knows how long the request has
-   * left. role="status" with aria-live="polite" is preserved exactly.
-   *
-   * The text fades in after a short delay so a fast verification shows
-   * nothing at all rather than flashing. Opacity only: no layout shift, and
-   * nothing to collapse under reduced motion beyond the fade itself.
-   * ====================================================================== */
-
-  .route-guard-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    padding: var(--ui-space-8);
-
-    font-family: var(--ui-font-sans);
-    font-size: var(--ui-text-sm);
-    color: var(--ui-ink-muted);
-
-    animation: ui-fade-in var(--ui-duration-enter) var(--ui-ease-enter) 240ms both;
-  }
-
-  /* =========================================================================
    * CONFIRMATION
    * =========================================================================
-   * Replaces the form once a recovery request succeeds, so there is no
-   * editable field left inviting a second submission.
+   * Replaces the form once a recovery request succeeds, so no editable field
+   * is left inviting a second submission.
    *
    * The entrance is short and calm. This is a relieved user, not a celebrated
-   * one: no bounce, no overshoot, no celebration. The exit of the form is
-   * handled by React unmounting it, which is instant, so the confirmation is
-   * the only thing that animates.
+   * one: no bounce, no overshoot, no celebration.
    * ====================================================================== */
 
   .auth-confirm {
     display: flex;
     flex-direction: column;
     gap: var(--ui-space-5);
-    min-width: 0;
+    min-inline-size: 0;
 
-    animation: ui-rise-in var(--ui-duration-enter) var(--ui-ease-enter) both;
+    animation: ui-rise-in var(--t-place) var(--e-place) both;
   }
 
   .auth-confirm__body p {
@@ -508,6 +437,7 @@
     font-size: var(--ui-text-base);
     line-height: var(--ui-leading-relaxed);
     color: var(--ui-ink-muted);
+    text-wrap: pretty;
   }
 
   /* =========================================================================
@@ -521,118 +451,109 @@
     gap: var(--ui-space-4);
   }
 
-  .auth-link {
+  .auth-link,
+  .auth-field__action {
     display: inline-flex;
     align-items: center;
 
     /* Standalone navigation controls, so the full 44px floor applies. */
-    min-height: var(--ui-target-min);
+    min-block-size: var(--ui-target-min);
 
     font-size: var(--ui-text-sm);
     font-weight: var(--ui-weight-medium);
     color: var(--ui-accent);
     text-decoration: none;
 
-    transition: color var(--ui-duration-fast) var(--ui-ease-move);
+    transition: color var(--t-attach) var(--e-state);
   }
 
-  .auth-link:hover {
+  .auth-field__action {
+    flex: none;
+  }
+
+  .auth-link:hover,
+  .auth-field__action:hover {
     color: var(--ui-accent-hover);
     text-decoration: underline;
     text-underline-offset: 0.2em;
   }
 
   /* =========================================================================
-   * FOCUS
+   * SUPPORTING TEXT
    * =========================================================================
-   * AuthShell no longer carries `.v2-root`, so v2's focus reset no longer
-   * reaches auth. Declared here explicitly rather than left to a global.
-   * :focus-visible only, so a mouse click does not leave a ring but every
-   * keyboard user keeps one.
-   * ====================================================================== */
-
-  .auth-shell :focus-visible {
-    outline: var(--ui-focus-ring-width) solid var(--ui-focus);
-    outline-offset: var(--ui-focus-ring-offset);
-    border-radius: var(--ui-radius-control);
-  }
-
-  /* =========================================================================
-   * SUPPORTING PANEL
-   * =========================================================================
-   * Decorative and aria-hidden. Hidden below 900px: on a phone it would push
-   * the form under the fold, which is what made the original auth screens
-   * unusable at 320px. Two Playwright assertions pin this behaviour.
-   * ====================================================================== */
-
-  /*
-   * The legacy sheets paint this as a DARK chrome plane with a grid drawn in
-   * ::before. Both are inherited, not chosen, and both are banned: a dark
-   * surface contradicts the outdoor-legibility rule, and the grid reads as
-   * blueprint or graph paper. Screenshot review caught this while all 358
-   * assertions passed, which is exactly why the images are reviewed by eye.
+   * Decorative and aria-hidden: everything in it is either already stated by
+   * the form column or is orientation a screen-reader user does not need read
+   * to them before reaching the form.
    *
-   * Reset explicitly. There is no panel here: the supporting area is open
-   * canvas so the composition has no seam and cannot read as a split screen.
-   */
+   * It sits UNDER the plane, in the same column, rather than opposite it. Two
+   * reasons, and the second is the one that decided it:
+   *
+   *   1. The open half of the scene stays open. Filling it with a text block
+   *      would turn the composition back into the split screen every auth
+   *      screen is, and the artwork is the reason this surface exists.
+   *   2. Contrast. Text placed out in the scene sits where the veil is
+   *      weakest, so its ratio would depend on which pixel of artwork happened
+   *      to be behind it -- meaning every future change to the drawing would
+   *      be a fresh accessibility audit. Under the plane it sits in the veil's
+   *      dense end, where the ratio is a known 8.3:1.
+   *
+   * Hidden below 900px, where the form is the entire screen and a supporting
+   * paragraph would only push it down. Two Playwright assertions pin that.
+   * ====================================================================== */
+
   .auth-brand {
     display: none;
-    background: none;
-    border: 0;
-    box-shadow: none;
-    color: var(--ui-ink);
-  }
-
-  .auth-brand::before,
-  .auth-brand::after {
-    content: none;
   }
 
   .auth-brand__body {
     display: flex;
     flex-direction: column;
     gap: var(--ui-space-3);
-    max-width: 24rem;
+    max-inline-size: 26rem;
   }
 
   .auth-eyebrow {
     margin: 0;
-    font-size: var(--ui-text-xs);
+    font-size: var(--ui-text-2xs);
     font-weight: var(--ui-weight-medium);
-    letter-spacing: var(--ui-tracking-wide);
+    letter-spacing: var(--type-track-chrome);
     text-transform: uppercase;
-    color: var(--ui-ink-faint);
+    color: var(--ui-ink-muted);
   }
 
   .auth-brand-title {
     margin: 0;
-    font-size: var(--ui-text-xl);
+    font-size: var(--ui-text-base);
     font-weight: var(--ui-weight-semibold);
     line-height: var(--ui-leading-snug);
-    letter-spacing: var(--ui-tracking-tight);
     color: var(--ui-ink-strong);
   }
 
   .auth-brand-intro {
     margin: 0;
-    font-size: var(--ui-text-base);
+    font-size: var(--ui-text-sm);
     line-height: var(--ui-leading-relaxed);
     color: var(--ui-ink-muted);
+    text-wrap: pretty;
   }
 
   .auth-brand-list {
     display: flex;
     flex-direction: column;
-    gap: var(--ui-space-4);
-    margin-top: var(--ui-space-2);
+    gap: var(--ui-space-3);
+    margin-block-start: var(--ui-space-2);
   }
 
   .auth-brand-list div {
     display: flex;
     flex-direction: column;
     gap: var(--ui-space-1);
-    padding-left: var(--ui-space-4);
-    border-left: 1px solid var(--ui-line);
+    padding-inline-start: var(--ui-space-4);
+
+    /* The one place a hairline appears outside the plane. It is the scene's
+     * own linework grammar reaching into the interface, which is the premise
+     * of the whole transition -- see auth/transition.css. */
+    border-inline-start: var(--rule-frame);
   }
 
   .auth-brand-list strong {
@@ -648,109 +569,97 @@
   }
 
   /* =========================================================================
-   * APPROACH
+   * ROUTE GUARD LOADING
    * =========================================================================
-   * Occupies open area only and never sits behind text, so it cannot degrade
-   * a contrast ratio. It draws ONCE — `both` fill, no iteration count.
+   * Shown while AuthProvider verifies a cached session against /auth/me.
+   * RoleRoute holds the route rather than redirecting, because redirecting
+   * before the real role is known bounces a legitimate user off a page they
+   * are entitled to.
+   *
+   * Deliberately a quiet line of text: not a spinner, not a progress bar. The
+   * wait is normally one round trip, a spinner would draw attention to
+   * something usually over before it is noticed, and a percentage would be
+   * invented -- nothing here knows how long the request has left.
+   *
+   * It renders OUTSIDE the scene, on the application canvas, so it keeps the
+   * light-scheme tokens. That is correct: this is the application starting,
+   * not the authentication surface.
    * ====================================================================== */
 
-  .auth-approach {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-  }
+  .route-guard-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: 60vh;
+    padding: var(--ui-space-8);
 
-  .auth-approach__routes path {
-    fill: none;
-    stroke: var(--ui-line);
-    stroke-width: 1;
-    stroke-linecap: round;
+    font-family: var(--ui-font-sans);
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
 
-    stroke-dasharray: 1200;
-    stroke-dashoffset: 1200;
-    animation: ui-approach-draw 1100ms var(--ui-ease-enter) both;
-  }
-
-  .auth-approach__routes path:nth-child(2) { animation-delay: 60ms; }
-  .auth-approach__routes path:nth-child(3) { animation-delay: 120ms; }
-  .auth-approach__routes path:nth-child(4) { animation-delay: 180ms; }
-  .auth-approach__routes path:nth-child(5) { animation-delay: 240ms; }
-
-  /* Heavier and last, so the eye finishes at the destination. */
-  .auth-approach__resolved path {
-    fill: none;
-    stroke: var(--ui-accent);
-    stroke-width: 2;
-    stroke-linecap: round;
-
-    /* The keyframe reads --ui-draw-from, which MUST match this path's own
-     * dasharray. Without it the resolved vector animates from the routes'
-     * 1200 offset against a 200 dasharray, so the dash pattern repeats and
-     * the line flickers instead of drawing. */
-    --ui-draw-from: 200;
-    stroke-dasharray: 200;
-    stroke-dashoffset: 200;
-    animation: ui-approach-draw 700ms var(--ui-ease-enter) 420ms both;
+    animation: ui-fade-in var(--t-place) var(--e-place) 240ms both;
   }
 
   /* =========================================================================
    * DESKTOP
    * =========================================================================
    * The asymmetry begins here. The form column is fixed and sits left of
-   * centre; the supporting panel takes the remaining open area. Not 50/50.
+   * centre, in the veil's dense end; the rest is scene. Not 50/50, and there
+   * is no panel opposite to make it a split.
    * ====================================================================== */
 
-  @media (min-width: 900px) {
+  @media (min-width: 56.25rem) {
     .auth-shell {
-      grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
-      align-items: center;
-      gap: var(--ui-space-16);
-      padding: var(--ui-space-12) clamp(var(--ui-space-8), 6vw, var(--ui-space-20));
+      grid-template-columns: minmax(0, 27rem) minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      align-content: center;
+      justify-items: start;
+      gap: var(--ui-space-8) var(--ui-space-16);
+
+      padding: var(--ui-space-12)
+        clamp(var(--ui-space-8), 6vw, var(--ui-space-20));
     }
 
     .auth-card {
-      margin: 0;
-      justify-self: end;
-    }
-
-    /* The phone's rule is redundant once Approach is present. */
-    .auth-card-rule {
-      display: none;
+      grid-column: 1;
+      grid-row: 1;
+      max-inline-size: none;
+      padding: var(--ui-space-8);
     }
 
     .auth-brand {
-      position: relative;
-      display: flex;
-
-      /* Centred, not bottom-aligned. Register's form is much taller than
-       * Login's, and flex-end pushed the supporting text off the bottom of
-       * the viewport where it was clipped. Centring makes the panel
-       * independent of the form's height. */
-      align-items: center;
-
-      min-height: 26rem;
-      height: 100%;
-      padding: var(--ui-space-8) 0;
-
-      /* No overflow clip and no background: Approach bleeds off the right
-       * edge of the viewport rather than sitting in a bounded box. A box here
-       * would reinstate the seam and turn this back into a split screen. */
-      overflow: visible;
-    }
-
-    .auth-brand__body {
-      position: relative;   /* above Approach, which is absolutely placed */
+      grid-column: 1;
+      grid-row: 2;
     }
   }
 
-  /* Beyond the reference width the composition anchors rather than stretching;
-   * Approach simply gains open area, which is the point. */
-  @media (min-width: 1600px) {
+  /*
+   * The caption is the first thing to yield when vertical room runs out --
+   * the same rule the artwork band follows on a short phone, applied to the
+   * other decorative element.
+   *
+   * The threshold is derived, not chosen: the tallest plane on this surface
+   * is Reset Password at roughly 620px, plus 96px of shell padding, a 32px
+   * gap and about 140px of caption. Below ~880px of viewport the caption can
+   * only ever appear half-cut at the fold, and half a decorative block reads
+   * as a rendering fault rather than as restraint. 54rem is the next round
+   * step above that sum.
+   */
+  @media (min-width: 56.25rem) and (min-height: 54rem) {
+    .auth-brand {
+      display: block;
+    }
+  }
+
+  /*
+   * Beyond the reference width the composition anchors rather than stretching.
+   * The scene simply gains open area, which is the point of it.
+   */
+  @media (min-width: 100rem) {
     .auth-shell {
-      max-width: 108rem;
-      margin: 0 auto;
+      max-inline-size: 108rem;
+      margin-inline: auto;
+      inline-size: 100%;
     }
   }
 }
@@ -758,20 +667,8 @@
 /* ===========================================================================
  * KEYFRAMES
  * ===========================================================================
- * Transform, opacity and stroke-dashoffset only. stroke-dashoffset is not
- * compositor-accelerated, which is precisely why Approach draws once and
- * never loops.
+ * Transform and opacity only.
  * ======================================================================== */
-
-@keyframes ui-approach-draw {
-  from { stroke-dashoffset: var(--ui-draw-from, 1200); }
-  to   { stroke-dashoffset: 0; }
-}
-
-@keyframes ui-rule-resolve {
-  from { opacity: 0; transform: scale3d(0, 1, 1); }
-  to   { opacity: 1; transform: none; }
-}
 
 @keyframes ui-status-in {
   from { opacity: 0; transform: translate3d(0, -4px, 0); }
@@ -781,31 +678,16 @@
 /* ===========================================================================
  * REDUCED MOTION
  * ===========================================================================
- * A designed mode, not a disabled one. Approach shows its RESOLVED figure
- * immediately: the picture is the point, not the drawing of it. Status
- * messages still appear, because their arrival is information.
+ * A designed mode, not a disabled one. Status messages still ARRIVE, because
+ * their arrival is information -- they simply arrive without travel.
  * ======================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
   @layer system-components {
-    .auth-approach__routes path,
-    .auth-approach__resolved path {
-      stroke-dashoffset: 0;
-      animation: none;
-    }
-
-    .auth-card-rule {
-      animation: none;
-    }
-
     .auth-card .error,
     .auth-card .auth-success,
     .auth-confirm {
       animation-name: ui-fade-in;
-    }
-
-    .auth-submit:active:not(:disabled) {
-      transform: none;
     }
   }
 }

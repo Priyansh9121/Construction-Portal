@@ -179,6 +179,7 @@ function LoginPage({
           </label>
 
           <input
+            className="field"
             id="login-email"
             name="email"
             type="email"
@@ -210,13 +211,14 @@ function LoginPage({
               Password
             </label>
 
-            <Link className="auth-field__action" to="/forgot-password">
+            <Link className="auth-field__action focusable" to="/forgot-password">
               Forgot password?
             </Link>
           </div>
 
           <div className="password-input-wrapper">
             <input
+              className="field"
               id="login-password"
               name="password"
               type={
@@ -240,7 +242,7 @@ function LoginPage({
 
             <button
               type="button"
-              className="password-toggle-btn"
+              className="password-toggle-btn ctl ctl--quiet"
               aria-label={
                 showPassword
                   ? "Hide password"
@@ -261,8 +263,9 @@ function LoginPage({
 
           <button
             type="submit"
-            className="auth-submit"
+            className="auth-submit ctl ctl--primary ctl--field"
             disabled={submitting}
+            aria-busy={submitting}
           >
             {submitting
               ? "Signing in…"
