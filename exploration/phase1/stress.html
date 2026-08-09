@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Phase 1B.5 — direction stress test</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#1a1917;color:#fff;font:14px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+.rail{padding:24px 30px;border-bottom:1px solid #333}
+.rail h1{margin:0 0 3px;font-size:17px}.rail p{margin:0;color:#a8aaa7;font-size:12px;max-width:80ch}
+.blk{padding:28px 30px}.blk h2{margin:0 0 3px;font:600 13px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#cbb8f5}
+.blk .n{margin:0 0 14px;color:#a8aaa7;font-size:12px;max-width:84ch}
+.fr{background:#f4f4f0;border-radius:5px;overflow:hidden;position:relative}
+.fr::after{content:attr(data-l);position:absolute;top:0;left:0;background:#1a1917;color:#fff;
+  font:600 8px/1 sans-serif;letter-spacing:.1em;padding:4px 7px;z-index:99;text-transform:uppercase}
+
+/* ─── Architectural Instrument production grammar ─── */
+.ai{--ink:#0d0d0c;--ink2:#5f6461;--ink3:#8a8d88;--sub:#f4f4f0;--srf:#fbfbf8;--ln:#dcdcd4;--lnq:#eaeae3;
+  --acc:#4c1fa6;--warn:#b45309;--dang:#b91c1c;
+  background:var(--sub);color:var(--ink);font-family:"IBM Plex Sans",sans-serif}
+.ai .mono{font-family:"IBM Plex Mono",monospace;letter-spacing:.11em;text-transform:uppercase}
+.ai .k{font:500 9px/1 "IBM Plex Mono",monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)}
+.ai .money{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ai .money .s{font-size:.72em;vertical-align:.1em;font-weight:500}
+.ai .money .f{font-size:.8em;font-weight:500;color:var(--ink2)}
+
+/* Finance desktop */
+.fin{height:820px;display:grid;grid-template-rows:auto auto 1fr;overflow:hidden}
+.fin-top{padding:18px 24px 0;display:flex;justify-content:space-between;align-items:flex-start}
+.fin-top h3{margin:0;font:600 24px/1 sans-serif;letter-spacing:-.028em}
+.fin-top .sheet{text-align:right}
+.fin-top .sheet div{font:500 9px/1.7 "IBM Plex Mono",monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)}
+.fin-pos{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:0;margin:16px 24px 0;
+  border-block:1px solid var(--ln)}
+.fin-pos > div{padding:15px 0}
+.fin-pos > div + div{border-inline-start:1px solid var(--lnq);padding-inline-start:22px}
+.fin-pos .fig{font:600 34px/1 sans-serif;letter-spacing:-.032em;margin-top:8px}
+.fin-pos .fig2{font:600 19px/1 sans-serif;letter-spacing:-.02em;margin-top:8px}
+.fin-pos .ctx{font-size:11px;color:var(--ink2);margin-top:7px;max-width:40ch}
+.fin-ctl{display:flex;align-items:center;gap:8px;margin:14px 24px 0}
+.seg{display:inline-flex;border:1px solid var(--ln);background:var(--srf)}
+.seg b{font:500 10px/1 "IBM Plex Mono",monospace;letter-spacing:.11em;text-transform:uppercase;
+  padding:8px 13px;color:var(--ink2);border-inline-end:1px solid var(--lnq)}
+.seg b:last-child{border-inline-end:0}
+.seg b.on{background:var(--ink);color:var(--sub)}
+.chip{font:500 10px/1 "IBM Plex Mono",monospace;letter-spacing:.11em;text-transform:uppercase;
+  padding:8px 12px;border:1px solid var(--ln);background:var(--srf);color:var(--ink2)}
+.chip.n{border-style:dashed}
+.fin-ct{margin-inline-start:auto;font:500 10px/1 "IBM Plex Mono",monospace;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink2)}
+.tbl{margin:14px 24px 0;background:var(--srf);border:1px solid var(--ln);overflow:hidden}
+.tr{display:grid;grid-template-columns:26px 1.9fr .95fr .85fr .8fr .7fr 30px;align-items:center;
+  gap:14px;padding:0 14px;height:42px;font-size:12.5px}
+.th{height:34px;border-bottom:1px solid var(--ln);background:#f7f7f3}
+.th span{font:500 9px/1 "IBM Plex Mono",monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)}
+.tb .tr + .tr{border-top:1px solid var(--lnq)}
+.tb .tr:hover{background:#f6f6f2}
+.tr .r{text-align:right}
+.tr .nm{font-weight:500}
+.tr .sub{color:var(--ink3);font-size:11px}
+.st{display:inline-flex;align-items:center;gap:5px;font:500 9px/1 "IBM Plex Mono",monospace;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+.st i{width:5px;height:5px;border-radius:50%;background:var(--ink3);display:block}
+.st.d i{background:var(--dang)} .st.d{color:var(--dang)}
+.st.w i{background:var(--warn)} .st.w{color:var(--warn)}
+.tr .act{color:var(--ink3);text-align:center}
+.tfoot{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;
+  border-top:1px solid var(--ln);background:#f7f7f3}
+.tfoot span{font:500 9px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+
+/* Mobile field */
+.fld{height:780px;overflow:hidden;display:flex;flex-direction:column;background:var(--sub)}
+.fbar{padding:13px 16px;border-bottom:1px solid var(--ln);display:flex;justify-content:space-between;align-items:center;background:var(--srf)}
+.fbar b{font:600 16px/1 sans-serif;letter-spacing:-.02em}
+.fbar span{font:500 9px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+.fbody{flex:1;overflow:hidden;padding:14px 16px 0}
+.grp{margin-bottom:16px}
+.grp > .k{margin-bottom:8px;display:block}
+.big{background:var(--srf);border:1px solid var(--ln);padding:14px;margin-bottom:9px}
+.big .l{font:500 9px/1 "IBM Plex Mono",monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)}
+.big .v{font:600 21px/1 sans-serif;letter-spacing:-.02em;margin-top:8px}
+.stp{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.stp button{height:60px;border:1px solid var(--ln);background:var(--srf);font:600 14px/1 sans-serif;
+  color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+.stp button.on{background:var(--ink);color:var(--sub);border-color:var(--ink)}
+.stp button small{font:500 8px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;opacity:.7}
+.cnt{display:flex;align-items:center;border:1px solid var(--ln);background:var(--srf);height:56px}
+.cnt button{width:56px;height:100%;border:0;background:transparent;font:400 24px/1 sans-serif;color:var(--ink)}
+.cnt button:first-child{border-inline-end:1px solid var(--lnq)}
+.cnt button:last-child{border-inline-start:1px solid var(--lnq)}
+.cnt .n{flex:1;text-align:center;font:600 22px/1 sans-serif;font-variant-numeric:tabular-nums}
+.evd{border:1px dashed var(--ln);background:var(--srf);height:78px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;color:var(--ink2)}
+.evd .k{color:var(--ink2)}
+.fact{padding:12px 16px;border-top:1px solid var(--ln);background:var(--srf)}
+.fact .go{height:52px;background:var(--ink);color:var(--sub);display:flex;align-items:center;
+  justify-content:center;font:600 13px/1 sans-serif;letter-spacing:.05em}
+.fact .meta{text-align:center;font:500 9px/1 "IBM Plex Mono",monospace;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink2);margin-top:9px}
+
+/* Login 390 */
+.lg{height:780px;display:flex;flex-direction:column;background:#0d1114;overflow:hidden}
+.lg-scene{height:230px;position:relative;overflow:hidden;flex:none}
+.lg-scene svg{position:absolute;inset:0;width:100%;height:100%}
+.lg-scene .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,17,20,0) 42%,rgba(13,17,20,.9) 88%,#0d1114 100%)}
+.lg-scene .cap{position:absolute;left:20px;bottom:16px;color:#e9e7e0}
+.lg-scene .cap .e{font:500 8px/1 "IBM Plex Mono",monospace;letter-spacing:.18em;text-transform:uppercase;opacity:.66}
+.lg-scene .cap .h{font:600 17px/1.2 sans-serif;letter-spacing:-.02em;margin-top:6px}
+.lg-form{flex:1;background:#fbfbf8;padding:22px 20px;display:flex;flex-direction:column}
+.lg-form h3{margin:0 0 16px;font:600 22px/1 sans-serif;letter-spacing:-.028em;color:#0d0d0c}
+.lf{margin-bottom:12px}
+.lf label{display:block;font:500 9px/1 "IBM Plex Mono",monospace;letter-spacing:.13em;
+  text-transform:uppercase;color:#5f6461;margin-bottom:6px}
+.lf i{display:block;height:48px;border:1px solid #dcdcd4;background:#fff}
+.lg-btn{height:50px;background:#0d0d0c;color:#f4f4f0;display:flex;align-items:center;justify-content:center;
+  font:600 13px/1 sans-serif;letter-spacing:.05em;margin-top:6px}
+.lg-alt{margin-top:14px;text-align:center;font-size:12px;color:#5f6461}
+
+/* Storyboard */
+.sb{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.sbf{background:#101418;border:1px solid #2a2f33;border-radius:4px;height:150px;position:relative;overflow:hidden}
+.sbf svg{position:absolute;inset:0;width:100%;height:100%}
+.sbf .cap{position:absolute;left:8px;bottom:7px;font:500 8px/1.4 "IBM Plex Mono",monospace;
+  letter-spacing:.09em;text-transform:uppercase;color:#8f9499;z-index:5}
+.sbf .n{position:absolute;right:8px;top:7px;font:600 9px/1 sans-serif;color:#4d5459;z-index:5}
+.role{margin-top:16px}
+.role h4{margin:0 0 7px;font:500 10px/1 "IBM Plex Mono",monospace;letter-spacing:.13em;
+  text-transform:uppercase;color:#a8aaa7}
+</style></head><body>
+
+<div class="rail"><h1>Phase 1B.5 — direction stress test</h1>
+<p>Architectural Instrument foundation, Cinematic Site Intelligence at auth only. Tested where it is most
+likely to fail: dense financial desktop, one-handed field mobile, and the cinematic scene collapsed to 390px.
+Non-production; no route was modified.</p></div>
+
+<!-- ══ 1 · DENSE FINANCE ══ -->
+<section class="blk"><h2>1 · Dense finance, 1440</h2>
+<p class="n">The noise test. Hairlines are spent on <em>zones</em>, not on every row: the table has one outer
+rule, one header rule and hairline row separators one step lighter than the frame. Compartment dividers appear
+only where two different kinds of thing meet.</p>
+<div class="fr" data-l="finance · 1440" style="width:1440px">
+ <div class="ai fin">
+  <div class="fin-top">
+    <div><h3>Finance</h3></div>
+    <div class="sheet"><div>09 Aug 2026</div><div>142 records · FY 26–27</div></div>
+  </div>
+
+  <div class="fin-pos">
+    <div><span class="k">Cash position</span>
+      <div class="fig money"><span class="s">₹</span>24,80,500<span class="f">.00</span></div>
+      <div class="ctx">After ₹3,10,000 GST and ₹42,000 company charge still owed onward.</div></div>
+    <div><span class="k">Owed to you</span>
+      <div class="fig2 money"><span class="s">₹</span>8,64,200<span class="f">.00</span></div>
+      <div class="ctx">Across 9 unpaid invoices · ₹1,82,400 overdue</div></div>
+    <div><span class="k">This month</span>
+      <div class="fig2 money"><span class="s">₹</span>5,12,900<span class="f">.00</span></div>
+      <div class="ctx">In ₹11,40,000 · out ₹6,27,100</div></div>
+  </div>
+
+  <div class="fin-ctl">
+    <span class="seg"><b>Today</b><b class="on">This month</b><b>All time</b></span>
+    <span class="chip">Income + expense ▾</span>
+    <span class="chip">All sites ▾</span>
+    <span class="chip n">+ Filter</span>
+    <span class="fin-ct">142 records</span>
+  </div>
+
+  <div class="tbl">
+    <div class="tr th"><span></span><span>Description</span><span class="r">Amount</span><span class="r">GST</span>
+      <span>Date</span><span>State</span><span></span></div>
+    <div class="tb">
+      <div class="tr"><span class="st d"><i></i></span><span><span class="nm">Sharma &amp; Co — retention release</span><br><span class="sub">Metro Depot Extension</span></span><span class="r money"><span class="s">₹</span>1,82,400<span class="f">.00</span></span><span class="r money"><span class="s">₹</span>32,832<span class="f">.00</span></span><span class="sub">12 Jul 2026</span><span class="st d"><i></i>Overdue</span><span class="act">›</span></div>
+      <div class="tr"><span class="st"><i></i></span><span><span class="nm">Steel reinforcement — 12mm</span><br><span class="sub">Riverside Phase 2 · Bharat Steel</span></span><span class="r money"><span class="s">₹</span>6,27,100<span class="f">.00</span></span><span class="r money"><span class="s">₹</span>1,12,878<span class="f">.00</span></span><span class="sub">28 Jul 2026</span><span class="st"><i></i>Paid</span><span class="act">›</span></div>
+      <div class="tr"><span class="st w"><i></i></span><span><span class="nm">Progress claim 04</span><br><span class="sub">Metro Depot Extension</span></span><span class="r money"><span class="s">₹</span>12,50,000<span class="f">.00</span></span><span class="r money"><span class="s">₹</span>2,25,000<span class="f">.00</span></span><span class="sub">02 Aug 2026</span><span class="st w"><i></i>Due 3d</span><span class="act">›</span></div>
+      <div class="tr"><span class="st"><i></i></span><span><span class="nm">Labour — week 31</span><br><span class="sub">Riverside Phase 2 · 24 workers</span></span><span class="r money"><span class="s">₹</span>3,84,000<span class="f">.00</span></span><span class="r money">—</span><span class="sub">03 Aug 2026</span><span class="st"><i></i>Paid</span><span class="act">›</span></div>
+      <div class="tr"><span class="st"><i></i></span><span><span class="nm">GST remittance — Q1</span><br><span class="sub">Government bill</span></span><span class="r money"><span class="s">₹</span>3,10,000<span class="f">.00</span></span><span class="r money">—</span><span class="sub">05 Aug 2026</span><span class="st"><i></i>Scheduled</span><span class="act">›</span></div>
+      <div class="tr"><span class="st"><i></i></span><span><span class="nm">Ready-mix concrete M25</span><br><span class="sub">Metro Depot Extension · Ultratech</span></span><span class="r money"><span class="s">₹</span>2,16,400<span class="f">.00</span></span><span class="r money"><span class="s">₹</span>38,952<span class="f">.00</span></span><span class="sub">06 Aug 2026</span><span class="st"><i></i>Paid</span><span class="act">›</span></div>
+      <div class="tr"><span class="st"><i></i></span><span><span class="nm">Subcontractor — formwork</span><br><span class="sub">Riverside Phase 2 · Patel Works</span></span><span class="r money"><span class="s">₹</span>4,45,000<span class="f">.00</span></span><span class="r money"><span class="s">₹</span>80,100<span class="f">.00</span></span><span class="sub">07 Aug 2026</span><span class="st"><i></i>Paid</span><span class="act">›</span></div>
+      <div class="tr"><span class="st w"><i></i></span><span><span class="nm">Site electricity — Jul</span><br><span class="sub">Metro Depot Extension</span></span><span class="r money"><span class="s">₹</span>68,420<span class="f">.00</span></span><span class="r money"><span class="s">₹</span>12,315<span class="f">.00</span></span><span class="sub">08 Aug 2026</span><span class="st w"><i></i>Due 6d</span><span class="act">›</span></div>
+      <div class="tr"><span class="st"><i></i></span><span><span class="nm">Crane hire — 40T</span><br><span class="sub">Riverside Phase 2 · 6 days</span></span><span class="r money"><span class="s">₹</span>1,92,000<span class="f">.00</span></span><span class="r money"><span class="s">₹</span>34,560<span class="f">.00</span></span><span class="sub">08 Aug 2026</span><span class="st"><i></i>Paid</span><span class="act">›</span></div>
+      <div class="tr"><span class="st"><i></i></span><span><span class="nm">Company charge — Aug</span><br><span class="sub">Internal</span></span><span class="r money"><span class="s">₹</span>42,000<span class="f">.00</span></span><span class="r money">—</span><span class="sub">09 Aug 2026</span><span class="st"><i></i>Pending</span><span class="act">›</span></div>
+    </div>
+    <div class="tfoot"><span>Showing 10 of 142</span><span>‹ prev · 1 2 3 … 15 · next ›</span></div>
+  </div>
+ </div>
+</div></section>
+
+<!-- ══ 2+3 · MOBILE ══ -->
+<section class="blk"><h2>2 &amp; 3 · Field mobile and login, 390</h2>
+<p class="n">Mobile shares the reasoning, not the pixels. Precision is expressed through grouping, sequence and
+robust controls rather than compartment grids — the drawing discipline would become a miniature technical
+drawing at this width. Every target is ≥ 48px.</p>
+<div style="display:flex;gap:16px">
+
+ <div class="fr" data-l="daily site update · 390" style="width:390px">
+  <div class="ai fld">
+   <div class="fbar"><b>Daily update</b><span>09 Aug · Metro Depot</span></div>
+   <div class="fbody">
+     <div class="grp"><span class="k">Labour on site</span>
+       <div class="cnt"><button>−</button><div class="n">24</div><button>+</button></div>
+     </div>
+     <div class="grp"><span class="k">Work completed today</span>
+       <div class="stp">
+         <button class="on">Pour<small>slab L3</small></button>
+         <button>Formwork<small>not today</small></button>
+       </div>
+     </div>
+     <div class="grp"><span class="k">Material received</span>
+       <div class="big"><div class="l">Ready-mix M25</div><div class="v money">18.0 m³</div></div>
+     </div>
+     <div class="grp"><span class="k">Evidence</span>
+       <div class="evd"><span class="k">Take photo</span></div>
+     </div>
+   </div>
+   <div class="fact"><div class="go">Submit update</div>
+     <div class="meta">Recorded 09 Aug · cannot be backdated</div></div>
+  </div>
+ </div>
+
+ <div class="fr" data-l="login · 390" style="width:390px">
+  <div class="lg">
+   <div class="lg-scene">
+     <svg viewBox="0 0 390 230" preserveAspectRatio="xMidYMax slice">
+       <defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1">
+         <stop offset="0" stop-color="#17222c"/><stop offset=".6" stop-color="#26333f"/><stop offset="1" stop-color="#4a3b31"/></linearGradient>
+       <linearGradient id="gl" x1="0" y1="0" x2="1" y2="0">
+         <stop offset="0" stop-color="#efa863" stop-opacity="0"/><stop offset=".7" stop-color="#efa863" stop-opacity=".34"/>
+         <stop offset="1" stop-color="#efa863" stop-opacity="0"/></linearGradient></defs>
+       <rect width="390" height="230" fill="url(#sk)"/>
+       <ellipse cx="268" cy="196" rx="160" ry="46" fill="url(#gl)"/>
+       <g fill="#0d151c"><rect x="16" y="130" width="44" height="100"/><rect x="72" y="152" width="34" height="78"/>
+         <rect x="300" y="140" width="46" height="90"/><rect x="356" y="164" width="34" height="66"/></g>
+       <g fill="#080f15"><rect x="118" y="104" width="62" height="126"/><rect x="192" y="126" width="48" height="104"/>
+         <rect x="250" y="92" width="44" height="138"/></g>
+       <g stroke="#16212b" stroke-width="1"><path d="M118 130 H180 M118 158 H180 M118 186 H180 M192 152 H240 M192 182 H240 M250 118 H294 M250 148 H294 M250 178 H294"/></g>
+       <g stroke="#2c3a47" stroke-width="1.5" fill="none"><path d="M272 92 V34 M228 48 H336 M272 34 L238 48 M272 34 L316 48"/><path d="M304 48 V72"/></g>
+       <rect x="297" y="72" width="14" height="10" fill="#2c3a47"/>
+       <circle cx="304" cy="48" r="2.2" fill="#f0c48f"/>
+       <g fill="#f6dcae" opacity=".5"><rect x="130" y="140" width="4" height="6"/><rect x="160" y="196" width="4" height="6"/>
+         <rect x="262" y="128" width="4" height="6"/></g>
+     </svg>
+     <div class="ov"></div>
+     <div class="cap"><div class="e">Construction Portal</div><div class="h">Every day on site,<br>recorded as evidence.</div></div>
+   </div>
+   <div class="lg-form">
+     <h3>Sign in</h3>
+     <div class="lf"><label>Email</label><i></i></div>
+     <div class="lf"><label>Password</label><i></i></div>
+     <div class="lg-btn">Sign in</div>
+     <div class="lg-alt">Forgot password?</div>
+   </div>
+  </div>
+ </div>
+</div></section>
+
+<!-- ══ 4 · STORYBOARD ══ -->
+<section class="blk"><h2>4 · Login → destination, role-aware</h2>
+<p class="n">One geometry grammar, three destinations. The scene's structural lines do not fade — they
+<em>align</em> into the shell's hairline grid, which is the same linework the instrument system is built from.
+Authentication completes at frame 1; everything after is presentation over a finished event.</p>
+
+<div class="role"><h4>Admin → operations dashboard</h4>
+<div class="sb">
+  <div class="sbf"><span class="n">01</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#101821"/>
+    <g fill="#070d13"><rect x="60" y="60" width="46" height="90"/><rect x="118" y="76" width="36" height="74"/><rect x="166" y="48" width="40" height="102"/></g>
+    <g stroke="#22303d"><path d="M60 84 H106 M60 110 H106 M166 74 H206 M166 100 H206"/></g>
+    <g stroke="#2c3a47" stroke-width="1.3" fill="none"><path d="M186 48 V16 M152 26 H228"/></g>
+    <rect x="196" y="96" width="72" height="44" fill="#fbfbf8" opacity=".96" rx="2"/>
+  </svg><span class="cap">Authenticated<br>token stored</span></div>
+
+  <div class="sbf"><span class="n">02</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#1b242c"/>
+    <g fill="#0d151c" opacity=".55"><rect x="60" y="60" width="46" height="90"/><rect x="118" y="76" width="36" height="74"/><rect x="166" y="48" width="40" height="102"/></g>
+    <g stroke="#4a5c6b" stroke-width="1"><path d="M60 60 H106 M118 76 H154 M166 48 H206 M60 150 H206"/>
+      <path d="M60 60 V150 M106 60 V150 M166 48 V150 M206 48 V150"/></g>
+    <g stroke="#6b7d8c" stroke-width="1.2" fill="none" opacity=".8"><path d="M186 48 V26 M160 30 H214"/></g>
+  </svg><span class="cap">Scene resolves<br>mass → linework</span></div>
+
+  <div class="sbf"><span class="n">03</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#8d9299"/>
+    <g stroke="#e8e8e2" stroke-width="1"><path d="M0 30 H300 M0 60 H300 M0 90 H300 M0 120 H300 M66 0 V150 M132 0 V150 M198 0 V150 M264 0 V150"/></g>
+    <g stroke="#fbfbf8" stroke-width="1.6"><path d="M66 0 V150 M0 30 H300"/></g>
+  </svg><span class="cap">Lines align to<br>the shell grid</span></div>
+
+  <div class="sbf"><span class="n">04</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#f4f4f0"/>
+    <rect x="0" y="0" width="66" height="150" fill="#fbfbf8"/><path d="M66 0 V150 M0 30 H300" stroke="#dcdcd4"/>
+    <g fill="#dcdcd4"><rect x="10" y="44" width="46" height="4"/><rect x="10" y="58" width="38" height="4"/><rect x="10" y="72" width="42" height="4"/></g>
+    <g fill="#0d0d0c"><rect x="80" y="46" width="86" height="9"/></g>
+    <g fill="#dcdcd4"><rect x="80" y="64" width="150" height="4"/><rect x="80" y="76" width="120" height="4"/>
+      <rect x="80" y="98" width="205" height="1"/><rect x="80" y="114" width="205" height="1"/><rect x="80" y="130" width="205" height="1"/></g>
+  </svg><span class="cap">Operations<br>dashboard</span></div>
+</div></div>
+
+<div class="role"><h4>Worker → field workspace · Subcontractor → contractor workspace · reduced motion</h4>
+<div class="sb">
+  <div class="sbf"><span class="n">04a</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#f4f4f0"/><path d="M0 26 H300" stroke="#dcdcd4"/>
+    <g fill="#0d0d0c"><rect x="14" y="9" width="70" height="8"/></g>
+    <rect x="14" y="40" width="272" height="40" fill="#fbfbf8" stroke="#dcdcd4"/>
+    <rect x="14" y="88" width="132" height="34" fill="#0d0d0c"/><rect x="154" y="88" width="132" height="34" fill="#fbfbf8" stroke="#dcdcd4"/>
+    <rect x="14" y="130" width="272" height="14" fill="#0d0d0c"/>
+  </svg><span class="cap">Worker · no shell<br>one task, big targets</span></div>
+
+  <div class="sbf"><span class="n">04b</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#f4f4f0"/><path d="M0 26 H300" stroke="#dcdcd4"/>
+    <g fill="#0d0d0c"><rect x="14" y="9" width="92" height="8"/></g>
+    <g fill="#dcdcd4"><rect x="14" y="42" width="272" height="1"/><rect x="14" y="66" width="272" height="1"/>
+      <rect x="14" y="90" width="272" height="1"/><rect x="14" y="114" width="272" height="1"/></g>
+    <g fill="#c9c9c2"><rect x="212" y="50" width="74" height="6"/><rect x="212" y="74" width="74" height="6"/><rect x="212" y="98" width="74" height="6"/></g>
+  </svg><span class="cap">Subcontractor<br>claims + payments</span></div>
+
+  <div class="sbf"><span class="n">RM1</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#101821"/>
+    <g fill="#070d13"><rect x="60" y="60" width="46" height="90"/><rect x="166" y="48" width="40" height="102"/></g>
+    <rect x="196" y="96" width="72" height="44" fill="#fbfbf8" opacity=".96" rx="2"/>
+  </svg><span class="cap">Reduced motion<br>frame 1 held</span></div>
+
+  <div class="sbf"><span class="n">RM2</span><svg viewBox="0 0 300 150">
+    <rect width="300" height="150" fill="#f4f4f0"/>
+    <rect x="0" y="0" width="66" height="150" fill="#fbfbf8"/><path d="M66 0 V150 M0 30 H300" stroke="#dcdcd4"/>
+    <g fill="#0d0d0c"><rect x="80" y="46" width="86" height="9"/></g>
+    <g fill="#dcdcd4"><rect x="80" y="64" width="150" height="4"/><rect x="80" y="98" width="205" height="1"/><rect x="80" y="114" width="205" height="1"/></g>
+  </svg><span class="cap">Cross-fade only<br>no travel, ~120ms</span></div>
+</div></div>
+</section>
+</body></html>
