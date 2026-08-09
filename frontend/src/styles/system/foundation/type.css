@@ -1,0 +1,198 @@
+/*
+ * ===========================================================================
+ * TYPE — roles, and the script-safety rule that governs them
+ * ===========================================================================
+ *
+ * Architectural Instrument. Precision comes from alignment and restraint, not
+ * from making everything look technical.
+ *
+ * The faces are unchanged: IBM Plex Sans with Noto Sans Gujarati behind it,
+ * metric-matched and range-loaded. Phase 1C does not touch font loading.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE SCRIPT-SAFETY RULE
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ *   Tracking belongs to CHROME. It is never applied to CONTENT.
+ *
+ * Wide letter-spacing pulls Gujarati conjuncts apart: the script composes
+ * ligated clusters, and spacing inserted between their parts is not a wider
+ * word, it is a broken one.
+ *
+ * The obvious guard is `:lang(gu)`. It is not sufficient here, and the reason
+ * is structural rather than theoretical: `index.html` declares `lang="en"`,
+ * and Gujarati arrives as INLINE DATA inside that page -- a site name, a
+ * worker's name, a material description typed on site. None of it carries a
+ * lang attribute, and none of it can be made to without the backend emitting
+ * per-field language metadata, which is frozen.
+ *
+ * So the rule is enforced by WHERE tracking is allowed, not by detecting the
+ * script:
+ *
+ *   chrome   UI strings the application owns -- column headings, micro
+ *            labels, control text. Latin today; if localised, the whole
+ *            surface is translated as a unit and can carry `lang`.
+ *            MAY be tracked.
+ *
+ *   content  anything a user typed or a record supplied. Unknown script,
+ *            always. NEVER tracked, at any size.
+ *
+ * `:lang(gu)` is kept underneath as defence in depth, so that a future
+ * localised chrome string is safe the moment it is marked, without anyone
+ * having to remember this file.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * MONOSPACE IS SCOPED, NOT DEFAULT
+ * ─────────────────────────────────────────────────────────────────────────
+ * Phase 1B.5 flagged mono metadata as a density risk: precise at ten rows,
+ * potentially cold at forty. It is therefore restricted to values that are
+ * genuinely mechanical -- timestamps, identifiers, sheet references -- and is
+ * NOT the default for every small label. Descriptive labels use the sans face
+ * at a small optical size instead.
+ *
+ * Monospace never renders content either, for the same reason as tracking:
+ * IBM Plex Mono has no Gujarati coverage, so a Gujarati string inside a mono
+ * run falls back mid-line and the metrics break.
+ */
+
+:root {
+  /*
+   * Tracking. Named by permission, not by amount, so a caller cannot reach
+   * for "wide" on a data field without noticing what it is asking for.
+   */
+  --type-track-normal: 0;
+
+  /*
+   * The ONLY two tracked cases, and both are provably safe by content:
+   *
+   *   chrome   UI strings the application owns. Latin today, and `:lang(gu)`
+   *            below zeroes it the moment one is localised.
+   *   figures  digits. Latin by definition -- a number is never Gujarati text,
+   *            so a display-size optical correction is safe there.
+   *
+   * There is deliberately no "tight" token for headings. See below.
+   */
+  --type-track-chrome: 0.12em;
+  --type-track-figures: -0.022em;
+}
+
+@layer system-foundation {
+  /*
+   * Defence in depth. If a chrome string is ever marked as Gujarati, its
+   * tracking collapses to normal without any caller changing.
+   */
+  :lang(gu) {
+    --type-track-chrome: 0;
+  }
+
+  /* ---- Display ---------------------------------------------------------
+   * The page's subject. One per surface.
+   */
+  .t-display {
+    font-family: var(--ui-font-sans);
+    font-size: clamp(1.375rem, 1.1vw + 1.1rem, 1.75rem);
+    font-weight: 600;
+    line-height: 1.08;
+
+    /*
+     * NOT tracked. The first implementation gave this the display-size optical
+     * correction, and the Gujarati probe caught it violating this file's own
+     * rule: a display heading routinely carries CONTENT -- a tender name, a
+     * site name -- and negative tracking compresses Gujarati conjuncts exactly
+     * as damagingly as positive tracking pulls them apart.
+     *
+     * The optical gain at this size was marginal; the risk was not. In this
+     * system precision comes from alignment, not from micro-tracking.
+     */
+    letter-spacing: var(--type-track-normal);
+    color: var(--ui-ink-strong);
+  }
+
+  /* ---- Section ---------------------------------------------------------
+   * A zone heading. Same role everywhere, so the same treatment everywhere.
+   */
+  .t-section {
+    font-family: var(--ui-font-sans);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.25;
+    /* Untracked, same reason as .t-display. */
+    letter-spacing: var(--type-track-normal);
+    color: var(--ui-ink-strong);
+  }
+
+  /* ---- Body and content ------------------------------------------------
+   * `.t-content` is the explicit "this is user data" role. Tracking is
+   * hard-zeroed rather than inherited, so it cannot pick up a tracked
+   * ancestor.
+   */
+  .t-body {
+    font-family: var(--ui-font-sans);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    letter-spacing: var(--type-track-normal);
+    color: var(--ui-ink);
+  }
+
+  .t-content {
+    font-family: var(--ui-font-sans);
+    letter-spacing: 0;
+    font-feature-settings: normal;
+    color: var(--ui-ink-strong);
+  }
+
+  /* ---- Chrome label ----------------------------------------------------
+   * The only tracked role. Sans, not mono: descriptive labels read warmer and
+   * survive forty rows better than a monospace column of them.
+   */
+  .t-label {
+    font-family: var(--ui-font-sans);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: var(--type-track-chrome);
+    text-transform: uppercase;
+
+    /* Not --ui-ink-faint. At this size the 4.5 floor applies and faint fails
+     * it -- the AUTH-015 and D2-a defect, twice. */
+    color: var(--ui-ink-muted);
+  }
+
+  /* ---- Mechanical metadata --------------------------------------------
+   * Monospace, scoped. Timestamps, identifiers, sheet references. Latin by
+   * definition; never used for a value a person typed.
+   */
+  .t-meta {
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink-muted);
+  }
+
+  /* ---- Numeric ---------------------------------------------------------
+   * Alignment is a system primitive, not a per-table decision. Every figure
+   * that sits in a column gets this, so columns scan vertically.
+   */
+  .t-numeric {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  /*
+   * Display-size figures. The one place a negative optical correction is safe,
+   * because the content is digits and digits are never Gujarati.
+   */
+  .t-figure {
+    font-family: var(--ui-font-sans);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: var(--type-track-figures);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--ui-ink-strong);
+  }
+}
