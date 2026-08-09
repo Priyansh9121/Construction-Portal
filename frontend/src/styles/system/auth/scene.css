@@ -78,6 +78,115 @@
   /* The one warm accent in the scene: low sun on structure. Never used as an
    * interface colour -- it is light, not identity. */
   --auth-glow: #efa863;
+
+  /*
+   * ---- The working materials -------------------------------------------
+   *
+   * The scene is atmosphere; these are the two surfaces the user actually
+   * operates. They are separated here because a measurement settled them, and
+   * the measurement is worth recording:
+   *
+   *   On a dark ground, FILL cannot carry elevation. Every plane colour that
+   *   still reads as "dark" measures between 1.08:1 and 1.23:1 against the
+   *   veiled scene. There is no value that both belongs to this world and
+   *   separates from it by luminance alone.
+   *
+   * So depth here is carried by the EDGE, which is `VISUAL_IDENTITY`
+   * Signature 3 arriving where it was always going to matter -- the top edge
+   * catching the light. The fill states which material something is; the edge
+   * states that it is above the thing behind it.
+   */
+  --auth-plane: #1a2026;              /* raised: the form. Holds the action. */
+  --auth-well: #0f1418;               /* recessed: an input. Receives input.  */
+  --auth-edge: rgb(255 255 255 / 0.11);
+  --auth-edge-lit: rgb(255 255 255 / 0.18);   /* the lit top edge, raised only */
+}
+
+/*
+ * ===========================================================================
+ * THE DARK SCHEME
+ * ===========================================================================
+ *
+ * `AuthScene` sets `data-scheme="dark"`, and this block is what that attribute
+ * means. It re-points the SEMANTIC tokens; it does not restyle a single
+ * component. Everything the foundation already builds -- `.ctl`, `.field`,
+ * focus, status -- becomes correct on this surface without an auth-specific
+ * copy of any of it.
+ *
+ * WHY IT LIVES HERE AND NOT IN core/tokens.css
+ * The scene is the only dark surface in the product. Promoting this to a
+ * product-wide dark mode would be claiming a feature nothing has asked for and
+ * nothing verifies. It moves to tokens.css on the day a real theme toggle
+ * ships, unchanged -- the selector is already the right one.
+ *
+ * Every value below was measured, not chosen by eye:
+ *
+ *   ink on plane          13.3:1      ink on well           15.0:1
+ *   muted on plane         7.2:1      placeholder on well    6.1:1
+ *   accent link on plane   9.2:1      danger fg on its bg    8.7:1
+ *   muted on the scene     8.3:1      success fg on its bg  10.3:1
+ *
+ * The floor is 4.5:1 for text. Nothing here is near it, because a form read
+ * outdoors at dusk has no margin to give away.
+ */
+[data-scheme="dark"] {
+  --ui-canvas: var(--auth-sky-deep);
+  --ui-surface: var(--auth-plane);
+  --ui-surface-sunken: var(--auth-well);
+  --ui-surface-inset: var(--auth-well);
+
+  --ui-ink-strong: #f2f0ea;
+  --ui-ink: var(--auth-ink);
+  --ui-ink-muted: #a6adb2;
+  --ui-ink-faint: #8d959b;
+
+  /*
+   * Lines are alpha, not colour. A fixed grey hairline is either invisible on
+   * the plane or too loud on the well; the same alpha reads correctly on both,
+   * because it is literally the same amount of light.
+   */
+  --ui-line-faint: rgb(255 255 255 / 0.07);
+  --ui-line: var(--auth-edge);
+  --ui-line-strong: rgb(255 255 255 / 0.24);
+
+  /*
+   * Indigo-600 is the accent in daylight and it is nearly black at dusk
+   * (2.1:1 on the plane). The identity is the HUE, not the step, so the ramp
+   * moves up rather than the hue changing. F-02's collision gate is unaffected
+   * -- this is still indigo, and still the only chromatic interface colour.
+   */
+  --ui-accent: var(--ui-indigo-200);
+  --ui-accent-hover: #e0d4fb;
+  --ui-accent-subtle: rgb(203 184 245 / 0.12);
+  --ui-accent-line: rgb(203 184 245 / 0.4);
+  --ui-focus: var(--ui-indigo-200);
+  --ui-ink-on-accent: var(--auth-sky-deep);
+
+  /*
+   * Status. The light-mode pairs are a pale wash behind a dark hue; inverted
+   * here to a dark wash behind a pale hue, keeping the SAME hue families so a
+   * user who learns red-means-stop in the application has not learned a
+   * different language on the way in.
+   */
+  --ui-status-danger-bg: rgb(239 68 68 / 0.12);
+  --ui-status-danger-fg: #ffb4a8;
+  --ui-status-danger-border: rgb(239 68 68 / 0.45);
+
+  --ui-status-success-bg: rgb(34 197 94 / 0.12);
+  --ui-status-success-fg: #a7e8b8;
+  --ui-status-success-border: rgb(34 197 94 / 0.4);
+
+  --ui-status-warning-bg: rgb(245 158 11 / 0.12);
+  --ui-status-warning-fg: #f5cd8a;
+  --ui-status-warning-border: rgb(245 158 11 / 0.4);
+
+  --ui-status-info-bg: rgb(59 130 246 / 0.12);
+  --ui-status-info-fg: #a8caf8;
+  --ui-status-info-border: rgb(59 130 246 / 0.4);
+
+  --ui-status-neutral-bg: rgb(255 255 255 / 0.07);
+  --ui-status-neutral-fg: #c3c9cd;
+  --ui-status-neutral-border: rgb(255 255 255 / 0.22);
 }
 
 @layer system-components {
@@ -93,11 +202,26 @@
     color: var(--auth-ink);
   }
 
+  /*
+   * The artwork occupies a BAND measured from the top, not the whole scene.
+   *
+   * On desktop that band is the viewport, so the scene looks full-bleed. It is
+   * a band anyway because the scene grows with its content: Register at 900px
+   * tall is a scrolling page, and layers pinned `inset: 0` would stretch the
+   * horizon down with the form until the composition came apart. Anchoring the
+   * artwork to the first viewport-height means scrolling a long form scrolls
+   * PAST the scene, which is what a scene is.
+   *
+   * The same mechanism gives mobile its composition for free -- see the media
+   * query below. One property, two compositions.
+   */
   .auth-scene__layer {
     position: absolute;
-    inset: 0;
+    inset-block-start: 0;
+    inset-inline: 0;
+    inset-block-end: auto;
     inline-size: 100%;
-    block-size: 100%;
+    block-size: var(--auth-artwork, 100dvh);
     pointer-events: none;
   }
 
@@ -107,12 +231,21 @@
     block-size: 100%;
   }
 
-  /* Depth ordering. Named rather than numbered so a new layer cannot be
-   * inserted without deciding what it is. */
+  /*
+   * Depth ordering. Named rather than numbered so a new layer cannot be
+   * inserted without deciding what it is.
+   *
+   * The rig sits BEHIND the structure, which is the opposite of what the layer
+   * list's reading order suggests and is the physically true arrangement: a
+   * tower crane stands among the buildings it is raising, not in front of
+   * them. Drawn over the massing, the mast read as a bright scratch ruled down
+   * the face of a silhouette. Occluded by it, only the jib and the hoist clear
+   * the rooflines -- which is all you ever actually see of a crane at dusk.
+   */
   .auth-scene__layer[data-layer="sky"] { z-index: 0; }
   .auth-scene__layer[data-layer="distance"] { z-index: 1; }
-  .auth-scene__layer[data-layer="structure"] { z-index: 2; }
-  .auth-scene__layer[data-layer="rig"] { z-index: 3; }
+  .auth-scene__layer[data-layer="rig"] { z-index: 2; }
+  .auth-scene__layer[data-layer="structure"] { z-index: 3; }
   .auth-scene__layer[data-layer="veil"] { z-index: 4; }
 
   /* Content sits above every layer. */
@@ -161,16 +294,81 @@
  * Identity survives because it lives in the structure and rig layers, which
  * remain.
  */
-@media (max-width: 48rem) {
+@media (max-width: 56.25rem) {
   @layer system-components {
     .auth-scene__layer[data-layer="distance"] {
       display: none;
     }
 
-    /* Above the form, not behind it: at this width a form over artwork is a
-     * contrast problem no veil fully solves. */
+    /*
+     * The artwork becomes a band above the form rather than a ground beneath
+     * it. At this width a form standing on artwork is a contrast problem no
+     * veil fully solves, and the phone is the device this product is actually
+     * used on -- it does not get the compromise.
+     *
+     * 32dvh, floored and capped. The floor keeps the crane's apex inside the
+     * crop; the cap stops the band eating a tall phone's whole first screen.
+     *
+     * `--auth-band` is what the LAYOUT reads, and it is a separate property
+     * from `--auth-artwork` on purpose. They are equal here and they are not
+     * equal in every mode: below, the artwork covers the viewport while the
+     * band is zero. Collapsing them into one number is how the form ends up
+     * pushed a full screen down by a background.
+     */
+    .auth-scene {
+      --auth-artwork: clamp(11rem, 32dvh, 17.5rem);
+      --auth-band: var(--auth-artwork);
+    }
+
+    /*
+     * Reversed, and this is the seam fix. `180deg` would have darkened the top
+     * of the band and left its bottom edge at full artwork strength, meeting
+     * the flat ground below in a visible line. `0deg` puts the dense end of
+     * the veil at the BOTTOM, so the band resolves into the ground it stands
+     * on and there is no edge to see.
+     *
+     * The dense stop is raised to 0.97 here, not 0.88. The desktop veil only
+     * has to make the artwork quiet enough to read a form over; this one has
+     * to make the band's last row of pixels indistinguishable from the flat
+     * ground below it, and 0.88 left a measurable step of about one value.
+     */
     .auth-scene__layer[data-layer="veil"] {
-      --auth-veil-angle: 180deg;
+      background: linear-gradient(
+        0deg,
+        rgb(var(--auth-veil-rgb) / 0.97) 0%,
+        rgb(var(--auth-veil-rgb) / 0.72) 34%,
+        rgb(var(--auth-veil-rgb) / 0.18) 100%
+      );
+    }
+  }
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ * SHORT PHONES — the artwork yields first
+ * ─────────────────────────────────────────────────────────────────────────
+ * A 320x568 handset, or any phone held sideways, cannot afford both the band
+ * and the form. The form wins without argument: someone signing in on a small
+ * screen is not there for the picture.
+ *
+ * Structure and rig go; the sky stays and covers the viewport. That keeps the
+ * surface dark, keeps the departure transition meaningful, and costs no
+ * height at all -- a gradient occupies no space.
+ *
+ * Scoped to narrow AND short. A short DESKTOP window has plenty of horizontal
+ * room for the scene beside the form, and stripping it there would be
+ * answering a vertical problem the desktop composition does not have.
+ */
+@media (max-width: 56.25rem) and (max-height: 40rem) {
+  @layer system-components {
+    .auth-scene__layer[data-layer="structure"],
+    .auth-scene__layer[data-layer="rig"] {
+      display: none;
+    }
+
+    .auth-scene {
+      --auth-artwork: 100dvh;
+      --auth-band: 0px;
     }
   }
 }

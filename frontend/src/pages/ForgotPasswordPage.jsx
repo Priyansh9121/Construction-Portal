@@ -168,6 +168,7 @@ function ForgotPasswordPage() {
             <label htmlFor="forgot-password-email">Email</label>
 
             <input
+              className="field"
               id="forgot-password-email"
               name="email"
               type="email"
@@ -186,7 +187,12 @@ function ForgotPasswordPage() {
             />
           </div>
 
-          <button type="submit" className="auth-submit" disabled={submitting}>
+          <button
+            type="submit"
+            className="auth-submit ctl ctl--primary ctl--field"
+            disabled={submitting}
+            aria-busy={submitting}
+          >
             {submitting ? "Sending…" : "Send reset instructions"}
           </button>
         </form>
