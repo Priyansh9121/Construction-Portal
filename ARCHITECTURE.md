@@ -50,6 +50,31 @@ documented at its definition site; this is the index.
 | `view-transition-name` on `.page-content` | `styles/system/shell/page-content.css` | route transitions; its keyframes still live in `styles/v2/core/motion.css` |
 | `data-material` | `styles/system/core/material.css` | elevation is applied from **state**, so it can be revoked when an object stops needing judgement |
 
+### Structure — the hairline rule
+
+**Hairlines belong to zones, not to rows.**
+
+`styles/system/foundation/structure.css` owns the grammar. Three weights, not
+interchangeable:
+
+- `--rule-frame` — a compartment's outer boundary. One per compartment.
+- `--rule-zone` — between two *different kinds* of thing.
+- `--rule-row` — between repeated instances of the *same* kind. The quietest,
+  and the only one permitted to repeat.
+
+`.zone + .zone` collapses the shared border so adjacent compartments never
+render a 2px seam. `.rows--dense` drops the row line entirely above roughly
+forty records, where a repeated line becomes static.
+
+Below 48rem compartments lose their frame and keep only a top rule: the
+reasoning is unchanged — one line still separates one kind of thing from the
+next — but an enclosure inside an enclosure leaves no content width at 390px.
+
+Shape is `--shape-sharp` for compartments, `--shape-control` for anything a
+finger acts on, `--shape-pill` only for genuine compact state. Square corners
+on touch targets were rejected: the priority user operates this outdoors,
+one-handed.
+
 ### Script safety — the tracking rule
 
 **Tracking belongs to chrome. It is never applied to content.**

@@ -1,0 +1,196 @@
+/*
+ * ===========================================================================
+ * STRUCTURE — hairlines, zones and shape
+ * ===========================================================================
+ *
+ * The core of Architectural Instrument. A drawing sheet is legible because it
+ * compartmentalises: a frame, zones inside the frame, and rows inside a zone,
+ * each separated by a line of a different weight. Nothing is boxed twice.
+ *
+ * This file owns that grammar. `core/material.css` owns depth, and the two do
+ * not overlap: material answers "does this need judgement", structure answers
+ * "where does one thing end and the next begin".
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE RULE PHASE 1B.5 PROVED
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ *   Hairlines belong to ZONES, not to rows.
+ *
+ * The dense Finance prototype was the validation case. Ten rows with a line
+ * under each read as a schedule; the same ten with cell borders read as a
+ * spreadsheet, and forty would read as static. So the grammar has three
+ * weights and they are not interchangeable:
+ *
+ *   frame   the outer boundary of a compartment. One per compartment.
+ *   zone    between two DIFFERENT KINDS of thing -- a position band and the
+ *           table beneath it, a header row and its body.
+ *   row     between repeated instances of the SAME kind of thing. Always the
+ *           lightest, and the only one that may repeat many times.
+ *
+ * A line that repeats forty times must be the quietest line in the system, or
+ * the page becomes a grid instead of a document.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY THESE ARE TOKENS AND NOT JUST BORDER DECLARATIONS
+ * ─────────────────────────────────────────────────────────────────────────
+ * Because the decision is semantic. A contributor asking "which line do I use
+ * here" is really asking "are these two things the same kind of thing", and
+ * that question has one right answer per situation. Leaving it to
+ * `1px solid var(--ui-line)` at each call site is how a system drifts into
+ * every surface being outlined.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * SHAPE
+ * ─────────────────────────────────────────────────────────────────────────
+ * Corners exist for ergonomics and semantics, not fashion.
+ *
+ * REJECTED from `industrial-brutalist-ui`: its "absolute rejection of
+ * border-radius". Square corners on a 56px touch target in a field form read
+ * as a hostile surface, and this product's priority user is standing outdoors
+ * operating it one-handed. Its structural discipline is adopted; its geometry
+ * dogma is not.
+ *
+ * REJECTED from `high-end-visual-design`: exaggerated squircles
+ * (`rounded-[2rem]`) and nested double-bezel enclosures. Both are marketing-
+ * page devices that cost vertical space and add a second frame around things
+ * this system deliberately frames once.
+ *
+ * The scale is therefore small and functional:
+ *
+ *   sharp    compartments and table frames -- a sheet has square corners
+ *   control  anything a finger or cursor acts on
+ *   pill     only genuine compact state, never a container
+ */
+
+:root {
+  /*
+   * Hairlines. Ordered by how often they are allowed to repeat: the more
+   * instances, the quieter the line.
+   *
+   * Phase 2 consumers: the Login form frame (frame), the shell's topbar and
+   * sidebar boundaries (zone), and the first dense route's table body (row).
+   */
+  --rule-frame: 1px solid var(--ui-line);
+  --rule-zone: 1px solid var(--ui-line-faint);
+  --rule-row: 1px solid var(--ui-line-faint);
+
+  /*
+   * Shape. Named by what the thing IS, so the caller cannot pick a radius by
+   * taste.
+   */
+  --shape-sharp: 0;
+  --shape-control: 0.25rem;
+  --shape-pill: 999px;
+
+  /*
+   * The compartment gutter. One value, because a sheet's internal margin does
+   * not vary by compartment -- varying it is what makes a layout look
+   * assembled rather than drawn.
+   */
+  --zone-pad: var(--ui-space-5);
+  --zone-pad-tight: var(--ui-space-3);
+}
+
+@layer system-foundation {
+  /*
+   * A compartment. The unit Architectural Instrument composes with: a framed
+   * region holding one kind of thing.
+   *
+   * Square by default. A drawing sheet's compartments are square, and this is
+   * the one place the industrial reference is followed literally because it is
+   * correct rather than because it is stylish.
+   */
+  .zone {
+    border: var(--rule-frame);
+    border-radius: var(--shape-sharp);
+    background: var(--ui-surface);
+  }
+
+  /* Compartments that sit against each other share one line rather than
+   * doubling it. Without this every adjacent pair renders a 2px seam, which is
+   * the single most common way a hairline system starts looking cheap. */
+  .zone + .zone {
+    border-block-start: 0;
+  }
+
+  .zone__pad {
+    padding: var(--zone-pad);
+  }
+
+  /*
+   * A division INSIDE a compartment, between two different kinds of thing.
+   * Used once or twice per compartment, never repeatedly.
+   */
+  .zone__split {
+    border-block-start: var(--rule-zone);
+  }
+
+  .zone__split--inline {
+    border-inline-start: var(--rule-zone);
+  }
+
+  /*
+   * Repeated records. The only line permitted to appear many times, and
+   * therefore the quietest.
+   *
+   * Applied with the adjacent-sibling selector rather than a bottom border on
+   * every row, so the last row does not draw a line against the compartment
+   * frame it already has.
+   */
+  .rows > * + * {
+    border-block-start: var(--rule-row);
+  }
+
+  /*
+   * Dense variant. At table density the row line is dropped entirely and
+   * separation is carried by alignment and the numeric column alone -- the
+   * Finance prototype showed that ten rows tolerate a line and forty do not.
+   * A caller opts in when it knows it is rendering a long list.
+   */
+  .rows--dense > * + * {
+    border-block-start: 0;
+  }
+
+  .rows--dense > * {
+    box-shadow: inset 0 1px 0 var(--ui-line-faint);
+  }
+
+  .rows--dense > *:first-child {
+    box-shadow: none;
+  }
+}
+
+/*
+ * Mobile. The compartment grammar does not survive 390px -- a framed region
+ * inside a framed region inside a viewport gutter leaves no content width, and
+ * Phase 1B.5 showed it turning into a miniature technical drawing.
+ *
+ * So below 48rem compartments lose their frame and keep only their top rule.
+ * The REASONING is identical: one line still separates one kind of thing from
+ * the next. The expression is a division rather than an enclosure.
+ */
+@media (max-width: 48rem) {
+  @layer system-foundation {
+    .zone {
+      border-inline: 0;
+      border-block-end: 0;
+      background: transparent;
+    }
+
+    .zone + .zone {
+      border-block-start: var(--rule-zone);
+    }
+
+    .zone__pad {
+      padding-inline: 0;
+    }
+
+    /* Inline splits become block splits: at this width two things side by side
+     * are two things stacked. */
+    .zone__split--inline {
+      border-inline-start: 0;
+      border-block-start: var(--rule-zone);
+    }
+  }
+}
