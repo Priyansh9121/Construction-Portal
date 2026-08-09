@@ -1,0 +1,548 @@
+/*
+ * ===========================================================================
+ * ACTIVITY — the audit ledger
+ * ===========================================================================
+ *
+ * File purpose:
+ * The whole of the Activity route's presentation. Replaces
+ * `styles/components/activity.css`, which is deleted in the same commit.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THIS ROUTE IS NOT A TABLE, AND DOES NOT ESTABLISH TABLE GRAMMAR
+ * ─────────────────────────────────────────────────────────────────────────
+ * It was one, and an earlier pass replaced the six columns with a
+ * date-grouped stream for reasons recorded in `ActivityStream.jsx`. That
+ * decision is re-examined here and it holds: three of the six columns
+ * (When / Who / Action) are short and would align usefully, but the fourth —
+ * Details — is a variable-length key/value set that no column width fits, and
+ * a table whose widest column cannot be sized is a table that has stopped
+ * being one.
+ *
+ * So `INTERACTION_LANGUAGE` §5's table grammar is deliberately NOT built
+ * here. Building it on a route that does not consume it would be a dormant
+ * primitive, which the migration rules forbid. It is established by the first
+ * register that genuinely has columns.
+ *
+ * What this route DOES establish, because it genuinely consumes them:
+ *   - the ledger stream: a chronological evidentiary record, day-grouped
+ *   - the scope statement (§5.8) — what is shown, how many, filtered how
+ *   - the filter bar, with clearing as its own action (§8.4)
+ *   - the five route states, including a truthful `stale`
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE CLASS NAMES ARE A CONTRACT
+ * ─────────────────────────────────────────────────────────────────────────
+ * `.activity-stream`, `.activity-day-heading`, `.activity-disclosure` and
+ * `.activity-metadata` are asserted across ten sites in
+ * `portals-and-tables.spec.js`. They are kept exactly. Only their rules moved
+ * — out of the legacy layer and onto the foundation.
+ *
+ * Connected to:
+ * - pages/ActivityPage.jsx, components/activity/ActivityStream.jsx
+ * - foundation/structure.css supplies every rule weight used here
+ * - foundation/type.css supplies the chrome/content tracking split
+ */
+
+@layer system-pages {
+  /* =========================================================================
+   * THE FRAME
+   * =========================================================================
+   * Two compartments, in the drawing-sheet sense: the title block, then the
+   * ledger. `--rule-frame` bounds each; `.zone + .zone` collapses the shared
+   * edge so they read as one sheet rather than two boxes.
+   * ====================================================================== */
+
+  .ledger {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+
+  .ledger__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    justify-content: space-between;
+    gap: var(--ui-space-4);
+
+    padding: var(--ui-space-5);
+    border: var(--rule-frame);
+    border-radius: var(--ui-radius-container) var(--ui-radius-container) 0 0;
+    background: var(--ui-surface);
+  }
+
+  .ledger__title {
+    margin: 0;
+    font-size: var(--ui-text-lg);
+    font-weight: var(--ui-weight-semibold);
+    line-height: var(--ui-leading-snug);
+
+    /* Untracked. A route heading is chrome today and content tomorrow — a
+     * localised title would be Gujarati — and the optical gain at this size
+     * does not justify carrying that risk. See foundation/type.css. */
+    letter-spacing: var(--type-track-normal);
+    color: var(--ui-ink-strong);
+  }
+
+  /*
+   * THE SCOPE LINE.
+   *
+   * `INTERACTION_LANGUAGE` §5.8: a ledger with an unstated scope is not
+   * evidence. This is the single most important element on the route and it
+   * is why the head compartment exists at all — it states what is being
+   * shown, how many, and filtered how, in words, before any of it is read.
+   */
+  .ledger__scope {
+    margin: var(--ui-space-2) 0 0;
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+
+  .ledger__scope b {
+    font-weight: var(--ui-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-ink);
+  }
+
+  /*
+   * The cap notice. The API is asked for 200 records and cannot report a
+   * total, so a full page is indistinguishable from a truncated one unless
+   * the interface says so. Silent truncation reads as "this is everything",
+   * which on an audit trail is the most damaging wrong conclusion available.
+   */
+  .ledger__cap {
+    display: block;
+    margin-block-start: var(--ui-space-1);
+    color: var(--ui-ink-muted);
+  }
+
+  /* =========================================================================
+   * FILTERS
+   * =========================================================================
+   * Two selects and a clear. The clear is its own control and its own effect
+   * (§8.4) — it never also resets anything the user did not point at.
+   * ====================================================================== */
+
+  .ledger__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--ui-space-3);
+
+    padding: var(--ui-space-4) var(--ui-space-5);
+    border: var(--rule-frame);
+    border-block-start: 0;
+    background: var(--ui-surface-sunken);
+  }
+
+  .ledger__filter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-2);
+    min-inline-size: 0;
+    flex: 1 1 11rem;
+  }
+
+  .ledger__filter > span {
+    font-size: var(--ui-text-2xs);
+    font-weight: var(--ui-weight-medium);
+
+    /* Chrome, and owned by the application — tracking is permitted here and
+     * forbidden on everything the ledger renders from a record. */
+    letter-spacing: var(--type-track-chrome);
+    text-transform: uppercase;
+    color: var(--ui-ink-muted);
+  }
+
+  /* The two actions sit together and do not stretch. */
+  .ledger__filter-actions {
+    display: flex;
+    gap: var(--ui-space-2);
+    flex: 0 0 auto;
+  }
+
+  /* =========================================================================
+   * THE LEDGER BODY
+   * ====================================================================== */
+
+  .ledger__body {
+    padding: var(--ui-space-5);
+    border: var(--rule-frame);
+    border-block-start: 0;
+    border-radius: 0 0 var(--ui-radius-container) var(--ui-radius-container);
+    background: var(--ui-surface);
+    min-inline-size: 0;
+  }
+
+  /*
+   * The four non-full states. Each is a sentence, at reading size, on the
+   * ledger's own ground — never a spinner and never an illustration.
+   */
+  .ledger__state {
+    margin: 0;
+    padding-block: var(--ui-space-6);
+    font-size: var(--ui-text-base);
+    line-height: var(--ui-leading-relaxed);
+    color: var(--ui-ink-muted);
+    text-wrap: pretty;
+  }
+
+  .ledger__state b {
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink);
+  }
+
+  /*
+   * Failure. It lives in the content region, on the thing that failed, and
+   * it sits ABOVE any records that survived — because those records are
+   * still true and the message is about what could not be added to them.
+   */
+  .ledger__failure {
+    margin: 0 0 var(--ui-space-5);
+    padding: var(--ui-space-3) var(--ui-space-4);
+
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+
+    color: var(--ui-status-danger-fg);
+    background: var(--ui-status-danger-bg);
+    border: 1px solid var(--ui-status-danger-border);
+    border-radius: var(--shape-control);
+  }
+
+  /*
+   * Stale. Not a colour and not an alarm: a stale ledger is not broken, it is
+   * a witness saying when it last managed to look. The hairline is the same
+   * weight as every other zone boundary in the system.
+   */
+  .ledger__stale {
+    margin: 0 0 var(--ui-space-5);
+    padding-block-end: var(--ui-space-3);
+    border-block-end: var(--rule-zone);
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  /* =========================================================================
+   * THE STREAM
+   * =========================================================================
+   * Day sections, each an ordered list. The order carries meaning, so it is
+   * an <ol> and the markers are drawn rather than listed.
+   * ====================================================================== */
+
+  .activity-stream {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-6);
+    min-inline-size: 0;
+  }
+
+  .activity-day-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+
+    margin: 0 0 var(--ui-space-3);
+    padding-block-end: var(--ui-space-2);
+    border-block-end: var(--rule-zone);
+
+    font-size: var(--ui-text-2xs);
+    font-weight: var(--ui-weight-semibold);
+    letter-spacing: var(--type-track-chrome);
+    text-transform: uppercase;
+    color: var(--ui-ink-muted);
+  }
+
+  .activity-day-count {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--type-track-normal);
+    text-transform: none;
+
+    /* NOT `--ui-ink-faint`. axe measured it at 3.5:1 here, and this is the
+     * third time that token has failed at a small size — AUTH-015, D2-a and
+     * now this. The token is gated at 3.0 for "meta text, large or
+     * non-essential"; an 11px count of how many things happened on a day is
+     * none of those. `--ui-ink-muted` measures 6.03:1. */
+    color: var(--ui-ink-muted);
+  }
+
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /*
+   * The lightest rule in the grammar, because it is the one that repeats.
+   * `foundation/structure.css`: a line that appears forty times must be the
+   * quietest line in the system, or the page becomes a grid.
+   */
+  .activity-item + .activity-item {
+    border-block-start: var(--rule-row);
+  }
+
+  .activity-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--ui-space-3);
+    padding-block: var(--ui-space-3);
+    min-inline-size: 0;
+  }
+
+  /*
+   * The marker. Deliberately NEUTRAL, whatever the action was.
+   *
+   * The first migration coloured it from the row's `data-tone` — green for a
+   * create, red for a delete — and screenshot review rejected it. On an audit
+   * trail an action is a FACT, not a status: a create is not good news and a
+   * delete is not an alarm, they are simply what somebody did. Colouring them
+   * is the witness having an opinion about the testimony it is holding, and
+   * `VISUAL_PRINCIPLES` §8 is explicit that colour confirms meaning and never
+   * creates it.
+   *
+   * This is the same rule the Pipeline section already settled: no status
+   * colour for lifecycle states. `data-tone` is left on the element because
+   * the glyph is still chosen from it, and because an export or a future
+   * filter may want to read it.
+   */
+  .activity-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    margin-block-start: 0.0625rem;
+
+    border: var(--rule-frame);
+    border-radius: var(--shape-control);
+    background: var(--ui-surface-sunken);
+    color: var(--ui-ink-muted);
+  }
+
+
+
+
+  .activity-body {
+    min-inline-size: 0;
+  }
+
+  .activity-headline {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    line-height: var(--ui-leading-relaxed);
+
+    /* CONTENT. An actor's name and a record's module both arrive from the
+     * database and may be Gujarati, so tracking is hard-zeroed here rather
+     * than inherited from anything. */
+    letter-spacing: 0;
+    color: var(--ui-ink);
+    overflow-wrap: anywhere;
+  }
+
+  .activity-actor {
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  /*
+   * The action word. Replaces the shared legacy `.badge badge--*`, which
+   * belonged to a stylesheet fifteen other routes still depend on — moving
+   * off it is how this route stops holding that sheet alive.
+   *
+   * A frame and a word, not a filled pill, and not tinted: the action is a
+   * fact about a record, and a coloured capsule would make it look like a
+   * status the user can act on. The word is the whole signal.
+   */
+  .activity-action {
+    display: inline-block;
+    padding: 0.0625rem var(--ui-space-2);
+
+    font-size: var(--ui-text-2xs);
+    font-weight: var(--ui-weight-semibold);
+    letter-spacing: var(--type-track-chrome);
+    text-transform: uppercase;
+    white-space: nowrap;
+    vertical-align: 0.05em;
+
+    border: 1px solid var(--ui-line);
+    border-radius: var(--shape-control);
+    color: var(--ui-ink-muted);
+  }
+
+
+
+
+  .activity-target {
+    color: var(--ui-ink);
+  }
+
+  /*
+   * Time and address. Monospace and tabular, because these are the two values
+   * a reader compares down the column by eye.
+   *
+   * The tracking on this line is for the TIME, which is digits the
+   * application formatted — safe by the same reasoning that permits
+   * `--type-track-figures`. It does NOT extend to the address, which is a
+   * value from a record. A probe caught it inheriting 0.44px before this
+   * split existed. The rule is about permission, not about detecting a
+   * script: content is untracked whether or not today's data happens to be
+   * Latin.
+   */
+  .activity-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0;
+
+    margin: var(--ui-space-1) 0 0;
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-2xs);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: var(--ui-ink-muted);
+  }
+
+  .activity-email {
+    /* CONTENT. Hard-zeroed rather than inherited, so it cannot pick up
+     * tracking from this container or any future one. */
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* =========================================================================
+   * DISCLOSURE
+   * =========================================================================
+   * A real <button> with aria-expanded and aria-controls. The panel is
+   * absent when collapsed, not hidden — two hundred rows of invisible field
+   * values is a lot for a screen reader to walk past.
+   * ====================================================================== */
+
+  .activity-disclosure {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ui-space-1);
+
+    /* The 44px floor applies: this is a standalone control, and on a phone it
+     * is the only interactive thing in the row. */
+    min-block-size: var(--ui-target-min);
+    margin-block-start: var(--ui-space-1);
+    padding: 0;
+
+    font: inherit;
+    font-size: var(--ui-text-2xs);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--type-track-chrome);
+    text-transform: uppercase;
+    color: var(--ui-ink-muted);
+
+    background: none;
+    border: 0;
+    cursor: pointer;
+
+    transition: color var(--t-attach) var(--e-state);
+  }
+
+  .activity-disclosure:hover {
+    color: var(--ui-ink-strong);
+  }
+
+  .activity-metadata {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: var(--ui-space-2) 0 0;
+    padding: var(--ui-space-2) var(--ui-space-3);
+
+    background: var(--ui-surface-sunken);
+    border-radius: var(--shape-control);
+  }
+
+  .activity-metadata-row {
+    display: grid;
+    grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr);
+    gap: var(--ui-space-3);
+    padding-block: var(--ui-space-2);
+    min-inline-size: 0;
+  }
+
+  .activity-metadata-row + .activity-metadata-row {
+    border-block-start: var(--rule-row);
+  }
+
+  .activity-metadata dt {
+    font-size: var(--ui-text-2xs);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--type-track-chrome);
+    text-transform: uppercase;
+    color: var(--ui-ink-muted);
+  }
+
+  .activity-metadata dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--ui-space-2);
+
+    margin: 0;
+    font-size: var(--ui-text-sm);
+
+    /* CONTENT — a stored value, of unknown script. Never tracked. */
+    letter-spacing: 0;
+    color: var(--ui-ink-strong);
+    overflow-wrap: anywhere;
+  }
+
+  /* A superseded value stays legible. Struck-through would say "wrong"; this
+   * value was true, and the record's job is to show that it changed. */
+  .activity-from {
+    color: var(--ui-ink-muted);
+  }
+
+  .activity-arrow {
+    flex: none;
+    color: var(--ui-ink-faint);
+  }
+
+  .activity-to {
+    font-weight: var(--ui-weight-medium);
+  }
+
+  /* =========================================================================
+   * FIELD DENSITY
+   * =========================================================================
+   * The same ledger, not a reduced one. Nothing is dropped — an audit trail
+   * that hides a column on a phone is an audit trail you cannot check from
+   * site. What changes is the padding and the metadata's two columns
+   * becoming one, because a 6rem label column on a 320px screen leaves the
+   * value 40 characters of room.
+   * ====================================================================== */
+
+  @media (max-width: 40rem) {
+    .ledger__head,
+    .ledger__filters,
+    .ledger__body {
+      padding-inline: var(--ui-space-4);
+    }
+
+    .ledger__filter-actions {
+      inline-size: 100%;
+    }
+
+    .ledger__filter-actions > * {
+      flex: 1 1 0;
+    }
+
+    .activity-metadata-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--ui-space-1);
+    }
+  }
+}

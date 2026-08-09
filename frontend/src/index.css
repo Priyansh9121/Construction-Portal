@@ -56,7 +56,6 @@
 @import "./styles/components/tables.css" layer(legacy);
 @import "./styles/components/tabs.css" layer(legacy);
 @import "./styles/components/modal.css" layer(legacy);
-@import "./styles/components/activity.css" layer(legacy);
 @import "./styles/components/portal.css" layer(legacy);
 
 /* 4. Pages ----------------------------------------------------------------- */

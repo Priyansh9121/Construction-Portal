@@ -152,13 +152,20 @@ const describeChange = (row) => {
     .join("  ·  ");
 };
 
+/*
+ * The API answers with a page and cannot report a total, so a full page and a
+ * truncated one are indistinguishable unless the interface says which it is.
+ * Named rather than inlined because the scope line has to quote it.
+ */
+const PAGE_LIMIT = 200;
+
 function ActivityPage() {
   const [moduleFilter, setModuleFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
 
   const load = useCallback(async () => {
     const { activity } = await getActivityLog({
-      limit: 200,
+      limit: PAGE_LIMIT,
       ...(moduleFilter ? { module: moduleFilter } : {}),
       ...(actionFilter ? { action: actionFilter } : {}),
     });
@@ -170,8 +177,35 @@ function ActivityPage() {
     data: rows,
     loading,
     error,
+    loadedAt,
     reload,
   } = useAsyncResource(load, { label: "activity" });
+
+  const filtered = Boolean(moduleFilter || actionFilter);
+
+  /*
+   * The scope, in words.
+   *
+   * `INTERACTION_LANGUAGE` §5.8: a ledger with an unstated scope is not
+   * evidence. Everything in this sentence is something the client can defend
+   * — the count it received, the filters it sent, and the moment a response
+   * landed. Nothing here is inferred.
+   */
+  const scope = useMemo(() => {
+    const parts = [];
+
+    parts.push(
+      moduleFilter
+        ? `changes to ${moduleFilter.replace(/_/g, " ")}`
+        : "changes across every module"
+    );
+
+    if (actionFilter) {
+      parts.push(`${actionFilter} only`);
+    }
+
+    return parts.join(", ");
+  }, [moduleFilter, actionFilter]);
 
   const exportRows = useMemo(
     () =>
@@ -188,14 +222,37 @@ function ActivityPage() {
 
   return (
     <>
-      <section className="panel">
-        <div className="section-title-row">
+      <section className="ledger">
+        <div className="ledger__head">
           <div>
-            <h2>Activity Log</h2>
+            <h2 className="ledger__title">Activity log</h2>
 
-            <p className="muted-text">
-              Who changed what, across payments, projects, worker money and
-              user management. Credentials are never recorded.
+            {/*
+              The scope statement. It replaces a descriptive blurb that said
+              what the route was FOR; this says what is on screen right now,
+              which is the thing a person auditing a change actually needs
+              before they read a single row.
+            */}
+            <p className="ledger__scope">
+              {rows.length > 0 ? (
+                <>
+                  <b>{rows.length}</b>
+                  {" most recent "}
+                  {scope}
+                  {". Credentials are never recorded."}
+                </>
+              ) : (
+                <>
+                  Showing {scope}. Credentials are never recorded.
+                </>
+              )}
+
+              {rows.length >= PAGE_LIMIT ? (
+                <span className="ledger__cap">
+                  This view stops at {PAGE_LIMIT} records, so older changes
+                  are not shown. Narrow it by module or action to reach them.
+                </span>
+              ) : null}
             </p>
           </div>
 
@@ -215,10 +272,12 @@ function ActivityPage() {
           />
         </div>
 
-        <div className="filter-row">
-          <label htmlFor="activity-module">
-            Module
+        <div className="ledger__filters">
+          <label className="ledger__filter" htmlFor="activity-module">
+            <span>Module</span>
+
             <select
+              className="field"
               id="activity-module"
               value={moduleFilter}
               onChange={(event) => setModuleFilter(event.target.value)}
@@ -233,9 +292,11 @@ function ActivityPage() {
             </select>
           </label>
 
-          <label htmlFor="activity-action">
-            Action
+          <label className="ledger__filter" htmlFor="activity-action">
+            <span>Action</span>
+
             <select
+              className="field"
               id="activity-action"
               value={actionFilter}
               onChange={(event) => setActionFilter(event.target.value)}
@@ -250,31 +311,99 @@ function ActivityPage() {
             </select>
           </label>
 
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={() => reload()}
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Refresh"}
-          </button>
+          <div className="ledger__filter-actions">
+            {/*
+              Clearing is its own action and undoes only its own effect
+              (§8.4). It appears only when there is something to clear —
+              a permanently-present control that does nothing most of the
+              time is one more thing to read past.
+            */}
+            {filtered ? (
+              <button
+                type="button"
+                className="ctl ctl--quiet"
+                onClick={() => {
+                  setModuleFilter("");
+                  setActionFilter("");
+                }}
+              >
+                Clear filters
+              </button>
+            ) : null}
+
+            {/*
+              The label does not change while it works. Replacing it removes
+              the only text confirming what is happening, at the moment the
+              user most wants it (§4.3). `disabled` is §4.2's first
+              exception — the same request already in flight — and it is
+              stated in words rather than left to look broken.
+            */}
+            <button
+              type="button"
+              className="ctl ctl--secondary"
+              onClick={() => reload()}
+              disabled={loading}
+              aria-busy={loading}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
-      </section>
 
-      <section className="panel">
-        {loading && <p className="muted-text">Loading activity...</p>}
+        <div className="ledger__body">
+          {/*
+            FAILURE, in the content region and above whatever survived it
+            (§10). Records already on screen are still true; this message is
+            about what could not be added to them, so it never replaces them
+            and never blanks the ledger.
+          */}
+          {error ? (
+            <p className="ledger__failure" role="alert">
+              {error}
+            </p>
+          ) : null}
 
-        {error && !loading && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+          {/*
+            STALE. Shown only when a refresh failed while records were
+            already on screen — that is the one condition under which this
+            view is knowably out of date. `loadedAt` is measured, never
+            assumed: a view that has never loaded has no time to quote.
+          */}
+          {error && rows.length > 0 && loadedAt ? (
+            <p className="ledger__stale">
+              Still showing what was read at{" "}
+              <time dateTime={loadedAt.toISOString()}>
+                {loadedAt.toLocaleTimeString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </time>
+              . Nothing recorded since then is included.
+            </p>
+          ) : null}
 
-        {!loading && !error && rows.length === 0 && (
-          <p className="muted-text">
-            Nothing recorded yet for this filter.
-          </p>
-        )}
+          {/*
+            LOADING. Only when there is nothing true to show — a refresh over
+            existing records never blanks them (§13), so the busy state lives
+            on the Refresh control instead and the ledger stays readable.
+          */}
+          {loading && rows.length === 0 && !error ? (
+            <p className="ledger__state">Reading the audit trail…</p>
+          ) : null}
+
+          {/*
+            EMPTY. It names what was searched, because "nothing found" and
+            "the search is broken" are otherwise indistinguishable, and on an
+            audit trail that difference matters a great deal (§8.2).
+          */}
+          {!loading && !error && rows.length === 0 ? (
+            <p className="ledger__state">
+              No <b>{scope}</b> have been recorded.
+              {filtered
+                ? " Clearing the filters will widen this."
+                : " Activity appears here as soon as anyone changes a record."}
+            </p>
+          ) : null}
 
         {/*
           The audit trail is a date-grouped stream, not a table.
@@ -290,7 +419,8 @@ function ActivityPage() {
           The same component serves both widths — the stream is already
           one column, so there is no separate mobile markup to drift.
         */}
-        {rows.length > 0 && <ActivityStream rows={rows} />}
+          {rows.length > 0 && <ActivityStream rows={rows} />}
+        </div>
       </section>
     </>
   );

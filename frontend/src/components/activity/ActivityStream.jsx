@@ -38,7 +38,8 @@
  *   aria-controls, so it works from the keyboard and announces its state.
  *   It is collapsed by default; the summary line above it already answers
  *   "who did what to which record".
- * - The action is a text badge, never colour alone.
+ * - The action is a word, never colour alone. It reads the row's `data-tone`
+ *   for its frame colour, but the word itself is the carrier.
  *
  * Important notes:
  * - Presentational. It performs no fetching, no filtering and no permission
@@ -188,7 +189,7 @@ function ActivityItem({ row }) {
       <div className="activity-body">
         <p className="activity-headline">
           <strong className="activity-actor">{row.user_name || "System"}</strong>{" "}
-          <span className={`badge badge--${tone}`}>{row.action}</span>{" "}
+          <span className="activity-action">{row.action}</span>{" "}
           <span className="activity-target">
             {row.module.replace(/_/g, " ")}
             {row.record_id != null ? ` #${row.record_id}` : ""}

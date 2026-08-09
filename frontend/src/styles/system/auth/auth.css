@@ -329,16 +329,19 @@
    * version rendered a filled button on top of the password.
    *
    * WHY THE CONTROL IS A WORD AND NOT AN EYE ICON
-   * The brief expected this to be the product's first icon consumer. It is
-   * not, and the reason is the same rule that governs every other primitive
-   * here: nothing is established before something needs it.
-   *
-   * An eye glyph would require inventing a whole icon grammar -- family,
-   * stroke weight, optical size, the crossed-out state -- for one control,
-   * and the crossed-eye is genuinely ambiguous: users disagree about whether
-   * it shows the current state or the action. "Show" and "Hide" are unambiguous
-   * in one word, need no legend, and localise. The icon system will be
-   * established by a surface that needs more than one icon.
+ * The original note here said an eye glyph would mean inventing an icon
+ * grammar the product did not have. That was wrong, and a later audit proved
+ * it: `components/ui/Icon.jsx` has carried a 36-glyph family on one 24-unit
+ * grid, at one stroke weight, in `currentColor`, since before this programme
+ * began -- and the shell beside this screen was already using it. The claim
+ * was made without checking.
+ *
+ * The decision survives its own bad reasoning, on the argument that always
+ * carried it: the crossed-eye is genuinely ambiguous -- users disagree about
+ * whether it names the current state or the action that will occur -- while
+ * "Show" and "Hide" cannot be misread, need no legend, and localise. A family
+ * being available makes an icon cheap to draw; it does not make it clearer
+ * than the word it would replace. See `VISUAL_PRINCIPLES` section 11.
    * ====================================================================== */
 
   /*
