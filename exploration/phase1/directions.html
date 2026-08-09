@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phase 1A — four construction-native directions</title>
+<style>
+  /* ── harness only; not production ─────────────────────────────── */
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:#1a1917;color:#fff;font:14px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+  .rail{padding:28px 32px;border-bottom:1px solid #333}
+  .rail h1{margin:0 0 4px;font-size:18px;letter-spacing:-.01em}
+  .rail p{margin:0;color:#a8aaa7;font-size:13px;max-width:70ch}
+  .dir{padding:32px}
+  .dir > header{margin-bottom:16px}
+  .dir h2{margin:0 0 2px;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#cbb8f5}
+  .dir .thesis{margin:0;color:#a8aaa7;font-size:13px;max-width:78ch}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  .frame{background:#fff;border-radius:6px;overflow:hidden;position:relative;height:440px}
+  .frame::after{content:attr(data-label);position:absolute;top:0;left:0;background:#1a1917;color:#fff;
+    font:600 9px/1 "IBM Plex Sans",sans-serif;letter-spacing:.1em;padding:5px 8px;z-index:99;text-transform:uppercase}
+  .in{width:100%;height:100%;overflow:hidden;position:relative}
+
+  /* ══ A · LIVE OPERATING SYSTEM ══════════════════════════════════ */
+  .a-login{height:100%;display:grid;grid-template-columns:1.15fr .85fr;background:#0f1211}
+  .a-scene{position:relative;overflow:hidden;background:linear-gradient(175deg,#12171a 0%,#1b2320 55%,#232b25 100%)}
+  .a-scene svg{position:absolute;inset:0;width:100%;height:100%}
+  .a-form{background:#fbfbfa;padding:34px 30px;display:flex;flex-direction:column;justify-content:center}
+  .a-form .mark{display:flex;align-items:center;gap:7px;margin-bottom:26px}
+  .a-form .dot{width:8px;height:8px;border-radius:50%;background:#5d28c8}
+  .a-form .nm{font:600 12px/1 sans-serif;color:#1a1917;letter-spacing:-.01em}
+  .a-form h3{margin:0 0 3px;font:600 21px/1.15 sans-serif;color:#1a1917;letter-spacing:-.02em}
+  .a-form .sub{margin:0 0 20px;font-size:12px;color:#5f6461}
+  .fld{margin-bottom:11px}
+  .fld label{display:block;font:500 10px/1 sans-serif;text-transform:uppercase;letter-spacing:.09em;color:#5f6461;margin-bottom:5px}
+  .fld i{display:block;height:34px;background:#fff;border:1px solid #cfd0cd;border-radius:7px}
+  .btn{height:36px;border-radius:7px;background:#5d28c8;color:#fff;display:flex;align-items:center;
+    justify-content:center;font:600 12px/1 sans-serif;margin-top:14px}
+
+  .a-dash{height:100%;background:#f6f6f4;padding:16px;overflow:hidden}
+  .a-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px}
+  .a-hd b{font:600 15px/1 sans-serif;color:#1a1917;letter-spacing:-.01em}
+  .a-hd span{font-size:10px;color:#5f6461}
+  .a-live{background:#fff;border-radius:11px;padding:12px;margin-bottom:9px;
+    box-shadow:0 1px 2px rgba(44,17,99,.05),0 8px 20px -6px rgba(44,17,99,.07)}
+  .a-live .lbl{font:500 9px/1 sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5f6461}
+  .a-figure{font:600 28px/1 sans-serif;color:#1a1917;letter-spacing:-.025em;margin:6px 0 3px;font-variant-numeric:tabular-nums}
+  .a-figure em{font-size:.6em;font-style:normal;font-weight:500}
+  .a-figure .s{font-size:.62em;vertical-align:.14em;font-weight:500}
+  .a-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .a-tile{background:#fff;border-radius:9px;padding:9px;position:relative;overflow:hidden}
+  .a-tile .t{font:500 8px/1 sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5f6461}
+  .a-tile .v{font:600 15px/1 sans-serif;color:#1a1917;margin-top:5px;font-variant-numeric:tabular-nums}
+  .a-prog{height:3px;background:#eeeeec;border-radius:2px;margin-top:7px;overflow:hidden}
+  .a-prog i{display:block;height:100%;background:#5d28c8;border-radius:2px}
+  .a-rows{margin-top:9px;background:#fff;border-radius:9px;overflow:hidden}
+  .a-row{display:flex;align-items:center;gap:8px;padding:8px 11px;border-bottom:1px solid #f0f0ee;font-size:11px}
+  .a-row:last-child{border-bottom:0}
+  .a-row .rail3{width:3px;height:20px;border-radius:1px;background:#b45309}
+  .a-row .nmx{color:#1a1917;font-weight:500;flex:1}
+  .a-row .mny{color:#1a1917;font-variant-numeric:tabular-nums}
+
+  /* ══ B · ARCHITECTURAL INSTRUMENT ═══════════════════════════════ */
+  .b-login{height:100%;display:grid;grid-template-columns:1fr .8fr;background:#f4f4f0}
+  .b-scene{position:relative;background:#f4f4f0;border-right:1px solid #1a1917}
+  .b-scene svg{position:absolute;inset:0;width:100%;height:100%}
+  .b-meta{position:absolute;left:14px;bottom:12px;font:500 8px/1.6 "IBM Plex Mono",monospace;
+    letter-spacing:.1em;text-transform:uppercase;color:#5f6461}
+  .b-form{padding:32px 28px;display:flex;flex-direction:column;justify-content:center;background:#f4f4f0}
+  .b-form .tag{font:500 8px/1 "IBM Plex Mono",monospace;letter-spacing:.16em;text-transform:uppercase;
+    color:#5f6461;margin-bottom:14px}
+  .b-form h3{margin:0 0 18px;font:600 20px/1.1 sans-serif;color:#0d0d0c;letter-spacing:-.025em}
+  .b-fld{margin-bottom:10px;border-bottom:1px solid #1a1917;padding-bottom:5px}
+  .b-fld label{display:block;font:500 8px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;
+    text-transform:uppercase;color:#5f6461;margin-bottom:6px}
+  .b-fld i{display:block;height:15px}
+  .b-btn{height:34px;background:#0d0d0c;color:#f4f4f0;display:flex;align-items:center;justify-content:center;
+    font:500 10px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;margin-top:16px}
+
+  .b-dash{height:100%;background:#f4f4f0;padding:0;overflow:hidden;
+    display:grid;grid-template-rows:auto auto 1fr;gap:1px;background-color:#d5d5cf}
+  .b-bar{background:#f4f4f0;padding:11px 14px;display:flex;justify-content:space-between;align-items:center}
+  .b-bar b{font:600 13px/1 sans-serif;color:#0d0d0c;letter-spacing:-.01em}
+  .b-bar span{font:500 8px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:#5f6461}
+  .b-hero{background:#f4f4f0;padding:14px}
+  .b-hero .k{font:500 8px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:#5f6461}
+  .b-hero .f{font:600 30px/1 sans-serif;color:#0d0d0c;letter-spacing:-.03em;margin-top:7px;font-variant-numeric:tabular-nums}
+  .b-hero .f .s{font-size:.6em;vertical-align:.16em;font-weight:500}
+  .b-hero .f em{font-size:.58em;font-style:normal;font-weight:500}
+  .b-hero .n{font:400 10px/1.4 sans-serif;color:#5f6461;margin-top:6px;max-width:44ch}
+  .b-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#d5d5cf}
+  .b-cell{background:#f4f4f0;padding:11px 14px}
+  .b-cell .k{font:500 8px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:#5f6461}
+  .b-cell .rowx{display:flex;justify-content:space-between;font-size:10px;color:#0d0d0c;padding:5px 0;
+    border-bottom:1px solid #e4e4de;font-variant-numeric:tabular-nums}
+  .b-cell .rowx:last-child{border-bottom:0}
+  .b-cell .rowx span:first-child{color:#5f6461}
+
+  /* ══ C · CINEMATIC SITE INTELLIGENCE ════════════════════════════ */
+  .c-login{height:100%;position:relative;background:#0b0e10;overflow:hidden}
+  .c-login svg{position:absolute;inset:0;width:100%;height:100%}
+  .c-vig{position:absolute;inset:0;background:
+    radial-gradient(120% 80% at 22% 40%,rgba(0,0,0,0) 30%,rgba(6,8,9,.82) 100%)}
+  .c-panel{position:absolute;right:26px;top:50%;transform:translateY(-50%);width:230px;
+    background:rgba(255,255,255,.94);border-radius:12px;padding:20px 18px;
+    box-shadow:0 20px 50px -12px rgba(0,0,0,.5)}
+  .c-panel h3{margin:0 0 3px;font:600 17px/1.15 sans-serif;color:#12140f;letter-spacing:-.02em}
+  .c-panel .sub{margin:0 0 15px;font-size:11px;color:#5f6461}
+  .c-cap{position:absolute;left:26px;bottom:22px;color:#e8e6df;max-width:38%}
+  .c-cap .e{font:500 8px/1 sans-serif;letter-spacing:.18em;text-transform:uppercase;opacity:.62}
+  .c-cap .h{font:600 21px/1.15 sans-serif;letter-spacing:-.025em;margin-top:7px}
+
+  .c-dash{height:100%;background:#f7f7f5;overflow:hidden}
+  .c-band{height:104px;position:relative;overflow:hidden;background:#0b0e10}
+  .c-band svg{position:absolute;inset:0;width:100%;height:100%}
+  .c-band .ov{position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,10,11,.9) 32%,rgba(8,10,11,.15) 100%)}
+  .c-band .tx{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#fff}
+  .c-band .tx .k{font:500 8px/1 sans-serif;letter-spacing:.16em;text-transform:uppercase;opacity:.6}
+  .c-band .tx .f{font:600 26px/1 sans-serif;letter-spacing:-.03em;margin-top:5px;font-variant-numeric:tabular-nums}
+  .c-band .tx .f .s{font-size:.6em;vertical-align:.16em;font-weight:500}
+  .c-band .tx .f em{font-size:.58em;font-style:normal;font-weight:500}
+  .c-body{padding:13px 15px}
+  .c-cards{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .c-card{background:#fff;border-radius:10px;padding:11px;box-shadow:0 1px 2px rgba(20,24,20,.05),0 6px 16px -6px rgba(20,24,20,.09)}
+  .c-card .k{font:500 8px/1 sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#5f6461}
+  .c-card .v{font:600 17px/1 sans-serif;color:#12140f;margin-top:6px;font-variant-numeric:tabular-nums}
+  .c-card .m{font-size:9px;color:#5f6461;margin-top:4px}
+  .c-list{margin-top:9px;background:#fff;border-radius:10px;padding:4px 0}
+  .c-li{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:10px}
+  .c-li .b{width:22px;height:22px;border-radius:6px;background:#f0efeb}
+  .c-li .n{flex:1;color:#12140f;font-weight:500}
+  .c-li .t{color:#5f6461;font-variant-numeric:tabular-nums}
+
+  /* ══ D · INDUSTRIAL PRODUCT OS ══════════════════════════════════ */
+  .d-login{height:100%;display:grid;grid-template-columns:1fr 300px;background:#e9e9e5}
+  .d-scene{position:relative;overflow:hidden;background:#dedcd6}
+  .d-scene svg{position:absolute;inset:0;width:100%;height:100%}
+  .d-form{background:#fff;padding:30px 26px;display:flex;flex-direction:column;justify-content:center;
+    border-left:3px solid #1a1917}
+  .d-form .tag{display:inline-flex;align-items:center;gap:5px;font:600 8px/1 sans-serif;letter-spacing:.14em;
+    text-transform:uppercase;color:#5f6461;margin-bottom:15px}
+  .d-form .tag i{width:14px;height:2px;background:#1a1917;display:block}
+  .d-form h3{margin:0 0 16px;font:600 22px/1.05 sans-serif;color:#111;letter-spacing:-.03em}
+  .d-fld{margin-bottom:9px}
+  .d-fld label{display:block;font:600 8px/1 sans-serif;letter-spacing:.12em;text-transform:uppercase;
+    color:#5f6461;margin-bottom:5px}
+  .d-fld i{display:block;height:36px;background:#f2f2ef;border:1.5px solid #c9c9c2;border-radius:3px}
+  .d-btn{height:40px;background:#1a1917;color:#fff;display:flex;align-items:center;justify-content:center;
+    font:600 11px/1 sans-serif;letter-spacing:.1em;text-transform:uppercase;border-radius:3px;margin-top:13px;
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.35)}
+
+  .d-dash{height:100%;background:#e9e9e5;padding:12px;overflow:hidden}
+  .d-top{display:flex;gap:9px;margin-bottom:9px}
+  .d-main{flex:1.5;background:#fff;border-radius:4px;padding:13px;border:1.5px solid #d2d2ca}
+  .d-main .k{font:600 8px/1 sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#5f6461}
+  .d-main .f{font:600 29px/1 sans-serif;color:#111;letter-spacing:-.03em;margin-top:7px;font-variant-numeric:tabular-nums}
+  .d-main .f .s{font-size:.6em;vertical-align:.16em;font-weight:500}
+  .d-main .f em{font-size:.58em;font-style:normal;font-weight:500}
+  .d-side{flex:1;display:flex;flex-direction:column;gap:9px}
+  .d-chip{background:#fff;border:1.5px solid #d2d2ca;border-radius:4px;padding:9px 11px}
+  .d-chip .k{font:600 8px/1 sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5f6461}
+  .d-chip .v{font:600 16px/1 sans-serif;color:#111;margin-top:5px;font-variant-numeric:tabular-nums}
+  .d-tbl{background:#fff;border:1.5px solid #d2d2ca;border-radius:4px;overflow:hidden}
+  .d-th{display:grid;grid-template-columns:1fr 70px 60px;gap:8px;padding:7px 11px;background:#f4f4f1;
+    border-bottom:1.5px solid #d2d2ca;font:600 8px/1 sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5f6461}
+  .d-tr{display:grid;grid-template-columns:1fr 70px 60px;gap:8px;padding:8px 11px;border-bottom:1px solid #ededea;
+    font-size:10px;color:#111;align-items:center}
+  .d-tr:last-child{border-bottom:0}
+  .d-tr .mny{font-variant-numeric:tabular-nums;text-align:right}
+  .d-badge{font:600 8px/1 sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#5f6461;
+    border:1px solid #c9c9c2;border-radius:2px;padding:3px 5px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="rail">
+  <h1>Phase 1A — four construction-native directions</h1>
+  <p>Same product, same data, same five questions. Each direction has its own visual thesis, material model,
+     composition philosophy and construction identity. Isolated from production; no route was modified.</p>
+</div>
+
+<!-- ════════ A ════════ -->
+<section class="dir">
+  <header>
+    <h2>A · Live construction operating system</h2>
+    <p class="thesis">Thesis: the company is running right now, and the interface shows it.
+      Identity from operational movement — progress that advances, deadlines that close in, work that arrives.
+      Ambient scene is decorative; every moving figure is real data.</p>
+  </header>
+  <div class="pair">
+    <div class="frame" data-label="A · login"><div class="in">
+      <div class="a-login">
+        <div class="a-scene">
+          <svg viewBox="0 0 420 440" preserveAspectRatio="xMidYMid slice">
+            <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#6f3ddb" stop-opacity=".30"/><stop offset="1" stop-color="#6f3ddb" stop-opacity="0"/>
+            </linearGradient></defs>
+            <g stroke="#4a5a52" stroke-width="1" fill="none" opacity=".55">
+              <path d="M0 330 H420 M0 268 H420 M0 206 H420"/>
+              <path d="M70 440 V150 M150 440 V186 M230 440 V150 M310 440 V186"/>
+            </g>
+            <!-- structure rising: frame assembles bottom-up -->
+            <g fill="url(#ag)" stroke="#8b6ce0" stroke-width="1.2">
+              <rect x="70" y="206" width="80" height="124"/><rect x="150" y="268" width="80" height="62"/>
+              <rect x="230" y="150" width="80" height="180"/><rect x="310" y="268" width="70" height="62"/>
+            </g>
+            <!-- crane -->
+            <g stroke="#c9b6f5" stroke-width="1.6" fill="none">
+              <path d="M255 150 V56 M186 74 H340 M255 56 L200 74 M255 56 L318 74"/>
+              <path d="M296 74 V104"/><rect x="288" y="104" width="17" height="12" fill="#c9b6f5" opacity=".85" stroke="none"/>
+            </g>
+            <circle cx="296" cy="74" r="3" fill="#e6dcff"/>
+          </svg>
+        </div>
+        <div class="a-form">
+          <div class="mark"><span class="dot"></span><span class="nm">Construction Portal</span></div>
+          <h3>Sign in</h3><p class="sub">Site and office operations</p>
+          <div class="fld"><label>Email</label><i></i></div>
+          <div class="fld"><label>Password</label><i></i></div>
+          <div class="btn">Sign in</div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="frame" data-label="A · dashboard"><div class="in">
+      <div class="a-dash">
+        <div class="a-hd"><b>Good morning, Priyansh</b><span>3 need you</span></div>
+        <div class="a-live">
+          <div class="lbl">Cash position</div>
+          <div class="a-figure"><span class="s">₹</span>24,80,500<em>.00</em></div>
+          <div style="font-size:10px;color:#5f6461">After ₹3,10,000 GST and ₹42,000 charge owed</div>
+        </div>
+        <div class="a-strip">
+          <div class="a-tile"><div class="t">Metro Depot</div><div class="v">62%</div><div class="a-prog"><i style="width:62%"></i></div></div>
+          <div class="a-tile"><div class="t">Riverside P2</div><div class="v">31%</div><div class="a-prog"><i style="width:31%"></i></div></div>
+          <div class="a-tile"><div class="t">Due in 7d</div><div class="v">2</div><div class="a-prog"><i style="width:100%;background:#b45309"></i></div></div>
+        </div>
+        <div class="a-rows">
+          <div class="a-row"><span class="rail3"></span><span class="nmx">Sharma &amp; Co — tender</span><span class="mny">₹12,50,000</span></div>
+          <div class="a-row"><span class="rail3" style="background:#b91c1c"></span><span class="nmx">INV 2481 overdue</span><span class="mny">₹1,82,400</span></div>
+          <div class="a-row"><span class="rail3" style="background:#cfd0cd"></span><span class="nmx">Raj Patel — daily update</span><span class="mny">Approve</span></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ════════ B ════════ -->
+<section class="dir">
+  <header>
+    <h2>B · Architectural instrument</h2>
+    <p class="thesis">Thesis: built by people who read drawings. Identity from measured geometry, visible
+      compartmentalisation and hairline structure — a schedule sheet, not a dashboard. Matte substrate,
+      carbon ink, monospace for metadata, 90° corners, no decorative colour.</p>
+  </header>
+  <div class="pair">
+    <div class="frame" data-label="B · login"><div class="in">
+      <div class="b-login">
+        <div class="b-scene">
+          <svg viewBox="0 0 400 440" preserveAspectRatio="xMidYMid slice">
+            <g stroke="#c6c6bd" stroke-width=".5" fill="none">
+              <path d="M0 55 H400 M0 110 H400 M0 165 H400 M0 220 H400 M0 275 H400 M0 330 H400 M0 385 H400"/>
+              <path d="M55 0 V440 M110 0 V440 M165 0 V440 M220 0 V440 M275 0 V440 M330 0 V440"/>
+            </g>
+            <!-- orthographic elevation, drawn as measured linework -->
+            <g stroke="#1a1917" stroke-width="1.15" fill="none">
+              <path d="M85 330 H315 M85 330 V190 H165 V140 H235 V190 H315 V330"/>
+              <path d="M85 275 H315 M85 220 H165 M235 220 H315 M165 190 V330 M235 190 V330"/>
+              <path d="M118 275 V330 M282 275 V330"/>
+            </g>
+            <g stroke="#1a1917" stroke-width=".6" fill="none">
+              <path d="M60 330 H74 M60 190 H74 M67 330 V190"/>
+              <path d="M64 192 L67 186 L70 192 M64 328 L67 334 L70 328"/>
+            </g>
+            <text x="34" y="264" fill="#5f6461" font-family="IBM Plex Mono,monospace" font-size="7"
+                  letter-spacing="1" transform="rotate(-90 34 264)">4200 MM</text>
+            <g stroke="#1a1917" stroke-width=".5"><path d="M200 128 V118 M195 123 H205"/></g>
+          </svg>
+          <div class="b-meta">Sheet A-01 · Rev 3<br>Elevation / north</div>
+        </div>
+        <div class="b-form">
+          <div class="tag">Construction Portal</div>
+          <h3>Sign in</h3>
+          <div class="b-fld"><label>Email</label><i></i></div>
+          <div class="b-fld"><label>Password</label><i></i></div>
+          <div class="b-btn">Sign in</div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="frame" data-label="B · dashboard"><div class="in">
+      <div class="b-dash">
+        <div class="b-bar"><b>Operations</b><span>09 Aug 2026 · 3 open</span></div>
+        <div class="b-hero">
+          <div class="k">Cash position</div>
+          <div class="f"><span class="s">₹</span>24,80,500<em>.00</em></div>
+          <div class="n">After ₹3,10,000 GST and ₹42,000 company charge still owed.</div>
+        </div>
+        <div class="b-grid">
+          <div class="b-cell"><div class="k">Needs you</div>
+            <div class="rowx"><span>INV 2481 · overdue</span><span>₹1,82,400</span></div>
+            <div class="rowx"><span>Metro Depot · due 3d</span><span>₹12,50,000</span></div>
+            <div class="rowx"><span>Raj Patel · update</span><span>Approve</span></div>
+          </div>
+          <div class="b-cell"><div class="k">In progress</div>
+            <div class="rowx"><span>Metro Depot Ext.</span><span>62%</span></div>
+            <div class="rowx"><span>Riverside Phase 2</span><span>31%</span></div>
+            <div class="rowx"><span>Committed</span><span>₹45,20,000</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ════════ C ════════ -->
+<section class="dir">
+  <header>
+    <h2>C · Cinematic site intelligence</h2>
+    <p class="thesis">Thesis: construction at scale, expression concentrated in a few high-value moments.
+      Dark cinematic auth and a dark dashboard band; office surfaces stay light and efficient.
+      Highest screenshot value, highest cost and highest risk of a dark band reading as a paste-in.</p>
+  </header>
+  <div class="pair">
+    <div class="frame" data-label="C · login"><div class="in">
+      <div class="c-login">
+        <svg viewBox="0 0 560 440" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#16202a"/><stop offset=".55" stop-color="#243141"/><stop offset="1" stop-color="#4a3b32"/>
+            </linearGradient>
+            <linearGradient id="hz" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#f0a860" stop-opacity=".0"/><stop offset=".62" stop-color="#f0a860" stop-opacity=".40"/>
+              <stop offset="1" stop-color="#f0a860" stop-opacity=".05"/>
+            </linearGradient>
+          </defs>
+          <rect width="560" height="440" fill="url(#sky)"/>
+          <ellipse cx="380" cy="330" rx="230" ry="80" fill="url(#hz)"/>
+          <!-- layered skyline silhouettes, near→far -->
+          <g fill="#101822" opacity=".72">
+            <rect x="30" y="238" width="52" height="130"/><rect x="96" y="272" width="40" height="96"/>
+            <rect x="420" y="252" width="56" height="116"/><rect x="490" y="286" width="44" height="82"/>
+          </g>
+          <g fill="#0a1017">
+            <rect x="150" y="196" width="86" height="172"/><rect x="248" y="228" width="66" height="140"/>
+            <rect x="326" y="176" width="74" height="192"/>
+          </g>
+          <g stroke="#1d2833" stroke-width="1" opacity=".85">
+            <path d="M150 232 H236 M150 268 H236 M150 304 H236 M248 264 H314 M248 300 H314 M326 212 H400 M326 248 H400 M326 284 H400"/>
+          </g>
+          <!-- tower crane over the tallest core -->
+          <g stroke="#2b3947" stroke-width="1.8" fill="none">
+            <path d="M363 176 V70 M292 88 H452 M363 70 L306 88 M363 70 L432 88"/>
+            <path d="M410 88 V126"/>
+          </g>
+          <rect x="401" y="126" width="19" height="13" fill="#2b3947"/>
+          <circle cx="410" cy="88" r="2.6" fill="#f0c18a"/>
+          <g fill="#f5d9a8" opacity=".55">
+            <rect x="166" y="248" width="5" height="7"/><rect x="188" y="284" width="5" height="7"/>
+            <rect x="342" y="228" width="5" height="7"/><rect x="372" y="300" width="5" height="7"/>
+          </g>
+        </svg>
+        <div class="c-vig"></div>
+        <div class="c-cap">
+          <div class="e">Construction Portal</div>
+          <div class="h">Every day on site,<br>recorded as evidence.</div>
+        </div>
+        <div class="c-panel">
+          <h3>Sign in</h3><p class="sub">Site and office operations</p>
+          <div class="fld"><label>Email</label><i></i></div>
+          <div class="fld"><label>Password</label><i></i></div>
+          <div class="btn">Sign in</div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="frame" data-label="C · dashboard"><div class="in">
+      <div class="c-dash">
+        <div class="c-band">
+          <svg viewBox="0 0 560 104" preserveAspectRatio="xMidYMid slice">
+            <rect width="560" height="104" fill="#101821"/>
+            <g fill="#0a1017"><rect x="300" y="30" width="60" height="74"/><rect x="376" y="12" width="52" height="92"/>
+              <rect x="444" y="44" width="46" height="60"/></g>
+            <g stroke="#22303d" stroke-width="1"><path d="M300 56 H360 M376 44 H428 M376 74 H428 M444 74 H490"/></g>
+            <g stroke="#2b3947" stroke-width="1.4" fill="none"><path d="M402 12 V-16 M356 -4 H452"/></g>
+          </svg>
+          <div class="ov"></div>
+          <div class="tx"><div class="k">Cash position</div>
+            <div class="f"><span class="s">₹</span>24,80,500<em>.00</em></div></div>
+        </div>
+        <div class="c-body">
+          <div class="c-cards">
+            <div class="c-card"><div class="k">Needs you</div><div class="v">3</div><div class="m">1 overdue · 2 due this week</div></div>
+            <div class="c-card"><div class="k">Committed</div><div class="v">₹45,20,000</div><div class="m">2 projects running</div></div>
+          </div>
+          <div class="c-list">
+            <div class="c-li"><span class="b"></span><span class="n">INV 2481 · Sharma &amp; Co</span><span class="t">₹1,82,400</span></div>
+            <div class="c-li"><span class="b"></span><span class="n">Metro Depot · due in 3 days</span><span class="t">₹12,50,000</span></div>
+            <div class="c-li"><span class="b"></span><span class="n">Raj Patel · daily update</span><span class="t">14 min</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ════════ D ════════ -->
+<section class="dir">
+  <header>
+    <h2>D · Industrial product OS</h2>
+    <p class="thesis">Thesis: serious equipment for physical work. Identity from robustness and response —
+      heavier strokes, deliberate bezels, physical press feedback, tabular density. Influenced by field
+      instrumentation rather than office software. Highest daylight legibility, lowest cinematic value.</p>
+  </header>
+  <div class="pair">
+    <div class="frame" data-label="D · login"><div class="in">
+      <div class="d-login">
+        <div class="d-scene">
+          <svg viewBox="0 0 380 440" preserveAspectRatio="xMidYMid slice">
+            <rect width="380" height="440" fill="#dedcd6"/>
+            <g stroke="#c3c1b9" stroke-width="1"><path d="M0 88 H380 M0 176 H380 M0 264 H380 M0 352 H380 M95 0 V440 M190 0 V440 M285 0 V440"/></g>
+            <!-- stacked material layers: strata assembling -->
+            <g fill="#1a1917"><rect x="58" y="330" width="264" height="26"/></g>
+            <g fill="#3f3d38"><rect x="76" y="296" width="228" height="26"/></g>
+            <g fill="#6b6862"><rect x="94" y="262" width="192" height="26"/></g>
+            <g fill="#96938b"><rect x="112" y="228" width="156" height="26"/></g>
+            <g fill="#bfbcb3"><rect x="130" y="194" width="120" height="26"/></g>
+            <g stroke="#1a1917" stroke-width="2" fill="none"><path d="M40 372 H340"/></g>
+            <g stroke="#1a1917" stroke-width="1.2" fill="none">
+              <path d="M190 194 V150 M160 162 H220"/><rect x="205" y="162" width="14" height="10" fill="#1a1917"/>
+            </g>
+          </svg>
+        </div>
+        <div class="d-form">
+          <div class="tag"><i></i>Construction Portal</div>
+          <h3>Sign in</h3>
+          <div class="d-fld"><label>Email</label><i></i></div>
+          <div class="d-fld"><label>Password</label><i></i></div>
+          <div class="d-btn">Sign in</div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="frame" data-label="D · dashboard"><div class="in">
+      <div class="d-dash">
+        <div class="d-top">
+          <div class="d-main"><div class="k">Cash position</div>
+            <div class="f"><span class="s">₹</span>24,80,500<em>.00</em></div>
+            <div style="font-size:10px;color:#5f6461;margin-top:6px">After ₹3,10,000 GST and ₹42,000 charge owed</div>
+          </div>
+          <div class="d-side">
+            <div class="d-chip"><div class="k">Needs you</div><div class="v">3</div></div>
+            <div class="d-chip"><div class="k">Committed</div><div class="v">₹45,20,000</div></div>
+          </div>
+        </div>
+        <div class="d-tbl">
+          <div class="d-th"><span>Item</span><span style="text-align:right">Value</span><span style="text-align:center">State</span></div>
+          <div class="d-tr"><span>INV 2481 · Sharma &amp; Co</span><span class="mny">₹1,82,400</span><span class="d-badge">Overdue</span></div>
+          <div class="d-tr"><span>Metro Depot Extension</span><span class="mny">₹12,50,000</span><span class="d-badge">Due 3d</span></div>
+          <div class="d-tr"><span>Riverside Phase 2</span><span class="mny">₹32,70,000</span><span class="d-badge">Running</span></div>
+          <div class="d-tr"><span>Raj Patel · daily update</span><span class="mny">—</span><span class="d-badge">Approve</span></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+</body>
+</html>
