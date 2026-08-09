@@ -6,6 +6,11 @@ Sits below `PRODUCT_SOUL.md` and above `VISUAL_IDENTITY.md`. The soul document
 says what the product believes. This one says what those beliefs require of
 anything the user can see — on any page, in any release, after any redesign.
 
+`EXPERIENCE_LANGUAGE.md` is its companion and answers a different question: not
+what the product looks like, but what it is like to be in. Where this document
+governs the frame, that one governs time, waiting, stillness and arrival.
+Neither outranks the other; a decision usually needs both.
+
 Nothing here is specific to a screen. If a law below stops being true because a
 page changed, the page is wrong.
 

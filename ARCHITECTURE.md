@@ -34,6 +34,12 @@ each is rebuilt — not as a single up-front deletion.
 
 ---
 
+**`EXPERIENCE_LANGUAGE.md` governs anything that happens over time** — motion,
+waiting, stillness, arrival, ambient behaviour and the run-time AI gate. It is
+why there is no ambient motion anywhere in the workspace, and why a wait is
+either invisible, shaped, or named. Timing questions are answered there before
+they are answered here.
+
 ## Behavioural contracts
 
 Class names and attributes that JavaScript, tests or the browser depend on.
