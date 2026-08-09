@@ -2,7 +2,7 @@
 
 The visual constitution of the product.
 
-Sits below `PRODUCT_SOUL.md` and above `DESIGN_DIRECTION.md`. The soul document
+Sits below `PRODUCT_SOUL.md` and above `VISUAL_IDENTITY.md`. The soul document
 says what the product believes. This one says what those beliefs require of
 anything the user can see — on any page, in any release, after any redesign.
 
@@ -560,9 +560,10 @@ should differ — Taste satisfied. Things that answer the same question never
 differ — Impeccable satisfied. Neither is diluted, because the disagreement was
 never really about variation; it was about what licenses it.
 
-**21st.dev** — contributed nothing, as recorded in `DESIGN_DIRECTION.md`. Its
-corpus answers *what is currently common*, which §14 explicitly rejects as a
-reason to do anything. Noted here so the absence is not mistaken for an
+**21st.dev** — contributed nothing. Searched during direction exploration and
+returned marketing heroes and stat-card grids at low confidence; nothing was
+adopted. Its corpus answers *what is currently common*, which §14 explicitly
+rejects as a reason to do anything. Noted so the absence is not mistaken for an
 oversight.
 
 **External research beyond the above** — none, and none required. Every
