@@ -50,6 +50,33 @@ documented at its definition site; this is the index.
 | `view-transition-name` on `.page-content` | `styles/system/shell/page-content.css` | route transitions; its keyframes still live in `styles/v2/core/motion.css` |
 | `data-material` | `styles/system/core/material.css` | elevation is applied from **state**, so it can be revoked when an object stops needing judgement |
 
+### Script safety — the tracking rule
+
+**Tracking belongs to chrome. It is never applied to content.**
+
+Wide letter-spacing pulls Gujarati conjuncts apart; negative tracking
+compresses them. Both break the script.
+
+`:lang(gu)` cannot be the guard on its own: `index.html` declares `lang="en"`
+and Gujarati arrives as **inline data** — a site name, a worker's name, a
+material description typed on site — with no lang attribute, and the backend
+that would supply per-field language metadata is frozen.
+
+So the rule is enforced by *where* tracking is permitted, in
+`styles/system/foundation/type.css`:
+
+- `--type-track-chrome` — UI strings the application owns. `:lang(gu)` zeroes it.
+- `--type-track-figures` — digits only, which are never Gujarati.
+- Everything else, including display and section headings, is untracked.
+
+`tools/fresh_ui/gujarati_type_probe.mjs` proves it at 390 / 768 / 1440,
+including a measurement that tracking genuinely distorts Gujarati (+23px on a
+146px string) so the rule is demonstrated rather than assumed.
+
+Monospace is scoped to mechanical values — timestamps, identifiers, sheet
+references — and never renders content: IBM Plex Mono has no Gujarati coverage,
+so a Gujarati string inside a mono run falls back mid-line.
+
 Roughly 93 distinct selectors are referenced by `tests/` and
 `tools/fresh_ui/`. Run the suite before renaming anything in the shell.
 
