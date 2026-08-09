@@ -50,6 +50,42 @@ documented at its definition site; this is the index.
 | `view-transition-name` on `.page-content` | `styles/system/shell/page-content.css` | route transitions; its keyframes still live in `styles/v2/core/motion.css` |
 | `data-material` | `styles/system/core/material.css` | elevation is applied from **state**, so it can be revoked when an object stops needing judgement |
 
+### Authentication — scene and transition
+
+Authentication is the only cinematic surface. `styles/system/auth/scene.css`
+owns a five-layer architecture — sky, distance, structure, rig, veil — each
+with one responsibility. The **veil** is the legibility guarantee: it darkens
+toward the content side so form contrast is measured against a known value
+rather than against whatever pixel sits behind it, which means changing the
+artwork is not a fresh accessibility audit.
+
+Inline SVG, not video/GIF/canvas/WebGL. **The scene must never be a
+precondition for signing in** — canvas needs JS to paint, video needs a request
+and a decode, WebGL needs a context and a shader compile. SVG paints with the
+first frame of HTML.
+
+Ambient motion is one element: the crane, 48s per sweep, `transform` only.
+
+**`utils/authTransition.js` makes "authentication never waits for animation"
+structural rather than a discipline.** `runAuthTransition(commit)` calls
+`commit` synchronously, before a frame is scheduled — token storage, role
+resolution and navigation all happen there. Every failure path (no View
+Transitions support, a thrown transition, a missing callback) has already
+committed. The module never sees a role or a route, so the grammar is identical
+for Admin, Manager, Worker and Subcontractor and there is no branch to add one
+to.
+
+**The dark→light moment resolves through continuity, not a cross-fade.** The
+scene's structural lines and the shell's hairlines are the same visual
+language, so the veil lifts, the ground lightens from `--auth-sky-deep` to
+`--ui-canvas`, silhouettes fade — and the linework is deliberately given no
+transition at all. The light comes up on structure that was already there. The
+sky is not pure black and the canvas is not pure white, precisely so neither
+end is a flash.
+
+`tools/fresh_ui/auth_transition_probe.mjs` asserts all of it in both motion
+modes.
+
 ### Motion — the spring rule
 
 **Springs are permitted only where the pointer is *continuously* driving the

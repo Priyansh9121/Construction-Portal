@@ -1,0 +1,194 @@
+/*
+ * ===========================================================================
+ * AUTH SCENE — the cinematic layer architecture
+ * ===========================================================================
+ *
+ * Authentication is the only cinematic surface in the product. This file owns
+ * the architecture; it does not own any particular skyline. Login supplies the
+ * artwork and assembles it from these layers.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * FIVE LAYERS, ONE RESPONSIBILITY EACH
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ *   sky         the ground the scene sits on. Gradient only, no shapes.
+ *   distance    far silhouettes. Lowest contrast, no detail, never animated.
+ *   structure   the subject: buildings under construction, floor lines.
+ *   rig         the crane. The ONLY layer permitted ambient motion.
+ *   veil        atmosphere and the legibility guarantee — see below.
+ *
+ * A layer that needs to do two of these is two layers.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE VEIL IS NOT DECORATION
+ * ─────────────────────────────────────────────────────────────────────────
+ * It is what makes the form readable over an image, and it is why the scene
+ * can be rich without the form becoming a contrast problem. It darkens toward
+ * wherever content sits, so the form's own contrast is measured against a
+ * known value rather than against whatever pixel happens to be behind it.
+ *
+ * Without it, every artwork change would be a fresh accessibility audit.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY SVG AND NOT VIDEO, GIF, CANVAS OR WEBGL
+ * ─────────────────────────────────────────────────────────────────────────
+ * Confirmed against the alternatives rather than assumed:
+ *
+ *   video/GIF  a decode cost and a network request before a worker on a
+ *              slow connection can type a password. Also fixed resolution.
+ *   canvas     needs JS to paint, so the scene cannot render before hydration
+ *              — the form would appear on an empty background.
+ *   WebGL      a context, a shader compile and a GPU dependency for a still
+ *              image with one moving element.
+ *   SVG        inline, no request, resolution-independent, styleable by the
+ *              same tokens as everything else, and it paints with the first
+ *              frame of HTML.
+ *
+ * The scene must never be a precondition for signing in.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * AMBIENT MOTION
+ * ─────────────────────────────────────────────────────────────────────────
+ * One element moves: the crane, at 48 seconds a sweep. That is slow enough to
+ * be noticed only if looked at, which is the intent — the form is the task.
+ * `transform` only, so it composites and costs no layout.
+ *
+ * REJECTED from `high-end-visual-design`: staggered scroll-reveal entrances
+ * and heavy blur transitions. There is no scroll on this surface, and a form
+ * that assembles itself delays the only thing the user came to do.
+ */
+
+:root {
+  /*
+   * Auth-owned colour. Namespaced because these exist nowhere else in the
+   * product -- the application is light-first and never uses them.
+   *
+   * The deep sky is not black: a true black scene makes the dark-to-light
+   * transition a hard cut no easing can soften, and it reads as a void rather
+   * than as dusk.
+   */
+  --auth-sky-deep: #0d1114;
+  --auth-sky-mid: #26333f;
+  --auth-sky-warm: #4a3b31;
+  --auth-ink: #e9e7e0;
+
+  /* Veil base, as channels so alpha can vary per stop. */
+  --auth-veil-rgb: 13 17 20;
+
+  /* The one warm accent in the scene: low sun on structure. Never used as an
+   * interface colour -- it is light, not identity. */
+  --auth-glow: #efa863;
+}
+
+@layer system-components {
+  /*
+   * The stage. Establishes the stacking context and the dark scheme, so the
+   * focus system's dark companion activates without Login setting it.
+   */
+  .auth-scene {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--auth-sky-deep);
+    color: var(--auth-ink);
+  }
+
+  .auth-scene__layer {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    pointer-events: none;
+  }
+
+  .auth-scene__layer > svg {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+  }
+
+  /* Depth ordering. Named rather than numbered so a new layer cannot be
+   * inserted without deciding what it is. */
+  .auth-scene__layer[data-layer="sky"] { z-index: 0; }
+  .auth-scene__layer[data-layer="distance"] { z-index: 1; }
+  .auth-scene__layer[data-layer="structure"] { z-index: 2; }
+  .auth-scene__layer[data-layer="rig"] { z-index: 3; }
+  .auth-scene__layer[data-layer="veil"] { z-index: 4; }
+
+  /* Content sits above every layer. */
+  .auth-scene__content {
+    position: relative;
+    z-index: 5;
+  }
+
+  /*
+   * The legibility guarantee. Content-side darkening, so contrast is measured
+   * against a known value instead of against the artwork.
+   */
+  .auth-scene__layer[data-layer="veil"] {
+    background:
+      linear-gradient(
+        var(--auth-veil-angle, 90deg),
+        rgb(var(--auth-veil-rgb) / 0.88) 0%,
+        rgb(var(--auth-veil-rgb) / 0.55) 42%,
+        rgb(var(--auth-veil-rgb) / 0.1) 100%
+      );
+  }
+
+  /*
+   * Ambient motion. One element, one property, very slow.
+   */
+  .auth-rig {
+    transform-origin: var(--auth-rig-origin, 62% 22%);
+    animation: auth-rig-sweep 48s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  @keyframes auth-rig-sweep {
+    from { transform: rotate(-1.1deg); }
+    to { transform: rotate(1.1deg); }
+  }
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ * MOBILE — reduction, not scaling
+ * ─────────────────────────────────────────────────────────────────────────
+ * The desktop artwork is not shrunk. Detail that reads at 1440 becomes noise
+ * at 390, so the distance layer is dropped entirely and the scene occupies a
+ * band above the form rather than sitting behind it.
+ *
+ * Identity survives because it lives in the structure and rig layers, which
+ * remain.
+ */
+@media (max-width: 48rem) {
+  @layer system-components {
+    .auth-scene__layer[data-layer="distance"] {
+      display: none;
+    }
+
+    /* Above the form, not behind it: at this width a form over artwork is a
+     * contrast problem no veil fully solves. */
+    .auth-scene__layer[data-layer="veil"] {
+      --auth-veil-angle: 180deg;
+    }
+  }
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ * REDUCED MOTION — the same scene, authored still
+ * ─────────────────────────────────────────────────────────────────────────
+ * Not "animation: none" on a composition designed to move. The rig is parked
+ * at the midpoint of its sweep, which is the position the scene was composed
+ * around, so the still frame is the intended one rather than an arbitrary
+ * frame zero.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .auth-rig {
+      animation: none;
+      transform: rotate(0deg);
+    }
+  }
+}
