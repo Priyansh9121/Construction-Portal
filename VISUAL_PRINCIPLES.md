@@ -372,6 +372,28 @@ The test for whether a component is right is not whether it looks good. It is:
 A component that cannot answer these has not been designed yet, regardless of
 how finished it looks.
 
+### A symbol is not free
+
+**A control is labelled with a word until a symbol system already exists to
+draw it from.**
+
+An icon looks cheaper than a word and is not. One glyph obliges the product to
+answer a family, a stroke weight, an optical size, a negated form and a
+localised meaning — and to answer them consistently everywhere afterwards.
+Establishing all of that for a single control is how a product acquires an icon
+set that nobody designed, assembled one emergency at a time.
+
+There is a second cost, and it is the one that decides borderline cases: a
+symbol standing alone must communicate whether it names the **current state**
+or the **resulting action**, and many of the most familiar ones do not. The
+crossed-out eye is the standard example — half of all users read it as "the
+password is hidden" and half as "press to hide". A word cannot be misread that
+way.
+
+So the order is: a word first; a symbol when there are enough of them for a
+grammar; a symbol with a word when the control is dense or the word is long.
+Never a symbol because a word looked plain.
+
 ---
 
 ## 12. Consistency
@@ -501,7 +523,8 @@ Short enough to remember. Specific enough to reject an idea with.
 14. **Nothing is celebrated for having merely happened.**
 15. **Surprise is a defect; therefore delight is never surprise.**
 16. **Every surface must be able to name its material.**
-17. **No visual decision may contradict `PRODUCT_SOUL.md`.**
+17. **A word until a symbol grammar exists; never a symbol because a word looked plain.**
+18. **No visual decision may contradict `PRODUCT_SOUL.md`.**
 
 ---
 

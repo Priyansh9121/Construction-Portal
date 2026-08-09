@@ -140,12 +140,16 @@ function ResetPasswordPage() {
 
   return (
     <AuthShell
-      eyebrow="Account Recovery"
+      eyebrow="Account recovery"
       title={done ? "Password updated" : "Reset password"}
       intro={
         done
           ? "Your password has been changed. Taking you back to sign in."
-          : "Enter your reset token and create a secure new password for your account."
+          : /* "a secure new password" was the violation: `secure` is an
+             * adjective the screen cannot verify, and the only real rule --
+             * eight characters -- is already stated in the subheading and on
+             * the field itself. */
+            "Enter the token from your reset link, then choose a new password."
       }
       heading={done ? "Password updated" : "Create new password"}
       subheading={

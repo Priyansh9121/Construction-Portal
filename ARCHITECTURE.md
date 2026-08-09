@@ -108,12 +108,45 @@ its control.
 
 **`utils/authTransition.js` makes "authentication never waits for animation"
 structural rather than a discipline.** `runAuthTransition(commit)` calls
-`commit` synchronously, before a frame is scheduled — token storage, role
-resolution and navigation all happen there. Every failure path (no View
-Transitions support, a thrown transition, a missing callback) has already
-committed. The module never sees a role or a route, so the grammar is identical
-for Admin, Manager, Worker and Subcontractor and there is no branch to add one
-to.
+`commit` synchronously — applying the session and clearing the credentials —
+before a frame is scheduled. The API call and the token are already done in
+`App.jsx` before it is called at all. The module never sees a role, a route or
+a credential, so the grammar is identical for Admin, Manager, Worker and
+Subcontractor and there is no branch to add one to.
+
+**Navigation is not in the commit, and that is deliberate.** `setUser` is what
+makes the app authenticated; `AppRoutes` answers it by rendering
+`<Navigate to={getHomePath(user)}>` in place of Login. The role decides the
+destination in exactly one place, and the transition stays destination-
+agnostic by construction rather than by discipline.
+
+**The View Transitions API was tried, measured and abandoned.** Three defects,
+each found by a frame recording rather than by reasoning: an empty update
+callback photographs the same frame twice and animates nothing; a callback that
+waits for an animation frame deadlocks, because rendering is suspended between
+the two photographs; and rendering synchronously instead photographs a Suspense
+fallback, because every destination route is lazy. Slowed to three seconds and
+screenshotted mid-flight, the first photograph turned out to be white — React
+had already committed the new DOM before `startViewTransition` ran. The API
+needs to photograph before the DOM changes; this system needs the session
+applied first. Both cannot be first.
+
+**What replaced it is one element.** `runAuthTransition` inserts
+`.auth-departure` before the commit and removes it on a timer afterwards: a
+fixed, `pointer-events: none`, `aria-hidden` layer in `--auth-sky-deep` that
+fades to nothing over 260ms. It covers the instant React swaps the route, which
+is what removes the blank frame, and it gives a lazy destination the whole
+transition to arrive instead of demanding it be ready inside a synchronous
+render. There is now one path rather than a primary and a fallback, so there is
+no second behaviour to keep in step.
+
+**It fades rather than lightening, and the midpoint frame is why.** An earlier
+version interpolated the layer's background from the scene's sky to the
+application canvas. It passed every mechanical check and the captured midpoint
+was a flat mid-grey filling the screen — a wipe, which is the cross-dissolve
+between two unrelated pictures that this design exists to avoid. Fading the
+dark away instead means the thing becoming visible IS the destination, arriving
+under a lifting dark rather than behind a curtain of neutral paint.
 
 **The dark→light moment resolves through continuity, not a cross-fade.** The
 scene's structural lines and the shell's hairlines are the same visual
@@ -123,10 +156,14 @@ transition at all. The light comes up on structure that was already there. The
 sky is not pure black and the canvas is not pure white, precisely so neither
 end is a flash.
 
-`tools/fresh_ui/auth_transition_probe.mjs` asserts all of it in both motion
-modes. `tools/fresh_ui/auth_screenshots.mjs` captures all four routes at nine
-widths in both modes, because assertions on this surface have repeatedly passed
-while it was visually wrong.
+`tools/fresh_ui/auth_transition_probe.mjs` asserts the module contract in both
+motion modes with no backend. `tools/fresh_ui/auth_threshold_probe.mjs` signs
+in for real as each fixture role and measures the crossing frame by frame over
+a CDP screencast — screenshots were tried first and were useless, because they
+force a synchronous paint that stalls the very loop the transition runs on.
+`tools/fresh_ui/auth_screenshots.mjs` captures all four routes at nine widths
+in both modes, because assertions on this surface have repeatedly passed while
+it was visually wrong.
 
 ### Motion — the spring rule
 

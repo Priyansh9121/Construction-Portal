@@ -49,6 +49,7 @@ import useWorkerMoney from "./hooks/useWorkerMoney";
 import useWorkers from "./hooks/useWorkers";
 
 import { loginUser } from "./services/authService";
+import runAuthTransition from "./utils/authTransition";
 import { uploadFile } from "./services/uploadService";
 
 import AppRoutes from "./routes/AppRoutes";
@@ -191,15 +192,41 @@ function App() {
         data.token
       );
 
-      setUser(data.user);
-
       /*
-       * Clear both credentials immediately after login.
-       * They are not needed after authentication succeeds.
+       * ─────────────────────────────────────────────────────────────────
+       * THE THRESHOLD
+       * ─────────────────────────────────────────────────────────────────
+       * Everything above this line is authentication: the request, the
+       * response check, the token, the stored user. It is finished, and it
+       * is finished whether or not a single pixel moves next.
+       *
+       * `runAuthTransition` calls this callback SYNCHRONOUSLY — see the
+       * contract in utils/authTransition.js. Applying the session and
+       * clearing the credentials happen now, in this task, exactly as they
+       * did before the transition existed. What the wrapper adds is only
+       * that the browser photographs the auth scene immediately before the
+       * render this callback schedules, and the destination immediately
+       * after it. Presentation is wrapped around the behaviour; it does not
+       * own it.
+       *
+       * NAVIGATION IS DELIBERATELY NOT HERE. `setUser` is what makes the
+       * app authenticated, and `AppRoutes` answers that by rendering
+       * `<Navigate to={getHomePath(user)}>` in place of Login. So the role
+       * decides the destination in one place, this function stays free of
+       * routing, and no role branch is introduced here that could drift
+       * from the one that already exists.
        */
-      setEmail("");
-      setPassword("");
-      setMessage("");
+      runAuthTransition(() => {
+        setUser(data.user);
+
+        /*
+         * Clear both credentials immediately after login.
+         * They are not needed after authentication succeeds.
+         */
+        setEmail("");
+        setPassword("");
+        setMessage("");
+      });
 
       return data;
     } catch (error) {

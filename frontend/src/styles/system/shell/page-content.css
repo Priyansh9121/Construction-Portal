@@ -135,3 +135,72 @@
     }
   }
 }
+
+/*
+ * ===========================================================================
+ * ROUTE LOADING
+ * ===========================================================================
+ * `AppRoutes` wraps every authenticated route in a Suspense boundary, because
+ * they are all lazy. Its fallback had no styles at all — a bare white page
+ * with the word "Loading..." in the browser's default face, top-left.
+ *
+ * That went unnoticed for as long as it was only ever seen for a frame between
+ * two already-light pages. The authentication transition is what exposed it:
+ * the frame recording showed the sign-in scene cross-fading into two hundred
+ * milliseconds of pure white before the application arrived. Measured mean
+ * luminance 1.00, uniform — a flash, by any definition.
+ *
+ * The fix is not to hide it. A destination that is still arriving is a true
+ * thing to say. It is to make the true thing land on the application's own
+ * ground, so the transition ends where it was always going to end and the
+ * content fills in afterwards rather than the whole page changing colour
+ * twice.
+ *
+ * Deliberately not a spinner and not a skeleton: this is normally visible for
+ * a fraction of a second, and both of those draw attention to a wait that is
+ * usually over before it registers.
+ */
+@layer system-components {
+  .page-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    min-block-size: 100dvh;
+    padding: var(--ui-space-8);
+
+    background: var(--ui-canvas);
+    font-family: var(--ui-font-sans);
+    font-size: var(--ui-text-sm);
+
+    /*
+     * The GROUND is immediate; only the word is delayed.
+     *
+     * The first attempt faded the whole element in after 200ms, with `both`
+     * fill — which held it at opacity 0 for that delay and let the page's
+     * legacy background show through instead. The frame recording caught it:
+     * the transition was landing on a pale cool grey that belongs to the old
+     * system, not on this one's warm canvas. Painting the ground immediately
+     * and animating only the text colour keeps the arrival on the right
+     * surface while still not blinking a word at someone whose chunk resolved
+     * in thirty milliseconds.
+     */
+    color: transparent;
+    animation: ui-page-loading-label var(--t-place, 200ms)
+      var(--e-place, ease-out) 200ms both;
+  }
+}
+
+@keyframes ui-page-loading-label {
+  from { color: transparent; }
+  to { color: var(--ui-ink-muted); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    .page-loading {
+      animation-delay: 0ms;
+      animation-duration: 0.01ms;
+    }
+  }
+}

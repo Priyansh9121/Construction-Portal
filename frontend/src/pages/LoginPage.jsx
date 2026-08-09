@@ -107,9 +107,31 @@ function LoginPage({
 
   return (
     <AuthShell
-      eyebrow="Secure Construction Management"
-      title="Construction Portal"
-      intro="Access the projects, finance, workforce and progress tools assigned to your account."
+      /*
+       * VOICE, NOT DECORATION.
+       *
+       * This block previously read "Secure Construction Management /
+       * Construction Portal / Access the ... tools assigned to your account".
+       * Three separate violations of `PRODUCT_SOUL.md` section 12:
+       *
+       *   "Secure"          asserts a property instead of demonstrating one.
+       *                     Nothing on a sign-in screen is made safer by the
+       *                     screen saying so, and a product that claims
+       *                     security is the one you check.
+       *   "Construction …"  tells the user what industry they are in. They
+       *                     know. The scene behind this form is already the
+       *                     only statement of that worth making.
+       *   "Construction Portal"
+       *                     was rendered a second time here, five lines under
+       *                     the plane's own name for the product.
+       *
+       * What replaces it is a fact the user can act on: which part of the
+       * record their account opens. That is also the only reason the role
+       * list below is worth showing.
+       */
+      eyebrow="Access by role"
+      title="Your role decides what opens"
+      intro="Signing in opens the part of the record your role is responsible for."
       heading="Sign in"
       subheading={
         destination
@@ -119,7 +141,7 @@ function LoginPage({
       aside={
         <div className="auth-brand-list">
           <div>
-            <strong>Administrators</strong>
+            <strong>Administrators and managers</strong>
 
             <span>
               Manage finance, projects, workers, reports
