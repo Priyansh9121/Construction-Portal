@@ -62,6 +62,19 @@ export function useAsyncResource(
   const [loading, setLoading] = useState(auto);
   const [error, setError] = useState("");
 
+  /*
+   * When the data on screen was last confirmed by the server.
+   *
+   * Added for the Activity ledger, which has to be able to say "true as of"
+   * — `EXPERIENCE_LANGUAGE` §5.3 makes stale a designed state rather than an
+   * absence. It is a measurement, not an invention: it is set only when a
+   * response actually lands, so a view that has never loaded has no time to
+   * show and says so instead of guessing.
+   *
+   * Purely additive. Every other consumer ignores it.
+   */
+  const [loadedAt, setLoadedAt] = useState(null);
+
   // Only the newest load may write, so a slow first response cannot
   // overwrite a refresh that has already landed.
   const ticket = useRef(0);
@@ -84,6 +97,7 @@ export function useAsyncResource(
           setData(result);
           setLoading(false);
           setError("");
+          setLoadedAt(new Date());
 
           return result;
         },
@@ -143,6 +157,7 @@ export function useAsyncResource(
     loading,
     error,
     setError,
+    loadedAt,
     reload,
   };
 }

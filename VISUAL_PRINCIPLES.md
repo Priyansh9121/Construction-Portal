@@ -381,14 +381,29 @@ how finished it looks.
 
 ### A symbol is not free
 
-**A control is labelled with a word until a symbol system already exists to
-draw it from.**
+**When a word is clearer than a symbol, use the word.**
 
 An icon looks cheaper than a word and is not. One glyph obliges the product to
 answer a family, a stroke weight, an optical size, a negated form and a
 localised meaning — and to answer them consistently everywhere afterwards.
 Establishing all of that for a single control is how a product acquires an icon
 set that nobody designed, assembled one emergency at a time.
+
+**Correction, on measurement.** This section previously said "a control is
+labelled with a word until a symbol system already exists to draw it from",
+and justified the password control's `Show` / `Hide` on the grounds that no
+such system existed here. That premise was false when it was written. A
+36-glyph family has existed in this codebase throughout — one grid, one stroke
+weight, `currentColor`, decorative by default — and it was already in use by
+the shell, the dashboard, both portals and the audit trail at the moment the
+claim was made. It was asserted without checking, and an audit of the primitive
+against this system's own rules later passed on every count.
+
+The conclusion is unchanged and the principle is not weakened; only its
+reasoning is corrected. **The existence of a symbol grammar is not an argument
+for spending it.** A family makes an icon cheap to draw; it does not make the
+icon clearer than the word it would replace, and clarity is the only thing that
+decides.
 
 There is a second cost, and it is the one that decides borderline cases: a
 symbol standing alone must communicate whether it names the **current state**
@@ -397,9 +412,10 @@ crossed-out eye is the standard example — half of all users read it as "the
 password is hidden" and half as "press to hide". A word cannot be misread that
 way.
 
-So the order is: a word first; a symbol when there are enough of them for a
-grammar; a symbol with a word when the control is dense or the word is long.
-Never a symbol because a word looked plain.
+So the order is: a word first; a symbol where it is genuinely clearer than the
+word — a direction, a chevron, a state that has no short name; a symbol with a
+word when the control is dense or the word is long. Never a symbol because a
+word looked plain, and never because the family happens to be there.
 
 ---
 
@@ -530,7 +546,7 @@ Short enough to remember. Specific enough to reject an idea with.
 14. **Nothing is celebrated for having merely happened.**
 15. **Surprise is a defect; therefore delight is never surprise.**
 16. **Every surface must be able to name its material.**
-17. **A word until a symbol grammar exists; never a symbol because a word looked plain.**
+17. **When a word is clearer than a symbol, use the word — a symbol grammar existing is not a reason to spend it.**
 18. **No visual decision may contradict `PRODUCT_SOUL.md`.**
 
 ---

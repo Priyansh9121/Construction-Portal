@@ -48,6 +48,22 @@ why there is no ambient motion anywhere in the workspace, and why a wait is
 either invisible, shaped, or named. Timing questions are answered there before
 they are answered here.
 
+### Route migration model
+
+**A route migrates → its EXCLUSIVE legacy rules are deleted → its SHARED legacy
+rules stay until their last consumer migrates.** This is permanent, and it
+follows from a measurement: routes in this codebase are coupled through shared
+*classes*, not shared components. `.panel` is defined in six stylesheets and
+used by seventeen routes; `.card` in seven and sixteen. Page-named sheets are
+not page-scoped — `pages/site-operations.css` is reachable from seventeen
+routes because it defines `.card`.
+
+So "migrate a route, delete its stylesheet" only works where a route's classes
+are exclusive. Measured exclusivity: Site Operations 85%, Activity 68%,
+Payments 26%, everything else 0–4%. The shared sheets are deleted last, not
+first, and a route is migrated by moving its markup off them — which is what
+reduces their consumer count.
+
 ## Behavioural contracts
 
 Class names and attributes that JavaScript, tests or the browser depend on.
@@ -62,6 +78,8 @@ documented at its definition site; this is the index.
 | `.app-sidebar` | queried in JS | drawer measurement |
 | `inert` on the sidebar wrapper | `layouts/AppLayout.jsx` | removes the off-canvas drawer from the accessibility tree below 1024px; must be a JS attribute because `inert` is not media-queryable |
 | `view-transition-name` on `.page-content` | `styles/system/shell/page-content.css` | route transitions; its keyframes still live in `styles/v2/core/motion.css` |
+| `Icon.jsx` glyph names | `components/ui/Icon.jsx` | the shared icon primitive. 36 glyphs on one 24-unit grid, stroke-only at 1.75, `currentColor`, `aria-hidden` and `focusable="false"` by default. Audited against this system in `tools/fresh_ui/icon_audit.mjs` and adopted unchanged; an unknown name renders nothing rather than a broken box, so a renamed glyph fails silently rather than loudly |
+| `.activity-stream`, `.activity-day-heading`, `.activity-disclosure`, `.activity-metadata` | `components/activity/ActivityStream.jsx` | ten Playwright assertions, including that the stream contains no table and that collapsed metadata is absent from the DOM rather than hidden |
 | `data-material` | `styles/system/core/material.css` | elevation is applied from **state**, so it can be revoked when an object stops needing judgement |
 | `data-scheme="dark"` | `components/auth/AuthScene.jsx` | the scene declares its own environment; `auth/scene.css` answers it by re-pointing the semantic tokens, which is what makes `.ctl`, `.field`, focus and status correct on dark with no auth-specific copy of any of them |
 | `.auth-shell`, `.auth-card`, `.auth-brand`, `.auth-submit`, `.password-input-wrapper`, `.password-toggle-btn`, `.auth-success`, `.auth-confirm__body` | `components/auth/AuthShell.jsx` and the four auth pages | 22 Playwright assertions. `.auth-card` has not described a card since 2025 and does not now — it names the form column |
