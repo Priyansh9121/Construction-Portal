@@ -1,0 +1,142 @@
+/*
+ * ===========================================================================
+ * AUTH TRANSITION — leaving the scene
+ * ===========================================================================
+ *
+ * The visual half of `utils/authTransition.js`. That module owns *when*; this
+ * owns *what it looks like*. Neither knows the destination.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE DARK-TO-LIGHT PROBLEM, AND WHY THIS SOLVES IT
+ * ─────────────────────────────────────────────────────────────────────────
+ * Phase 1B.5 named this the highest-risk moment: a dark cinematic scene giving
+ * way to a light operational application, without a flash, a fade through
+ * black, or a dark panel that reads as pasted over the app.
+ *
+ * The answer is that the two worlds already share a visual language. The
+ * scene's structural lines and the shell's hairlines are the same thing — that
+ * is the premise of Architectural Instrument. So nothing needs to morph:
+ *
+ *   1. the VEIL lifts        atmosphere clears
+ *   2. the GROUND lightens   sky → canvas, beneath everything else
+ *   3. the SILHOUETTES fade  mass is not part of the application
+ *   4. the LINEWORK REMAINS  it was always the shell's grammar
+ *
+ * The lines never move and never fade. The ground changes underneath them.
+ * That is the continuity — the user does not watch one image become another,
+ * they watch the light come up on structure that was already there.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * GPU-SAFE
+ * ─────────────────────────────────────────────────────────────────────────
+ * `opacity` and `background-color` only. No transform on the scene, no filter,
+ * no clip-path. The scene may be full-viewport on a mid-range phone, and a
+ * blur or a scale across that area is the one thing that would make this
+ * moment stutter on the device it matters most on.
+ */
+
+@layer system-components {
+  /*
+   * Everything below is scoped to the leaving state, so nothing here has any
+   * cost — or any effect — during normal use of the sign-in surface.
+   */
+
+  /* 1 · atmosphere clears */
+  [data-auth-leaving] .auth-scene__layer[data-layer="veil"] {
+    opacity: 0;
+    transition: opacity var(--t-place, 200ms) var(--e-dismiss, ease-in);
+  }
+
+  /* 2 · the ground lightens. Not a fade to white: the sky becomes the
+   *     application's canvas, which is a warm off-white, so the arrival is a
+   *     surface rather than a flash. */
+  [data-auth-leaving] .auth-scene {
+    background: var(--ui-canvas);
+    transition: background-color var(--t-deliberate, 260ms)
+      var(--e-place, ease-out);
+  }
+
+  /* 3 · mass leaves. Silhouettes are scene-only; the application has no
+   *     buildings in it. */
+  [data-auth-leaving] .auth-scene__layer[data-layer="distance"],
+  [data-auth-leaving] .auth-scene__layer[data-layer="structure"] {
+    opacity: 0;
+    transition: opacity var(--t-place, 200ms) var(--e-dismiss, ease-in);
+  }
+
+  /*
+   * 4 · the linework stays.
+   *
+   * Deliberately given NO transition. It is the element both worlds share, and
+   * animating it would turn continuity into a hand-off. It simply persists
+   * while everything around it resolves.
+   */
+  [data-auth-leaving] .auth-scene__structure-lines {
+    opacity: 1;
+  }
+
+  /*
+   * The rig stops sweeping the moment departure begins. Ambient motion during
+   * a deliberate transition reads as two things happening at once.
+   */
+  [data-auth-leaving] .auth-rig {
+    animation-play-state: paused;
+  }
+
+  /*
+   * Content clears quickly. The form has done its job and should not linger
+   * over a lightening ground, where its dark-scheme colours would be briefly
+   * unreadable.
+   */
+  [data-auth-leaving] .auth-scene__content {
+    opacity: 0;
+    transition: opacity var(--t-grip, 90ms) var(--e-dismiss, ease-in);
+  }
+}
+
+/*
+ * View Transitions, where supported. The named transition applies to the root
+ * snapshot pair, so the outgoing scene and the incoming destination are
+ * composited by the browser rather than one being painted over the other.
+ *
+ * Progressive enhancement: if these rules are unsupported they are ignored,
+ * and the state-attribute transitions above still run.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ * REDUCED MOTION
+ * ─────────────────────────────────────────────────────────────────────────
+ * The relationship is preserved and the travel is removed. The ground still
+ * lightens, because that is the *meaning* of the moment — entering the
+ * operating environment — and removing it would leave a cut. It simply happens
+ * quickly and everything else resolves at once rather than in sequence.
+ *
+ * No view transition is requested at all in this mode; `authTransition.js`
+ * takes the timeout path.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-components {
+    [data-auth-leaving] .auth-scene,
+    [data-auth-leaving] .auth-scene__content,
+    [data-auth-leaving] .auth-scene__layer {
+      transition-duration: 90ms;
+      transition-delay: 0ms;
+    }
+
+    [data-auth-leaving] .auth-rig {
+      animation: none;
+    }
+  }
+}
