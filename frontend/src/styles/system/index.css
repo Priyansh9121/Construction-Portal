@@ -35,6 +35,7 @@
 /* Foundation (Architectural Instrument). No route consumes these yet. */
 @import "./foundation/type.css";
 @import "./foundation/structure.css";
+@import "./foundation/interaction.css";
 
 /* @font-face is unaffected by cascade layers, so typography.css is imported
  * without one. Putting it in a layer would imply an ordering that does not
