@@ -50,6 +50,42 @@ documented at its definition site; this is the index.
 | `view-transition-name` on `.page-content` | `styles/system/shell/page-content.css` | route transitions; its keyframes still live in `styles/v2/core/motion.css` |
 | `data-material` | `styles/system/core/material.css` | elevation is applied from **state**, so it can be revoked when an object stops needing judgement |
 
+### Motion — the spring rule
+
+**Springs are permitted only where the pointer is *continuously* driving the
+object when motion begins.**
+
+A spring models momentum, and momentum comes from the user's own input — a
+finger that was moving when it let go. A selection indicator has none: it moves
+because a click *ended*. Overshoot there invents physics that never happened,
+which on an instrument reads as imprecision.
+
+Nothing in the product qualifies today — no drag, no swipe-to-dismiss, no
+pull-to-refresh — so **no spring token exists**. One is added when a draggable
+surface ships, not before.
+
+Everything else is timed easing, in `foundation/interaction.css`:
+`--t-instant` (focus, 0ms) · `--t-grip` (90ms) · `--t-attach` (140ms) ·
+`--t-place` (200ms) · `--t-deliberate` (260ms). Nothing in the operational
+application exceeds 260ms; auth owns its own timings.
+
+Curves are directional: `--e-place` decelerates on arrival, `--e-dismiss`
+accelerates away, `--e-state` for changes with no travel.
+
+### Focus — one treatment, every material
+
+Two rings. The accent carries it on light surfaces; a contrast companion
+separates it from whatever is beneath, so it survives canvas, raised, inset,
+overlay and the dark auth scene **with no route-specific override**
+(`[data-scheme="dark"]` inverts the companion).
+
+`outline`, never `box-shadow` — outline is not clipped by an ancestor's
+`overflow: hidden`, which dense rows and attention cards both use. Inside a
+clipping row the offset turns inward rather than disappearing.
+
+**Focus is never animated.** `tools/fresh_ui/interaction_probe.mjs` asserts all
+of this across four materials in both motion modes.
+
 ### Structure — the hairline rule
 
 **Hairlines belong to zones, not to rows.**

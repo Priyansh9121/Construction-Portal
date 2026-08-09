@@ -1,0 +1,335 @@
+/*
+ * ===========================================================================
+ * INTERACTION — controls, focus and motion
+ * ===========================================================================
+ *
+ * One file because they are one system. A control's pressed state IS a motion
+ * decision; focus must survive every material the motion moves it across.
+ * Splitting them produces three systems that disagree.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE SPRING CONFLICT, RESOLVED — AND THE BRIEF CHALLENGED
+ * ─────────────────────────────────────────────────────────────────────────
+ * `redesign-existing-projects` recommends spring physics on all interactive
+ * elements. `VISUAL_PRINCIPLES` and Emil restrict springs to direct
+ * manipulation. The proposed resolution allowed springs for dragged objects
+ * AND for selection indicators.
+ *
+ * The dragged case is right. The selection case is not, and it is rejected.
+ *
+ * A spring models momentum, and momentum comes from the user's own continuous
+ * input — a finger that was moving when it let go. A selection indicator does
+ * not have that: it moves because a click ENDED, with no velocity to carry.
+ * Giving it overshoot invents physics that never happened, which on an
+ * instrument reads as imprecision. A machined control does not wobble into
+ * position.
+ *
+ * So the rule is narrower than proposed:
+ *
+ *   Springs are permitted ONLY where the user's pointer is CONTINUOUSLY
+ *   driving the object at the moment motion begins.
+ *
+ * Today nothing in this product qualifies. There is no drag, no swipe-to-
+ * dismiss, no pull-to-refresh. The spring token therefore does not exist yet,
+ * because a token with no consumer is speculation. When a draggable surface
+ * ships, it is added then, with this paragraph as its justification.
+ *
+ * Everything else is timed easing.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * TIMING
+ * ─────────────────────────────────────────────────────────────────────────
+ * Derived from what each interaction has to prove, not from a scale:
+ *
+ *   instant  0ms    focus. A keyboard user must never wait to see where they
+ *                   are. Animating focus in is the single most common
+ *                   accessibility mistake in "polished" interfaces.
+ *   grip     90ms   pressed. Fast enough to feel attached to the finger.
+ *   attach   140ms  hover. Slow enough not to flicker on a passing cursor,
+ *                   fast enough to feel connected to it.
+ *   place    200ms  something arrives and settles.
+ *   deliberate 260ms overlays and dialogs, which should feel decided rather
+ *                   than thrown.
+ *
+ * Nothing in the operational application exceeds 260ms. Auth owns its own
+ * longer timings; they are not defined here.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * CURVES
+ * ─────────────────────────────────────────────────────────────────────────
+ * Two, and they are directional. Things arriving decelerate; things leaving
+ * accelerate away. A symmetric ease on an entrance makes an object appear to
+ * hesitate before committing.
+ */
+
+:root {
+  --t-instant: 0ms;
+  --t-grip: 90ms;
+  --t-attach: 140ms;
+  --t-place: 200ms;
+  --t-deliberate: 260ms;
+
+  /* Arriving: fast start, long settle. */
+  --e-place: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Leaving: no lingering. */
+  --e-dismiss: cubic-bezier(0.4, 0, 1, 1);
+  /* State change in place — no travel, so no directional bias. */
+  --e-state: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /*
+   * FOCUS.
+   *
+   * Two rings, and the inner one is why this survives every material. On a
+   * light surface the accent ring carries it; on the dark auth scene the
+   * accent alone would sink into the background, so a light inner hairline
+   * separates the ring from whatever is beneath it. The pair works on canvas,
+   * raised, inset, overlay and the cinematic scene without a single
+   * route-specific override.
+   *
+   * `outline` rather than `box-shadow`: outline is never clipped by an
+   * ancestor's `overflow: hidden`, which dense tables and the attention rows
+   * both use.
+   */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --focus-color: var(--ui-accent);
+  --focus-contrast: #ffffff;
+}
+
+@layer system-foundation {
+  /*
+   * ---- Focus ------------------------------------------------------------
+   *
+   * One treatment, applied by role rather than by element, so a new control
+   * inherits it by opting into `.ctl` instead of restating it.
+   */
+  .ctl:focus-visible,
+  .focusable:focus-visible {
+    outline: var(--focus-width) solid var(--focus-color);
+    outline-offset: var(--focus-offset);
+    /* The contrast companion. Sits between the ring and the surface. */
+    box-shadow: 0 0 0 calc(var(--focus-offset)) var(--focus-contrast);
+    /* Never animated. See --t-instant. */
+    transition: none;
+  }
+
+  /*
+   * On a dark scene the companion inverts: the ring needs separation from a
+   * light element, not a dark one.
+   */
+  [data-scheme="dark"] .ctl:focus-visible,
+  [data-scheme="dark"] .focusable:focus-visible {
+    --focus-contrast: rgba(0, 0, 0, 0.55);
+    --focus-color: var(--ui-indigo-200);
+  }
+
+  /*
+   * Dense contexts clip. A row inside a compartment with `overflow: hidden`
+   * would lose an outward ring, so the offset turns inward. The ring is the
+   * same width and colour; only its side changes.
+   */
+  .rows > *:focus-visible,
+  .rows > * .ctl:focus-visible {
+    outline-offset: calc(var(--focus-offset) * -1);
+    box-shadow: none;
+  }
+
+  /*
+   * ---- Control base -----------------------------------------------------
+   *
+   * `.ctl` is the contract, not a look. It carries the things every control
+   * must have regardless of appearance: a real target, a pointer, transitions
+   * on the only two properties allowed to animate, and disabled semantics.
+   */
+  .ctl {
+    --ctl-min: 2.75rem;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ui-space-2);
+
+    min-height: var(--ctl-min);
+    border: 0;
+    border-radius: var(--shape-control);
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    user-select: none;
+
+    /* Colour and transform only. No layout property is ever animated. */
+    transition: background-color var(--t-attach) var(--e-state),
+      color var(--t-attach) var(--e-state),
+      border-color var(--t-attach) var(--e-state),
+      transform var(--t-grip) var(--e-state);
+  }
+
+  .ctl:disabled,
+  .ctl[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.45;
+    /* Disabled is a state, not a hover target. */
+    pointer-events: none;
+  }
+
+  /*
+   * Pressed. One pixel of downward travel, not a scale.
+   *
+   * REJECTED from `redesign-existing-projects`: `scale(0.98)` on press. A
+   * scaling control shrinks its own text mid-interaction, and on a 56px field
+   * button under a thumb the label is exactly what the user is reading. A 1px
+   * settle reads as the control taking the load — which is the mechanical
+   * metaphor this system is built on — without moving the content.
+   */
+  .ctl:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  /* ---- Control roles ----------------------------------------------------
+   * Appearance layered onto the contract. Each is a semantic role, not a
+   * colour choice.
+   */
+
+  /* The one action a surface most wants you to take. One per surface. */
+  .ctl--primary {
+    background: var(--ui-ink-strong);
+    color: var(--ui-surface);
+    padding-inline: var(--ui-space-5);
+    font-weight: 500;
+  }
+  .ctl--primary:hover:not(:disabled) { background: var(--ui-ink); }
+
+  /* Equal-weight alternative. Carries a frame so it reads as a control at
+   * rest rather than as text. */
+  .ctl--secondary {
+    background: var(--ui-surface);
+    color: var(--ui-ink-strong);
+    border: var(--rule-frame);
+    padding-inline: var(--ui-space-5);
+    font-weight: 500;
+  }
+  .ctl--secondary:hover:not(:disabled) { background: var(--ui-surface-sunken); }
+
+  /*
+   * Destructive. Status colour is spent here because the ACTION is
+   * destructive — that is genuine operational meaning, not decoration.
+   * Confirmation wording still carries it too, so the colour is never alone.
+   */
+  .ctl--destructive {
+    background: var(--ui-surface);
+    color: var(--ui-status-danger-fg);
+    border: 1px solid var(--ui-status-danger-border, var(--ui-line));
+    padding-inline: var(--ui-space-5);
+    font-weight: 500;
+  }
+  .ctl--destructive:hover:not(:disabled) {
+    background: var(--ui-status-danger-bg);
+  }
+
+  /* Low-emphasis action inside a dense row. No frame at rest so a table of
+   * them does not become a wall of boxes. */
+  .ctl--quiet {
+    color: var(--ui-ink-muted);
+    padding-inline: var(--ui-space-3);
+  }
+  .ctl--quiet:hover:not(:disabled) {
+    background: var(--ui-surface-sunken);
+    color: var(--ui-ink-strong);
+  }
+
+  /* Square target for a lone glyph. Width matches height so the optical
+   * centre is real rather than approximate. */
+  .ctl--icon {
+    inline-size: var(--ctl-min);
+    padding: 0;
+    color: var(--ui-ink-muted);
+  }
+  .ctl--icon:hover:not(:disabled) {
+    background: var(--ui-surface-sunken);
+    color: var(--ui-ink-strong);
+  }
+
+  /*
+   * Field ergonomics. Not padding applied everywhere — an opt-in for surfaces
+   * a supervisor operates standing, one-handed, in daylight. Bigger target,
+   * heavier label, full width.
+   */
+  .ctl--field {
+    --ctl-min: 3.25rem;
+    inline-size: 100%;
+    font-size: var(--ui-text-base);
+    font-weight: 600;
+  }
+
+  /*
+   * ---- Busy -------------------------------------------------------------
+   *
+   * A control that is working keeps its size and its label. Replacing the
+   * label with a spinner removes the only text confirming what is happening,
+   * and collapsing the control shifts everything beside it.
+   *
+   * No spinner primitive: the state is carried by dimming and by
+   * `aria-busy`, which a screen reader announces. Nothing spins forever.
+   */
+  .ctl[aria-busy="true"] {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  /*
+   * ---- Input ------------------------------------------------------------
+   */
+  .field {
+    inline-size: 100%;
+    min-height: 2.75rem;
+    padding: var(--ui-space-2) var(--ui-space-3);
+
+    background: var(--ui-surface);
+    border: var(--rule-frame);
+    border-radius: var(--shape-control);
+
+    font: inherit;
+    color: var(--ui-ink-strong);
+
+    transition: border-color var(--t-attach) var(--e-state);
+  }
+
+  .field:hover:not(:disabled) { border-color: var(--ui-line-strong); }
+  .field:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Invalid is stated by the message beneath; the border repeats it. Never
+   * colour alone. */
+  .field[aria-invalid="true"] { border-color: var(--ui-status-danger-fg); }
+
+  .field--area { min-height: 5.5rem; resize: vertical; }
+
+  /* Field ergonomics, matching .ctl--field. */
+  .field--field { min-height: 3.25rem; font-size: var(--ui-text-base); }
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────
+ * REDUCED MOTION — authored, not disabled
+ * ─────────────────────────────────────────────────────────────────────────
+ * State changes are kept: a hover that does not respond reads as a broken
+ * control, and the press feedback is what tells a user their tap landed. What
+ * is removed is TRAVEL. Colour resolves instantly rather than over 140ms, and
+ * the pressed offset goes to zero.
+ *
+ * Focus is untouched, because it was never animated.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-foundation {
+    .ctl,
+    .field {
+      transition-duration: 0.01ms;
+    }
+
+    .ctl:active:not(:disabled) {
+      transform: none;
+      /* The press still registers — as ground, not travel. */
+      background: var(--ui-surface-sunken);
+    }
+  }
+}
