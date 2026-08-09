@@ -10,8 +10,10 @@ the last two and answers the question none of them ask:
 > Not "how should this look", but **"what is it like to be in here"**.
 
 It governs motion, timing, silence, waiting, arrival, atmosphere, and every
-decision about whether something should move at all. Every future route
-inherits it. No route may opt out of it, and no route may extend it privately —
+decision about whether something should move at all. `INTERACTION_LANGUAGE.md`
+is its peer and takes the question one step further in: not what a moment feels
+like, but what happens when a person touches something. Every future route
+inherits both. No route may opt out of it, and no route may extend it privately —
 if a surface needs a behaviour this document does not describe, the document is
 amended first and the surface second.
 

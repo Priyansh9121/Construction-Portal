@@ -1,9 +1,10 @@
 # Product soul
 
-Sits above `VISUAL_PRINCIPLES.md`, `EXPERIENCE_LANGUAGE.md` and
-`VISUAL_IDENTITY.md`. Those documents describe how the product looks, how it
-behaves over time, and why it is recognisable. This one exists to explain why
-they were worth writing.
+Sits above `VISUAL_PRINCIPLES.md`, `EXPERIENCE_LANGUAGE.md`,
+`INTERACTION_LANGUAGE.md` and `VISUAL_IDENTITY.md`. Those documents describe
+how the product looks, how it behaves over time, how it responds to being
+touched, and why it is recognisable. This one exists to explain why they were
+worth writing.
 
 Nothing here is about the interface. If a sentence below could be pasted onto
 another product, it has failed and should be rewritten.

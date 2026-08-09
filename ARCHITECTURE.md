@@ -34,6 +34,14 @@ each is rebuilt — not as a single up-front deletion.
 
 ---
 
+**`INTERACTION_LANGUAGE.md` governs what happens when a person touches
+something** — controls, tables, forms, navigation, search, saving, failure,
+undo, notifications and how a run-time AI feature would have to behave. It is
+mandatory reading before implementing any component, and it names three defects
+in the product as it stands: there is no offline handling anywhere, the delete
+challenge is a constant string, and failure is the product's most common form
+of speech.
+
 **`EXPERIENCE_LANGUAGE.md` governs anything that happens over time** — motion,
 waiting, stillness, arrival, ambient behaviour and the run-time AI gate. It is
 why there is no ambient motion anywhere in the workspace, and why a wait is
