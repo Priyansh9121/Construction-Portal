@@ -1,6 +1,6 @@
 # Product soul
 
-Sits above `VISUAL_IDENTITY.md` and `DESIGN_DIRECTION.md`. Those documents
+Sits above `VISUAL_PRINCIPLES.md` and `VISUAL_IDENTITY.md`. Those documents
 describe how the product looks and why it looks that way. This one exists to
 explain why they were worth writing.
 
@@ -321,9 +321,9 @@ the administrator, is the source of Law 7 and of §12's final sentence.
 
 **Deliberately not repeated.** The numeral system, the elevation rule, the
 lighting temperature and the material and type systems belong to
-`VISUAL_IDENTITY.md`. The mood, moodboard and implementation sequence belong to
-`DESIGN_DIRECTION.md`. Where this document touches money or attention, it
-states the belief only; every expression of it lives downstream.
+`VISUAL_IDENTITY.md`; the laws they obey belong to `VISUAL_PRINCIPLES.md`.
+Where this document touches money or attention, it states the belief only;
+every expression of it lives downstream.
 
 **Design skills — not consulted, deliberately.** Taste, Impeccable, UI/UX Pro
 Max, 21st.dev and Emil Kowalski's motion principles are all craft sources. They

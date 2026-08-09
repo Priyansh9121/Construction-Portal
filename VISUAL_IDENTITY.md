@@ -1,6 +1,6 @@
 # Visual identity — what makes this product look like itself
 
-Companion to `DESIGN_DIRECTION.md`. That document set the *feeling*. This one
+Companion to `VISUAL_PRINCIPLES.md`. That document sets the laws. This one
 answers the harder question:
 
 > If someone saw one screenshot with the logo removed, how would they know this
@@ -125,7 +125,7 @@ when you cannot name what you are seeing.
 | **Impeccable** | Mode is **Operate**: scanability and the real usage scene outrank expression; brand lives in precise details | Its implication that expression should be minimal. Resolved rather than obeyed — see the disagreement below. |
 | **UI/UX Pro Max** | Direct-label chart series instead of a legend; keep chart chrome subordinate | — |
 | **Emil Kowalski** | 150–300ms; ease-out entrances; no springs on chrome; transform/opacity only; focus never animates | Spring physics for section entry. Springs describe direct manipulation; nothing here is dragged. |
-| **21st.dev** | Nothing | Eight results at 0.50–0.54 confidence, rationales that were keyword matches, corpus dominated by stat-card grids and gradient area charts. Recorded in `DESIGN_DIRECTION.md` as a negative result. |
+| **21st.dev** | Nothing | Eight results at 0.50–0.54 confidence, rationales that were keyword matches, corpus dominated by stat-card grids and gradient area charts. Recorded as a negative result rather than dressed up. |
 
 ### The disagreement, resolved explicitly
 
@@ -224,12 +224,13 @@ new elevation is checked against the material table above.
 
 ## 8. Status
 
-Identity defined. `DESIGN_DIRECTION.md` V1–V6 remains the implementation order,
-now grounded in the three signatures above.
+Identity defined.
 
-**V1 — Material foundation** is next: the five materials, the elevation rule,
-the lighting temperature and the radius system as tokens, applied without any
-layout change.
+**Superseded.** The V1–V6 order this section once referenced belonged to a
+visual programme that was reset in Phase 0. The current direction is
+**Architectural Instrument**, with **Cinematic Site Intelligence** confined to
+authentication; implementation state lives in `ARCHITECTURE.md`.
 
-Not started in this session. Remaining context could not complete V1 *and* its
-verification, and the stopping rule is explicit: never partially migrate.
+The three signatures in §2 survived the reset and remain current: the Indian
+numeral as display type, elevation earned by state rather than category, and
+warm light on warm ground.
