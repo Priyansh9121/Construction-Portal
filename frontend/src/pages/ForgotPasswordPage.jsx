@@ -106,12 +106,16 @@ function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      eyebrow="Account Recovery"
+      eyebrow="Account recovery"
       title={sent ? "Check your email" : "Recover access"}
       intro={
         sent
           ? "Reset instructions are on their way if the account is eligible."
-          : "Enter your registered email address to begin resetting access to your construction portal account."
+          : /* Facts, not instructions repeated from the subheading. The old
+             * line ended "...to your construction portal account", which both
+             * named the industry at the user and restated the field label
+             * immediately above the field. */
+            "A reset link goes to the address on the account. It expires shortly."
       }
       heading={sent ? "Check your email" : "Reset access"}
       subheading={

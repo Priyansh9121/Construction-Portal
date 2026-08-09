@@ -174,9 +174,13 @@ function RegisterPage() {
 
   return (
     <AuthShell
-      eyebrow="Construction Portal Access"
+      /* "Construction Portal Access" named the product a second time and
+       * claimed nothing else. The eyebrow now labels the task; the intro
+       * states what a workspace actually contains, which is the thing
+       * somebody creating one needs to know. */
+      eyebrow="New workspace"
       title="Create your workspace"
-      intro="Set up a company workspace for your tenders, finance, workforce and site activity."
+      intro="A workspace holds one company's tenders, finance, workforce and site records. Nothing is shared with another company."
       heading="Create account"
       subheading="Create your company workspace. You will become its initial administrator."
       footer={<AuthLink to="/login">Back to sign in</AuthLink>}

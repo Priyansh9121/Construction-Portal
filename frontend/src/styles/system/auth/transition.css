@@ -95,24 +95,106 @@
 }
 
 /*
- * View Transitions, where supported. The named transition applies to the root
- * snapshot pair, so the outgoing scene and the incoming destination are
- * composited by the browser rather than one being painted over the other.
+ * ===========================================================================
+ * THE DEPARTURE LAYER
+ * ===========================================================================
+ * `utils/authTransition.js` inserts one element before the commit and removes
+ * it afterwards. This is the whole of what the user sees.
  *
- * Progressive enhancement: if these rules are unsupported they are ignored,
- * and the state-attribute transitions above still run.
+ * ONE property: opacity, from the scene's own sky to nothing, over 260ms.
+ *
+ * The layer does not become the application's canvas. An earlier version did
+ * — it interpolated `background-color` from `--auth-sky-deep` to `--ui-canvas`
+ * across the whole viewport — and the midpoint frame settled the question:
+ * a flat mid-grey filling the screen, edge to edge, with nothing in it. It
+ * passed every mechanical check, because it is neither a flash nor a blank
+ * page, and it was plainly wrong. That is a wipe. It is the cross-dissolve
+ * between two unrelated pictures that this whole design exists to avoid, and
+ * no amount of easing makes a screen of grey mean anything.
+ *
+ * Fading the dark away instead means the thing that becomes visible IS the
+ * destination — its columns, its rules, its figures, arriving under a
+ * lifting dark rather than behind a curtain of neutral paint. The continuity
+ * is not asserted by matching two drawings; it is simply that there is only
+ * ever one image on screen, and the light on it changes.
+ *
+ * That is also the literal reading of the moment: the lights coming up in a
+ * room that was already furnished.
+ *
+ * OPAQUE FROM THE FIRST FRAME, AND THAT IS THE OTHER DESIGN DECISION.
+ *
+ * The first version faded the layer up from transparent, reasoning that the
+ * sign-in screen should dim rather than be covered. The frame recording
+ * refuted it: the commit unmounts the scene in the same task, so during that
+ * fade-in there was nothing underneath left to dim — the recording showed one
+ * bright frame of an empty document at 0.96, then the layer arriving over it.
+ * A flash, produced by trying to avoid a cut.
+ *
+ * So the layer is `--auth-sky-deep` at full opacity from the instant it is
+ * inserted, which is the exact colour already behind the form. What is lost at
+ * that instant is the silhouettes and the form; what is kept is the sky. That
+ * is the smallest honest instant change available, because anything smaller
+ * means keeping the sign-in tree mounted after the session has been applied —
+ * presentation holding on to state, which is the one thing this module exists
+ * to prevent.
+ *
+ * The last beat does not reveal a destination that is arriving. It reveals one
+ * that has been standing there for two tenths of a second, which is why there
+ * is no blank frame and no half-built application to look at.
+ *
+ * Neither endpoint is pure: `--auth-sky-deep` is not black and `--ui-canvas`
+ * is not white, so no frame in this sequence reads as a flash.
+ *
+ * `pointer-events: none` for its whole life, and the element is removed from
+ * the document when the timer fires. It cannot swallow a click even during
+ * the animation.
  */
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) {
-    animation-duration: 260ms;
-    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
-  }
+@layer system-components {
+  .auth-departure {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
 
-  ::view-transition-new(root) {
-    animation-duration: 260ms;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    background: var(--auth-sky-deep);
+    opacity: 1;
+
+    /*
+     * `--e-dismiss` accelerates away: this is something LEAVING, and the
+     * system's curves are directional. It also front-loads the darkness,
+     * which is what gives a lazy destination its first hundred milliseconds
+     * under cover.
+     */
+    animation: auth-depart var(--t-deliberate, 260ms) var(--e-dismiss, ease-in)
+      both;
   }
 }
+
+@keyframes auth-depart {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/*
+ * ===========================================================================
+ * THE ARRIVAL — deliberately not animated
+ * ===========================================================================
+ * An earlier version faded `#root` up underneath the departure layer. It was
+ * removed, and the reason is a rule this system already holds: one event owns
+ * motion at a time.
+ *
+ * The destination arriving and the scene leaving are not two events. They are
+ * one, and the layer already describes it. A second animation underneath only
+ * makes the application look like it is still loading at the moment it becomes
+ * visible — and it is not; it has been mounted and interactive since roughly
+ * the thirty-millisecond mark.
+ *
+ * By the time the leaving state is set the scene has already been unmounted by
+ * the commit, so there is nothing left to take away on that side either.
+ * Styling `.auth-scene` here would animate an element that no longer exists,
+ * which is exactly what an earlier version did and why it produced no visible
+ * transition at all.
+ */
 
 /*
  * ─────────────────────────────────────────────────────────────────────────
@@ -137,6 +219,18 @@
 
     [data-auth-leaving] .auth-rig {
       animation: none;
+    }
+
+    /*
+     * The arrival is kept and shortened rather than removed. Continuity is
+     * the INFORMATION here -- it is what says "this is the same product, you
+     * are now inside it" -- and a hard cut from a dark sign-in screen to a
+     * light operational application is exactly the disorientation reduced
+     * motion exists to prevent. What is removed is travel, and there was
+     * never any: this is opacity only.
+     */
+    .auth-departure {
+      animation-duration: var(--t-grip, 90ms);
     }
   }
 }
