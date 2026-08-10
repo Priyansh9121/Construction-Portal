@@ -169,8 +169,24 @@ const REDACTED_KEYS = new Set([
  * recurse until the stack gave out.
  */
 const redact = (value, depth = 0) => {
-  if (depth > 6 || value == null) {
+  if (value == null) {
     return value;
+  }
+
+  /*
+   * F-08. The cap used to return the subtree untouched, which failed OPEN:
+   * anything in REDACTED_KEYS deeper than six levels was written to
+   * activity_logs verbatim. Since F-12 that list includes payment
+   * identifiers, so the failure mode was an account number surviving into a
+   * table retained longer and read more widely than the register it came
+   * from.
+   *
+   * No current payload nests anywhere near this deep. That is exactly why it
+   * must fail closed: the guard only ever runs on a shape nobody
+   * anticipated, and an unanticipated shape is the one not to trust.
+   */
+  if (depth > 6) {
+    return "[truncated]";
   }
 
   if (Array.isArray(value)) {
