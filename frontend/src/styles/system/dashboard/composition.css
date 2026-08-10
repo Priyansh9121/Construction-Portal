@@ -61,9 +61,12 @@
  * ─────────────────────────────────────────────────────────────────────────
  * `.section-title-row` has 29 consumers across Tenders, Invoices,
  * Subcontractors, Activity, the portals and the finance components, and is
- * styled in legacy `core/foundation.css`. Nothing here touches it. The chart's
- * heading is reached only through `.ui-chart`, the palette-scoped class F-03
- * established, so the migrated caller changes and the unmigrated one does not.
+ * styled in legacy `core/foundation.css`. Nothing here touches it.
+ *
+ * The chart originally reached its heading THROUGH that legacy class, scoped
+ * by `.ui-chart` so only the migrated caller was affected. It no longer needs
+ * to: the migrated caller renders `.ui-chart__head` and the unmigrated ones
+ * keep `.section-title-row` untouched. Same isolation, one less override.
  */
 
 :root {
@@ -85,7 +88,8 @@
    *   Attention    what needs me            ─┐ sequence
    *   Health       where do we stand         ─┐ kin
    *   Trend        how did we get here       ─┘
-   *   Pipeline     what is moving           ─┐ chapter
+   *   Approaching  what is coming           ─┐ chapter
+   *   Pipeline     what is moving           ─┤ chapter
    *   Activity     what changed             ─┘ epilogue
    */
 
@@ -99,7 +103,8 @@
     margin-block-end: var(--ui-flow-kin);
   }
 
-  .ui-chart {
+  .ui-chart,
+  .ui-dl {
     margin-block-end: var(--ui-flow-chapter);
   }
 
@@ -121,7 +126,8 @@
   .ui-health__title,
   .ui-pipe__title,
   .ui-activity__title,
-  .ui-chart .section-title-row h2 {
+  .ui-chart__title,
+  .ui-dl__title {
     font-size: var(--ui-text-xl);
     letter-spacing: var(--ui-tracking-tight);
   }

@@ -29,7 +29,7 @@ import {
     CartesianGrid,
     Legend,
   } from "recharts";
-  
+
   /**
    * The two visual languages this chart can speak.
    *
@@ -127,7 +127,47 @@ import {
     };
   }
 
-  function FinanceTrendChart({ payments = [], emptyState = null, palette = "legacy" }) {
+
+  /*
+   * ─────────────────────────────────────────────────────────────────────────
+   * THE SECTION HEAD
+   * ─────────────────────────────────────────────────────────────────────────
+   * Read as part of the whole Dashboard rather than on its own, this head was
+   * the one place the page changed dialect. Every other chapter says its name
+   * in sentence case and puts its SCOPE on the right of the same line —
+   * "Approaching · 7 dated items in the next 30 days", "Work in flight ·
+   * committed across 4 projects". This one said "Monthly Finance Trend" in
+   * Title Case with a subtitle stacked beneath it, which is a different
+   * component's grammar sitting in the middle of the sequence.
+   *
+   * So the migrated caller gets the page's grammar, and the legacy callers keep
+   * theirs untouched — on the SAME `palette` opt-in that already gates the
+   * container chrome and the entrance (DASH-008), rather than a second flag.
+   *
+   * The name changes with it. "Monthly Finance Trend" restates the axis; the
+   * chapter titles around it name what you are looking at, so this one does too.
+   */
+  function TrendHead({ system }) {
+    if (!system) {
+      return (
+        <div className="section-title-row">
+          <div>
+            <h2>Monthly Finance Trend</h2>
+            <p className="muted-text">Income, expenses and profit by month</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="ui-chart__head">
+        <h2 className="ui-chart__title">Month by month</h2>
+        <p className="ui-chart__scope">Income, expenses and profit</p>
+      </div>
+    );
+  }
+
+    function FinanceTrendChart({ payments = [], emptyState = null, palette = "legacy" }) {
     /* Resolved once per render, keyed on the palette name. */
     const paint = useMemo(() => resolvePalette(palette), [palette]);
 
@@ -143,9 +183,9 @@ import {
       payments.reduce((acc, payment) => {
         const date = payment.payment_date || payment.created_at;
         if (!date) return acc;
-  
+
         const month = date.slice(0, 7);
-  
+
         if (!acc[month]) {
           acc[month] = {
             month,
@@ -154,21 +194,21 @@ import {
             profit: 0,
           };
         }
-  
+
         if (payment.payment_type === "Income") {
           acc[month].income += Number(payment.amount || 0);
         }
-  
+
         if (payment.payment_type === "Expense") {
           acc[month].expense += Number(payment.amount || 0);
         }
-  
+
         acc[month].profit = acc[month].income - acc[month].expense;
-  
+
         return acc;
       }, {})
     ).sort((a, b) => a.month.localeCompare(b.month));
-  
+
     /*
      * DASH-003. A trend needs at least two months to BE a trend.
      *
@@ -196,14 +236,7 @@ import {
 
       return (
         <div className={`panel premium-chart-panel${palette === "finance" ? " ui-chart" : ""}`}>
-          <div className="section-title-row">
-            <div>
-              <h2>Monthly Finance Trend</h2>
-              <p className="muted-text">
-                Income, expenses and profit by month
-              </p>
-            </div>
-          </div>
+  <TrendHead system={palette === "finance"} />
 
           <EmptyState
             title={noPayments ? "No payments recorded yet" : "Not enough history yet"}
@@ -231,15 +264,8 @@ import {
          * caller declares a material; the legacy panel keeps its own chrome. */
         data-material={palette === "finance" ? "ground" : undefined}
       >
-        <div className="section-title-row">
-          <div>
-            <h2>Monthly Finance Trend</h2>
-            <p className="muted-text">
-              Income, expenses and profit by month
-            </p>
-          </div>
-        </div>
-  
+  <TrendHead system={palette === "finance"} />
+
         <div className="premium-chart-shell">
           <ResponsiveContainer width="100%" height={paint.plotHeight}>
             <AreaChart data={monthlyData}>
@@ -310,5 +336,5 @@ import {
       </div>
     );
   }
-  
+
   export default FinanceTrendChart;

@@ -31,13 +31,28 @@
  */
 
 @layer system-pages {
+  /*
+   * ON GROUND, NOT IN A FRAME.
+   *
+   * The first version framed this compartment, which was defensible in
+   * isolation and wrong on the page. Read top to bottom, the Dashboard has
+   * exactly one raised object — the instrument: the drawing, what needs you,
+   * and where you stand, inside one frame. Everything after it is the sheet
+   * being read: month by month, work in flight, what changed. A second frame
+   * two chapters down created a second focal point competing with the one
+   * the page is built around.
+   *
+   * The frame's padding also indented the heading ~20px past every other
+   * chapter title, so five chapter heads sat on four different left edges.
+   * A drawing sheet has one margin.
+   *
+   * Nothing is lost by removing it: the axis is contained by its own scale
+   * rule, which is a drawn element rather than a container.
+   */
+  /* Rank and rhythm come from composition.css, which owns the page's
+   * sequence — this is one chapter of five and is spaced by the same rule. */
   .ui-dl {
-    margin-block-end: var(--ui-space-6);
-    padding: var(--ui-space-5) var(--ui-space-6) var(--ui-space-6);
-
-    border: var(--rule-frame);
-    border-radius: var(--ui-radius-container);
-    background: var(--ui-surface);
+    padding-block: var(--ui-space-1) var(--ui-space-2);
   }
 
   .ui-dl__head {
@@ -51,9 +66,7 @@
 
   .ui-dl__title {
     margin: 0;
-    font-size: var(--ui-text-lg);
     font-weight: var(--ui-weight-semibold);
-    letter-spacing: var(--type-track-normal);
     color: var(--ui-ink-strong);
   }
 
@@ -78,8 +91,11 @@
 
     /* Height follows the deepest lane, so a busy month grows rather than
      * overlapping itself. */
-    min-block-size: calc(var(--lanes, 1) * 3.25rem + 2.5rem);
-    margin-inline: var(--ui-space-2);
+    /* Lane pitch is a variable because a wrapped label needs a taller lane,
+     * and the axis only wraps where it is narrow. */
+    --lane-pitch: 3.25rem;
+
+    min-block-size: calc(var(--lanes, 1) * var(--lane-pitch) + 2.5rem);
   }
 
   /* The scale line. `--rule-zone` weight: it separates two kinds of thing —
@@ -106,21 +122,28 @@
     color: var(--ui-ink-muted);
   }
 
-  /* The end stop pulls inside so it cannot be clipped by the compartment. */
+  /* The outer stops pull inside so neither is clipped by the page margin. */
+  .ui-dl__tick--start { transform: translateX(0); }
   .ui-dl__tick--end { transform: translateX(-100%); }
-  .ui-dl__tick:first-of-type { transform: translateX(0); }
 
   /* ---- Marks ------------------------------------------------------------ */
 
   .ui-dl__mark {
     position: absolute;
     inset-inline-start: var(--at);
-    inset-block-end: calc(1.75rem + var(--lane, 0) * 3.25rem);
+    inset-block-end: calc(1.75rem + var(--lane, 0) * var(--lane-pitch));
 
     display: flex;
     align-items: flex-end;
     gap: var(--ui-space-2);
-    max-inline-size: 40%;
+
+    /*
+     * The width is set from JS, because it is the same number the lane logic
+     * uses to decide whether two marks collide — see DeadlineHorizon.jsx. A
+     * CSS percentage here and a JS percentage there is how the axis
+     * overprinted twice.
+     */
+    max-inline-size: var(--mark-max, 40%);
   }
 
   /*
@@ -151,6 +174,10 @@
     gap: 1px;
     min-inline-size: 0;
     padding-block-end: 1px;
+
+    /* The guarantee. Whatever the content, a mark paints inside the width the
+     * lane logic reserved for it. */
+    overflow: hidden;
   }
 
   .ui-dl__name {
@@ -169,12 +196,27 @@
   }
 
   .ui-dl__when {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.4em;
+
     font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
     font-size: var(--ui-text-2xs);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
-    white-space: nowrap;
     color: var(--ui-ink-muted);
+  }
+
+  .ui-dl__mark[data-side="left"] .ui-dl__when {
+    justify-content: flex-end;
+  }
+
+  /* The separator belongs to the figure, so that when the two fall onto
+   * separate lines it leads the second one instead of dangling off the
+   * first. */
+  .ui-dl__amount::before {
+    content: "·";
+    margin-inline-end: 0.35em;
   }
 
   /*
@@ -208,15 +250,13 @@
    * drops its middle stop because three ticks in 320px is a ruler.
    */
   @media (max-width: 48rem) {
-    .ui-dl {
-      padding: var(--ui-space-4) var(--ui-space-4) var(--ui-space-5);
+    /* Room for a label that has fallen onto two lines. */
+    .ui-dl__axis {
+      --lane-pitch: 4.25rem;
     }
 
-    .ui-dl__mark {
-      max-inline-size: 62%;
-    }
-
-    .ui-dl__tick:nth-of-type(2) {
+    /* Three stops in 358px is a ruler. The middle one goes. */
+    .ui-dl__tick--mid {
       display: none;
     }
   }

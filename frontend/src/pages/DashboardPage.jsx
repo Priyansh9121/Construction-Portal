@@ -552,7 +552,7 @@ function DashboardPage({
         from the figures this page already derived rather than recomputed.
       */}
       <SheetFooter
-        openCount={dueSoonTenders.length + overdueTenders.length}
+        dueCount={dueSoonTenders.length + overdueTenders.length}
       />
 
     </>
