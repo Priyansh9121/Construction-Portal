@@ -35,64 +35,25 @@
  * moment stutter on the device it matters most on.
  */
 
-@layer system-components {
-  /*
-   * Everything below is scoped to the leaving state, so nothing here has any
-   * cost — or any effect — during normal use of the sign-in surface.
-   */
-
-  /* 1 · atmosphere clears */
-  [data-auth-leaving] .auth-scene__layer[data-layer="veil"] {
-    opacity: 0;
-    transition: opacity var(--t-place, 200ms) var(--e-dismiss, ease-in);
-  }
-
-  /* 2 · the ground lightens. Not a fade to white: the sky becomes the
-   *     application's canvas, which is a warm off-white, so the arrival is a
-   *     surface rather than a flash. */
-  [data-auth-leaving] .auth-scene {
-    background: var(--ui-canvas);
-    transition: background-color var(--t-deliberate, 260ms)
-      var(--e-place, ease-out);
-  }
-
-  /* 3 · mass leaves. Silhouettes are scene-only; the application has no
-   *     buildings in it. */
-  [data-auth-leaving] .auth-scene__layer[data-layer="distance"],
-  [data-auth-leaving] .auth-scene__layer[data-layer="structure"] {
-    opacity: 0;
-    transition: opacity var(--t-place, 200ms) var(--e-dismiss, ease-in);
-  }
-
-  /*
-   * 4 · the linework stays.
-   *
-   * Deliberately given NO transition. It is the element both worlds share, and
-   * animating it would turn continuity into a hand-off. It simply persists
-   * while everything around it resolves.
-   */
-  [data-auth-leaving] .auth-scene__structure-lines {
-    opacity: 1;
-  }
-
-  /*
-   * The rig stops sweeping the moment departure begins. Ambient motion during
-   * a deliberate transition reads as two things happening at once.
-   */
-  [data-auth-leaving] .auth-rig {
-    animation-play-state: paused;
-  }
-
-  /*
-   * Content clears quickly. The form has done its job and should not linger
-   * over a lightening ground, where its dark-scheme colours would be briefly
-   * unreadable.
-   */
-  [data-auth-leaving] .auth-scene__content {
-    opacity: 0;
-    transition: opacity var(--t-grip, 90ms) var(--e-dismiss, ease-in);
-  }
-}
+/*
+ * ===========================================================================
+ * WHAT IS NOT HERE
+ * ===========================================================================
+ * This file used to carry seven rules scoped to `[data-auth-leaving]
+ * .auth-scene*` — the veil lifting, the ground lightening, silhouettes
+ * fading, the rig pausing, the form clearing.
+ *
+ * Every one of them was dead. `commit` unmounts the entire sign-in tree in
+ * the same task the leaving state is set, so those selectors matched nothing
+ * by the time the attribute existed. They were removed rather than kept
+ * "for safety": a rule that cannot match is not safety, it is a description
+ * of a mechanism that no longer exists, and the next reader would have
+ * trusted it.
+ *
+ * The scene's ambient motion needs no pausing for the same reason. It stops
+ * because the scene is gone, which is the strongest possible form of "one
+ * event owns motion".
+ */
 
 /*
  * ===========================================================================
@@ -150,7 +111,29 @@
  * the animation.
  */
 @layer system-components {
+  /*
+   * THE SHELL'S REAL GEOMETRY.
+   *
+   * Measured from a live application, not chosen: the sidebar edge stands at
+   * 272px and the topbar rule at 61px. Below 1024px the sidebar is a drawer
+   * and there is no vertical edge to resolve into, so the rule is withdrawn
+   * rather than faked.
+   *
+   * These are declared here because the transition is the only thing that
+   * needs to know both worlds' coordinates at once.
+   */
   .auth-departure {
+    /*
+     * Defaults only. `authTransition.js` measures the destination one frame
+     * after the commit and overwrites both, or hides a rule that has nothing
+     * to become. The `--*-shown` flags start at 0 so a rule is never drawn
+     * before it has been aimed at something real.
+     */
+    --shell-rail: 272px;
+    --shell-rule: 61px;
+    --shell-rail-shown: 0;
+    --shell-rule-shown: 0;
+
     position: fixed;
     inset: 0;
     z-index: 2147483000;
@@ -159,20 +142,139 @@
     background: var(--auth-sky-deep);
     opacity: 1;
 
-    /*
-     * `--e-dismiss` accelerates away: this is something LEAVING, and the
-     * system's curves are directional. It also front-loads the darkness,
-     * which is what gives a lazy destination its first hundred milliseconds
-     * under cover.
-     */
     animation: auth-depart var(--t-deliberate, 260ms) var(--e-dismiss, ease-in)
       both;
   }
+
+  /* The scene's storeys, holding their positions as the ground lightens. */
+  .auth-departure__scene {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .auth-departure__plate {
+    position: absolute;
+    inset-inline: 12%;
+    /* Spread across the lower half, where the scene's massing actually is. */
+    inset-block-start: calc(46% + var(--plate) * 6.5%);
+
+    display: block;
+    block-size: 0;
+    border-block-start: 1px solid rgb(255 255 255 / 0.16);
+
+    transform-origin: left center;
+    animation: auth-plate-clear var(--t-deliberate, 260ms)
+      var(--e-dismiss, ease-in) calc(var(--plate) * 14ms) both;
+  }
+
+  /*
+   * The two rules that survive.
+   *
+   * They do not fade in — they are already there when the layer appears,
+   * because that is the whole claim: the structure was always present and
+   * only the light changed. What they do is travel from where the SCENE put
+   * them to where the APPLICATION keeps them, and then hand over.
+   */
+  .auth-departure__rule {
+    position: absolute;
+    display: block;
+    background: rgb(255 255 255 / 0.22);
+  }
+
+  .auth-departure__rule--h {
+    opacity: var(--shell-rule-shown, 0);
+    inset-inline: 0;
+    inset-block-start: var(--shell-rule);
+    block-size: 1px;
+
+    transform-origin: left center;
+    animation: auth-rule-h var(--t-deliberate, 260ms) var(--e-place, ease-out)
+      both;
+  }
+
+  .auth-departure__rule--v {
+    opacity: var(--shell-rail-shown, 0);
+    inset-block: 0;
+    inset-inline-start: var(--shell-rail);
+    inline-size: 1px;
+
+    transform-origin: center top;
+    animation: auth-rule-v var(--t-deliberate, 260ms) var(--e-place, ease-out)
+      both;
+  }
+
+  /*
+   * There is deliberately no width media query here.
+   *
+   * An earlier version hid the vertical rule below 1024px, on the assumption
+   * that "narrow" meant "no sidebar". Right instinct, wrong signal: the worker
+   * and subcontractor portals have no sidebar at ANY width, and the rule hung
+   * in empty space on a 1440px portal until a frame recording caught it.
+   * Measuring the destination answers the real question.
+   */
 }
 
+/*
+ * ===========================================================================
+ * THE THRESHOLD
+ * ===========================================================================
+ * Three concepts were built and recorded before this one was chosen. The
+ * comparison is in `.screenshots/threshold-concepts/`.
+ *
+ *   A · STRUCTURAL RESOLUTION  the scene's storeys clear while two rules
+ *                              travel to the shell's coordinates
+ *   B · SETTING OUT            survey lines sweep in, meet, withdraw
+ *   C · LIGHT-UP               structure fixed, ground lightens outward
+ *
+ * A won, and the reason is that it is the only one of the three whose motion
+ * is *caused by the geometry that already existed*. B introduces lines the
+ * user has never seen, which reads as an interstitial rather than a
+ * resolution. C is beautiful and says nothing — with the structure fixed and
+ * only luminance changing, there is no moment where the scene BECOMES the
+ * workspace; it is a dissolve with extra steps.
+ *
+ * The sequence, in 260ms:
+ *
+ *   0 → 45%    the storeys clear, lowest first, sliding left off their own
+ *              origin. The two survivors hold.
+ *   0 → 100%   the dark lifts. The application, already mounted underneath,
+ *              becomes legible through it.
+ *   35 → 100%  the two survivors travel the last of the distance to the
+ *              shell's own coordinates and hand over to the real rules.
+ *
+ * What the user should read: structure was already there, the light changed,
+ * the workspace became legible.
+ */
 @keyframes auth-depart {
   from { opacity: 1; }
   to   { opacity: 0; }
+}
+
+/*
+ * Storeys clear by SCALING to nothing from their left edge, not by fading.
+ * A fading line reads as a line that was never load-bearing; a line that
+ * retracts to its origin reads as one being taken down.
+ */
+@keyframes auth-plate-clear {
+  0%   { transform: scaleX(1); opacity: 1; }
+  45%  { transform: scaleX(0); opacity: 1; }
+  100% { transform: scaleX(0); opacity: 0; }
+}
+
+/*
+ * The survivors. Each starts slightly off the shell's coordinate and settles
+ * onto it, so the hand-over to the real chrome is a arrival rather than a cut.
+ * Transform only: neither `top` nor `left` is ever animated.
+ */
+@keyframes auth-rule-h {
+  from { transform: translate3d(0, 14px, 0) scaleX(0.94); }
+  to   { transform: none; }
+}
+
+@keyframes auth-rule-v {
+  from { transform: translate3d(-18px, 0, 0) scaleY(0.9); }
+  to   { transform: none; }
 }
 
 /*
@@ -210,17 +312,6 @@
  */
 @media (prefers-reduced-motion: reduce) {
   @layer system-components {
-    [data-auth-leaving] .auth-scene,
-    [data-auth-leaving] .auth-scene__content,
-    [data-auth-leaving] .auth-scene__layer {
-      transition-duration: 90ms;
-      transition-delay: 0ms;
-    }
-
-    [data-auth-leaving] .auth-rig {
-      animation: none;
-    }
-
     /*
      * The arrival is kept and shortened rather than removed. Continuity is
      * the INFORMATION here -- it is what says "this is the same product, you
@@ -229,8 +320,27 @@
      * motion exists to prevent. What is removed is travel, and there was
      * never any: this is opacity only.
      */
+    /*
+     * Reduced motion keeps the THRESHOLD and drops the construction.
+     *
+     * The storeys do not retract and the rules do not travel — they are
+     * simply where they belong from the first frame, and the light changes.
+     * That is the same conceptual event (structure was already there, the
+     * light changed) without any travel at all, which is what makes it a
+     * designed mode rather than the animation switched off.
+     */
     .auth-departure {
       animation-duration: var(--t-grip, 90ms);
+    }
+
+    .auth-departure__plate {
+      animation: none;
+      opacity: 0;
+    }
+
+    .auth-departure__rule {
+      animation: none;
+      transform: none;
     }
   }
 }
