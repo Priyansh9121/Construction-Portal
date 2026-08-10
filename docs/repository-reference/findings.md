@@ -29,7 +29,7 @@ Status values:
 | F-06 | Low | Open | Two Gujarati-language conventions coexist |
 | F-07 | Medium | **Fixed** | Email templates escape user-supplied names |
 | F-08 | Low | **Fixed** | `redact()` now fails closed below six levels |
-| F-09 | Medium | Open | Membership and ownership changes not audited |
+| F-09 | Medium | **Fixed** | Membership and ownership changes are audited |
 | F-10 | Low | **Partially fixed** | Subcontractors now routes `getById`; workers and invoices still do not |
 | F-11 | Low | **Fixed** | The unreachable worker `status` default is removed |
 | F-12 | High | **Fixed** | Bank details masked in list; full details role-gated; audit redacted |
@@ -256,6 +256,25 @@ a company.
 
 The routes are correctly gated — this is not an access-control hole. It is
 a gap in the record of who exercised that access.
+
+### Resolution
+
+**Status:** Fixed.
+
+The three routes that CHANGE membership or ownership now carry `logActivity`:
+
+| route | module | action |
+|---|---|---|
+| `PUT /members/:userId/role` | `company_members` | `update` |
+| `DELETE /members/:userId` | `company_members` | `remove` |
+| `POST /transfer-ownership` | `company_ownership` | `update` |
+
+The three read-only routes deliberately do not. A record of who *looked at* a
+member list is surveillance, not evidence, and `PRODUCT_SOUL` §9 rejects the
+former explicitly.
+
+**Regression coverage:** `tests/companyAudit.test.js`. Both cases were
+confirmed to fail when the `logActivity` middleware is removed.
 
 ---
 
