@@ -401,6 +401,29 @@ describe("write endpoints reject another company's record ids", () => {
     expect(response.status).toBe(404);
   });
 
+  /*
+   * F-10. `GET /:id` on workers and invoices was exported by the controller
+   * and never mounted, so it 404'd through the catch-all. Now that it is
+   * routed, the 404 must come from the ownership check instead — which is
+   * indistinguishable from outside, and has to stay that way.
+   */
+  it("Beta cannot read Alpha's worker by id", async () => {
+    const response = await beta.auth(
+      request.get(`/api/workers/${alphaIds.worker}`)
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it("Alpha can read its own worker by id", async () => {
+    // The other half of the same statement: the route exists and works.
+    const response = await alpha.auth(
+      request.get(`/api/workers/${alphaIds.worker}`)
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   it("Beta cannot attach a payment to Alpha's tender", async () => {
     if (!alphaIds.tender) return;
 
