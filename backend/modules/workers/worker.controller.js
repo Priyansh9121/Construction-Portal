@@ -166,7 +166,6 @@ const workers = createScopedCrud({
     },
   ],
 
-  // A worker created without an explicit status is on the books.
   /*
    * F-11. `defaults: { status: "active" }` stood here and could never fire:
    * validateWorker requires status and rejects with 400 before the factory

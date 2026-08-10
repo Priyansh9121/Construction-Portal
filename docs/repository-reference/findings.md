@@ -21,8 +21,8 @@ Status values:
 
 | ID | Severity | Status | Summary |
 |---|---|---|---|
-| F-01 | Low | Open | `package.json` names a non-existent entry point |
-| F-02 | Low | Open | `JWT_REFRESH_EXPIRES_IN` configured but never read |
+| F-01 | Low | **Fixed** | `package.json` names `server.js` |
+| F-02 | Low | **Fixed** | `JWT_REFRESH_EXPIRES_IN` removed from the template |
 | F-03 | Medium | Open | Variables the code reads are absent from `.env` |
 | F-04 | Medium | Open | Two default timezones disagree |
 | F-05 | Low | Open | Audit trail records outcomes, not changes |
@@ -31,7 +31,7 @@ Status values:
 | F-08 | Low | **Fixed** | `redact()` now fails closed below six levels |
 | F-09 | Medium | Open | Membership and ownership changes not audited |
 | F-10 | Low | **Partially fixed** | Subcontractors now routes `getById`; workers and invoices still do not |
-| F-11 | Low | Open | Worker `status` default is unreachable |
+| F-11 | Low | **Fixed** | The unreachable worker `status` default is removed |
 | F-12 | High | **Fixed** | Bank details masked in list; full details role-gated; audit redacted |
 | F-13 | Medium | **Fixed** | Backdating window: timezone AND permission consistency |
 | F-14 | Low | **Fixed** | Site-log worker/subcontractor now ownership-checked |
@@ -54,6 +54,10 @@ Harmless today because nothing imports this package. It would matter the
 moment anything did `require("backend")`, and it misleads a reader looking
 for where the app starts.
 
+**Status:** Fixed. `"main"` reads `server.js`, which is what `npm run dev`,
+`npm start` and Render's `startCommand` all use. Corrected before this
+reconciliation pass; the index had not been updated.
+
 ---
 
 ## F-02 · `JWT_REFRESH_EXPIRES_IN` is configured but never read
@@ -66,6 +70,10 @@ There is no refresh-token flow — `auth.service.js` issues a single access
 token and `JWT_EXPIRES_IN` alone controls session length.
 
 It suggests a refresh mechanism exists when none does.
+
+**Status:** Fixed. Removed from `.env.example`. There is no refresh-token
+flow, and a template that advertises one describes a mechanism the code does
+not have.
 
 ---
 
@@ -296,6 +304,13 @@ take effect if the validation middleware were removed from the route, or if
 Harmless — the frontend always sends a status — but the two files disagree
 about whether the field is optional, and a reader of either one alone would
 draw the wrong conclusion.
+
+**Status:** Fixed. The dead `defaults: { status: "active" }` is removed.
+
+Removed rather than made reachable. Making it reachable — by dropping `status`
+from `validateWorker`'s required list — changes what the API accepts, which is
+a policy decision about whether a worker may be created without a status, not
+a cleanup. The two files now agree that it is required.
 
 ---
 
