@@ -23,7 +23,7 @@ Status values:
 >
 > | | |
 > |---|---|
-> | backend tests | **249** across **17** files (`cd backend && npm test`) |
+> | backend tests | **254** across **18** files (`cd backend && npm test`) |
 > | frontend browser tests | **370** across **7** files (`cd frontend && npx playwright test`) |
 > | accessibility | axe runs inside `tests/a11y.spec.js`, every route at two widths |
 > | tracked `.DS_Store` | **0** |

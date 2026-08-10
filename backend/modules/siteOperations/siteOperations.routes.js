@@ -112,6 +112,24 @@ const labourController = require("./labour.controller");
 const bankingController = require("./banking.controller");
 const accessRequestController = require("./accessRequest.controller");
 
+/*
+ * Idempotency, applied to the four routes that CREATE evidence.
+ *
+ * Not to the approve/reject routes: those are decisions on a record that
+ * already exists, they are naturally idempotent in effect, and a repeated
+ * approval does not create a second one.
+ *
+ * Not to access-requests either — asking twice for access is a real thing a
+ * supervisor might do, and the office should see both asks.
+ *
+ * The operation names below are internal and stable. They are deliberately
+ * not the URLs: a route may be renamed without orphaning keys still in
+ * flight.
+ */
+const {
+  idempotent,
+} = require("../../middleware/idempotency");
+
 const router = express.Router();
 
 /*
@@ -193,6 +211,7 @@ router.get(
 // POST /api/site-operations/materials
 router.post(
   "/materials",
+  idempotent("material.create"),
   asyncHandler(
     materialController.createEntry
   )
@@ -262,6 +281,7 @@ router.get(
 // POST /api/site-operations/labour
 router.post(
   "/labour",
+  idempotent("labour.create"),
   asyncHandler(
     labourController.createLabour
   )
@@ -278,6 +298,7 @@ router.get(
 // POST /api/site-operations/labour/:id/entries
 router.post(
   "/labour/:id/entries",
+  idempotent("labour.workEntry.create"),
   asyncHandler(
     labourController.createWorkEntry
   )
@@ -347,6 +368,7 @@ router.get(
 router.post(
   "/banking/receipts",
   requireOffice,
+  idempotent("banking.receipt.create"),
   asyncHandler(
     bankingController.createReceipt
   )
@@ -363,6 +385,7 @@ router.get(
 // POST /api/site-operations/banking/expenses
 router.post(
   "/banking/expenses",
+  idempotent("banking.expense.create"),
   asyncHandler(
     bankingController.createExpense
   )

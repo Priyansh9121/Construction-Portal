@@ -98,6 +98,11 @@ make the record trustworthy:
   can rise as well as fall.
 - **One source for the money tree.** The income/expense hierarchy is served
   from the API, so the form and the server's validation cannot drift apart.
+- **Retry-safe evidence.** The five Site Operations routes that create a
+  record accept an `Idempotency-Key`, so a repeated request returns the first
+  answer rather than writing twice — and a single-use backdating grant is not
+  spent a second time by a retry. Opt-in: a client that sends no key behaves
+  exactly as before.
 
 These are derived from a real site notebook and were verified end to end
 against a live server. They are the reason the product is believable to a
@@ -220,7 +225,7 @@ approval queue, master data, break-glass admin.
   (`backend/tests/paymentCalculations.test.js`).
 - **A working local stack.** Postgres 18.4, 47 tables, seeded fixtures for
   admin, worker and subcontractor roles (`backend/scripts/`).
-- **A tested backend.** **249 tests across 17 files** (measured 2026-08-10),
+- **A tested backend.** **254 tests across 18 files** (measured 2026-08-10),
   including tenant isolation, role separation, portals, activity log,
   notifications, email escaping, entry-window timezone and permission rules,
   and money maths.
