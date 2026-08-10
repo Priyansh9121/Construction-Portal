@@ -264,60 +264,76 @@ of a witness who has not been able to see for a while.
 
 ---
 
-## 6. Ambient behaviour, and why the workspace has none
+## 6. Ambient behaviour
 
-This is the section most likely to be argued with, so the reasoning is given in
-full.
+**Amended.** This section previously read "the workspace has no ambient
+motion", and banned environmental life outright. That was too restrictive, and
+the amendment is recorded rather than quietly applied because the original
+reasoning still governs the boundary.
 
-The instinct that a product should feel alive when untouched is a good one, and
-in this product it is satisfied in a way that does not involve pixels moving.
+### 6.1 The law, restated
 
-**The record is alive. The chrome is not.**
+> **The data must never pretend. The interface may feel alive.**
 
-What makes this product feel alive is that it *noticed* — a due date passed, an
-approval landed, a float went negative, a balance cleared. Those are real
-events about a real business, and surfacing them is the aliveness. Motion added
-on top of that is not aliveness; it is a second, fictional layer of activity
-competing with the true one.
+Two channels, and the distinction is what everything below turns on:
 
-### 6.1 The rule
+**Operational motion** represents real state. It moves because a fact moved.
+A progress bar, a countdown, a figure changing, a status resolving, a row
+arriving — each is a claim, and each must be true at the instant it is made.
 
-> **The workspace has no ambient motion. The threshold does.**
+**Environmental motion** represents nothing. It is atmosphere: light, weather
+in the abstract, structure, depth, the slow drift of a scene. It carries no
+information, cannot be mistaken for a reading, and would be equally true on
+the company's first day and its last.
 
-Inside the application, nothing moves that the user did not cause and no fact
-caused. A breathing grid, a pulsing health indicator, a drifting light, a live
-skyline, a heartbeat — each of these is the interface performing vitality it
-does not have, on a surface whose entire value is that it does not perform.
+The original ban conflated the two. It was right that motion is a claim — but
+only *operational* motion makes a claim, because only operational motion is
+attached to a number somebody might act on.
 
-`VISUAL_PRINCIPLES` §14 already bans decorative animation on the grounds that
-*motion is a claim that something happened*. Ambient motion is that claim, made
-continuously, about nothing.
+### 6.2 What is permitted
 
-### 6.2 What adaptation is permitted
+Environmental, and welcome:
 
-The product may adapt to facts it can **verify**. It may never adapt to facts
-it would have to **imagine**.
+- slow crane movement, hook sway, tower and obstruction lights
+- structural linework assembling, blueprint geometry resolving
+- ambient construction lighting, shifting daylight, moving shadows
+- atmospheric haze, drift, depth and parallax
+- procedural background geometry and animated floor grids
+- responsive light sources and route-aware environmental transitions
+- mechanical response in controls — the feel of a machined instrument
 
-| permitted — verifiable | forbidden — imagined |
-|---|---|
-| the clock on the device (a greeting that knows it is evening) | the weather at the site |
-| the viewport, the input type, the connection state | who is currently on site |
-| the user's reduced-motion and contrast preferences | whether the project "feels" at risk |
-| the user's own role and their own records | the season, the mood, the momentum |
+Operational, and permitted *because they are true*:
 
-The forbidden column is not forbidden because it would be hard. It is forbidden
-because `PRODUCT_SOUL` §9 rejects both surveillance and forecasting, and
-because a witness that decorates itself with things it did not see is no longer
-a witness.
+- real progress against a measurable quantity
+- a real countdown to a real deadline
+- a chart that moves because its data moved
+- a status that resolves because the server resolved it
 
-### 6.3 The one exception, and its boundary
+### 6.3 What remains forbidden, permanently
 
-The authentication scene has ambient motion — one crane, one sweep, very slow.
-It is admissible because it is **declared atmosphere on a surface that carries
-no business information**, and because it stops the instant the user commits.
+- fake worker counts, fake machinery telemetry, fake occupancy
+- weather presented as this site's weather when it was never recorded
+- invented project progress or completion percentages
+- a figure that pulses, counts up, or animates merely to look live
+- animated status implying an event that did not occur
+- any environmental effect placed close enough to a figure that a reader
+  could take it for a reading
 
-That boundary is the whole permission. The moment a depicted environment sits
-next to a figure, it is decorating a claim, and it is out.
+**The test.** Point at the moving thing and ask: *if I claimed in writing that
+this represents something real, would I be lying?* If yes, it must be
+unmistakably atmosphere — far from the data, carrying no units, resembling no
+indicator. If it cannot be made unmistakable, it does not ship.
+
+### 6.4 Verifiable adaptation still governs the data channel
+
+The product may adapt to facts it can **verify** — the clock, the viewport,
+the connection, the user's motion preference, their own records. It may never
+adapt to facts it would have to **imagine**: the weather at the site, who is
+on it, whether a project "feels" at risk.
+
+That distinction is unchanged, and it is the reason environmental motion is
+safe: a drifting haze claims nothing about the site, whereas a rain animation
+keyed to a forecast the product never received claims a great deal.
 
 ---
 
