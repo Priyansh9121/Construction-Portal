@@ -245,6 +245,7 @@
   .auth-scene__layer[data-layer="sky"] { z-index: 0; }
   .auth-scene__layer[data-layer="distance"] { z-index: 1; }
   .auth-scene__layer[data-layer="rig"] { z-index: 2; }
+  .auth-scene__layer[data-layer="haze"] { z-index: 3; }
   .auth-scene__layer[data-layer="structure"] { z-index: 3; }
   .auth-scene__layer[data-layer="veil"] { z-index: 4; }
 
@@ -268,18 +269,121 @@
       );
   }
 
+  /* =========================================================================
+   * ENVIRONMENTAL LIFE
+   * =========================================================================
+   * `EXPERIENCE_LANGUAGE` §6, as amended: the data must never pretend, the
+   * interface may feel alive. Everything in this block is atmosphere. None of
+   * it is attached to a number, none of it sits near a figure, and all of it
+   * would be equally true on the company's first day and its last.
+   *
+   * Five behaviours, five different periods, none of them harmonic. That is
+   * deliberate: motion on a shared period reads as a machine cycling, which is
+   * the one thing that would make this look like a status display.
+   *
+   * `transform` and `opacity` only, so every one of them composites.
+   * ====================================================================== */
+
   /*
-   * Ambient motion. One element, one property, very slow.
+   * The crane sweeps. 48 seconds a pass -- slow enough to be noticed only if
+   * looked at, which is the intent: the form is the task.
    */
   .auth-rig {
-    transform-origin: var(--auth-rig-origin, 62% 22%);
+    transform-origin: var(--auth-rig-origin, 50% 42%);
     animation: auth-rig-sweep 48s ease-in-out infinite alternate;
     will-change: transform;
   }
 
   @keyframes auth-rig-sweep {
-    from { transform: rotate(-1.1deg); }
-    to { transform: rotate(1.1deg); }
+    from { transform: rotate(-0.9deg); }
+    to { transform: rotate(0.9deg); }
+  }
+
+  /*
+   * The hook sways about the trolley it hangs from, not about the scene.
+   * Getting that origin wrong is what makes a swinging load look like a
+   * sticker sliding around. Slower than the sweep and offset from it, so the
+   * two never resolve into one motion.
+   */
+  .auth-hook {
+    transform-origin: var(--pivot);
+    transform-box: fill-box;
+    animation: auth-hook-sway 27s ease-in-out -6s infinite alternate;
+    will-change: transform;
+  }
+
+  @keyframes auth-hook-sway {
+    from { transform: rotate(-1.6deg); }
+    to { transform: rotate(1.6deg); }
+  }
+
+  /*
+   * The obstruction light. The one thing in the frame that is unambiguously
+   * ON -- a slow breath rather than a blink, because a blinking red dot is
+   * the visual language of an alarm and nothing here is wrong.
+   */
+  .auth-beacon {
+    animation: auth-beacon 6.5s ease-in-out infinite;
+  }
+
+  @keyframes auth-beacon {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+  }
+
+  /*
+   * Lit windows. Each carries its own delay and period from the generator, so
+   * they breathe out of step and the pattern never visibly repeats.
+   *
+   * They never all go dark: the floor is 0.25, so this reads as light
+   * fluctuating rather than as windows being counted.
+   */
+  .auth-window {
+    opacity: 0.5;
+    animation: auth-window var(--period, 20s) ease-in-out var(--delay, 0s)
+      infinite;
+  }
+
+  @keyframes auth-window {
+    0%, 100% { opacity: 0.25; }
+    45% { opacity: 0.72; }
+  }
+
+  /*
+   * Haze drifting across the horizon. The slowest thing on screen by a wide
+   * margin -- two minutes for a pass -- so it registers as air rather than as
+   * an object moving.
+   */
+  .auth-haze {
+    animation: auth-haze 120s linear infinite;
+    will-change: transform;
+  }
+
+  @keyframes auth-haze {
+    from { transform: translate3d(-12%, 0, 0); }
+    to { transform: translate3d(12%, 0, 0); }
+  }
+
+  /*
+   * The floor plates assemble on first paint.
+   *
+   * A ONE-TIME entrance, not a loop: the scene is a place that was already
+   * there, and a construction sequence replaying forever would say the
+   * building is being built while you watch. `both` fill and no iteration
+   * count.
+   *
+   * `--i` comes from the component and orders the draw up the building, so it
+   * reads as storeys resolving rather than as lines appearing at random.
+   */
+  .auth-floor {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: auth-floor-draw 900ms cubic-bezier(0.16, 1, 0.3, 1)
+      calc(var(--i, 0) * 55ms + 200ms) both;
+  }
+
+  @keyframes auth-floor-draw {
+    to { stroke-dashoffset: 0; }
   }
 }
 
@@ -384,9 +488,34 @@
  */
 @media (prefers-reduced-motion: reduce) {
   @layer system-components {
-    .auth-rig {
+    /*
+     * Every environmental behaviour is parked at the position the scene was
+     * composed around -- not at frame zero, which for an alternating
+     * animation is one extreme of its travel.
+     *
+     * The floor plates are shown DRAWN rather than drawing. The picture is
+     * the point, never the assembly of it.
+     */
+    .auth-rig,
+    .auth-hook,
+    .auth-haze {
       animation: none;
-      transform: rotate(0deg);
+      transform: none;
+    }
+
+    .auth-beacon {
+      animation: none;
+      opacity: 0.85;
+    }
+
+    .auth-window {
+      animation: none;
+      opacity: 0.5;
+    }
+
+    .auth-floor {
+      animation: none;
+      stroke-dashoffset: 0;
     }
   }
 }
