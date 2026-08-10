@@ -26,8 +26,18 @@ Usage:
 
 import json
 
-W, H = 1600, 200
-GROUND = 168
+# A true elevation STRIP, not a scene.
+#
+# Measured, not chosen: the band offers 102px of clear vertical space at 1440
+# and 90px at 390 before the first attention row begins. The previous 1600x200
+# box rendered 190px tall, so 46% of the drawing sat behind operational
+# content — which is why it read as stray lines rather than as a site.
+#
+# At 1600x150 the drawing is 10.7:1. In an 815px-wide box `meet` renders it
+# 76px tall and anchors it to the baseline, so the WHOLE elevation lands
+# inside the clear space with its ground line where the content begins.
+W, H = 1600, 150
+GROUND = 132
 
 
 def elevation():
@@ -38,7 +48,9 @@ def elevation():
     cannot name is what separates "measured" from "arbitrary".
     """
     M = 24
-    plan = [(7, 84), (5, 116), (9, 148), (4, 96), (6, 62)]
+    # Heights fit under GROUND with headroom for the rig. The tallest is
+    # third and slightly off-centre: a symmetrical skyline reads as a chart.
+    plan = [(7, 46), (5, 64), (9, 88), (4, 54), (6, 34)]
     blocks, x = [], 176
 
     for mods, h in plan:
@@ -49,24 +61,50 @@ def elevation():
     return blocks
 
 
-def datums(blocks, spacing=26):
-    """Storey lines. The application's row rule, drawn on a building."""
+def datums(blocks, spacing=22, floor=52):
+    """
+    Storey lines — the application's row rule, drawn on a building.
+
+    Only on volumes tall enough to carry them. At strip scale a datum on a
+    34-unit block is a line 3px from another line: detail that reads at 1440
+    and becomes hatching at 390. Fourteen datums became six, and the drawing
+    got clearer rather than poorer.
+    """
     out = []
     for b in blocks:
-        n = max(1, int((b["h"] - 14) // spacing))
+        if b["h"] < floor:
+            out.append([])
+            continue
+        n = max(1, int((b["h"] - 16) // spacing))
         out.append([
-            {"x1": b["x"], "x2": b["x"] + b["w"], "y": GROUND - 14 - i * spacing}
+            {"x1": b["x"], "x2": b["x"] + b["w"], "y": GROUND - 16 - i * spacing}
             for i in range(n)
         ])
     return out
 
 
 def rig(blocks):
+    """
+    The rig, proportioned to the strip.
+
+    It stands clear of the tallest volume by a margin the assertion enforces,
+    because a jib level with a roofline is read as a roofline. The working jib
+    is roughly 2.8x the counter-jib, as a real tower crane is.
+    """
     tallest = max(b["h"] for b in blocks)
-    apex = GROUND - tallest - 54
+    roofline = GROUND - tallest
+    apex = 14
+
+    assert apex < roofline - 20, "the rig must stand clear of the skyline"
+    assert apex > 0, "the rig apex must stay inside the box"
+
+    x, working, counter = 700, 250, 90
+    jib = apex + 14
+
     return {
-        "x": 640, "apex": apex, "jib": apex + 16,
-        "from": 512, "to": 872, "hoist": 800, "load": apex + 74,
+        "x": x, "apex": apex, "jib": jib,
+        "from": x - counter, "to": x + working,
+        "hoist": x + 176, "load": jib + 44,
         "base": GROUND,
     }
 
@@ -81,7 +119,7 @@ def main():
         # The dimension line is the signature of a drawing. It measures the
         # tallest volume, because that is the one a reader would ask about.
         "dimension": {
-            "x": 148,
+            "x": 150,
             "top": GROUND - max(b["h"] for b in blocks),
             "bottom": GROUND,
             "label": f'{max(b["h"] for b in blocks) * 50} MM',
