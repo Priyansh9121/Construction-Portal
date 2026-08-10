@@ -71,6 +71,24 @@ const validateWorker = require("./validations/worker.validation");
 router.get("/", workerController.getWorkers);
 
 /**
+ * GET /api/workers/:id
+ *
+ * Auth:       required
+ * Roles:      admin, manager (the router's mount gate)
+ * Params:     :id
+ * Controller: worker.getWorkerById
+ * Response:   200 with the worker
+ *             404 when it does not exist, or belongs to another company
+ *
+ * F-10. The controller has always exported this handler and the route file
+ * never mounted it, so the endpoint 404'd through the catch-all rather than
+ * through its own ownership check. `createScopedCrud` scopes getById by
+ * company_id, so the two answers are indistinguishable from outside — which
+ * is the correct behaviour and the reason mounting it changes no contract.
+ */
+router.get("/:id", workerController.getWorkerById);
+
+/**
  * POST /api/workers
  *
  * Auth:       required

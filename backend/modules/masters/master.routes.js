@@ -87,6 +87,10 @@ const router = express.Router();
 | ---------------------------------------------------------------------
 | The paragraph above describes the intent, not the current behaviour.
 |
+| F-15: the two read routes now carry requireOffice of their own, so every
+| route in this file states its own gate. The roles are unchanged — the mount
+| already enforced them.
+|
 | server.js mounts this whole router behind requireOffice, so reading is
 | office-only too — a worker or subcontractor cannot reach GET /:master at
 | all. The requireOffice applied to the three write routes below is
@@ -127,6 +131,18 @@ const requireOffice = roleMiddleware(
  */
 router.get(
   "/investors/:id/statement",
+  /*
+   * F-15. Defence in depth, not a policy change.
+   *
+   * server.js already mounts this whole router behind requireOffice, so the
+   * effective roles were always admin and manager — exactly what the banner
+   * above documents. What was missing was the gate ON the route, which meant
+   * the documentation was true only because of a line in another file.
+   *
+   * Adding it here makes the route self-describing and survives the router
+   * ever being mounted somewhere else. The roles are unchanged.
+   */
+  requireOffice,
   asyncHandler(
     masterController.getInvestorStatement
   )
@@ -135,8 +151,8 @@ router.get(
 /**
  * GET /api/masters/:master
  *
- * Auth:     required; office-only via the mount, despite carrying no
- *           requireOffice of its own — see F-15
+ * Auth:     required
+ * Roles:    admin, manager — enforced here AND at the mount (F-15)
  * Params:   :master — investors, suppliers or clients
  * Query:    ?status= ?search=
  * Response: 200 { success, [collection], items }
@@ -146,6 +162,8 @@ router.get(
  */
 router.get(
   "/:master",
+  // F-15. See the note on the statement route above.
+  requireOffice,
   asyncHandler(masterController.list)
 );
 

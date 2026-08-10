@@ -63,6 +63,21 @@ const invoiceController = require("./invoice.controller");
 router.get("/", invoiceController.getInvoices);
 
 /**
+ * GET /api/invoices/:id
+ *
+ * Auth:       required
+ * Roles:      admin, manager (the router's mount gate)
+ * Params:     :id
+ * Controller: invoice.getInvoiceById
+ * Response:   200 with the invoice
+ *             404 when it does not exist, or belongs to another company
+ *
+ * F-10. As with workers: the handler was exported and never mounted.
+ * `createScopedCrud` scopes getById by company_id.
+ */
+router.get("/:id", invoiceController.getInvoiceById);
+
+/**
  * POST /api/invoices
  *
  * Auth:       required
