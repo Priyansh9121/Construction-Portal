@@ -16,7 +16,7 @@
  * - AppLayout, via AppRoutes
  *
  * Navigation and children:
- * - Renders AttentionSpine, BusinessHealth, Pipeline, FinanceTrendChart
+ * - Renders AttentionSpine, BusinessHealth, Pipeline, FinanceInstrument
  * - and ActivityStream.
  *
  * Important notes:
@@ -26,7 +26,7 @@
  * - reflect what this session has fetched rather than a server aggregate.
  */
 
-import FinanceTrendChart from "../components/charts/FinanceTrendChart";
+import FinanceInstrument from "../components/finance/FinanceInstrument";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
 import DashboardHorizon from "../components/dashboard/DashboardHorizon";
 import World from "../components/environment/World";
@@ -39,6 +39,7 @@ import ActivityStream from "../components/dashboard/ActivityStream";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getSubcontractors } from "../services/subcontractorService";
 import { useAuth } from "../contexts/authContext";
 
@@ -427,6 +428,7 @@ function DashboardPage({
 
   /* One scheduler for the world's depth. Passive listeners, one rAF per
    * frame, two custom properties, no layout read, no React state. */
+  const navigate = useNavigate();
   const roomRef = useRef(null);
   useWorldParallax(roomRef, { scroll: 0.4, pointer: 1 });
 
@@ -463,7 +465,16 @@ function DashboardPage({
         motion does not pay for work that is then discarded.
       */}
       <div className="ui-world ui-world--room" ref={roomRef}>
-        <World variant="operations" surface="room" lights />
+        <World
+          variant="operations"
+          surface="room"
+          lights
+          /* The site is lit by the Dashboard's own figures: bays under work
+           * come from the running-tender count, the beacon from the overdue
+           * count. Neither invents progress, a location or a completion. */
+          active={runningTenders.length}
+          alert={overdueTenders.length}
+        />
       </div>
 
       {/*
@@ -486,7 +497,10 @@ function DashboardPage({
         division is the whole reason an operational route is allowed to move
         at all. See EXPERIENCE_LANGUAGE section 6, as amended.
       */}
-      <DashboardHorizon>
+      <DashboardHorizon
+        active={runningTenders.length}
+        alert={overdueTenders.length}
+      >
         <AttentionSpine
           userName={user?.full_name || ""}
           tenders={tenders}
@@ -539,10 +553,9 @@ function DashboardPage({
         adjacent means the page tells one financial story instead of
         interrupting Pipeline with a second one.
       */}
-      <FinanceTrendChart
+      <FinanceInstrument
         payments={payments}
-        palette="finance"
-        emptyState={{ action: { to: "/payments", label: "Record a payment" } }}
+        onRecordPayment={() => navigate("/payments")}
       />
 
       {/*

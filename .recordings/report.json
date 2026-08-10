@@ -1,0 +1,29 @@
+[
+  {
+    "tag": "pass3lean-1440",
+    "restFps": 55.2,
+    "moveFps": 58.9,
+    "long": 0,
+    "cls": 0.081,
+    "svg": 219,
+    "anims": 13
+  },
+  {
+    "tag": "pass3lean-1440-rm",
+    "restFps": 63.6,
+    "moveFps": 55.6,
+    "long": 0,
+    "cls": 0.1175,
+    "svg": 219,
+    "anims": 0
+  },
+  {
+    "tag": "pass3lean-390",
+    "restFps": 62,
+    "moveFps": 57.8,
+    "long": 0,
+    "cls": 0.0302,
+    "svg": 219,
+    "anims": 11
+  }
+]

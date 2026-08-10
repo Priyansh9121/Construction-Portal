@@ -1,0 +1,321 @@
+/*
+ * ===========================================================================
+ * FINANCE INSTRUMENT — the structural section
+ * ===========================================================================
+ *
+ * Scoped entirely under `.ui-fin`. Nothing here reaches `.premium-chart-panel`,
+ * `.recharts-*` or any legacy chart class, so Payments and the other
+ * unmigrated Recharts consumers are untouched.
+ *
+ * SECONDARY ENCODING IS MANDATORY HERE.
+ * The dataviz validator passes this pair on CVD separation (ΔE 19.6) and on
+ * normal-vision separation (ΔE 22.4), and FAILS it on chroma floor:
+ * `--ui-series-2` is deliberately near-neutral, a decision the token audit
+ * ratifies. Global tokens are not repainted for one chart, so identity must
+ * not rest on hue: income and expense are separated by SIDE of the datum,
+ * by fill weight, and by direct labels. Turn the page greyscale and the
+ * reading is unchanged.
+ *
+ * Connected to:
+ * - components/finance/FinanceInstrument.jsx
+ */
+
+@layer system-pages {
+  .ui-fin {
+    margin-block-end: var(--ui-flow-chapter, var(--ui-space-12));
+  }
+
+  .ui-fin__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    margin-block-end: var(--ui-space-4);
+  }
+
+  .ui-fin__title {
+    margin: 0;
+    font-size: var(--ui-text-xl);
+    font-weight: var(--ui-weight-semibold);
+    letter-spacing: var(--ui-tracking-tight);
+    color: var(--ui-ink-strong);
+  }
+
+  /* ---- Timeframe control ------------------------------------------------ */
+
+  /*
+   * The selected rail TRAVELS between frames rather than a highlight blinking
+   * from one button to the next, so the control and the geometry it changes
+   * read as one causal event. The rail is a transform on a single element —
+   * one composited move, no layout.
+   */
+  .ui-fin__frames {
+    position: relative;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 0;
+    padding-block-end: 6px;
+  }
+
+  .ui-fin__rail {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-start: 0;
+    inline-size: calc(100% / 3);
+    block-size: 2px;
+    background: var(--ui-ink);
+    transform: translateX(calc(var(--at) * 100%));
+    transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ui-fin__frame {
+    appearance: none;
+    border: 0;
+    background: none;
+    cursor: pointer;
+
+    /* Generous target at every width; the control is used with a thumb. */
+    min-block-size: var(--ui-tap-min, 44px);
+    padding-inline: var(--ui-space-3);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-muted);
+    transition: color 160ms ease, transform 120ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+
+  .ui-fin__frame[aria-selected="true"] { color: var(--ui-ink-strong); }
+  .ui-fin__frame:hover { color: var(--ui-ink-strong); }
+
+  /* Immediate, and physical: the control settles under the finger rather than
+   * scaling like a toy. */
+  .ui-fin__frame:active { transform: translateY(1px); }
+
+  .ui-fin__frame:focus-visible {
+    outline: var(--ui-focus-ring, 2px solid var(--ui-ink));
+    outline-offset: 2px;
+    border-radius: var(--ui-radius-control, 4px);
+  }
+
+  /* ---- The drawing ------------------------------------------------------ */
+
+  .ui-fin__svg {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+
+    /* The instrument is inspected, so it takes focus; the ring is drawn
+     * outside the box because the drawing runs to its own edges. */
+    touch-action: pan-y;
+  }
+
+  .ui-fin__svg:focus-visible {
+    outline: var(--ui-focus-ring, 2px solid var(--ui-ink));
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* The beam. Everything is measured from it, so it is the heaviest line. */
+  .ui-fin__datum {
+    stroke: var(--ui-ink);
+    stroke-width: 2.25;
+  }
+
+  .ui-fin__tick line {
+    stroke: var(--ui-line);
+    stroke-width: 1;
+  }
+
+  .ui-fin__tick text,
+  .ui-fin__side {
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-2xs);
+    fill: var(--ui-ink-muted);
+
+    /* Chrome the application owns; never a value someone typed. */
+    letter-spacing: 0.06em;
+  }
+
+  /* Loads. Weight, not only hue, separates them. */
+  .ui-fin__in { fill: var(--ui-finance-income); }
+  .ui-fin__out { fill: var(--ui-finance-expense); opacity: 0.72; }
+
+  /* The separation across the beam IS the net. Drawn, not stated. */
+  .ui-fin__span {
+    stroke: var(--ui-ink);
+    stroke-width: 1;
+    opacity: 0.16;
+  }
+
+  .ui-fin__bay {
+    transition: opacity 180ms ease;
+  }
+
+  /* Inspection recedes the rest of the section rather than highlighting one
+   * bay, so the selected measurement is the only thing at full strength. */
+  .ui-fin__bays:has(.ui-fin__bay[data-active]) .ui-fin__bay:not([data-active]) {
+    opacity: 0.42;
+  }
+
+  .ui-fin__bay[data-active] .ui-fin__span { opacity: 0.5; }
+
+  .ui-fin__cursor line {
+    stroke: var(--ui-ink);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.5;
+  }
+
+  /* One wide surface. Touch never has to find a bar. */
+  .ui-fin__surface {
+    fill: transparent;
+    cursor: crosshair;
+  }
+
+  /* ---- The single instant ----------------------------------------------- */
+
+  .ui-fin__dim { fill: none; stroke: var(--ui-ink); stroke-width: 1; }
+
+  .ui-fin__dim-t,
+  .ui-fin__load-t {
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-2xs);
+    fill: var(--ui-ink-muted);
+    letter-spacing: 0.08em;
+  }
+
+  .ui-fin__dim-v,
+  .ui-fin__load {
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-semibold);
+    fill: var(--ui-ink-strong);
+    font-variant-numeric: tabular-nums;
+
+    /* CONTENT — a figure. Never tracked. */
+    letter-spacing: 0;
+  }
+
+  /*
+   * The single instant is SET OUT on arrival: the two loads rise off the beam
+   * and the dimension resolves between them. One-time, not a loop — a repeating
+   * measurement would say the figure is still being taken.
+   */
+  .ui-fin__single { animation: ui-fin-set 520ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
+
+  @keyframes ui-fin-set {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ---- Readout ---------------------------------------------------------- */
+
+  .ui-fin__readout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--ui-space-2) var(--ui-space-5);
+    min-block-size: 2.25rem;
+    padding-block-start: var(--ui-space-3);
+    border-block-start: var(--rule-zone);
+
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-fin__when {
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-2xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-fin__pair { display: inline-flex; align-items: baseline; gap: 0.4em; }
+
+  .ui-fin__pair b {
+    font-weight: var(--ui-weight-semibold);
+    font-variant-numeric: tabular-nums;
+
+    /* Text wears text tokens; the swatch beside it carries identity. */
+    color: var(--ui-ink-strong);
+    letter-spacing: 0;
+  }
+
+  .ui-fin__swatch {
+    inline-size: 9px;
+    block-size: 9px;
+    border-radius: 1px;
+    align-self: center;
+  }
+
+  .ui-fin__swatch--in { background: var(--ui-finance-income); }
+  .ui-fin__swatch--out { background: var(--ui-finance-expense); opacity: 0.72; }
+
+  .ui-fin__hint { color: var(--ui-ink-muted); }
+
+  /* ---- Empty ------------------------------------------------------------ */
+
+  .ui-fin__empty {
+    padding: var(--ui-space-6);
+    border: var(--rule-zone);
+    border-radius: var(--ui-radius-container);
+    background: var(--ui-canvas);
+  }
+
+  .ui-fin__empty-title {
+    margin: 0 0 var(--ui-space-2);
+    font-weight: var(--ui-weight-semibold);
+    color: var(--ui-ink-strong);
+  }
+
+  .ui-fin__empty-body {
+    margin: 0;
+    max-inline-size: 46ch;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-fin__empty-action {
+    appearance: none;
+    margin-block-start: var(--ui-space-4);
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-accent-fg, var(--ui-ink-strong));
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ---- Field density ---------------------------------------------------- */
+
+  @media (max-width: 30rem) {
+    .ui-fin__head { flex-direction: column; align-items: stretch; }
+    .ui-fin__readout { gap: var(--ui-space-1) var(--ui-space-4); }
+  }
+}
+
+/*
+ * ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * The instrument still reconfigures; it simply arrives already reconfigured.
+ * The tween is asked for a zero duration, so the same code path writes the
+ * final geometry in one frame rather than being disabled — the composition,
+ * the readout and the axis are identical to the animated result.
+ *
+ * The rail still moves, over a very short duration: the selection must remain
+ * traceable, and a 90ms move is a state change rather than an animation.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-pages {
+    .ui-fin__rail { transition-duration: 90ms; }
+    .ui-fin__single { animation: none; }
+    .ui-fin__bay { transition: none; }
+  }
+}

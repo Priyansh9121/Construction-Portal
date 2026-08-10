@@ -53,6 +53,8 @@
  * band can hold, drawn with `meet` so the whole of it reads.
  */
 
+import { useEffect, useState } from "react";
+
 import { WORLDS } from "./worldGeometry";
 
 /* The crop each surface takes of the world.
@@ -64,8 +66,15 @@ import { WORLDS } from "./worldGeometry";
  * SECTION of the site at legible scale rather than all of it illegibly. */
 const CROP = {
   room: null,
-  band: [560, 130, 1840, 580],
-  bandNarrow: [820, 150, 900, 560],
+  /* Aspect-matched to the window it is drawn in. At 1840x580 (3.17:1) inside a
+   * 4.35:1 band, `meet` fits by HEIGHT and leaves ~150px of empty ground at
+   * each side -- measured off a screenshot. At 4.09:1 the site fills its
+   * window and the structure reads at a useful scale. */
+  band: [560, 210, 1840, 450],
+  /* A phone gets a PORTION of the site at real scale rather than all of it as
+   * threads: the tall crane, its frame, and the ground beneath them. Reduction
+   * rather than scaling -- the same decision the band's depth already makes. */
+  bandNarrow: [860, 190, 620, 470],
 };
 
 function Haze({ bands, width }) {
@@ -109,7 +118,76 @@ function Distant({ blocks, lights }) {
   );
 }
 
-function Frame({ f }) {
+/**
+ * Live systems on the frame.
+ *
+ * `active` is the Dashboard's own count of work in flight and `alert` its
+ * count of overdue work. They decide HOW MANY bays are lit and WHETHER a
+ * beacon burns — never where a building is or how far along it is. This world
+ * represents system activity, not project geometry, and inventing progress
+ * would be the data pretending.
+ */
+function Live({ f, active, alert }) {
+  const bayW = f.cols.length > 1 ? f.cols[1].x - f.cols[0].x : 118;
+  const rows = f.beams.length;
+  const lit = Math.min(active, rows * 2);
+
+  const bays = [];
+  for (let n = 0; n < lit; n += 1) {
+    /* Spread by a coprime stride so consecutive counts do not light adjacent
+     * cells and the pattern never reads as a bar chart. */
+    const col = (n * 3) % (f.cols.length - 1);
+    const row = (n * 2) % rows;
+    const y = f.beams[row].y;
+    const style = { "--d": `${(n % 5) * 2.3}s`, "--dur": `${12 + (n % 4) * 3}s` };
+    bays.push(
+      <g key={`bay${n}`}>
+        <rect
+          className="ui-world__bay"
+          style={style}
+          x={f.cols[col].x}
+          y={y}
+          width={bayW}
+          height={f.storey}
+        />
+        <line
+          className="ui-world__bay-edge"
+          x1={f.cols[col].x}
+          y1={y + f.storey}
+          x2={f.cols[col].x + bayW}
+          y2={y + f.storey}
+        />
+      </g>
+    );
+  }
+
+  const rise = f.beams[0].y - f.top;
+
+  return (
+    <g>
+      {bays}
+
+      {/* The hoist runs the face of the frame on its own long rhythm. */}
+      <rect
+        className="ui-world__hoist"
+        style={{ "--rise": rise, "--dur": "21s", "--d": "-6s" }}
+        x={f.x1 + 6}
+        y={f.beams[0].y - 16}
+        width={13}
+        height={17}
+      />
+
+      {alert > 0 ? (
+        <g className="ui-world__alert">
+          <circle className="ui-world__beacon-ring" cx={f.x0 - 26} cy={f.top - 18} r="4" />
+          <circle className="ui-world__beacon" cx={f.x0 - 26} cy={f.top - 18} r="3.5" />
+        </g>
+      ) : null}
+    </g>
+  );
+}
+
+function Frame({ f, active = 0, alert = 0 }) {
   return (
     <g className="ui-world__frame">
       {f.cols.map((c, i) => (
@@ -151,6 +229,8 @@ function Frame({ f }) {
         x2={f.partial.x1}
         y2={f.partial.y}
       />
+
+      <Live f={f} active={active} alert={alert} />
     </g>
   );
 }
@@ -216,6 +296,17 @@ function Near({ near, ground, dust }) {
         <line key={`g${i}`} x1={l.x0} y1={l.y} x2={l.x1} y2={l.y} />
       ))}
 
+      {/* A setting-out signal crossing the ground line, on its own long
+       * rhythm so it never falls into step with the plant above it. */}
+      <line
+        className="ui-world__scan"
+        style={{ "--dur": "26s" }}
+        x1="0"
+        y1={ground + 4}
+        x2="150"
+        y2={ground + 4}
+      />
+
       {/* Survey setting-out marks. The convention that says a site has been
        * measured, which is the difference between a drawing and a picture. */}
       {near.marks.map((m) => (
@@ -277,11 +368,33 @@ function Plane({ name, depth, viewBox, fit, children }) {
   );
 }
 
-function World({ variant = "operations", surface = "room", lights = false, dust = false }) {
+function World({
+  variant = "operations",
+  surface = "room",
+  lights = false,
+  dust = false,
+  /* Real Dashboard counts. Absent means an inert site, which is the correct
+   * reading before the route's data has arrived. */
+  active = 0,
+  alert = 0,
+}) {
   const w = WORLDS[variant] || WORLDS.operations;
   const [, , vw, vh] = w.viewBox;
 
-  const crop = CROP[surface];
+  /* The band picks its crop from the viewport, because the choice is between
+   * two different compositions and not between two sizes. */
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 48rem)").matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 48rem)");
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
+  const crop = CROP[surface === "band" && narrow ? "bandNarrow" : surface];
   const box = crop ? crop.join(" ") : `0 0 ${vw} ${vh}`;
   const fit = crop ? "xMidYMax meet" : "xMidYMax slice";
 
@@ -297,7 +410,7 @@ function World({ variant = "operations", surface = "room", lights = false, dust 
       </Plane>
 
       <Plane name="frame" depth={0.24} viewBox={box} fit={fit}>
-        <Frame f={w.frame} />
+        <Frame f={w.frame} active={active} alert={alert} />
       </Plane>
 
       <Plane name="rigs" depth={0.38} viewBox={box} fit={fit}>

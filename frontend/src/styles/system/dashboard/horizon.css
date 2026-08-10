@@ -137,7 +137,7 @@
       /* Matches --world-band at the same breakpoint. A 250px window at 390
        * is half the screen before the greeting is reached — measured on a
        * recording, not guessed. */
-      --horizon-depth: 112px;
+      --horizon-depth: 156px;
       padding: calc(var(--horizon-depth) + var(--ui-space-4))
         var(--ui-space-4) var(--ui-flow-sequence);
     }
