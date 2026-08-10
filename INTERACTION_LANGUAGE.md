@@ -98,6 +98,11 @@ already broken.**
 
 Twelve. Each is a refusal that holds regardless of surface, decade or fashion.
 
+**0 · The data must never pretend; the interface may feel alive.**
+Environmental motion — light, structure, atmosphere, depth — carries no
+information and is welcome. Operational motion represents real state and must
+be true at the instant it moves. See `EXPERIENCE_LANGUAGE` §6, amended.
+
 **1 · The user's action is the only author.**
 The product never performs an action nobody took, and never completes an action
 differently from how it was begun. No auto-approving, no inferred values
