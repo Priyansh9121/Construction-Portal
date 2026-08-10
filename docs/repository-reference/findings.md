@@ -19,20 +19,34 @@ Status values:
 
 ## Status index
 
+> **Baseline, measured 2026-08-10** — by running the suites, not from memory.
+>
+> | | |
+> |---|---|
+> | backend tests | **249** across **17** files (`cd backend && npm test`) |
+> | frontend browser tests | **370** across **7** files (`cd frontend && npx playwright test`) |
+> | accessibility | axe runs inside `tests/a11y.spec.js`, every route at two widths |
+> | tracked `.DS_Store` | **0** |
+>
+> Statuses below were each re-verified against current code during this pass.
+> Where a status changed, the original text is kept and the correction is
+> marked — the reasoning is usually worth more than the verdict.
+
+
 | ID | Severity | Status | Summary |
 |---|---|---|---|
 | F-01 | Low | **Fixed** | `package.json` names `server.js` |
 | F-02 | Low | **Fixed** | `JWT_REFRESH_EXPIRES_IN` removed from the template |
-| F-03 | Medium | Open | Variables the code reads are absent from `.env` |
-| F-04 | Medium | Open | Two default timezones disagree |
-| F-05 | Low | Open | Audit trail records outcomes, not changes |
-| F-06 | Low | Open | Two Gujarati-language conventions coexist |
+| F-03 | Medium | **Mostly resolved** | Only the SMTP block is unset locally, by choice |
+| F-04 | Medium | **Fixed** | Both defaults are `Asia/Kolkata` |
+| F-05 | Low | **Needs a decision** | Audit trail records outcomes, not changes |
+| F-06 | Low | **Needs a decision** | Two Gujarati-language conventions coexist |
 | F-07 | Medium | **Fixed** | Email templates escape user-supplied names |
 | F-08 | Low | **Fixed** | `redact()` now fails closed below six levels |
 | F-09 | Medium | **Fixed** | Membership and ownership changes are audited |
 | F-10 | Low | **Fixed** | All three registers route `getById` |
 | F-11 | Low | **Fixed** | The unreachable worker `status` default is removed |
-| F-12 | High | **Fixed** | Bank details masked in list; full details role-gated; audit redacted |
+| F-12 | High | **Partially fixed** | List masked, full details role-gated, audit redacted; encryption at rest still open |
 | F-13 | Medium | **Fixed** | Backdating window: timezone AND permission consistency |
 | F-14 | Low | **Fixed** | Site-log worker/subcontractor now ownership-checked |
 | F-15 | Low | **Fixed** | Masters routes carry the gate they document |
@@ -88,6 +102,17 @@ Read by the code but not present locally: `SMTP_HOST`, `SMTP_PORT`,
 `SUPERVISOR_EDIT_WINDOW_DAYS`, `SUPERVISOR_BANKING_GRACE_DAYS`,
 `DB_SSL_CA`, `FRONTEND_URL`, `RESET_TOKEN_TTL_MINUTES`.
 
+**Re-measured.** Of the fourteen listed, only the SMTP block
+(`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`,
+`MAIL_FROM_NAME`) is still absent from `backend/.env`. Every other variable —
+including `SUPERVISOR_EDIT_WINDOW_DAYS`, `SUPERVISOR_BANKING_GRACE_DAYS`,
+`RESET_TOKEN_TTL_MINUTES` and `FRONTEND_URL` — is now set explicitly, and all
+fourteen are documented in `.env.example`.
+
+An unset SMTP block in local development is a choice, not a defect: it is what
+makes `mailer.js` log the reset link to the console instead of sending it. The
+consequence is worth keeping in view, so the note below stands.
+
 All have defaults in `config/env.js`, so nothing fails. The consequences
 locally:
 
@@ -104,8 +129,13 @@ locally:
 **Severity:** Medium
 **Files:** `backend/config/constants.js`, `backend/.env`
 
-`DEFAULTS.COMPANY_TIMEZONE` is `Australia/Melbourne`. `DEFAULT_TIMEZONE` in
-the environment is `Asia/Kolkata`.
+**Re-measured: fixed.** `DEFAULTS.COMPANY_TIMEZONE` in `config/constants.js`
+now reads `Asia/Kolkata`, matching `DEFAULT_TIMEZONE` in the environment. The
+original finding is preserved below because the reasoning is what makes the
+agreement matter.
+
+Originally: `DEFAULTS.COMPANY_TIMEZONE` was `Australia/Melbourne` while
+`DEFAULT_TIMEZONE` in the environment was `Asia/Kolkata`.
 
 The environment wins at registration, so in practice companies are created
 in the right zone and the constant only applies to a company somehow created
@@ -130,6 +160,25 @@ The trail answers "who touched what, and what did it become", which is most
 of the value. It cannot answer "what was it before". The Activity Log column
 is labelled *Details* rather than *Change* to avoid overclaiming.
 
+**Classification: needs a product decision, not an implementation.**
+
+Capturing a genuine before/after is implementable — read the row inside the
+same transaction before the write and pass it to `logActivity` — but it is not
+a defect fix. It is a decision with three costs to weigh:
+
+1. **An extra read on every audited write.** Cheap individually, paid on every
+   mutation in the product.
+2. **A larger `activity_logs`.** Storing both sides roughly doubles the row,
+   on the table with the longest retention.
+3. **A change to what the record CLAIMS.** `PRODUCT_SOUL` is explicit that the
+   product must never state more than it can show. A trail that shows
+   before/after for writes made after the change, and only after, is a trail
+   whose meaning depends on when the row was written.
+
+The interface already tells the truth about this — the column is *Details*,
+not *Change*. That is why this is not urgent, and why it should be decided
+rather than quietly implemented.
+
 ---
 
 ## F-06 · Two Gujarati-language conventions coexist for the same idea
@@ -146,6 +195,17 @@ instead.
 Two tables that could hold a localised label, one of which is populated and
 one of which is not. Whoever builds a screen that reads `labour.category_local`
 will find it empty.
+
+**Classification: needs a product decision, not an implementation.**
+
+The question is which table owns a localised label — the record, or the
+reference data it points at. Both are defensible: per-record allows a site to
+override the catalogue's Gujarati name; per-category keeps one spelling for
+everyone. `PRODUCT.md` records bilingual support as a confirmed requirement
+whose scope is still open, so this decision belongs with that one.
+
+Deleting the unused column, or backfilling it, are both migrations that encode
+an answer. Neither should be done to tidy up.
 
 ---
 
@@ -780,7 +840,7 @@ no-client case, which never reached the query.
 
 **Finding ID:** F-17
 **Severity:** Medium (latent — not currently exploitable)
-**Status:** Open — documented in place, not changed
+**Status:** Fixed — see the resolution at the end of this section
 **Affected files:** `backend/modules/tenders/tenderQueries.js`
 
 **Description.** Every query in `tenderQueries.js` takes a `companyId` and

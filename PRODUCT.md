@@ -170,13 +170,23 @@ contractor, and they are **untouchable** (user-confirmed).
 - Business logic stays in pages, hooks and services — never in visual
   components.
 
-### Known technical state (2026-08-07 baseline)
+### Known technical state (measured 2026-08-10)
 
-- Lint clean. Production build passes. 314 Playwright assertions pass, 44 axe
-  checks pass, 57 gated contrast pairs pass.
+- Lint clean. Production build passes. **Measured 2026-08-10:** 370 browser
+  tests across 7 files, axe included, all passing.
 - No code splitting problem remains at the route level (19 of 28 routes are
-  lazy), but three vendor chunks dominate: export theming (713 kB), charts
-  (363 kB), html2canvas (200 kB).
+  lazy), but three vendor chunks still dominate. **Measured from a production
+  build on 2026-08-10** — treat as a snapshot, not a constant:
+
+  | chunk | raw | gzip |
+  |---|---|---|
+  | `brandedExportTheme` | 713 kB | 233 kB |
+  | `index` (app) | 474 kB | 152 kB |
+  | `FinanceTrendChart` | 365 kB | 105 kB |
+  | `html2canvas` | 200 kB | 47 kB |
+  | `index` (CSS) | 143 kB | 25 kB |
+
+  34 emitted files, ~2.5 MB raw in total.
 - Eight pages exceed 1,000 lines.
 - Pagination exists in the API; the screens request everything.
 - Two npm advisories are accepted as non-applicable, with reasoning recorded
@@ -210,10 +220,12 @@ approval queue, master data, break-glass admin.
   (`backend/tests/paymentCalculations.test.js`).
 - **A working local stack.** Postgres 18.4, 47 tables, seeded fixtures for
   admin, worker and subcontractor roles (`backend/scripts/`).
-- **A tested backend.** 222 backend tests including tenant isolation, role
-  separation, portals, activity log, notifications and money maths.
-- **A browser suite.** 143 `expect()` assertions across responsive,
-  authenticated, portals and axe specs, covering nine widths.
+- **A tested backend.** **249 tests across 17 files** (measured 2026-08-10),
+  including tenant isolation, role separation, portals, activity log,
+  notifications, email escaping, entry-window timezone and permission rules,
+  and money maths.
+- **A browser suite.** 370 tests across responsive, authenticated, portals and
+  axe specs, covering nine widths.
 - **Two typefaces already self-hosted:** IBM Plex Sans variable, latin and
   latin-ext (`frontend/public/fonts/`, 66 kB total). No webfont network
   request.

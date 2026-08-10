@@ -39,7 +39,8 @@ your terminal and survives across sessions.
 ```
 npm test             vitest run
 ```
-Runs the eight suites in `backend/tests/` once and exits. **These tests hit
+Runs every suite in `backend/tests/` once and exits — 17 files, 249 tests as
+of 2026-08-10. **These tests hit
 a real PostgreSQL database** — the one in `DATABASE_URL` — creating and then
 deleting companies namespaced by a per-process run marker. Do not point it
 at production.

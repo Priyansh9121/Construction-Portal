@@ -55,7 +55,13 @@ publishes the original source.
 
 ---
 
-## `.DS_Store` files (13)
+## `.DS_Store` files — resolved
+
+**Re-measured 2026-08-10: `git ls-files | grep -c DS_Store` returns 0.** They
+are untracked and ignored. The section is kept for the reasoning; the count
+below is historical.
+
+### Original finding (13 files)
 
 macOS Finder metadata: window position, icon arrangement, view settings.
 Binary, of no use to anyone else, and written automatically by Finder into
