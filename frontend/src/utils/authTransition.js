@@ -138,12 +138,103 @@ function openDeparture() {
   if (typeof document === "undefined") return null;
   const layer = document.createElement("div");
   layer.className = "auth-departure";
+
+  /*
+   * The structural content.
+   *
+   * Two rules and a set of plates, built as elements rather than SVG because
+   * a 1px line is a border and needs nothing more -- no viewBox to keep in
+   * sync with the scene, no path to reconcile with the shell, and every one
+   * of them animates on transform alone.
+   *
+   * The two rules are the only geometry the application actually HAS.
+   * Measured from a live shell: the sidebar edge stands at x=272 and the
+   * topbar rule at y=61. Everything else in this layer belongs to the scene,
+   * and the scene is what withdraws.
+   *
+   * `--plate` orders the withdrawal so it reads as storeys clearing rather
+   * than lines vanishing at random.
+   */
+  layer.innerHTML =
+    '<div class="auth-departure__scene">' +
+    Array.from(
+      { length: 7 },
+      (_, i) => `<i class="auth-departure__plate" style="--plate:${i}"></i>`
+    ).join("") +
+    "</div>" +
+    '<i class="auth-departure__rule auth-departure__rule--h"></i>' +
+    '<i class="auth-departure__rule auth-departure__rule--v"></i>';
   /* Announced to nobody: the arrival is communicated by the destination
    * itself, and a live region here would interrupt a screen reader mid-
    * navigation to describe a colour. */
   layer.setAttribute("aria-hidden", "true");
   document.body.appendChild(layer);
   return layer;
+}
+
+/**
+ * Point the departure layer at the destination's ACTUAL geometry.
+ *
+ * The two rules exist to hand over to the shell's own chrome, so they have to
+ * land where that chrome really is — and the shell is not the same everywhere.
+ * The office layout has a sidebar edge; the worker and subcontractor portals
+ * have no sidebar at all, and a vertical rule drawn at the office's 272px
+ * hangs in the middle of nothing. A frame recording caught exactly that.
+ *
+ * Measured rather than branched. Reading the destination is destination-
+ * AGNOSTIC in a way that `if (role === "worker")` never is: a layout that
+ * ships next year is handled without touching this file, and a portal that
+ * gains a sidebar starts getting the rail for free.
+ *
+ * Runs one frame after the commit, by which time the destination has mounted
+ * (measured at roughly 30-80ms). It delays nothing: the session is already
+ * applied and the router has already moved.
+ */
+function alignToDestination(layer) {
+  if (!layer || typeof requestAnimationFrame !== "function") return;
+
+  requestAnimationFrame(() => {
+    if (!layer.isConnected) return;
+
+    /*
+     * The content region is the one element both layouts agree on the meaning
+     * of: whatever sits left of it is chrome, whatever sits above it is
+     * chrome. Falling back to a header covers a layout that has a bar but no
+     * named content region.
+     */
+    const content = document.querySelector(".page-content");
+    const header =
+      document.querySelector(".topbar") ||
+      document.querySelector("header");
+
+    const box = content?.getBoundingClientRect();
+    const bar = header?.getBoundingClientRect();
+
+    const rail = box && box.left > 1 ? Math.round(box.left) : null;
+    const rule =
+      box && box.top > 1
+        ? Math.round(box.top)
+        : bar && bar.bottom > 1
+        ? Math.round(bar.bottom)
+        : null;
+
+    /*
+     * A rule with nothing to become is not drawn. Guessing at a coordinate
+     * would put a line across a surface that has no edge there, which is
+     * worse than no line at all -- it is the interface asserting a structure
+     * the destination does not have.
+     */
+    layer.style.setProperty("--shell-rail-shown", rail === null ? "0" : "1");
+    layer.style.setProperty("--shell-rule-shown", rule === null ? "0" : "1");
+
+    if (rail !== null) {
+      layer.style.setProperty("--shell-rail", `${rail}px`);
+    }
+
+    if (rule !== null) {
+      layer.style.setProperty("--shell-rule", `${rule}px`);
+    }
+  });
 }
 
 function closeDeparture(layer) {
@@ -177,6 +268,9 @@ export function runAuthTransition(commit) {
   if (typeof commit === "function") commit();
 
   if (typeof document === "undefined") return Promise.resolve();
+
+  // The destination has mounted by the next frame; point the rules at it.
+  alignToDestination(layer);
 
   const duration = prefersReducedMotion() ? REDUCED_MS : TRANSITION_MS;
 
