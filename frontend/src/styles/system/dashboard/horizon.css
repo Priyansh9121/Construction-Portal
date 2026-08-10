@@ -66,11 +66,23 @@
     isolation: isolate;
     overflow: hidden;
 
-    margin-block-end: var(--ui-space-6);
+    /*
+     * The band and Business Health are ONE INSTRUMENT, not two cards.
+     *
+     * They shared a 24px gap and two full frames, which is what made the cash
+     * position read as an isolated tile dropped under the atmosphere. The
+     * seam is collapsed with the `.zone + .zone` grammar the foundation
+     * already defines for exactly this: a shared edge is drawn once.
+     *
+     * The composition now reads top to bottom as a single instrument —
+     * drawing, then what needs you, then where you stand — instead of as a
+     * stack of unrelated surfaces.
+     */
+    margin-block-end: 0;
     padding: var(--ui-space-6) var(--ui-space-6) var(--ui-space-5);
 
     border: var(--rule-frame);
-    border-radius: var(--ui-radius-container);
+    border-radius: var(--ui-radius-container) var(--ui-radius-container) 0 0;
 
     /*
      * A faint vertical shift, lighter at the top. The band is daylight seen
@@ -316,5 +328,28 @@
       animation: none;
       stroke-dashoffset: 0;
     }
+  }
+}
+
+/*
+ * ===========================================================================
+ * THE JOIN
+ * ===========================================================================
+ * Business Health continues the band's compartment rather than starting a new
+ * one. Its top border is dropped so the shared edge is drawn once, and its top
+ * corners square off so the two read as one frame.
+ *
+ * Nothing about its content changes. The D2 reasoning stands exactly as it
+ * was: a POSITION is true at a moment and has no timeframe, FLOWS sit behind
+ * one timeframe control, and the two are never rendered as sibling cards.
+ * What changed is that the position now sits inside the operating instrument
+ * instead of beneath it.
+ */
+@layer system-pages {
+  .ui-horizon + .ui-health {
+    margin-block-start: 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+    border-block-start: 0;
   }
 }
