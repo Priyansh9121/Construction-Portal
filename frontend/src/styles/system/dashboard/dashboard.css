@@ -80,18 +80,35 @@
     box-shadow: none;
   }
 
-  .ui-chart .section-title-row {
+  /*
+   * The migrated caller renders its OWN head rather than the legacy
+   * `.section-title-row`, so these are element rules and not overrides
+   * reaching through another component's class.
+   *
+   * Read against the rest of the page, the legacy head was the only one
+   * speaking a different dialect: Title Case, with its scope stacked
+   * underneath. Every other chapter on this Dashboard puts its name and its
+   * scope on ONE baseline — the same `head` grammar Business Health,
+   * Approaching, Work in flight and What changed all use. It now does too.
+   */
+  .ui-chart__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
     margin-block-end: var(--ui-space-4);
   }
 
-  .ui-chart .section-title-row h2 {
+  .ui-chart__title {
+    margin: 0;
     font-size: var(--ui-text-lg);
     font-weight: var(--ui-weight-semibold);
     color: var(--ui-ink-strong);
     letter-spacing: normal;
   }
 
-  .ui-chart .section-title-row .muted-text {
+  .ui-chart__scope {
     margin: 0;
     font-size: var(--ui-text-sm);
     color: var(--ui-ink-muted);

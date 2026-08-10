@@ -26,8 +26,14 @@
  *
  *   route   where you are
  *   date    today, from the device clock
- *   open    the count this page is already showing, passed in rather than
- *           recomputed, so the two can never disagree
+ *   due     dated work overdue or falling due soon, passed in from the
+ *           figures the page already derived rather than recomputed
+ *
+ * The label names what the number counts. An earlier version said "OPEN"
+ * against a count of dated work, which disagreed with the attention headline
+ * above it — that headline counts undated work too. One word, two
+ * derivations. A title block that contradicts the page is worse than no
+ * title block.
  */
 
 const SHEET = "OPERATIONS / DASHBOARD";
@@ -45,7 +51,7 @@ function sheetDate(date) {
   return `${get("day")} ${get("month")} ${get("year")}`.toUpperCase();
 }
 
-function SheetFooter({ openCount = 0 }) {
+function SheetFooter({ dueCount = 0 }) {
   const today = new Date();
 
   return (
@@ -69,7 +75,20 @@ function SheetFooter({ openCount = 0 }) {
 
         <span aria-hidden="true"> · </span>
 
-        <span>{openCount} OPEN</span>
+        {/*
+          "DUE", not "OPEN".
+
+          The first version said OPEN and was handed
+          `dueSoonTenders + overdueTenders` — which counts dated work only.
+          The attention headline counts a wider set, including tenders
+          awaiting submission that carry no date. So the page read "3 things
+          need you today" above and "2 OPEN" below: one word, two
+          derivations, drifting on the first render.
+
+          Caught by reading the whole page rather than the component. The
+          label now names exactly what the number counts.
+        */}
+        <span>{dueCount} DUE</span>
       </span>
     </footer>
   );

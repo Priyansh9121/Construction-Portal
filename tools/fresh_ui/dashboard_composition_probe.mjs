@@ -8,11 +8,18 @@
  *
  * The contract, in reading order:
  *
- *   Health -> Trend      kin        the tightest gap between two sections:
- *                                   diagnosis and its own context
- *   Attention -> Health  sequence   coupled, different questions
- *   Trend -> Pipeline    chapter    money gives way to operations
- *   Pipeline -> Activity epilogue   the largest: present gives way to past
+ *   Health -> Trend        kin        the tightest gap between two sections:
+ *                                     diagnosis and its own context
+ *   Attention -> Health    sequence   coupled, different questions
+ *   Trend -> Approaching   chapter    money gives way to time
+ *   Approaching -> Pipeline chapter   time gives way to operations
+ *   Pipeline -> Activity   epilogue   the largest: present gives way to past
+ *
+ * The deadline horizon was added to the page between Trend and Pipeline, and
+ * this probe went on measuring Trend -> Pipeline — a "gap" of 291px that was
+ * really an entire section. It reported a rhythm the page did not have.
+ * A probe that names sections positionally decays the moment one is inserted;
+ * both chapter adjacencies are named explicitly now.
  *
  * Checked with real data and with every list empty, because a rhythm tuned on
  * populated rows can collapse into dead zones when sections recede.
@@ -90,6 +97,7 @@ for (const empty of [false, true]) {
         health: box(".ui-health"),
         chart: box(".ui-chart"),
         pipe: box(".ui-pipe"),
+        deadline: box(".ui-dl"),
         activity: box(".ui-activity"),
       };
       const gap = (a, b) => (s[a] && s[b] ? Math.round(s[b].top - s[a].bottom) : null);
@@ -97,7 +105,8 @@ for (const empty of [false, true]) {
         present: Object.fromEntries(Object.entries(s).map(([k, v]) => [k, Boolean(v)])),
         sequence: gap("attention", "health"),
         kin: gap("health", "chart"),
-        chapter: gap("chart", "pipe"),
+        chapter: gap("chart", "deadline"),
+        chapterTwo: gap("deadline", "pipe"),
         epilogue: gap("pipe", "activity"),
         order: ["attention", "health", "chart", "pipe", "activity"]
           .filter((k) => s[k]).map((k) => s[k].top),
@@ -113,14 +122,18 @@ for (const empty of [false, true]) {
       m.order.every((t, i) => i === 0 || t > m.order[i - 1]),
       `${tag} sections in reading order, none overlapping`
     );
-    check([m.sequence, m.kin, m.chapter, m.epilogue].every((g) => g !== null && g >= 0),
+    check([m.sequence, m.kin, m.chapter, m.chapterTwo, m.epilogue].every((g) => g !== null && g >= 0),
       `${tag} no negative or missing gap`,
-      `seq=${m.sequence} kin=${m.kin} ch=${m.chapter} ep=${m.epilogue}`);
+      `seq=${m.sequence} kin=${m.kin} ch=${m.chapter}/${m.chapterTwo} ep=${m.epilogue}`);
 
     /* The design, as an ordering rather than as numbers. */
     check(m.kin < m.sequence, `${tag} kin < sequence`, `${m.kin} < ${m.sequence}`);
     check(m.sequence < m.chapter, `${tag} sequence < chapter`, `${m.sequence} < ${m.chapter}`);
     check(m.chapter < m.epilogue, `${tag} chapter < epilogue`, `${m.chapter} < ${m.epilogue}`);
+    /* The two chapter breaks are one interval used twice, so they must match.
+     * A page whose chapter breaks differ has no rhythm, only spacing. */
+    check(m.chapter === m.chapterTwo, `${tag} both chapter breaks are equal`,
+      `${m.chapter} = ${m.chapterTwo}`);
     check(m.overflow === 0, `${tag} no document overflow`);
 
     await context.close();

@@ -79,7 +79,13 @@
      * stack of unrelated surfaces.
      */
     margin-block-end: 0;
-    padding: var(--ui-space-6) var(--ui-space-6) var(--ui-space-5);
+
+    /*
+     * The band's bottom padding IS the interval between what needs you and
+     * where you stand — see the rule below. It is spelled with the rhythm
+     * token rather than a spacing step so the page has one source for it.
+     */
+    padding: var(--ui-space-6) var(--ui-space-6) var(--ui-flow-sequence);
 
     border: var(--rule-frame);
     border-radius: var(--ui-radius-container) var(--ui-radius-container) 0 0;
@@ -266,7 +272,7 @@
        */
       --horizon-depth: 62px;
       padding: calc(var(--horizon-depth) + var(--ui-space-4))
-        var(--ui-space-4) var(--ui-space-5);
+        var(--ui-space-4) var(--ui-flow-sequence);
     }
 
     /*
@@ -346,6 +352,20 @@
  * instead of beneath it.
  */
 @layer system-pages {
+  /*
+   * Attention is INSIDE the band, so the band's bottom padding and Attention's
+   * own bottom margin were both sitting between it and Business Health. The
+   * page's `sequence` interval measured 53px against a `chapter` interval of
+   * 48 — the second-tightest relationship on the page rendering wider than the
+   * one two ranks below it, which inverts the rhythm the composition is built
+   * on. A probe caught it; nothing about the page looked wrong.
+   *
+   * One interval, declared once, by the element that encloses the gap.
+   */
+  .ui-horizon .ui-attention {
+    margin-block-end: 0;
+  }
+
   .ui-horizon + .ui-health {
     margin-block-start: 0;
     border-start-start-radius: 0;
