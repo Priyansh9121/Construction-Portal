@@ -29,6 +29,8 @@
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
 import DashboardHorizon from "../components/dashboard/DashboardHorizon";
+import DeadlineHorizon from "../components/dashboard/DeadlineHorizon";
+import SheetFooter from "../components/dashboard/SheetFooter";
 import BusinessHealth from "../components/dashboard/BusinessHealth";
 import Pipeline from "../components/dashboard/Pipeline";
 import ActivityStream from "../components/dashboard/ActivityStream";
@@ -503,6 +505,21 @@ function DashboardPage({
         emptyState={{ action: { to: "/payments", label: "Record a payment" } }}
       />
 
+      {/*
+        Temporal orientation, between intervention and the pipeline.
+
+        AttentionSpine says what needs a decision today; this says what the
+        next thirty days look like. A list is ordered but not spaced, so it
+        cannot show that two things land in one week and nothing else does for
+        a fortnight — which is the only reason this compartment exists.
+
+        Items already in Attention appear here too, deliberately: removing
+        them would put a hole in the timeline exactly where the most urgent
+        work is. They carry no second action, so each object still has exactly
+        one primary action on the page.
+      */}
+      <DeadlineHorizon tenders={tenders} />
+
       <Pipeline tenders={tenders} />
 
 
@@ -521,6 +538,21 @@ function DashboardPage({
         payments={payments}
         invoices={invoices}
         tenders={tenders}
+      />
+
+
+      {/*
+        The title block. Closure and identity: a page that simply stops leaves
+        the reader unsure they have seen everything, which is the residue of
+        suspicion PRODUCT_SOUL section 5 says the product must not leave.
+
+        Every field is derived. No revision, no drawn-by, no scale — the
+        product does not have those, and a title block full of invented
+        metadata would be forgery dressed as craft. The open count is passed
+        from the figures this page already derived rather than recomputed.
+      */}
+      <SheetFooter
+        openCount={dueSoonTenders.length + overdueTenders.length}
       />
 
     </>

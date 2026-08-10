@@ -1,0 +1,223 @@
+/*
+ * ===========================================================================
+ * DEADLINE HORIZON — temporal orientation
+ * ===========================================================================
+ *
+ * File purpose:
+ * The compartment that answers "what is approaching, and how soon".
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY THIS IS AN AXIS AND NOT A LIST
+ * ─────────────────────────────────────────────────────────────────────────
+ * A list of due dates is ordered but not SPACED, so it cannot say that two
+ * things land in the same week and nothing else does for a fortnight. The
+ * gap between two marks is the entire value here, which is why position is a
+ * linear function of `days / 30` and never a rank.
+ *
+ * That commits the compartment to some honest ugliness: a quiet month looks
+ * empty, and a cluster looks cluttered. Both are true statements about the
+ * month, and smoothing either one would make this a decorative timeline.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * READABLE WITHOUT COLOUR
+ * ─────────────────────────────────────────────────────────────────────────
+ * Overdue sits LEFT of the today tick, everything else right of it. Position
+ * carries the state, so it survives greyscale and the status hue only
+ * confirms — `VISUAL_PRINCIPLES` §8. Nothing here is signalled by colour
+ * alone.
+ *
+ * Connected to:
+ * - components/dashboard/DeadlineHorizon.jsx
+ */
+
+@layer system-pages {
+  .ui-dl {
+    margin-block-end: var(--ui-space-6);
+    padding: var(--ui-space-5) var(--ui-space-6) var(--ui-space-6);
+
+    border: var(--rule-frame);
+    border-radius: var(--ui-radius-container);
+    background: var(--ui-surface);
+  }
+
+  .ui-dl__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    margin-block-end: var(--ui-space-5);
+  }
+
+  .ui-dl__title {
+    margin: 0;
+    font-size: var(--ui-text-lg);
+    font-weight: var(--ui-weight-semibold);
+    letter-spacing: var(--type-track-normal);
+    color: var(--ui-ink-strong);
+  }
+
+  /* The scope statement. Says how many and over what window, before the axis
+   * is read — the same rule the activity ledger obeys. */
+  .ui-dl__scope {
+    margin: 0;
+    font-size: var(--ui-text-sm);
+    color: var(--ui-ink-muted);
+  }
+
+  .ui-dl__empty {
+    margin: 0 0 var(--ui-space-5);
+    font-size: var(--ui-text-base);
+    color: var(--ui-ink-muted);
+  }
+
+  /* ---- The axis --------------------------------------------------------- */
+
+  .ui-dl__axis {
+    position: relative;
+
+    /* Height follows the deepest lane, so a busy month grows rather than
+     * overlapping itself. */
+    min-block-size: calc(var(--lanes, 1) * 3.25rem + 2.5rem);
+    margin-inline: var(--ui-space-2);
+  }
+
+  /* The scale line. `--rule-zone` weight: it separates two kinds of thing —
+   * the marks above it and the scale below. */
+  .ui-dl__rule {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 1.5rem;
+    block-size: 0;
+    border-block-start: var(--rule-zone);
+  }
+
+  .ui-dl__tick {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-start: var(--at);
+    transform: translateX(-50%);
+
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-2xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ui-ink-muted);
+  }
+
+  /* The end stop pulls inside so it cannot be clipped by the compartment. */
+  .ui-dl__tick--end { transform: translateX(-100%); }
+  .ui-dl__tick:first-of-type { transform: translateX(0); }
+
+  /* ---- Marks ------------------------------------------------------------ */
+
+  .ui-dl__mark {
+    position: absolute;
+    inset-inline-start: var(--at);
+    inset-block-end: calc(1.75rem + var(--lane, 0) * 3.25rem);
+
+    display: flex;
+    align-items: flex-end;
+    gap: var(--ui-space-2);
+    max-inline-size: 40%;
+  }
+
+  /*
+   * Marks in the right half hang their label to the left of the stem, so a
+   * late-month item cannot push the page wider than the viewport. The stem
+   * stays exactly on its date; only the label swaps sides.
+   */
+  .ui-dl__mark[data-side="left"] {
+    flex-direction: row-reverse;
+    transform: translateX(-100%);
+    text-align: end;
+  }
+
+  /*
+   * The stem is what ties a label to its date. Without it the label floats
+   * and the axis stops being an axis.
+   */
+  .ui-dl__stem {
+    flex: none;
+    inline-size: 0;
+    block-size: 1.25rem;
+    border-inline-start: 2px solid var(--ui-line-strong);
+  }
+
+  .ui-dl__label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-inline-size: 0;
+    padding-block-end: 1px;
+  }
+
+  .ui-dl__name {
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+
+    /* CONTENT — a tender name, of unknown script. Never tracked. */
+    letter-spacing: 0;
+    color: var(--ui-ink-strong);
+
+    /* One line, with the full name available on hover and to a screen reader
+     * through the axis label. Truncation never hides the only copy. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ui-dl__when {
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-2xs);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    color: var(--ui-ink-muted);
+  }
+
+  /*
+   * State. The hue CONFIRMS what position already said — overdue is left of
+   * the today tick whatever colour it is.
+   */
+  .ui-dl__mark[data-state="late"] .ui-dl__stem {
+    border-color: var(--ui-status-danger-fg);
+  }
+
+  .ui-dl__mark[data-state="late"] .ui-dl__when {
+    color: var(--ui-status-danger-fg);
+  }
+
+  .ui-dl__mark[data-state="near"] .ui-dl__stem {
+    border-color: var(--ui-ink);
+  }
+
+  .ui-dl__mark[data-state="far"] .ui-dl__stem {
+    border-color: var(--ui-line-strong);
+  }
+
+  /* ---- Field density ---------------------------------------------------- */
+
+  /*
+   * The axis survives to 390 rather than collapsing to a list.
+   *
+   * A narrower axis means marks crowd sooner, which the lane logic already
+   * handles — it is the honest failure mode, and it is still spaced, which a
+   * list would not be. What changes is the label width and the scale, which
+   * drops its middle stop because three ticks in 320px is a ruler.
+   */
+  @media (max-width: 48rem) {
+    .ui-dl {
+      padding: var(--ui-space-4) var(--ui-space-4) var(--ui-space-5);
+    }
+
+    .ui-dl__mark {
+      max-inline-size: 62%;
+    }
+
+    .ui-dl__tick:nth-of-type(2) {
+      display: none;
+    }
+  }
+}
