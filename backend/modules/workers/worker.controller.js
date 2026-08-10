@@ -167,7 +167,12 @@ const workers = createScopedCrud({
   ],
 
   // A worker created without an explicit status is on the books.
-  defaults: { status: "active" },
+  /*
+   * F-11. `defaults: { status: "active" }` stood here and could never fire:
+   * validateWorker requires status and rejects with 400 before the factory
+   * runs. Removed rather than made reachable — making it reachable changes
+   * what the API accepts, which is a policy decision rather than a cleanup.
+   */
 
   /*
    * Query parameters accepted as exact-match filters. Only these two —

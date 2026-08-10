@@ -27,8 +27,8 @@ Status values:
 | F-04 | Medium | Open | Two default timezones disagree |
 | F-05 | Low | Open | Audit trail records outcomes, not changes |
 | F-06 | Low | Open | Two Gujarati-language conventions coexist |
-| F-07 | Medium | Open | Email templates interpolate names unescaped |
-| F-08 | Low | Open | `redact()` fails open below six levels |
+| F-07 | Medium | **Fixed** | Email templates escape user-supplied names |
+| F-08 | Low | **Fixed** | `redact()` now fails closed below six levels |
 | F-09 | Medium | Open | Membership and ownership changes not audited |
 | F-10 | Low | **Partially fixed** | Subcontractors now routes `getById`; workers and invoices still do not |
 | F-11 | Low | Open | Worker `status` default is unreachable |
@@ -164,6 +164,25 @@ The `layout` and `button` helpers already carry a comment noting they
 interpolate unescaped and that safety depends on the call sites. These two
 call sites are the exception to that assumption.
 
+### Resolution
+
+**Status:** Fixed.
+
+`escapeHtml` was added to `config/mailer.js` and applied at the three call
+sites that interpolate a user-supplied value: the reset greeting, and the
+invite's name and company name. Ampersand is replaced first, so nothing is
+double-escaped and a literal `&lt;` typed by a user survives as text.
+
+`sendMail` now returns the composed `subject`, `text` and `html` alongside
+`{ sent: false, logged: true }` when SMTP is unconfigured. The only caller
+(`auth.controller.js`) ignores the return value entirely, so nothing
+operational changed — but without it the escaping is unobservable in every
+environment where SMTP is not set up, which is every test run. A test that
+cannot observe what it asserts passes against the code it exists to catch.
+
+**Regression coverage:** `tests/emailEscaping.test.js`, five cases. The two
+template cases were confirmed to fail when the escaping is reverted.
+
 ---
 
 ## F-08 · `redact()` stops redacting below six levels of nesting
@@ -190,6 +209,22 @@ It is worth knowing that the cap fails open rather than closed: returning
 Worth rereading now that `REDACTED_KEYS` covers payment identifiers (F-12):
 the depth cap applies to those too, so a deeply nested account number would
 survive. Still not reachable by any current payload.
+
+### Resolution
+
+**Status:** Fixed.
+
+The depth guard now returns `"[truncated]"` rather than the untouched subtree.
+`null` is still returned as `null`, so an absent value stays distinguishable
+from a truncated one.
+
+Nothing reachable today nests past six levels. That is the argument for the
+change rather than against it: the guard only ever executes on a shape nobody
+anticipated, and an unanticipated shape is the one not to trust — particularly
+now that `REDACTED_KEYS` covers payment identifiers.
+
+**Regression coverage:** four cases in `tests/activityLog.test.js`. Two were
+confirmed to fail when the guard is restored to failing open.
 
 ---
 

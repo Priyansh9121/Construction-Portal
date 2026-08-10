@@ -283,3 +283,64 @@ describe("writes an audit row for money and approvals", () => {
     expect(after).toBe(before);
   });
 });
+
+/*
+|--------------------------------------------------------------------------
+| F-08 · the depth cap must fail closed
+|--------------------------------------------------------------------------
+|
+| `redact()` walks a payload and replaces anything in REDACTED_KEYS. It stops
+| descending past six levels, and it used to return the remaining subtree
+| UNTOUCHED — so a redacted key sitting deeper than the cap was written to
+| activity_logs verbatim.
+|
+| Since F-12 that list includes payment identifiers, which makes the failure
+| mode an account number surviving into a table retained longer and read more
+| widely than the register it came from.
+|
+| No current payload nests anywhere near this deep, and that is precisely the
+| argument for closing it: the guard only ever runs on a shape nobody
+| anticipated, and an unanticipated shape is the one not to trust.
+|
+*/
+
+describe("F-08 · redact() fails closed below the depth cap", () => {
+  /** Wraps a value n levels deep. */
+  const nest = (value, levels) => {
+    let out = value;
+
+    for (let i = 0; i < levels; i += 1) {
+      out = { level: out };
+    }
+
+    return out;
+  };
+
+  it("does not emit a redacted key that sits below the cap", () => {
+    const deep = nest({ account_number: "123456789" }, 8);
+
+    const serialised = JSON.stringify(redact(deep));
+
+    expect(serialised).not.toContain("123456789");
+  });
+
+  it("marks the truncation rather than dropping it silently", () => {
+    const deep = nest({ anything: "value" }, 8);
+
+    expect(JSON.stringify(redact(deep))).toContain("[truncated]");
+  });
+
+  it("still returns shallow payloads in full", () => {
+    // The cap must not damage the shapes that actually occur.
+    const shallow = {
+      full_name: "Ravi",
+      nested: { amount: 2500 },
+    };
+
+    expect(redact(shallow)).toEqual(shallow);
+  });
+
+  it("keeps null distinguishable from a truncated subtree", () => {
+    expect(redact(null)).toBe(null);
+  });
+});

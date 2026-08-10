@@ -260,9 +260,24 @@ const sendMail = async ({
         "=============================================\n"
     );
 
+    /*
+     * The composed message is returned alongside the flag.
+     *
+     * The only caller (auth.controller.js) ignores this value entirely, so
+     * nothing operational depends on the shape. It is here so the F-07
+     * regression test can assert what the templates BUILD — without it the
+     * escaping is unobservable in any environment where SMTP is unconfigured,
+     * which is every test run and most development.
+     *
+     * A test that cannot observe the thing it asserts is a test that passes
+     * when the fix is reverted.
+     */
     return {
       sent: false,
       logged: true,
+      subject,
+      text,
+      html,
     };
   }
 
@@ -307,6 +322,30 @@ const sendMail = async ({
 */
 
 /**
+ * Escapes text for insertion into HTML.
+ *
+ * Added for F-07. Two templates interpolated a full name and a company name
+ * straight into their markup, and both are user-supplied — a company name at
+ * registration, a full name when the account was created. A name containing
+ * `<a href>` was delivered as live markup inside a message the recipient
+ * trusts, which is enough to forge a second "click here" link in an email
+ * that genuinely came from the portal.
+ *
+ * Most clients strip `<script>`, so this was never straightforward XSS. It
+ * did not need to be: the value of the attack is that the surrounding email
+ * is authentic.
+ *
+ * Ampersand first, or the replacements re-escape each other's output.
+ */
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+/**
  * Wraps body HTML in the shared email shell.
  *
  * Written the way email HTML has to be written rather than the way a web
@@ -317,9 +356,10 @@ const sendMail = async ({
  * role="presentation" tells a screen reader these tables are scaffolding
  * rather than data, so it does not announce rows and columns.
  *
- * `title` and `bodyHtml` are interpolated unescaped. Both are supplied by
- * this module, never by a user, so there is no injection path — but that
- * is a property of the call sites, not of this function.
+ * `title` and `bodyHtml` are interpolated unescaped. Both are assembled by
+ * this module, and every user-supplied value inside them has been through
+ * `escapeHtml` at the call site. That is a property of the call sites, not
+ * of this function — F-07 is what happens when one of them forgets.
  */
 const layout = (
   title,
@@ -447,7 +487,7 @@ const sendPasswordResetEmail = ({
     html: layout(
       "Reset your password",
       `
-        <p style="margin:0 0 12px;">${greeting}</p>
+        <p style="margin:0 0 12px;">${escapeHtml(greeting)}</p>
         <p style="margin:0;">
           We received a request to reset your Construction Portal password.
           This link is valid for ${expiresInMinutes} minutes.
@@ -530,15 +570,15 @@ const sendAccountInviteEmail = ({
     html: layout(
       "Welcome",
       `
-        <p style="margin:0 0 12px;">Hello ${
+        <p style="margin:0 0 12px;">Hello ${escapeHtml(
           fullName || ""
-        },</p>
+        )},</p>
         <p style="margin:0;">
           An account has been created for you on
-          <strong>${
+          <strong>${escapeHtml(
             companyName ||
-            "Construction Portal"
-          }</strong>.
+              "Construction Portal"
+          )}</strong>.
         </p>
         ${button(url, "Set your password")}
       `
@@ -547,6 +587,9 @@ const sendAccountInviteEmail = ({
 };
 
 module.exports = {
+  // Exported for the F-07 regression test, which asserts the escaping
+  // directly rather than by scraping rendered HTML.
+  escapeHtml,
   isConfigured,
   checkMailConnection,
   sendMail,
