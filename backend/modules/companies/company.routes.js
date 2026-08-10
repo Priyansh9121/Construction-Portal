@@ -47,7 +47,12 @@
 |   and UsersPage.
 |
 | Note:
-|   None of these routes carry logActivity, so membership and ownership
+|   F-09: the three routes that change membership or ownership now carry
+|   logActivity. The three read-only routes deliberately do not — an audit
+|   trail of who looked at a member list is surveillance, not evidence.
+|
+|   Previously: none of these routes carried logActivity, so membership and
+|   ownership
 |   changes are not written to the audit trail — unlike the equivalent user
 |   changes under /api/auth/users, which are. Recorded as F-09 in
 |   docs/repository-reference/findings.md.
@@ -60,6 +65,11 @@ const asyncHandler = require("../../utils/asyncHandler");
 const roleMiddleware = require("../../middleware/roleMiddleware");
 
 const companyController = require("./company.controller");
+
+const {
+  logActivity,
+  ACTIVITY_ACTIONS,
+} = require("../../utils/activityLog");
 
 const router = express.Router();
 
@@ -167,6 +177,15 @@ router.put(
   roleMiddleware(["admin"], {
     source: "either",
   }),
+  /*
+   * F-09. The equivalent operation under /api/auth/users has always been
+   * audited, so the trail recorded a role change made through the Users
+   * screen and not the same change made here.
+   */
+  logActivity(
+    "company_members",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(companyController.updateMemberRole)
 );
 
@@ -194,6 +213,12 @@ router.delete(
   roleMiddleware(["admin"], {
     source: "either",
   }),
+  /* F-09. Someone losing access to a company is exactly the kind of event
+   * the trail exists for. */
+  logActivity(
+    "company_members",
+    ACTIVITY_ACTIONS.REMOVE
+  ),
   asyncHandler(companyController.removeMember)
 );
 
@@ -221,14 +246,22 @@ router.delete(
  *
  * Security:
  * The most consequential endpoint in the module — it moves the standing
- * that gates admin creation, admin promotion and this route itself. It is
- * also, notably, not audited. See F-09 in findings.md.
+ * that gates admin creation, admin promotion and this route itself.
  */
 router.post(
   "/transfer-ownership",
   roleMiddleware(["admin"], {
     source: "either",
   }),
+  /*
+   * F-09. This was the starkest gap: ownership could move with no trace at
+   * all, and ownership is the standing every other admin control derives
+   * from.
+   */
+  logActivity(
+    "company_ownership",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
   asyncHandler(companyController.transferOwnership)
 );
 
