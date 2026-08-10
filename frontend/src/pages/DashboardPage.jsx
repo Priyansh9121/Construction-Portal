@@ -28,6 +28,7 @@
 
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
+import DashboardHorizon from "../components/dashboard/DashboardHorizon";
 import BusinessHealth from "../components/dashboard/BusinessHealth";
 import Pipeline from "../components/dashboard/Pipeline";
 import ActivityStream from "../components/dashboard/ActivityStream";
@@ -433,11 +434,23 @@ function DashboardPage({
         names live in them. Nothing new is fetched and no figure elsewhere on
         the page changed.
       */}
-      <AttentionSpine
-        userName={user?.full_name || ""}
-        tenders={tenders}
-        invoices={invoices}
-      />
+      {/*
+        PHASE 3. The attention section now opens inside the environmental
+        band: a measured orthographic elevation of a site, drawn in line,
+        which the threshold's retracting floor plates hand over to.
+
+        The drawing is clipped above the rows, so atmosphere sits behind the
+        greeting and the headline — words — and never behind a figure. That
+        division is the whole reason an operational route is allowed to move
+        at all. See EXPERIENCE_LANGUAGE section 6, as amended.
+      */}
+      <DashboardHorizon>
+        <AttentionSpine
+          userName={user?.full_name || ""}
+          tenders={tenders}
+          invoices={invoices}
+        />
+      </DashboardHorizon>
 
       {/*
         D2. Twelve equal-weight metric cards and a "Today's Finance" panel
