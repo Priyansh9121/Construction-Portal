@@ -65,6 +65,7 @@
 @import "./dashboard/empty-state.css";
 @import "./dashboard/dashboard.css";
 @import "./dashboard/composition.css";
+@import "./environment/world.css";
 @import "./dashboard/horizon.css";
 @import "./dashboard/deadline.css";
 @import "./dashboard/sheet.css";

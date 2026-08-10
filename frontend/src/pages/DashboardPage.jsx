@@ -29,6 +29,8 @@
 import FinanceTrendChart from "../components/charts/FinanceTrendChart";
 import AttentionSpine from "../components/dashboard/AttentionSpine";
 import DashboardHorizon from "../components/dashboard/DashboardHorizon";
+import World from "../components/environment/World";
+import useWorldParallax from "../components/environment/useWorldParallax";
 import DeadlineHorizon from "../components/dashboard/DeadlineHorizon";
 import SheetFooter from "../components/dashboard/SheetFooter";
 import BusinessHealth from "../components/dashboard/BusinessHealth";
@@ -36,7 +38,7 @@ import Pipeline from "../components/dashboard/Pipeline";
 import ActivityStream from "../components/dashboard/ActivityStream";
 import ExportButtons from "../components/export/ExportButtons";
 import { formatCurrency } from "../utils/currency";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getSubcontractors } from "../services/subcontractorService";
 import { useAuth } from "../contexts/authContext";
 
@@ -423,9 +425,47 @@ function DashboardPage({
     "Active Workers": activeWorkers,
   };
 
+  /* One scheduler for the world's depth. Passive listeners, one rAF per
+   * frame, two custom properties, no layout read, no React state. */
+  const roomRef = useRef(null);
+  useWorldParallax(roomRef, { scroll: 0.4, pointer: 1 });
+
+  /*
+   * The occlusion contract is switched on for this route and removed when it
+   * is left, the same route-scoped mechanism `data-scheme` uses. It cannot be
+   * a class on the returned fragment: the compartments it governs are
+   * siblings inside the shell's `.page-content`, not descendants of anything
+   * this page owns.
+   */
+  useEffect(() => {
+    document.body.classList.add("ui-world-page");
+    return () => document.body.classList.remove("ui-world-page");
+  }, []);
+
   return (
     <>
-  
+      {/*
+        THE ROOM.
+
+        A fixed five-plane construction world behind the entire route. It does
+        not scroll: its PLANES translate against the scroll offset at five
+        different rates, which is what produces depth rather than a background
+        sliding past.
+
+        `ui-world-page` is what switches on the occlusion contract — every
+        operational compartment becomes an opaque sheet with a ring of its own
+        surface, so the world is read AROUND the composition and never behind
+        a figure. The class is on this page only; no other route inherits a
+        world it did not ask for.
+
+        Pointer parallax is on and deliberately shallow. The scheduler attaches
+        nothing at all under reduced motion, so a user who asked for less
+        motion does not pay for work that is then discarded.
+      */}
+      <div className="ui-world ui-world--room" ref={roomRef}>
+        <World variant="operations" surface="room" lights />
+      </div>
+
       {/*
         D1. The page opens with the OBJECTS that need the user, not counts of
         them. This replaced DashboardHero's six count tiles and absorbed the
