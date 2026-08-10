@@ -61,7 +61,7 @@
 
 import World from "../environment/World";
 
-function DashboardHorizon({ children }) {
+function DashboardHorizon({ children, active = 0, alert = 0 }) {
   return (
     <section className="ui-horizon">
       {/*
@@ -75,7 +75,7 @@ function DashboardHorizon({ children }) {
         window look like a magnified crop of the wall behind it.
       */}
       <div className="ui-world ui-world--band">
-        <World variant="register" surface="band" lights dust />
+        <World variant="register" surface="band" lights dust active={active} alert={alert} />
         <span className="ui-world__light" />
       </div>
 

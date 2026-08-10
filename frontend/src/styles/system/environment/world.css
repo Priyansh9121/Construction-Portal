@@ -80,12 +80,34 @@ html:has(body.ui-world-page) {
    * actually reads, and is also the only version that stays cheap: no blur,
    * no filter, no fog volume. One ink at five strengths.
    */
+  /*
+   * THE SITE PALETTE.
+   *
+   * Scoped to `.ui-world` and the dashboard body class -- no global semantic
+   * token is repainted, so finance, status and every unmigrated route keep
+   * their meanings exactly. These colours describe SYSTEMS on a site, which is
+   * why they are named for what they mark and not for their hue:
+   *
+   *   plant    machinery under power        construction amber
+   *   active   structure being worked on    structural violet
+   *   signal   survey and setting-out       instrument cyan
+   *   alert    something is overdue         safety red
+   *
+   * Line work stays in one steel ink at four strengths; the colour is spent
+   * only where a system is live, which is what keeps a busy site from reading
+   * as a rainbow.
+   */
   .ui-world {
-    --world-far: #c3c9d0;
-    --world-mid: #a7aeb6;
-    --world-ink: #848c94;
-    --world-near: #6d757e;
-    --world-lit: #efc78a;
+    --world-far: #b9c2cb;
+    --world-mid: #98a3ae;
+    --world-ink: #6f7b87;
+    --world-near: #56626e;
+
+    --world-plant: #e8933a;
+    --world-active: #6d3fd4;
+    --world-signal: #21a7bd;
+    --world-alert: #d8483c;
+    --world-lit: #f2c98c;
   }
 
   .ui-world__svg {
@@ -133,11 +155,85 @@ html:has(body.ui-world-page) {
   .ui-world__haze { stroke: none; fill: currentColor; color: var(--ui-ink); }
   .ui-world__distant { stroke: var(--world-far); }
   .ui-world__frame { stroke: var(--world-mid); }
-  .ui-world__rigs { stroke: var(--world-ink); stroke-width: 1.35; }
+  /* Machinery under power reads as plant, not as more line work. */
+  .ui-world__rigs { stroke: var(--world-plant); stroke-width: 1.5; }
   .ui-world__near { stroke: var(--world-near); stroke-width: 1.5; }
 
   .ui-world__brace { stroke-dasharray: 5 4; opacity: 0.75; }
-  .ui-world__partial { stroke-width: 2.4; }
+  .ui-world__partial { stroke-width: 2.6; stroke: var(--world-active); }
+
+  /* ---- Live systems ----------------------------------------------------- */
+
+  /*
+   * An ACTIVE BAY is a floor with work in flight on it. The count comes from
+   * the Dashboard's own running-tender figure; which bays light is geometry,
+   * not data, because this world represents system activity and not a
+   * building anyone is actually putting up.
+   */
+  .ui-world__bay {
+    fill: var(--world-active);
+    stroke: none;
+    opacity: 0;
+    animation: ui-world-bay var(--dur, 14s) ease-in-out var(--d, 0s) infinite;
+  }
+
+  @keyframes ui-world-bay {
+    0%, 100% { opacity: 0.05; }
+    45% { opacity: 0.17; }
+  }
+
+  /* The hoist runs the face of the frame. Long, uneven interval. */
+  .ui-world__hoist {
+    fill: var(--world-plant);
+    stroke: none;
+    animation: ui-world-hoist var(--dur, 19s) cubic-bezier(0.5, 0, 0.5, 1)
+      var(--d, 0s) infinite alternate;
+  }
+
+  @keyframes ui-world-hoist {
+    from { transform: translateY(0); }
+    to { transform: translateY(calc(var(--rise) * -1px)); }
+  }
+
+  /* Setting-out signal travelling the ground line. */
+  .ui-world__scan {
+    stroke: var(--world-signal);
+    stroke-width: 2;
+    opacity: 0.55;
+    animation: ui-world-scan var(--dur, 23s) linear infinite;
+  }
+
+  @keyframes ui-world-scan {
+    from { transform: translateX(-8%); opacity: 0; }
+    12% { opacity: 0.5; }
+    88% { opacity: 0.5; }
+    to { transform: translateX(108%); opacity: 0; }
+  }
+
+  /* A beacon marks something overdue. One pulse, red, and only when the
+   * Dashboard actually has overdue work -- never decorative. */
+  .ui-world__beacon {
+    fill: var(--world-alert);
+    stroke: none;
+    animation: ui-world-beacon 3.4s ease-in-out infinite;
+  }
+
+  .ui-world__beacon-ring {
+    fill: none;
+    stroke: var(--world-alert);
+    stroke-width: 1.5;
+    animation: ui-world-ring 3.4s ease-out infinite;
+  }
+
+  @keyframes ui-world-beacon {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes ui-world-ring {
+    0% { r: 4; opacity: 0.7; }
+    70%, 100% { r: 16; opacity: 0; }
+  }
   .ui-world__lit { fill: var(--world-lit); stroke: none; }
   .ui-world__mark { stroke-width: 2; }
 
@@ -241,7 +337,33 @@ html:has(body.ui-world-page) {
    * the instrument, above the greeting — which is words — and stops before
    * the first row, which is figures.
    */
+  /*
+   * THE BAND IS A LIT SITE, NOT A DRAWING ON PAPER.
+   *
+   * At full strength on white, steel linework at 1.15px reads as a faint
+   * technical drawing however much colour is spent on it -- reviewed in a
+   * screenshot and rejected twice. Grounding the window in deep site dark
+   * inverts the problem: the same geometry becomes luminous, the plant amber
+   * and the active violet finally carry, and the machinery reads as machinery.
+   *
+   * The evidence is untouched by this. Every sheet below the window is still
+   * white paper, and the greeting sits BELOW the band rather than over it, so
+   * nothing on this page is text over a moving scene.
+   */
   .ui-world--band {
+    --world-far: #46545f;
+    --world-mid: #6a7a88;
+    --world-ink: #93a5b4;
+    --world-near: #c2d2de;
+    --world-plant: #ffab42;
+    --world-active: #9a76ff;
+    --world-signal: #37d0e8;
+    --world-alert: #ff6a5c;
+    --world-lit: #ffd79a;
+
+    background:
+      radial-gradient(120% 150% at 76% 118%, #26313c 0%, #171e26 46%, #11161c 100%);
+
     position: absolute;
     inset-block-start: 0;
     inset-inline: 0;
@@ -254,15 +376,51 @@ html:has(body.ui-world-page) {
      * anything in the sheet it is cut into. */
     contain: layout paint;
 
-    /* Dissolves toward the sentence rather than being cut off by it. */
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%);
-    mask-image: linear-gradient(90deg, transparent, #000 22%);
+    /* The ground is opaque; only the GEOMETRY dissolves toward the sentence,
+     * so the window has a real edge instead of fading into the paper. */
+    border-radius: var(--ui-radius-container) var(--ui-radius-container) 0 0;
   }
 
   .ui-world--band .ui-world__svg {
     inset-block-start: auto;
     inset-block-end: 0;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%);
+    mask-image: linear-gradient(90deg, transparent, #000 18%);
   }
+
+  /* Heavier on dark: a 1.15px steel line that reads on paper disappears
+   * against a lit ground. */
+  .ui-world--band .ui-world__svg > g { stroke-width: 1.35; }
+  .ui-world--band .ui-world__rigs { stroke-width: 1.9; }
+  .ui-world--band .ui-world__near { stroke-width: 1.7; }
+  .ui-world--band .ui-world__partial { stroke-width: 3.2; }
+  .ui-world--band .ui-world__haze { display: none; }
+
+  /* Work in flight is the brightest information in the window. */
+  .ui-world--band .ui-world__bay {
+    mix-blend-mode: screen;
+    fill: var(--world-active);
+  }
+
+  /* The bay's own edge, so a lit floor reads as a floor rather than as a
+   * rectangle of glow. */
+  .ui-world--band .ui-world__bay-edge {
+    stroke: var(--world-active);
+    stroke-width: 1.6;
+    fill: none;
+    opacity: 0.85;
+  }
+
+  @keyframes ui-world-bay-lit {
+    0%, 100% { opacity: 0.34; }
+    45% { opacity: 0.78; }
+  }
+
+  .ui-world--band .ui-world__bay {
+    animation-name: ui-world-bay-lit;
+  }
+
+  .ui-world--band .ui-world__scan { stroke-width: 2.5; opacity: 0.8; }
 
   /* The band's own planes do not parallax on scroll: it is part of the sheet
    * and travels with it. Only the room has depth against the page. */
@@ -280,6 +438,19 @@ html:has(body.ui-world-page) {
    * the band because a full-viewport version measured 8fps at 1440 and 0 at
    * 390 — paint area, not geometry.
    */
+  /* Work lighting crossing the site. `screen` on a dark ground reads as a
+   * lamp; `soft-light` on paper read as nothing. */
+  .ui-world--band .ui-world__light {
+    mix-blend-mode: screen;
+    background: linear-gradient(
+      100deg,
+      transparent,
+      rgb(255 214 150 / 0.16) 46%,
+      rgb(255 190 120 / 0.09) 62%,
+      transparent
+    );
+  }
+
   .ui-world__light {
     position: absolute;
     inset-block: 0;
@@ -436,7 +607,9 @@ html:has(body.ui-world-page) {
      * instead of showing the whole site as threads.
      */
     .ui-world--band {
-      --world-band: 112px;
+      /* Deeper than the paper band was, because the window is now a lit scene
+       * and a 112px slot cannot hold a crane at legible scale. */
+      --world-band: 156px;
     }
 
     /* Pointer parallax has no meaning on a touch device, and the room's
@@ -470,9 +643,20 @@ html:has(body.ui-world-page) {
     .ui-world__mote,
     .ui-world__beam,
     .ui-world__crane,
-    .ui-world__lit {
+    .ui-world__lit,
+    .ui-world__hoist,
+    .ui-world__scan,
+    .ui-world__beacon-ring {
       animation: none !important;
     }
+
+    /* The world keeps its COLOUR, its depth and every live-system marking
+     * under reduced motion; only the travel stops. An active bay is still lit,
+     * the beacon still marks the overdue work, the scan rests mid-site. */
+    .ui-world__bay { animation: none; opacity: 0.15; }
+    .ui-world__scan { transform: translateX(46%); opacity: 0.45; }
+    .ui-world__beacon { animation: none; opacity: 0.9; }
+    .ui-world__beacon-ring { opacity: 0; }
 
     .ui-world__light { transform: translate3d(150%, 0, 0); }
     .ui-world__beam { stroke-dashoffset: 0; }
