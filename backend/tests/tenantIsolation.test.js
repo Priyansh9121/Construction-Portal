@@ -39,6 +39,10 @@ let beta;
 // Ids created by Alpha, used to attempt access as Beta.
 const alphaIds = {};
 
+// Ids created by Beta, used to build requests that are legitimate apart from
+// the one foreign reference under test.
+const betaIds = {};
+
 beforeAll(async () => {
   alpha = await createCompany(request, "alpha");
   beta = await createCompany(request, "beta");
@@ -122,6 +126,7 @@ beforeAll(async () => {
     .send({ name: "Alpha Investor" });
 
   alphaIds.investor = investor.body?.item?.id;
+
 }, 60000);
 
 afterAll(async () => {
@@ -205,6 +210,61 @@ describe("list endpoints never return another company's rows", () => {
 */
 
 describe("write endpoints reject another company's record ids", () => {
+  /*
+   * Beta's own fixtures live HERE, not in the file-level beforeAll.
+   *
+   * The describe above asserts that a brand-new company's lists are empty,
+   * which is the strongest available statement that nothing leaks across the
+   * boundary. Giving Beta rows of its own globally would have made those
+   * lists non-empty and forced that assertion to be weakened. Vitest runs a
+   * describe's beforeAll when the describe starts, so scoping them here keeps
+   * both tests honest.
+   */
+  beforeAll(async () => {
+    const betaTender = await beta
+      .auth(request.post("/api/tenders"))
+      .send({
+        title: "Beta Tender",
+        status: "running",
+        sites: [
+          {
+            site_name: "Beta Site",
+            site_type: "Personal Site",
+            address: "2 Test Road",
+          },
+        ],
+      });
+
+    betaIds.site =
+      betaTender.body?.tender?.sites?.[0]?.id;
+
+    const alphaSub = await alpha
+      .auth(request.post("/api/subcontractors"))
+      .send({
+        full_name: "Alpha Subcontractor",
+        phone: "9000000002",
+      });
+
+    alphaIds.subcontractor =
+      alphaSub.body?.subcontractor?.id ??
+      alphaSub.body?.data?.id ??
+      alphaSub.body?.item?.id;
+
+    /*
+     * Fail loudly rather than skipping. The first version of this fixture
+     * sent the wrong field name, got a 400, left the id undefined, and the
+     * test below quietly returned early — it passed with the fix REVERTED,
+     * which is the one thing a regression test may never do.
+     */
+    if (!alphaIds.subcontractor) {
+      throw new Error(
+        `F-14 fixture: could not create Alpha's subcontractor: ${JSON.stringify(
+          alphaSub.body
+        )}`
+      );
+    }
+  }, 60000);
+
   it("Beta cannot delete Alpha's payment", async () => {
     const response = await beta.auth(
       request.delete(
@@ -295,6 +355,48 @@ describe("write endpoints reject another company's record ids", () => {
         `/api/masters/investors/${alphaIds.investor}/statement`
       )
     );
+
+    expect(response.status).toBe(404);
+  });
+
+  /*
+   * F-14.
+   *
+   * `createSiteLog` validated site_id and tender_id against the caller's
+   * company and wrote worker_id and subcontractor_id straight through. Reading
+   * was safe — the list query joins on both id and company_id, so a foreign
+   * key resolved to NULL rather than leaking a name — but the WRITE stored one
+   * company's identifier inside another company's evidence.
+   *
+   * Both assertions expect 404 rather than 403, matching the existing
+   * ownership checks: a caller must not be able to tell "that worker belongs
+   * to someone else" from "that worker does not exist", because the first
+   * answer confirms another company's record exists.
+   */
+  it("Beta cannot attach Alpha's worker to its own site log", async () => {
+
+    const response = await beta
+      .auth(request.post("/api/site-logs"))
+      .send({
+        site_id: betaIds.site,
+        worker_id: alphaIds.worker,
+        log_date: today(),
+        notes: "Cross-tenant worker",
+      });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("Beta cannot attach Alpha's subcontractor to its own site log", async () => {
+
+    const response = await beta
+      .auth(request.post("/api/site-logs"))
+      .send({
+        site_id: betaIds.site,
+        subcontractor_id: alphaIds.subcontractor,
+        log_date: today(),
+        notes: "Cross-tenant subcontractor",
+      });
 
     expect(response.status).toBe(404);
   });

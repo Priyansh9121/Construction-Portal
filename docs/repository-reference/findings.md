@@ -34,7 +34,7 @@ Status values:
 | F-11 | Low | Open | Worker `status` default is unreachable |
 | F-12 | High | **Fixed** | Bank details masked in list; full details role-gated; audit redacted |
 | F-13 | Medium | **Fixed** | Backdating window: timezone AND permission consistency |
-| F-14 | Low | Open | Site-log worker/subcontractor not ownership-checked |
+| F-14 | Low | **Fixed** | Site-log worker/subcontractor now ownership-checked |
 | F-15 | Low | Open | Masters router documents an access rule it lacks |
 | F-16 | High | **Fixed** | Tender + client returned a 500 |
 | F-17 | Medium | **Fixed** | Five tender child queries now company-scoped |
@@ -527,6 +527,41 @@ The fix is the same two lines already present for site and tender.
 **Status:** Open. The fix is small, but it is an input-validation change on
 a write path with no existing test coverage for those two fields, and it
 was not part of the three findings prioritised for this pass.
+
+---
+
+### Resolution
+
+**Status:** Fixed.
+
+`createSiteLog` now checks `worker_id` and `subcontractor_id` against the
+caller's company through `rowBelongsToCompany`, alongside the existing
+`site_id` and `tender_id` checks. The table name comes from an internal
+allow-list, never from input, and an unrecognised table fails closed.
+
+Both answer **404**, matching the site and tender checks: a caller must not be
+able to distinguish "that worker belongs to another company" from "that worker
+does not exist", because the first answer confirms another company's record
+exists.
+
+There is no update handler for site logs, so the create path was the only one
+to close.
+
+**Regression coverage:** two cases in `tests/tenantIsolation.test.js` — Beta
+attaching Alpha's worker, and Alpha's subcontractor, to Beta's own site. Both
+were confirmed to fail when the fix is reverted.
+
+Two side effects worth recording:
+
+- The Beta fixtures are scoped to the `write endpoints` describe rather than
+  the file-level `beforeAll`. Placing them globally gave Beta rows of its own
+  and broke the stronger assertion in the describe above, that a brand-new
+  company's lists are *empty*. That assertion was preserved rather than
+  weakened.
+- Two F-13 tests in `entryWindowPermission.test.js` were sending
+  `worker_id: 1`, a literal belonging to no one, and passed only because
+  ownership was unchecked. They now create a worker of their own company, so
+  each request is legitimate in every respect except the date under test.
 
 ---
 

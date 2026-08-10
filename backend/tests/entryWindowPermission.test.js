@@ -512,6 +512,21 @@ describe("F-13 · window boundaries", () => {
 describe("F-13 · createSiteLog delegates to the shared rule", () => {
   let siteId;
 
+  /*
+   * A worker this company actually owns.
+   *
+   * These tests previously sent `worker_id: 1` — a literal that belonged to
+   * nobody in particular. That passed only because createSiteLog did not
+   * check worker ownership, so the request fell through to the date rule
+   * these tests are actually about. F-14 closed that hole, and the literal
+   * now earns a 404 before the date is ever examined.
+   *
+   * Using a real worker restores what each test claims to assert. It is also
+   * strictly stronger: the request is now legitimate in every respect except
+   * the one under test.
+   */
+  let workerId;
+
   beforeAll(async () => {
     const tender = await companyA
       .auth(request.post("/api/tenders"))
@@ -529,6 +544,26 @@ describe("F-13 · createSiteLog delegates to the shared rule", () => {
 
     siteId =
       tender.body?.tender?.sites?.[0]?.id;
+
+    const worker = await companyA
+      .auth(request.post("/api/workers"))
+      .send({
+        full_name: "EW Worker",
+        phone: "9000000777",
+        salary: 25000,
+        role: "worker",
+        status: "active",
+      });
+
+    workerId =
+      worker.body?.worker?.id ??
+      worker.body?.data?.id;
+
+    if (!workerId) {
+      throw new Error(
+        `Could not create worker: ${JSON.stringify(worker.body)}`
+      );
+    }
 
     if (!siteId) {
       throw new Error(
@@ -573,7 +608,7 @@ describe("F-13 · createSiteLog delegates to the shared rule", () => {
       .auth(request.post("/api/site-logs"))
       .send({
         site_id: siteId,
-        worker_id: 1,
+        worker_id: workerId,
         log_date: future,
         notes: "Tomorrow's work",
       });
@@ -594,7 +629,7 @@ describe("F-13 · createSiteLog delegates to the shared rule", () => {
       .auth(request.post("/api/site-logs"))
       .send({
         site_id: siteId,
-        worker_id: 1,
+        worker_id: workerId,
         log_date: "13/45/2026",
         notes: "Bad date",
       });
