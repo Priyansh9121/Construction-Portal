@@ -1,3 +1,23 @@
+> # HISTORICAL SNAPSHOT — DO NOT USE FOR CURRENT TRUTH
+>
+> This file is a record of one review pass, kept because the reasoning is
+> useful. It is **not** a description of the repository as it stands.
+>
+> Do not read test counts, CSS state, dependency state, bundle sizes,
+> `.DS_Store` counts or finding statuses from this file. Every one of them has
+> moved since it was written.
+>
+> Current truth lives in:
+>
+> | question | file |
+> |---|---|
+> | finding statuses | `findings.md` |
+> | what the product is | `../../PRODUCT.md` |
+> | how it is built | `../../ARCHITECTURE.md` |
+> | test counts | run the suites; see `findings.md` header |
+>
+> Last verified against code: 2026-08-10.
+
 # Documentation pass — progress
 
 Working notes for the repository-wide documentation and review pass.
