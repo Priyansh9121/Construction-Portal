@@ -35,6 +35,24 @@ const FRAMES = [
 
 const MORPH_MS = 620;
 
+/*
+ * One depth unit, in plot pixels.
+ *
+ * Every structural face in this instrument is projected by exactly this offset,
+ * up and to the right, so the assembly reads as one solid seen from one place.
+ * It is applied ONLY to faces that carry no value: the front face of a member
+ * and the datum line are where the measurement lives, and they stay flat. Depth
+ * decorates structure; it never touches magnitude.
+ */
+const DEPTH = 7;
+
+/** The projected side face of a member running between two y positions. */
+function sideFace(xRight, yA, yB) {
+  return `M${xRight} ${yA} L${xRight + DEPTH} ${yA - DEPTH} L${xRight + DEPTH} ${
+    yB - DEPTH
+  } L${xRight} ${yB} Z`;
+}
+
 /** Compact axis labels. Indian magnitudes, because the figures are rupees. */
 function shortMoney(n) {
   const v = Math.abs(n);
@@ -100,20 +118,16 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
   }, []);
 
   const narrow = box.w < 520;
-  const solo = states[frame].length === 1;
-
   /* A single measurement is still set out from the LEFT datum -- that decision
    * belongs to the geometry pipeline and is not overridden here. What changes
    * is the MARGIN it is drawn in: one 22px load stretched across a 1089px
    * plot left the composition hanging off the left edge against the axis
    * labels, which a screenshot showed immediately. Indenting the plot moves
    * the margin, not the datum. */
-  const pad = {
-    l: (narrow ? 40 : 52) + (solo ? (narrow ? 22 : 56) : 0),
-    r: narrow ? 44 : 96,
-    t: 22,
-    b: 26,
-  };
+  /* The station composes inside the plot, so it needs no special margin —
+   * the earlier `solo` indent only pushed one column further right and left
+   * the same empty ground beside it. */
+  const pad = { l: narrow ? 40 : 52, r: narrow ? 44 : 96, t: 22, b: 26 };
   const plot = {
     x: pad.l,
     y: pad.t,
@@ -131,14 +145,24 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
     [mid, half]
   );
 
+  /*
+   * A single observation stands at the station's centre-line rather than on the
+   * plot's left edge. The geometry pipeline's left-datum rule governs where a
+   * lone measurement SITS in a series; here the plot is the station, and the
+   * width is spent on frame, mast, dimension plane and readout — not on empty
+   * ground beside a lone column, which is exactly how it read in review.
+   */
   const xOf = useCallback(
-    (i, count) => (count <= 1 ? plot.x : plot.x + (i / (count - 1)) * plot.w),
+    (i, count) =>
+      count <= 1 ? plot.x + plot.w * 0.26 : plot.x + (i / (count - 1)) * plot.w,
     [plot.x, plot.w]
   );
 
   const single = obs.length === 1;
   const bayWidth = single
-    ? 22
+    ? narrow
+      ? 30
+      : 46
     : Math.max(2.5, Math.min(16, (plot.w / Math.max(1, obs.length - 1)) * 0.42));
 
   /* ---------------------------------------------------------------------
@@ -222,6 +246,14 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
           node.up?.setAttribute("height", Math.max(0, mid - y(income)));
           node.down?.setAttribute("x", x - bayWidth / 2);
           node.down?.setAttribute("height", Math.max(0, y(-expense) - mid));
+          node.upside?.setAttribute(
+            "d",
+            sideFace(x + bayWidth / 2, y(income), mid)
+          );
+          node.downside?.setAttribute(
+            "d",
+            sideFace(x + bayWidth / 2, mid, y(-expense))
+          );
           node.span?.setAttribute("x1", x);
           node.span?.setAttribute("x2", x);
           node.span?.setAttribute("y1", y(income));
@@ -276,7 +308,10 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
     setCursor(next);
   };
 
-  const active = cursor !== null && obs[cursor] ? obs[cursor] : null;
+  /* One observation is, unambiguously, the selected one — derived rather than
+   * stored, so the readout states it without an effect writing state. */
+  const active =
+    cursor !== null && obs[cursor] ? obs[cursor] : single ? obs[0] : null;
   const y = scaleOf(domain);
 
   const empty = obs.length === 0;
@@ -289,12 +324,18 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
     bayRefs.current.set(key, {
       up: el.querySelector("[data-up]"),
       down: el.querySelector("[data-down]"),
+      upside: el.querySelector("[data-upside]"),
+      downside: el.querySelector("[data-downside]"),
       span: el.querySelector("[data-span]"),
     });
   };
 
   return (
-    <section className="ui-fin" aria-labelledby="fin-heading" ref={hostRef}>
+    <section
+      className={`ui-fin${single ? " ui-fin--single" : ""}`}
+      aria-labelledby="fin-heading"
+      ref={hostRef}
+    >
       <div className="ui-fin__head">
         <h2 id="fin-heading" className="ui-fin__title">
           Money movement
@@ -426,6 +467,32 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
                       y2={y(-o.expense)}
                     />
                   ) : null}
+                  {/* Side faces. The member is a SECTION, not a rectangle:
+                      the face is offset up-and-right by one depth unit, which
+                      is the same projection the datum beam uses so the whole
+                      assembly reads as one solid. It carries no value -- the
+                      front face alone encodes the measurement, so depth can
+                      never change a magnitude. */}
+                  <path
+                    data-upside
+                    className="ui-fin__in-side"
+                    d={sideFace(
+                      xOf(i, obs.length) + bayWidth / 2,
+                      y(o.income),
+                      mid,
+                      bayWidth
+                    )}
+                  />
+                  <path
+                    data-downside
+                    className="ui-fin__out-side"
+                    d={sideFace(
+                      xOf(i, obs.length) + bayWidth / 2,
+                      mid,
+                      y(-o.expense),
+                      bayWidth
+                    )}
+                  />
                   <rect
                     data-up
                     className="ui-fin__in"
@@ -446,26 +513,35 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
               ))}
             </g>
 
-            {/* The beam. Heaviest line in the drawing: everything is measured
-                from it, and it is what makes the two sides one reading. */}
-            <line
-              className="ui-fin__datum"
-              x1={plot.x - 12}
-              y1={mid}
-              x2={plot.x + plot.w + 12}
-              y2={mid}
-            />
+            {/* The beam, drawn as a SECTION rather than a line: a web, a top
+                flange and the projected far edge. Everything is measured from
+                it, and giving it real thickness is what turns the two sides
+                into one structure instead of two charts sharing an axis. */}
+            <g className="ui-fin__beam">
+              <path
+                className="ui-fin__beam-top"
+                d={`M${plot.x - 12} ${mid} L${plot.x - 12 + DEPTH} ${mid - DEPTH} L${
+                  plot.x + plot.w + 12 + DEPTH
+                } ${mid - DEPTH} L${plot.x + plot.w + 12} ${mid} Z`}
+              />
+              <line
+                className="ui-fin__datum"
+                x1={plot.x - 12}
+                y1={mid}
+                x2={plot.x + plot.w + 12}
+                y2={mid}
+              />
+            </g>
 
             {single ? (
-              <SingleInstant
+              <Station
                 o={obs[0]}
                 x={xOf(0, 1)}
                 y={y}
                 mid={mid}
                 narrow={narrow}
-                width={box.w}
-                top={plot.y}
-                bottom={plot.y + plot.h}
+                plot={plot}
+                bayWidth={bayWidth}
               />
             ) : (
               <>
@@ -542,54 +618,111 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
 }
 
 /**
- * TODAY. One measurement, composed as a measured assembly rather than as a
- * chart with one point: two loads off the beam and a dimensioned separation
- * carrying the derived net. No trend is implied because there is none.
+ * TODAY — the measurement station.
+ *
+ * There is one observation, and this composition exists to make that a
+ * strength rather than an apology. It is a test rig: a portal frame, a
+ * graduated mast, one loaded column standing on the datum, and a dimension
+ * system reading the separation between the two loads.
+ *
+ * The MEASUREMENT is unchanged from every other timeframe — income above the
+ * datum, expense below it, on one centre-line, at the same scale. What the
+ * width buys is structure and annotation, never a second observation and never
+ * an implied trend.
  */
-function SingleInstant({ o, x, y, mid, narrow, width, top, bottom }) {
+function Station({ o, x, y, mid, narrow, plot, bayWidth }) {
   const yi = y(o.income);
   const ye = y(-o.expense);
+  const D = DEPTH;
 
-  /* Captions are clamped inside the plot. The income load sits ~4% below the
-   * top of the domain, so a caption 26px above it was clipped by the
-   * container at 390 -- caught in a screenshot, not by any assertion. */
-  const capIn = Math.max(top + 10, yi - 26);
-  const capOut = Math.min(bottom - 4, ye + 35);
-  const bx = Math.min(x + (narrow ? 74 : 128), width - (narrow ? 96 : 150));
+  const left = plot.x + 4;
+  const right = plot.x + plot.w - 4;
+  const head = plot.y + 4;
+  const foot = plot.y + plot.h - 2;
+
+  /* The dimension plane sits NEARER than the structure it measures, which is
+   * how a measured drawing is read: the annotation is on top of the object. */
+  const dimX = Math.min(x + bayWidth / 2 + (narrow ? 34 : 62), right - (narrow ? 20 : 30));
+
+  /* A graduated mast beside the column. Ticks are drawn at the same domain
+   * fractions the axis uses, so the mast is a scale and not decoration. */
+  const mastX = x - bayWidth / 2 - (narrow ? 16 : 26);
+  const grads = [0.25, 0.5, 0.75, 1].flatMap((f) => [f, -f]);
 
   return (
-    <g className="ui-fin__single">
-      <path
-        className="ui-fin__dim"
-        d={`M${x + 16} ${yi} H${bx} M${bx} ${yi} V${ye} M${x + 16} ${ye} H${bx}`}
-      />
-      <path
-        className="ui-fin__dim"
-        d={`M${bx - 4} ${yi + 7} l4 -7 l4 7 M${bx - 4} ${ye - 7} l4 7 l4 -7`}
-      />
-      <text className="ui-fin__dim-t" x={bx + 9} y={mid - 3}>
-        NET
-      </text>
-      <text className="ui-fin__dim-v" x={bx + 9} y={mid + 15}>
-        {o.net >= 0 ? "+" : "−"}
-        {formatCurrency(Math.abs(o.net))}
-      </text>
+    <g className="ui-fin__station">
+      {/* Portal frame. Head and feet only — uprights at the plot edges would
+          box the drawing, and a station is open on the working side. */}
+      <g className="ui-fin__rig">
+        <path d={`M${left} ${head + 10} V${head} H${left + (narrow ? 26 : 44)}`} />
+        <path d={`M${right} ${head + 10} V${head} H${right - (narrow ? 26 : 44)}`} />
+        <path d={`M${left} ${foot - 10} V${foot} H${left + (narrow ? 26 : 44)}`} />
+        <path d={`M${right} ${foot - 10} V${foot} H${right - (narrow ? 26 : 44)}`} />
+      </g>
 
-      {/* Above the load and above the bracket arm. The first version put the
-          caption 6px BELOW the figure, which is exactly where the dimension
-          line runs. */}
-      <text className="ui-fin__load-t" x={x + 18} y={capIn}>
-        INCOME
-      </text>
-      <text className="ui-fin__load" x={x + 18} y={capIn + 17}>
-        {formatCurrency(o.income)}
-      </text>
-      <text className="ui-fin__load" x={x + 18} y={capOut - 15}>
-        {formatCurrency(o.expense)}
-      </text>
-      <text className="ui-fin__load-t" x={x + 18} y={capOut}>
-        EXPENSE
-      </text>
+      {/* Graduated mast. */}
+      <g className="ui-fin__mast">
+        <line x1={mastX} y1={y(o.income) - 8} x2={mastX} y2={y(-o.expense) + 8} />
+        {grads.map((f) => {
+          const v = f * Math.max(o.income, o.expense);
+          const py = y(v);
+          if (py < plot.y || py > plot.y + plot.h) return null;
+          return (
+            <line
+              key={f}
+              x1={mastX - (Math.abs(f) === 0.5 || Math.abs(f) === 1 ? 6 : 3)}
+              y1={py}
+              x2={mastX}
+              y2={py}
+            />
+          );
+        })}
+      </g>
+
+      {/* The net dimension, read across the datum between the two load tips. */}
+      <g className="ui-fin__dims">
+        <path
+          className="ui-fin__dim"
+          d={`M${x + bayWidth / 2 + 4} ${yi} H${dimX} M${dimX} ${yi} V${ye} M${
+            x + bayWidth / 2 + 4
+          } ${ye} H${dimX}`}
+        />
+        <path
+          className="ui-fin__dim"
+          d={`M${dimX - 4} ${yi + 8} l4 -8 l4 8 M${dimX - 4} ${ye - 8} l4 8 l4 -8`}
+        />
+      </g>
+
+      {/* Readout, on the dimension plane, in the space the station leaves. */}
+      <g className="ui-fin__station-read" transform={`translate(${dimX + 14} 0)`}>
+        <text className="ui-fin__load-t" y={yi + 4}>
+          IN
+        </text>
+        <text className="ui-fin__load" y={yi + 22}>
+          {formatCurrency(o.income)}
+        </text>
+
+        <text className="ui-fin__dim-t" y={mid - 6}>
+          NET
+        </text>
+        <text className="ui-fin__dim-v" y={mid + 14}>
+          {o.net >= 0 ? "+" : "−"}
+          {formatCurrency(Math.abs(o.net))}
+        </text>
+
+        <text className="ui-fin__load-t" y={ye - 12}>
+          OUT
+        </text>
+        <text className="ui-fin__load" y={ye + 6}>
+          {formatCurrency(o.expense)}
+        </text>
+      </g>
+
+      {/* Datum tie: the station is fixed to the beam it measures from. */}
+      <path
+        className="ui-fin__tie"
+        d={`M${x - bayWidth / 2 - 10} ${mid} h${bayWidth + 20} M${x} ${mid} l${-D} ${D} M${x} ${mid} l${D} ${D}`}
+      />
     </g>
   );
 }

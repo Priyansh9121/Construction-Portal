@@ -142,6 +142,28 @@
   .ui-fin__in { fill: var(--ui-finance-income); }
   .ui-fin__out { fill: var(--ui-finance-expense); opacity: 0.72; }
 
+  /*
+   * Side faces sit in shade, as a face turned away from the light does. They
+   * are drawn from the SAME token as the front face at reduced luminance
+   * rather than from a second colour, so depth never introduces a hue the
+   * palette has not accounted for.
+   */
+  .ui-fin__in-side {
+    fill: var(--ui-finance-income);
+    filter: brightness(0.62);
+  }
+
+  .ui-fin__out-side {
+    fill: var(--ui-finance-expense);
+    filter: brightness(0.72);
+    opacity: 0.72;
+  }
+
+  .ui-fin__beam-top {
+    fill: var(--ui-ink);
+    opacity: 0.28;
+  }
+
   /* The separation across the beam IS the net. Drawn, not stated. */
   .ui-fin__span {
     stroke: var(--ui-ink);
@@ -149,8 +171,17 @@
     opacity: 0.16;
   }
 
+  /*
+   * Selection resolves the bay FORWARD. The translate is the depth unit the
+   * side faces are projected by, so a selected member reads as the same solid
+   * moved toward the reader rather than as a rectangle that grew.
+   */
   .ui-fin__bay {
-    transition: opacity 180ms ease;
+    transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ui-fin__bay[data-active] {
+    transform: translate(2px, -2px);
   }
 
   /* Inspection recedes the rest of the section rather than highlighting one
@@ -174,9 +205,32 @@
     cursor: crosshair;
   }
 
-  /* ---- The single instant ----------------------------------------------- */
+  /* ---- The measurement station (TODAY) --------------------------------- */
 
-  .ui-fin__dim { fill: none; stroke: var(--ui-ink); stroke-width: 1; }
+  /*
+   * One observation, composed as a test rig rather than as a chart with
+   * insufficient data. The frame and mast carry no value; only the column and
+   * the datum do, which is why depth and framing can be spent freely here.
+   */
+  .ui-fin__rig path {
+    fill: none;
+    stroke: var(--ui-ink-strong);
+    stroke-width: 2;
+    opacity: 0.5;
+  }
+
+  .ui-fin__mast line {
+    stroke: var(--ui-ink-muted);
+    stroke-width: 1.25;
+  }
+
+  .ui-fin__dim { fill: none; stroke: var(--ui-ink); stroke-width: 1.25; }
+
+  .ui-fin__tie {
+    fill: none;
+    stroke: var(--ui-ink);
+    stroke-width: 1.75;
+  }
 
   .ui-fin__dim-t,
   .ui-fin__load-t {
@@ -188,7 +242,7 @@
 
   .ui-fin__dim-v,
   .ui-fin__load {
-    font-size: var(--ui-text-sm);
+    font-size: var(--ui-text-base);
     font-weight: var(--ui-weight-semibold);
     fill: var(--ui-ink-strong);
     font-variant-numeric: tabular-nums;
@@ -197,16 +251,60 @@
     letter-spacing: 0;
   }
 
-  /*
-   * The single instant is SET OUT on arrival: the two loads rise off the beam
-   * and the dimension resolves between them. One-time, not a loop — a repeating
-   * measurement would say the figure is still being taken.
-   */
-  .ui-fin__single { animation: ui-fin-set 520ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
+  .ui-fin__dim-v { font-size: var(--ui-text-lg); }
 
-  @keyframes ui-fin-set {
+  /*
+   * ARRIVAL — the station is ERECTED, not faded in.
+   *
+   * The frame establishes, the mast graduates, the column rises off the datum,
+   * then the dimension resolves between the two load tips and the readout
+   * settles. Each stage begins where the previous one ended, so the sequence
+   * reads as one assembly rather than as five elements animating at once.
+   *
+   * Keyed to the timeframe so it plays on arrival at TODAY and not on every
+   * re-render: React remounts the station when the frame changes, which is the
+   * only moment the sequence is true.
+   */
+  .ui-fin__station > * {
+    animation: ui-fin-erect 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .ui-fin__rig { animation-delay: 40ms; }
+  .ui-fin__mast { animation-delay: 190ms; }
+  .ui-fin__dims { animation-delay: 400ms; }
+  .ui-fin__station-read { animation-delay: 520ms; }
+  .ui-fin__tie { animation-delay: 130ms; }
+
+  @keyframes ui-fin-erect {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+
+  /* The column grows OFF the datum, because that is where it is measured
+   * from. Two origins: the income member stands on the beam, the expense
+   * member hangs from it. */
+  .ui-fin__bay .ui-fin__in,
+  .ui-fin__bay .ui-fin__in-side {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+  }
+
+  .ui-fin__bay .ui-fin__out,
+  .ui-fin__bay .ui-fin__out-side {
+    transform-box: fill-box;
+    transform-origin: 50% 0%;
+  }
+
+  .ui-fin--single .ui-fin__bay .ui-fin__in,
+  .ui-fin--single .ui-fin__bay .ui-fin__in-side,
+  .ui-fin--single .ui-fin__bay .ui-fin__out,
+  .ui-fin--single .ui-fin__bay .ui-fin__out-side {
+    animation: ui-fin-load 520ms cubic-bezier(0.16, 1, 0.3, 1) 250ms both;
+  }
+
+  @keyframes ui-fin-load {
+    from { transform: scaleY(0.02); }
+    to { transform: scaleY(1); }
   }
 
   /* ---- Readout ---------------------------------------------------------- */
@@ -315,7 +413,17 @@
 @media (prefers-reduced-motion: reduce) {
   @layer system-pages {
     .ui-fin__rail { transition-duration: 90ms; }
-    .ui-fin__single { animation: none; }
+    /* The station is shown ERECTED. The composition is identical; only the
+     * assembly is skipped, which is the point of an authored still. */
+    .ui-fin__station > *,
+    .ui-fin--single .ui-fin__bay .ui-fin__in,
+    .ui-fin--single .ui-fin__bay .ui-fin__in-side,
+    .ui-fin--single .ui-fin__bay .ui-fin__out,
+    .ui-fin--single .ui-fin__bay .ui-fin__out-side {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
     .ui-fin__bay { transition: none; }
   }
 }
