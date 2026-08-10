@@ -188,9 +188,66 @@ const siteBelongsToCompany = async (
  * Called only when tender_id is actually supplied, since a log need not
  * belong to a tender — site work is not always billable to one.
  *
- * worker_id and subcontractor_id get NO equivalent check, even though both
- * are also client-supplied foreign keys. See F-14 in findings.md.
+ * worker_id and subcontractor_id are checked by rowBelongsToCompany below,
+ * which closes F-14.
  */
+/**
+ * Confirms a row in a company-scoped table belongs to the caller's company.
+ *
+ * Parameters:
+ * table     - `workers` or `subcontractors`. NEVER interpolated from input:
+ *             the caller passes a literal, and the allow-list below is the
+ *             only thing that reaches the query text.
+ * id        - the client-supplied foreign key
+ * companyId - the caller's company
+ *
+ * Returns:
+ * A promise of boolean.
+ *
+ * Why this exists (F-14):
+ * `worker_id` and `subcontractor_id` arrive from the client and were written
+ * straight into `daily_site_logs` with no ownership check. Reading was safe —
+ * the list query joins on both `id` and `company_id`, so a foreign key
+ * resolved to NULL rather than leaking another company's name — but the WRITE
+ * stored one company's identifier inside another company's evidence.
+ *
+ * That is a tenant-scope defect regardless of whether anything renders it.
+ * `PRODUCT.md` states company_id comes from the session and never the request
+ * body; a foreign row id in a record is the same violation by another route,
+ * and it corrupts the audit trail, exports and any future join that is less
+ * careful than the current one.
+ */
+const rowBelongsToCompany = async (
+  table,
+  id,
+  companyId
+) => {
+  const TABLES = {
+    workers: "workers",
+    subcontractors: "subcontractors",
+  };
+
+  const relation = TABLES[table];
+
+  if (!relation) {
+    // A programming error, not a request error. Fail closed.
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+    SELECT id
+    FROM ${relation}
+    WHERE id = $1
+      AND company_id = $2
+      AND COALESCE(is_deleted, FALSE) = FALSE
+    `,
+    [id, companyId]
+  );
+
+  return result.rows.length > 0;
+};
+
 const tenderBelongsToCompany = async (
   tenderId,
   companyId
@@ -459,6 +516,44 @@ exports.createSiteLog = asyncHandler(
       return sendNotFound(
         res,
         "Tender"
+      );
+    }
+
+    /*
+     * F-14. Both are client-supplied and both name a person the record will
+     * be evidence about, so both are checked against the caller's company
+     * before anything is written.
+     *
+     * 404 rather than 403, matching the site and tender checks above: a
+     * caller must not be able to tell the difference between "that worker
+     * belongs to someone else" and "that worker does not exist", because the
+     * first answer confirms the existence of another company's record.
+     */
+    if (
+      worker_id &&
+      !(await rowBelongsToCompany(
+        "workers",
+        worker_id,
+        companyId
+      ))
+    ) {
+      return sendNotFound(
+        res,
+        "Worker"
+      );
+    }
+
+    if (
+      subcontractor_id &&
+      !(await rowBelongsToCompany(
+        "subcontractors",
+        subcontractor_id,
+        companyId
+      ))
+    ) {
+      return sendNotFound(
+        res,
+        "Subcontractor"
       );
     }
 
