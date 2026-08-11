@@ -74,7 +74,8 @@ function DashboardHorizon({ children, active = 0, alert = 0 }) {
         same site seen from two distances; sharing a seed would make the
         window look like a magnified crop of the wall behind it.
       */}
-      <div className="ui-world ui-world--band">
+      {/* The site itself continues into the field workspace. */}
+      <div className="ui-world ui-world--band" data-origin="site">
         <World variant="register" surface="band" lights dust active={active} alert={alert} />
         <span className="ui-world__light" />
       </div>

@@ -354,6 +354,19 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
     <section
       className={`ui-fin${single ? " ui-fin--single" : ""}`}
       aria-labelledby="fin-heading"
+      /*
+       * SEMANTIC TRANSITION ORIGIN.
+       *
+       * The route-transition phase will animate a destination out of the exact
+       * object the user touched. `data-origin` names the CONCEPT that
+       * continues — not a component, not a rectangle — so a transition can
+       * only be built where the two routes genuinely show the same thing. This
+       * instrument is the company's money over time; the Finance workspace is
+       * the same subject at greater depth.
+       *
+       * These are markers only. Nothing reads them yet.
+       */
+      data-origin="finance"
       ref={hostRef}
     >
       <div className="ui-fin__head">

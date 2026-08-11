@@ -286,7 +286,15 @@ function ActivityStream({ payments = [], invoices = [], tenders = [] }) {
 
                   return (
                     <li key={event.key} className="ui-activity__item">
-                      <AppLink to={event.to} className="ui-activity__row">
+                      <AppLink
+                        to={event.to}
+                        className="ui-activity__row"
+                        /* The event and its subject are the same object seen
+                         * at two depths: a line in the ledger, and the record
+                         * it changed. */
+                        data-origin="event"
+                        data-origin-id={event.key}
+                      >
                         <span className="ui-activity__mark" aria-hidden="true">
                           <Icon name={event.icon} size={16} />
                         </span>
