@@ -210,9 +210,38 @@ def cameras(g):
         # The sign-in flight ends inside the structure, at slab level.
         "through": {"pos": [span * 0.1, top * 0.55, g["bays_z"] * g["bay"] * 0.4],
                     "look": [-span * 0.6, top * 0.5, -g["bays_z"] * g["bay"]], "fov": 54},
-        # Where the Dashboard would take over: looking down the frame.
-        "operational": {"pos": [0, top * 0.8, d * 0.5],
-                        "look": [0, top * 0.45, 0], "fov": 28},
+        # Where the destination takes over: looking down the frame's centre
+        # bay, which is the corridor the handover flight travels.
+        "operational": {"pos": [0, top * 0.5, d * 0.42],
+                        "look": [0, top * 0.46, -g["bays_z"] * g["bay"] * 2], "fov": 40},
+    }
+
+
+def cameras_portrait(g):
+    """
+    A phone gets its OWN stations, not the desktop ones at a taller aspect.
+    Reusing them cropped into the structure and lost the site and the crane
+    entirely — visible the moment it was rendered.
+
+    Portrait wants height, not width: the camera stands back and low so the
+    frame rises through the shot with the crane above it, and the form occupies
+    the lower half against sky and massing rather than against a wall of slabs.
+    """
+    top = g["storeys"] * g["storey"]
+    span = g["bays_x"] * g["bay"]
+    d = span * 3.4
+    return {
+        "approach": {"pos": [d * 0.5, top * 0.42, d * 0.86],
+                     "look": [-span * 0.05, top * 0.78, 0], "fov": 44},
+        "station": {"pos": [d * 0.42, top * 0.34, d * 0.72],
+                    "look": [-span * 0.05, top * 0.72, 0], "fov": 46},
+        "focus": {"pos": [d * 0.38, top * 0.3, d * 0.64],
+                  "look": [-span * 0.06, top * 0.66, 0], "fov": 45},
+        "through": {"pos": [span * 0.06, top * 0.5, g["bays_z"] * g["bay"] * 0.5],
+                    "look": [-span * 0.2, top * 0.48, -g["bays_z"] * g["bay"] * 2],
+                    "fov": 62},
+        "operational": {"pos": [0, top * 0.5, d * 0.3],
+                        "look": [0, top * 0.46, -g["bays_z"] * g["bay"] * 2], "fov": 52},
     }
 
 
@@ -231,6 +260,7 @@ def site(seed):
         "works": works(r, g),
         "lights": lights(r, g),
         "cameras": cameras(g),
+        "camerasPortrait": cameras_portrait(g),
     }
 
 
