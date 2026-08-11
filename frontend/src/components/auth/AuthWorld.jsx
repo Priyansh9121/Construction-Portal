@@ -28,7 +28,12 @@ function AuthWorld({ onReady }) {
         const { createAuthWorld, CAPABLE } = await import("../../world/authWorld");
         if (cancelled || !CAPABLE()) return;
 
-        const world = await createAuthWorld(canvas);
+        /* Time of day is art direction, fixed for the product. The override
+         * exists so the three concepts can be rendered and compared from the
+         * same build rather than from three branches. */
+        const world = await createAuthWorld(canvas, {
+          time: window.__AUTH_TIME || "dusk",
+        });
         if (cancelled) {
           world.dispose();
           return;

@@ -25,6 +25,7 @@
  */
 
 import SITE from "./siteGeometry.json";
+import { createSky, TIMES } from "./sky";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -36,7 +37,11 @@ const PALETTE = {
   plant: 0xf0932f,
   pour: 0x7d55ff,
   instrument: 0x2fc7de,
-  far: 0x2a3542,
+  /* Distant massing is ATMOSPHERE, not architecture. At 0x2a3542 the blocks
+   * behind the sun rendered as black silhouettes — correct lighting, wrong
+   * reading: they punched holes in the sky. Light enough that fog dominates
+   * them at range, which is what distance actually looks like. */
+  far: 0x8697a8,
   ground: 0x14181d,
   fog: 0x0d141c,
   key: 0xcfe0f2,
@@ -181,12 +186,24 @@ class CameraRig {
     this.ty = y;
   }
 
+  /* Wheel intent accumulates into a bounded dolly along the camera's own view
+   * axis. Clamped, damped, and never trapping the page: the caller decides
+   * whether a given wheel event belongs to the world. */
+  dolly(delta) {
+    this.dollyTarget = Math.max(-1, Math.min(1, (this.dollyTarget || 0) + delta * 0.0009));
+  }
+
   update(now, reduced) {
     /* Heavy: the pointer sets a target and the camera closes 4.5% of the
      * remaining distance per frame. A raw write is the novelty tilt every
      * portfolio site has. */
-    this.px += (this.tx - this.px) * 0.045;
-    this.py += (this.ty - this.py) * 0.045;
+    /* Heavy. The pointer sets a target and the camera closes a fixed fraction
+     * of the gap each frame; a raw write is the novelty tilt every portfolio
+     * site has. The orbit is large enough to explore with and clamped so the
+     * structure can never be walked through. */
+    this.px += (this.tx - this.px) * 0.05;
+    this.py += (this.ty - this.py) * 0.05;
+    this.dolly0 = (this.dolly0 || 0) + ((this.dollyTarget || 0) - (this.dolly0 || 0)) * 0.06;
 
     const k = reduced ? 1 : Math.min(1, (now - this.t0) / this.dur);
     const e = Machinery.ease(k);
@@ -194,10 +211,24 @@ class CameraRig {
     this.look.lerpVectors(this.from.look, this.to.look, e);
     this.fov = this.from.fov + (this.to.fov - this.from.fov) * e;
 
+    /*
+     * Orbit, not pan. The camera swings about the station's look-at point, so
+     * moving the pointer reveals the site's other side instead of sliding the
+     * whole scene sideways — and because it is an arc about a fixed centre, it
+     * cannot clip into the structure it is orbiting.
+     */
+    const off = this.pos.clone().sub(this.look);
+    const radius = off.length();
+    const yaw = Math.atan2(off.x, off.z) + this.px * 0.30;
+    const pitchNow = Math.asin(Math.max(-1, Math.min(1, off.y / radius)));
+    const pitch = Math.max(0.06, Math.min(0.95, pitchNow + this.py * 0.16));
+    const r = radius * (1 - this.dolly0 * 0.42);
+    const cr = Math.cos(pitch) * r;
+
     this.cam.position.set(
-      this.pos.x - this.px * 2.2,
-      this.pos.y + this.py * 1.1,
-      this.pos.z
+      this.look.x + Math.sin(yaw) * cr,
+      this.look.y + Math.sin(pitch) * r,
+      this.look.z + Math.cos(yaw) * cr
     );
     this.cam.lookAt(this.look);
     this.cam.fov = this.fov;
@@ -208,6 +239,74 @@ class CameraRig {
       this.onArrive?.();
     }
   }
+}
+
+/**
+ * A small tileable ground break-up, drawn once into a canvas.
+ *
+ * Value noise at three octaves plus a few darker patches. 256px, generated at
+ * runtime in about a millisecond, no asset to download and nothing to license.
+ * Its only job is to stop a 520-metre plane reading as one flat colour under a
+ * moving sun.
+ */
+function groundTexture(THREE) {
+  const S = 256;
+  const c = document.createElement("canvas");
+  c.width = S;
+  c.height = S;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(S, S);
+
+  let seed = 20260811;
+  const rand = () => {
+    seed = (1664525 * seed + 1013904223) & 0xffffffff;
+    return seed / 0xffffffff;
+  };
+  const grid = [];
+  for (let o = 0; o < 3; o += 1) {
+    const n = 4 << o;
+    const g = new Float32Array(n * n);
+    for (let i = 0; i < g.length; i += 1) g[i] = rand();
+    grid.push({ n, g });
+  }
+  const sample = ({ n, g }, x, y) => {
+    const fx = x * n;
+    const fy = y * n;
+    const x0 = Math.floor(fx) % n;
+    const y0 = Math.floor(fy) % n;
+    const x1 = (x0 + 1) % n;
+    const y1 = (y0 + 1) % n;
+    const tx = fx - Math.floor(fx);
+    const ty = fy - Math.floor(fy);
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const a = g[y0 * n + x0] + (g[y0 * n + x1] - g[y0 * n + x0]) * sx;
+    const b = g[y1 * n + x0] + (g[y1 * n + x1] - g[y1 * n + x0]) * sx;
+    return a + (b - a) * sy;
+  };
+
+  for (let y = 0; y < S; y += 1) {
+    for (let x = 0; x < S; x += 1) {
+      const u = x / S;
+      const v = y / S;
+      let n = sample(grid[0], u, v) * 0.55 + sample(grid[1], u, v) * 0.3 +
+              sample(grid[2], u, v) * 0.15;
+      n = 0.62 + n * 0.5;
+      const i = (y * S + x) * 4;
+      img.data[i] = 255 * n * 0.86;
+      img.data[i + 1] = 255 * n * 0.82;
+      img.data[i + 2] = 255 * n * 0.74;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(26, 26);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 function buildSite(THREE, scene, portrait) {
@@ -225,7 +324,9 @@ function buildSite(THREE, scene, portrait) {
       emissiveIntensity: 0.4,
     }),
     pour: mat(PALETTE.pour, { roughness: 0.65, emissive: 0x2a1170, emissiveIntensity: 0.55 }),
-    far: mat(PALETTE.far, { roughness: 1 }),
+    /* Unlit-ish: distant massing takes almost no key light, so its value comes
+     * from the fog it sits in rather than from which way it faces. */
+    far: mat(PALETTE.far, { roughness: 1, metalness: 0, emissive: 0x2c3a49, emissiveIntensity: 0.55 }),
     dark: mat(0x2c343d, { roughness: 0.95 }),
   };
 
@@ -263,13 +364,50 @@ function buildSite(THREE, scene, portrait) {
     add(SITE.scaffold.boards, M.dark, false);
   }
 
+  /*
+   * The ground is where the scene stops being a model.
+   *
+   * A flat black plane gives the eye nothing to measure against and no surface
+   * for the sun to land on. This is compacted site earth with a procedural
+   * roughness break-up, a poured slab zone under the frame, and a haul road
+   * running past it — generated, not textured, so it costs one small canvas
+   * and no network asset.
+   */
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(SITE.ground, SITE.ground),
-    mat(PALETTE.ground, { roughness: 1 })
+    new THREE.PlaneGeometry(SITE.ground, SITE.ground, 1, 1),
+    new THREE.MeshStandardMaterial({
+      color: PALETTE.ground,
+      roughness: 0.97,
+      metalness: 0,
+      map: groundTexture(THREE),
+    })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = !portrait;
   scene.add(ground);
+
+  /* The poured slab the frame stands on: lighter, flatter, and squarely
+   * under the structure, which is what tells the eye the building has
+   * foundations rather than resting on dirt. */
+  const g = SITE.frame.grid;
+  const pad = new THREE.Mesh(
+    new THREE.PlaneGeometry(g.bays_x * g.bay + 14, g.bays_z * g.bay + 14),
+    new THREE.MeshStandardMaterial({ color: 0x6f6f6c, roughness: 0.92 })
+  );
+  pad.rotation.x = -Math.PI / 2;
+  pad.position.set(0, 0.03, 0);
+  pad.receiveShadow = !portrait;
+  scene.add(pad);
+
+  /* Haul road: compacted, darker, running across the site's near edge. */
+  const road = new THREE.Mesh(
+    new THREE.PlaneGeometry(SITE.ground * 0.7, 11),
+    new THREE.MeshStandardMaterial({ color: 0x40382e, roughness: 1 })
+  );
+  road.rotation.x = -Math.PI / 2;
+  road.position.set(0, 0.02, g.oz + 34);
+  road.receiveShadow = !portrait;
+  scene.add(road);
 
   /* ---- The crane, as an articulated rig ---- */
   const C = SITE.crane;
@@ -321,47 +459,49 @@ function buildSite(THREE, scene, portrait) {
   return { slew, trolley, cable, load, swing, hoist, materials: M };
 }
 
-function buildLights(THREE, scene, portrait) {
-  /* Key: cool and high, the moonlit half of a night site. */
-  const key = new THREE.DirectionalLight(PALETTE.key, 2.0);
-  key.position.set(-60, 95, 55);
+function buildLights(THREE, scene, portrait, preset, sunDir) {
+  /*
+   * Every light here is DERIVED FROM THE SKY. The key sits at the sun's own
+   * direction and takes its colour from the same preset the sky shader is
+   * rendering, so the scene can never be lit from a direction the sky does not
+   * show — which is the tell that separates a lit scene from a model with
+   * lamps pointed at it.
+   */
+  const key = new THREE.DirectionalLight(preset.key, preset.keyI);
+  key.position.copy(sunDir).multiplyScalar(140);
   key.castShadow = !portrait;
   if (!portrait) {
-    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.mapSize.set(2048, 2048);
     const c = key.shadow.camera;
-    c.left = -75; c.right = 75; c.top = 75; c.bottom = -75; c.far = 280;
-    key.shadow.bias = -0.0012;
+    c.left = -85; c.right = 85; c.top = 85; c.bottom = -85; c.far = 320;
+    key.shadow.bias = -0.0009;
+    key.shadow.normalBias = 0.4;
   }
   scene.add(key);
 
-  /* Fill from the sky, ground bounce from the site. Two colours, because the
-   * ground of a construction site is not the same colour as its sky. */
-  scene.add(new THREE.HemisphereLight(PALETTE.fill, 0x141a21, 1.15));
+  /* Sky above, site below. Two colours, because the ground of a construction
+   * site is not the colour of its sky. */
+  scene.add(new THREE.HemisphereLight(preset.fill, 0x1a1712, preset.fillI));
 
-  /* A cool back light whose only job is to put an edge on the steel: a
-   * silhouette is what makes machinery legible at distance, not more key. */
-  const rim = new THREE.DirectionalLight(0x86b4ff, 1.4);
-  rim.position.set(75, 45, -85);
-  scene.add(rim);
-
-  /* Practical work lamps, aimed at the work. Warm, low, and few. */
+  /* Practical work lamps. Their intensity comes from the time of day: at noon
+   * they are all but off, at dusk they are the scene. */
   const lamps = SITE.lights.map((l) => {
     const s = new THREE.SpotLight(
-      l.warm ? PALETTE.work : 0x9fc4ff,
-      l.warm ? 260 : 160,
-      95,
-      Math.PI / 7,
-      0.6,
-      1.6
+      l.warm ? PALETTE.work : 0xbcd6ff,
+      (l.warm ? 300 : 190) * preset.work,
+      110,
+      Math.PI / 6.5,
+      0.62,
+      1.5
     );
     s.position.set(...l.p);
     s.target.position.set(...l.aim);
     scene.add(s);
     scene.add(s.target);
-    return { light: s, warm: l.warm };
+    return { light: s, base: (l.warm ? 300 : 190) * preset.work };
   });
 
-  return { key, rim, lamps };
+  return { key, lamps };
 }
 
 /**
@@ -373,6 +513,9 @@ export async function createAuthWorld(canvas, opts = {}) {
   const THREE = await import("three");
   const portrait = opts.portrait ?? window.innerWidth < 700;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const time = opts.time || "dusk";
+  const preset = TIMES[time];
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -387,9 +530,12 @@ export async function createAuthWorld(canvas, opts = {}) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.45;
 
+  renderer.toneMappingExposure = 1.35;
+
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(PALETTE.fog, portrait ? 0.0072 : 0.0052);
-  scene.background = new THREE.Color(0x080c11);
+  /* Fog takes the SKY's colour, so distance dissolves into the horizon rather
+   * than into an unrelated grey. */
+  scene.fog = new THREE.FogExp2(preset.fog, preset.fogD * (portrait ? 1.25 : 1));
 
   const cam = new THREE.PerspectiveCamera(
     36,
@@ -398,8 +544,9 @@ export async function createAuthWorld(canvas, opts = {}) {
     900
   );
 
+  const sky = createSky(THREE, scene, time);
   const rigParts = buildSite(THREE, scene, portrait);
-  buildLights(THREE, scene, portrait);
+  const lights = buildLights(THREE, scene, portrait, preset, sky.sun);
   const machinery = new Machinery(THREE, SITE.crane, SITE.frame.grid);
   const stations = portrait ? SITE.camerasPortrait : SITE.cameras;
   const rig = new CameraRig(THREE, cam, stations);
@@ -417,6 +564,15 @@ export async function createAuthWorld(canvas, opts = {}) {
       (e.clientX / window.innerWidth - 0.5) * 2,
       (e.clientY / window.innerHeight - 0.5) * 2
     );
+  };
+
+  /* The wheel drives the dolly only while the pointer is over the world, and
+   * only when the page itself is not the thing being scrolled. Outside the
+   * canvas, wheel behaves exactly as it always did. */
+  const onWheel = (e) => {
+    if (reduced) return;
+    e.preventDefault();
+    rig.dolly(e.deltaY);
   };
 
   const onResize = () => {
@@ -442,7 +598,16 @@ export async function createAuthWorld(canvas, opts = {}) {
   function loop(now) {
     if (!alive || paused) return;
     elapsed = (now - started) / 1000;
-    if (!reduced) machinery.update(elapsed, rigParts);
+    if (!reduced) {
+      machinery.update(elapsed, rigParts);
+      /* The sun moves and the key light moves with it: shadows swing across
+       * the concrete over minutes rather than seconds. */
+      sky.advance(elapsed, lights.key);
+      /* Lamps breathe very slightly, out of step with each other. */
+      lights.lamps.forEach((l, i) => {
+        l.light.intensity = l.base * (0.94 + 0.06 * Math.sin(elapsed * 0.35 + i * 1.7));
+      });
+    }
     rig.update(now, false);
     renderer.render(scene, cam);
     raf = requestAnimationFrame(loop);
@@ -456,7 +621,10 @@ export async function createAuthWorld(canvas, opts = {}) {
   }
 
   const fine = window.matchMedia("(pointer: fine)").matches;
-  if (fine && !reduced) window.addEventListener("pointermove", onPointer, { passive: true });
+  if (fine && !reduced) {
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+  }
   window.addEventListener("resize", onResize);
   document.addEventListener("visibilitychange", onVisibility);
 
@@ -480,6 +648,7 @@ export async function createAuthWorld(canvas, opts = {}) {
       alive = false;
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointer);
+      canvas.removeEventListener("wheel", onWheel);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
       scene.traverse((o) => {
@@ -487,6 +656,7 @@ export async function createAuthWorld(canvas, opts = {}) {
         if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
         else o.material?.dispose?.();
       });
+      sky.dispose();
       renderer.dispose();
     },
   };
