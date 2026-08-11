@@ -437,7 +437,27 @@
      * against 0 on load, so the shift was interaction-driven and only showed
      * up once the timeframe control was exercised.
      */
-    .ui-fin__readout { min-block-size: 5.25rem; align-content: start; }
+    /*
+     * A GRID, not a wrapping flex row.
+     *
+     * The readout's figures change width as inspection moves between
+     * observations — a quiet day reads ₹0.00 and a busy one ₹32,70,000.00 —
+     * which re-wrapped the row and threw the Net pair between lines on almost
+     * every pointer move. The Layout Instability API named the exact spans:
+     * genuine document reflow, ours, and worth 0.0258 at 390.
+     *
+     * Fixed cells mean the contents change and the cells never move.
+     */
+    .ui-fin__readout {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--ui-space-2) var(--ui-space-3);
+      min-block-size: 5.25rem;
+      align-content: start;
+    }
+
+    .ui-fin__when,
+    .ui-fin__hint { grid-column: 1 / -1; }
   }
 
   @media (max-width: 30rem) {

@@ -69,6 +69,8 @@
 @import "./dashboard/horizon.css";
 @import "./dashboard/finance-instrument.css";
 @import "./dashboard/register.css";
+@import "./dashboard/arrival.css";
+@import "./dashboard/shell-response.css";
 @import "./dashboard/deadline.css";
 @import "./dashboard/sheet.css";
 @import "./activity/activity.css";
