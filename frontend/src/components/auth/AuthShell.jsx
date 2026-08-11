@@ -73,9 +73,10 @@ function AuthShell({
   subheading,
   children,
   footer = null,
+  onWorldReady = null,
 }) {
   return (
-    <AuthScene>
+    <AuthScene onWorldReady={onWorldReady}>
       <div className="auth-shell">
         {/*
           The form column. Named `.auth-card` for the test contract; it is a

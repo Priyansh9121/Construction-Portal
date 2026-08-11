@@ -82,11 +82,12 @@
  */
 
 import SCENE from "./sceneGeometry";
+import AuthWorld from "./AuthWorld";
 
 const { W, H, HORIZON, massing: MASSING, floors: FLOORS, rig: RIG,
         lights: LIGHTS, distance: DISTANCE } = SCENE;
 
-function AuthScene({ children }) {
+function AuthScene({ children, onWorldReady }) {
   return (
     /*
      * This element IS the stage. `scene.css` positions every layer against
@@ -105,6 +106,17 @@ function AuthScene({ children }) {
      * carries the z-index that puts the form above all five layers.
      */
     <div className="auth-scene" data-scheme="dark">
+      {/*
+        THE REAL-TIME WORLD.
+
+        A WebGL construction site, loaded lazily. Until three.js resolves — and
+        permanently, on a device that cannot run it — the authored SVG layers
+        below are what is seen. Both are the same place: dusk, the same
+        massing, the same crane. The form is mounted and submittable from the
+        first frame regardless, because authentication never waits for a world.
+      */}
+      <AuthWorld onReady={onWorldReady} />
+
       {/* ── sky ─────────────────────────────────────────────────────────
           Gradient only. Dusk rather than night: the transition has to lighten
           from here, and a black start makes that a cut. */}
