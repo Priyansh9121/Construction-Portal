@@ -139,15 +139,35 @@ def scaffold(r, g):
 
 
 def massing(r):
-    """Background city. Coarse on purpose: it is silhouette and depth cue, and
-    every polygon spent here is one not spent on the structure in focus."""
+    """
+    Background city. Coarse on purpose: it is silhouette and depth cue, and
+    every polygon spent here is one not spent on the structure in focus.
+
+    Placed on an arc that EXCLUDES the camera's own quadrant. The first version
+    scattered blocks on a full circle and one landed between the camera and the
+    site, filling the right of frame with a dark slab — background geometry in
+    the foreground, which a render showed at once. The camera stations all sit
+    toward +x/+z, so that wedge is kept clear and everything else reads as
+    distance.
+    """
     out = []
-    for i in range(26):
+    # The camera looks from roughly 45 degrees; keep 110 degrees around it free.
+    blocked = (math.radians(-10), math.radians(100))
+    placed = 0
+    guard = 0
+    while placed < 26 and guard < 400:
+        guard += 1
         a = r.f(0, math.tau)
-        d = r.f(85, 240)
+        d = r.f(110, 250)
+        norm = a % math.tau
+        if blocked[0] % math.tau <= norm <= blocked[1] % math.tau and d < 200:
+            continue
         h = r.f(14, 74)
         w, dp = r.f(10, 26), r.f(10, 26)
         out.append(box(math.cos(a) * d, h / 2, math.sin(a) * d - 30, w, h, dp, "mass"))
+        placed += 1
+
+    assert placed >= 18, "massing band too sparse after exclusion"
     return out
 
 
