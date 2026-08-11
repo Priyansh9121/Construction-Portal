@@ -1,0 +1,306 @@
+/*
+ * ===========================================================================
+ * THE OPERATIONAL REGISTERS — Approaching, Work in flight, What changed
+ * ===========================================================================
+ *
+ * File purpose:
+ * Carries the construction world's LANGUAGE through the reading sections,
+ * without putting the world's geometry behind the evidence.
+ *
+ * The window at the top of the page is a lit site. The sections below it are
+ * white paper, and they must stay that way — a figure read against a moving
+ * scene is a figure the reader has to work to trust. What continues instead is
+ * the grammar: a structural rail, measurement marks, one depth axis, and the
+ * three system colours spent only where a system is genuinely live.
+ *
+ *   plant amber      machinery / imminent work
+ *   structural violet  active structure
+ *   instrument cyan  setting-out and measurement
+ *   safety red       overdue
+ *
+ * Depth is applied only to STRUCTURE. No mark that encodes a date, an amount
+ * or a time is ever moved by it.
+ *
+ * Connected to:
+ * - components/dashboard/DeadlineHorizon.jsx
+ * - components/dashboard/Pipeline.jsx
+ * - components/dashboard/ActivityStream.jsx
+ */
+
+@layer system-pages {
+  /* One depth unit, shared by every register so the page reads as one solid
+   * seen from one place — the same projection the finance instrument uses. */
+  .ui-dl,
+  .ui-pipe,
+  .ui-activity {
+    --reg-depth: 3px;
+    /* Darkened to 4.87:1 against the surface. The first value read 4.12:1 and
+     * is applied to 11px timing text, which is a WCAG AA failure for small
+     * text — computed, not eyeballed, and caught before the audit ran. */
+    --reg-plant: #a35f0f;
+    --reg-active: #5b34c7;
+    --reg-signal: #10788a;
+    --reg-alert: var(--ui-status-danger-fg);
+  }
+
+  /* ---- APPROACHING — the temporal instrument ---------------------------- */
+
+  /*
+   * The TODAY plane is a real datum: a heavier vertical at x=0 of the axis,
+   * which is what makes "overdue" legible as BEING ON THE PAST SIDE of it
+   * rather than as a colour. Position already carried that; this makes it
+   * structural.
+   */
+  .ui-dl__axis::before {
+    content: "";
+    position: absolute;
+    inset-block: 0 1.25rem;
+    inset-inline-start: 0;
+    inline-size: 0;
+    border-inline-start: 2px solid var(--ui-ink);
+  }
+
+  /* The 7-day span, marked as a measured interval rather than a bare tick. */
+  .ui-dl__axis::after {
+    content: "";
+    position: absolute;
+    inset-block-end: 1.5rem;
+    inset-inline-start: 0;
+    inline-size: 23.333%;
+    block-size: 0;
+    border-block-start: 2px solid var(--reg-signal);
+    opacity: 0.55;
+  }
+
+  .ui-dl__mark {
+    /* Depth on the stem only. The mark's horizontal position is its date and
+     * is never displaced. */
+    transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ui-dl__stem {
+    box-shadow: var(--reg-depth) calc(-1 * var(--reg-depth)) 0
+      color-mix(in srgb, var(--ui-line-strong) 45%, transparent);
+    transition: box-shadow 200ms ease, border-color 200ms ease;
+  }
+
+  /* Imminent work is plant-coloured, because it is what is about to run. */
+  .ui-dl__mark[data-state="near"] .ui-dl__stem { border-color: var(--reg-plant); }
+  .ui-dl__mark[data-state="near"] .ui-dl__when { color: var(--reg-plant); }
+  .ui-dl__mark[data-state="far"] .ui-dl__stem { border-color: var(--reg-signal); }
+
+  /* Acquisition lifts the marker toward the reader. The stem stays on its
+   * date; only depth changes. */
+  .ui-dl__mark:hover,
+  .ui-dl__mark:focus-within {
+    transform: translateY(-2px);
+  }
+
+  .ui-dl__mark:hover .ui-dl__stem,
+  .ui-dl__mark:focus-within .ui-dl__stem {
+    box-shadow: calc(var(--reg-depth) * 2) calc(-2 * var(--reg-depth)) 0
+      color-mix(in srgb, var(--ui-ink) 30%, transparent);
+  }
+
+  /* ---- WORK IN FLIGHT — the structural register ------------------------- */
+
+  /*
+   * Each running item is a BAY on a continuous rail rather than a row in a
+   * list. The rail is one element on the section; the bays are marked by their
+   * own leading member, so the register reads as one structure carrying
+   * several members.
+   */
+  .ui-pipe__item {
+    position: relative;
+    padding-inline-start: var(--ui-space-4);
+  }
+
+  .ui-pipe__item::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: 2px;
+    background: var(--ui-line);
+    transition: background 180ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* The member under the pointer takes the load: it thickens and lights. */
+  .ui-pipe__row {
+    transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ui-pipe__item:hover::before,
+  .ui-pipe__item:focus-within::before {
+    background: var(--reg-active);
+    transform: scaleX(2);
+    transform-origin: 0 50%;
+  }
+
+  .ui-pipe__item:hover .ui-pipe__row,
+  .ui-pipe__item:focus-within .ui-pipe__row {
+    transform: translateX(3px);
+  }
+
+  .ui-pipe__row:active { transform: translateX(2px) translateY(0.5px); }
+
+  /* The amount is a dimensional annotation on the member, so it is set in the
+   * measurement face rather than in prose. */
+  .ui-pipe__value {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- WHAT CHANGED — the event spine ----------------------------------- */
+
+  /*
+   * A continuous time rail with each event junctioned onto it. The rail is
+   * drawn on the LIST, so a day group reads as a length of time containing
+   * events rather than as a heading above rows.
+   */
+  .ui-activity__list {
+    position: relative;
+    padding-inline-start: var(--ui-space-5);
+  }
+
+  .ui-activity__list::before {
+    content: "";
+    position: absolute;
+    inset-block: 0.65rem 0.65rem;
+    inset-inline-start: 5px;
+    inline-size: 1px;
+    background: var(--ui-line);
+  }
+
+  /* The junction: each event ties onto the rail at its own timestamp. */
+  .ui-activity__item {
+    position: relative;
+  }
+
+  .ui-activity__item::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 1.15rem;
+    inset-inline-start: calc(-1 * var(--ui-space-5) + 2px);
+    inline-size: 7px;
+    block-size: 7px;
+    border-radius: 50%;
+    background: var(--ui-canvas);
+    box-shadow: 0 0 0 1.5px var(--ui-line-strong);
+    transition: box-shadow 180ms ease, background 180ms ease;
+  }
+
+  /*
+   * The MOST RECENT group carries the signal colour, because it is genuinely
+   * the most recent — the emphasis is a fact about the data, not decoration.
+   * Nothing pulses: a pulse would imply the record is still changing.
+   */
+  .ui-activity__group:first-child .ui-activity__item::before {
+    box-shadow: 0 0 0 1.5px var(--reg-signal);
+  }
+
+  .ui-activity__row {
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ui-activity__item:hover::before,
+  .ui-activity__item:focus-within::before {
+    background: var(--reg-signal);
+    box-shadow: 0 0 0 2px var(--reg-signal);
+  }
+
+  .ui-activity__item:hover .ui-activity__row,
+  .ui-activity__item:focus-within .ui-activity__row {
+    transform: translateX(2px);
+  }
+
+  /* The day marker is a station on the rail. */
+  .ui-activity__day {
+    position: relative;
+  }
+
+  .ui-activity__day::after {
+    content: "";
+    position: absolute;
+    inset-block-end: -0.35rem;
+    inset-inline-start: 0;
+    inline-size: 1.75rem;
+    block-size: 0;
+    border-block-start: 2px solid var(--ui-ink);
+  }
+
+  /* ---- MONEY MOVEMENT — the flow rails ---------------------------------- */
+
+  /*
+   * The two flow bars are measured RAILS, not progress bars: each is a length
+   * against a shared scale with an end stop, which is how a quantity is read
+   * off an instrument. The end stop is what stops them looking like something
+   * filling up toward a target — there is no target here, only an amount.
+   */
+  .ui-health__bar {
+    position: relative;
+  }
+
+  .ui-health__bar::after {
+    content: "";
+    position: absolute;
+    inset-block: -3px;
+    inset-inline-end: 0;
+    inline-size: 1px;
+    background: var(--ui-line-strong);
+  }
+
+  .ui-health__bar-fill {
+    box-shadow: 2px -2px 0 color-mix(in srgb, var(--ui-ink) 16%, transparent);
+  }
+
+  /* In and Out are the same two systems the finance instrument names, so they
+   * carry the same identities here rather than two anonymous greys. */
+  .ui-health__bar-row:first-child .ui-health__bar-fill {
+    background: var(--ui-finance-income);
+  }
+
+  .ui-health__bar-row:nth-child(2) .ui-health__bar-fill {
+    background: var(--ui-finance-expense);
+  }
+
+  /* ---- Field density ---------------------------------------------------- */
+
+  @media (max-width: 48rem) {
+    /* Fewer planes on a phone: the rails stay, the depth offsets go, because
+     * a 3px shadow at arm's length is noise rather than structure. */
+    .ui-dl,
+    .ui-pipe,
+    .ui-activity {
+      --reg-depth: 0px;
+    }
+  }
+}
+
+/*
+ * ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * Every rail, junction, datum, depth offset and system colour is retained. Only
+ * the travel on acquisition is removed — the structure was never the animation.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-pages {
+    .ui-dl__mark,
+    .ui-dl__stem,
+    .ui-pipe__row,
+    .ui-pipe__item::before,
+    .ui-activity__row,
+    .ui-activity__item::before {
+      transition: none;
+    }
+
+    .ui-dl__mark:hover,
+    .ui-dl__mark:focus-within,
+    .ui-pipe__item:hover .ui-pipe__row,
+    .ui-pipe__item:focus-within .ui-pipe__row,
+    .ui-activity__item:hover .ui-activity__row,
+    .ui-activity__item:focus-within .ui-activity__row {
+      transform: none;
+    }
+  }
+}
