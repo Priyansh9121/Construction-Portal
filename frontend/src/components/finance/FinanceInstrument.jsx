@@ -227,15 +227,34 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
       };
     });
 
-    const all = [...plan, ...gone];
+    /* Order carries the reconfiguration.
+     *
+     * Bays establish ACROSS the span rather than all at once, and leaving bays
+     * collapse from the far end inward, so a timeframe change reads as one
+     * instrument being re-set rather than as every member resizing
+     * simultaneously. A single simultaneous lerp was smooth and almost
+     * invisible in peripheral vision, which is the defect this fixes. */
+    const all = [
+      ...plan.map((b, i) => ({ ...b, order: i })),
+      ...gone.map((b, i) => ({ ...b, order: gone.length - 1 - i })),
+    ];
 
     tween.run(
       reduced ? 0 : MORPH_MS,
-      (t) => {
-        const dom = lerpDomain(from.domain, domain, t);
+      (T) => {
+        /* The AXIS recalibrates as one system: a scale that staggered would
+         * mean different members were measured against different domains
+         * within the same frame. */
+        const dom = lerpDomain(from.domain, domain, T);
         const y = scaleOf(dom);
 
+        const count = Math.max(1, all.length);
+        const spread = count > 1 ? Math.min(0.5, 0.55 / count) : 0;
+        const window = 1 - spread * (count - 1) || 1;
+
         for (const b of all) {
+          /* Each member's own progress through the reconfiguration. */
+          const t = Math.min(1, Math.max(0, (T - b.order * spread) / window));
           const node = bayRefs.current.get(b.key);
           if (!node) continue;
           const x = b.x0 + (b.x1 - b.x0) * t;
@@ -270,6 +289,7 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
           if (!node) continue;
           node.style.transform = `translateY(${y(value) - settled(value)}px)`;
         }
+        void T;
       },
       () => {
         setExiting([]);
@@ -346,9 +366,17 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
           travels rather than the highlight blinking between buttons, so the
           selection and the geometry change read as one causal event.
         */}
+        {/*
+          A RADIO GROUP, not a tablist.
+
+          The first version used `role="tab"` with no `tabpanel` anywhere — an
+          incomplete ARIA pattern that promises a panel relationship the page
+          does not have. These are three mutually exclusive settings that
+          reconfigure one instrument, which is exactly what a radio group is.
+        */}
         <div
           className="ui-fin__frames"
-          role="tablist"
+          role="radiogroup"
           aria-label="Timeframe"
           style={{ "--at": FRAMES.findIndex((f) => f.id === frame) }}
         >
@@ -357,8 +385,8 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
             <button
               key={f.id}
               type="button"
-              role="tab"
-              aria-selected={frame === f.id}
+              role="radio"
+              aria-checked={frame === f.id}
               className="ui-fin__frame"
               onClick={() => {
                 setCursor(null);
@@ -630,6 +658,15 @@ function FinanceInstrument({ payments = [], onRecordPayment }) {
  * width buys is structure and annotation, never a second observation and never
  * an implied trend.
  */
+/** `11 AUG 2026` — drawing-sheet order, from the bucket's own stamp. */
+function stationDate(bucket) {
+  const [yy, mm, dd] = bucket.split("-");
+  const month = new Date(Number(yy), Number(mm) - 1, 1)
+    .toLocaleString(undefined, { month: "short" })
+    .toUpperCase();
+  return dd ? `${Number(dd)} ${month} ${yy}` : `${month} ${yy}`;
+}
+
 function Station({ o, x, y, mid, narrow, plot, bayWidth }) {
   const yi = y(o.income);
   const ye = y(-o.expense);
@@ -642,12 +679,21 @@ function Station({ o, x, y, mid, narrow, plot, bayWidth }) {
 
   /* The dimension plane sits NEARER than the structure it measures, which is
    * how a measured drawing is read: the annotation is on top of the object. */
-  const dimX = Math.min(x + bayWidth / 2 + (narrow ? 34 : 62), right - (narrow ? 20 : 30));
+  const dimX = Math.min(x + bayWidth / 2 + (narrow ? 30 : 54), right - (narrow ? 20 : 30));
 
   /* A graduated mast beside the column. Ticks are drawn at the same domain
    * fractions the axis uses, so the mast is a scale and not decoration. */
   const mastX = x - bayWidth / 2 - (narrow ? 16 : 26);
-  const grads = [0.25, 0.5, 0.75, 1].flatMap((f) => [f, -f]);
+
+  /* Graduations are clamped to the range the mast actually spans. An earlier
+   * version stepped a fraction of the LARGER load in both directions, so the
+   * downward ticks ran far below the expense member and printed as stray marks
+   * on empty ground — visible in review, invisible to every assertion. */
+  const grads = [];
+  for (const f of [0.25, 0.5, 0.75, 1]) {
+    if (o.income > 0) grads.push(f * o.income);
+    if (o.expense > 0) grads.push(-f * o.expense);
+  }
 
   return (
     <g className="ui-fin__station">
@@ -663,14 +709,13 @@ function Station({ o, x, y, mid, narrow, plot, bayWidth }) {
       {/* Graduated mast. */}
       <g className="ui-fin__mast">
         <line x1={mastX} y1={y(o.income) - 8} x2={mastX} y2={y(-o.expense) + 8} />
-        {grads.map((f) => {
-          const v = f * Math.max(o.income, o.expense);
+        {grads.map((v) => {
           const py = y(v);
-          if (py < plot.y || py > plot.y + plot.h) return null;
+          const major = Math.abs(v) === o.income || Math.abs(v) === o.expense;
           return (
             <line
-              key={f}
-              x1={mastX - (Math.abs(f) === 0.5 || Math.abs(f) === 1 ? 6 : 3)}
+              key={v}
+              x1={mastX - (major ? 7 : 3.5)}
               y1={py}
               x2={mastX}
               y2={py}
@@ -694,7 +739,9 @@ function Station({ o, x, y, mid, narrow, plot, bayWidth }) {
       </g>
 
       {/* Readout, on the dimension plane, in the space the station leaves. */}
-      <g className="ui-fin__station-read" transform={`translate(${dimX + 14} 0)`}>
+      {/* Clear of the bracket arrowheads, which live on the dimension line
+          itself — at +14 the figures printed over them. */}
+      <g className="ui-fin__station-read" transform={`translate(${dimX + 26} 0)`}>
         <text className="ui-fin__load-t" y={yi + 4}>
           IN
         </text>
@@ -721,8 +768,29 @@ function Station({ o, x, y, mid, narrow, plot, bayWidth }) {
       {/* Datum tie: the station is fixed to the beam it measures from. */}
       <path
         className="ui-fin__tie"
-        d={`M${x - bayWidth / 2 - 10} ${mid} h${bayWidth + 20} M${x} ${mid} l${-D} ${D} M${x} ${mid} l${D} ${D}`}
+        d={`M${x - bayWidth / 2 - 10} ${mid} h${bayWidth + 20} M${x - D} ${mid + D} L${x} ${mid} L${x + D} ${mid + D}`}
       />
+
+      {/*
+        Instrument nameplate. The right of the plot is the station's own
+        identity block: what this reading is, and when it was taken. It states
+        outright that there is ONE observation, because that is the fact the
+        composition is built around rather than something to apologise for.
+      */}
+      {!narrow ? (
+        <g className="ui-fin__plate" transform={`translate(${right - 8} 0)`}>
+          <line x1="0" y1={plot.y + 26} x2="0" y2={plot.y + plot.h - 26} />
+          <text className="ui-fin__plate-t" x="-12" y={mid - 30} textAnchor="end">
+            SINGLE OBSERVATION
+          </text>
+          <text className="ui-fin__plate-v" x="-12" y={mid - 8} textAnchor="end">
+            {stationDate(o.bucket)}
+          </text>
+          <text className="ui-fin__plate-t" x="-12" y={mid + 22} textAnchor="end">
+            MEASURED FROM DATUM
+          </text>
+        </g>
+      ) : null}
     </g>
   );
 }

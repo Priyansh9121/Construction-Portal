@@ -86,7 +86,7 @@
     transition: color 160ms ease, transform 120ms cubic-bezier(0.2, 0.7, 0.3, 1);
   }
 
-  .ui-fin__frame[aria-selected="true"] { color: var(--ui-ink-strong); }
+  .ui-fin__frame[aria-checked="true"] { color: var(--ui-ink-strong); }
   .ui-fin__frame:hover { color: var(--ui-ink-strong); }
 
   /* Immediate, and physical: the control settles under the finger rather than
@@ -105,6 +105,17 @@
     display: block;
     inline-size: 100%;
     block-size: auto;
+
+    /*
+     * The height is RESERVED, because the instrument measures itself.
+     *
+     * The ResizeObserver reports after first paint, so the SVG renders once at
+     * the fallback aspect and then again at the measured one — a 107px jump at
+     * 390 that scored 0.43 cumulative layout shift against a baseline of 0.
+     * Reserving the final height means that second render happens inside a box
+     * that never changed size, so nothing below it moves.
+     */
+    min-block-size: 300px;
 
     /* The instrument is inspected, so it takes focus; the ring is drawn
      * outside the box because the drawing runs to its own edges. */
@@ -253,6 +264,24 @@
 
   .ui-fin__dim-v { font-size: var(--ui-text-lg); }
 
+  .ui-fin__plate line { stroke: var(--ui-line); stroke-width: 1; }
+
+  .ui-fin__plate-t {
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-2xs);
+    /* `--ui-ink-faint` is neutral-500 and has failed small-text contrast on
+     * this project three times. The nameplate is 11px, so it takes muted. */
+    fill: var(--ui-ink-muted);
+    letter-spacing: 0.1em;
+  }
+
+  .ui-fin__plate-v {
+    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: var(--ui-text-sm);
+    fill: var(--ui-ink-muted);
+    letter-spacing: 0.08em;
+  }
+
   /*
    * ARRIVAL — the station is ERECTED, not faded in.
    *
@@ -273,6 +302,7 @@
   .ui-fin__mast { animation-delay: 190ms; }
   .ui-fin__dims { animation-delay: 400ms; }
   .ui-fin__station-read { animation-delay: 520ms; }
+  .ui-fin__plate { animation-delay: 640ms; }
   .ui-fin__tie { animation-delay: 130ms; }
 
   @keyframes ui-fin-erect {
@@ -392,6 +422,24 @@
 
   /* ---- Field density ---------------------------------------------------- */
 
+  /* Matches the component's own 520px section-width threshold: below roughly
+   * this viewport the section is narrower than 520 and the instrument composes
+   * at its shorter height. */
+  @media (max-width: 34.5rem) {
+    .ui-fin__svg { min-block-size: 250px; }
+
+    /*
+     * The readout's height is RESERVED at narrow widths.
+     *
+     * Its content changes with the selection — a hint on one line, or a date
+     * plus three figures that wrap to three — and the height change moved
+     * every section below it. Measured 0.43 cumulative layout shift at 390
+     * against 0 on load, so the shift was interaction-driven and only showed
+     * up once the timeframe control was exercised.
+     */
+    .ui-fin__readout { min-block-size: 5.25rem; align-content: start; }
+  }
+
   @media (max-width: 30rem) {
     .ui-fin__head { flex-direction: column; align-items: stretch; }
     .ui-fin__readout { gap: var(--ui-space-1) var(--ui-space-4); }
@@ -415,13 +463,23 @@
     .ui-fin__rail { transition-duration: 90ms; }
     /* The station is shown ERECTED. The composition is identical; only the
      * assembly is skipped, which is the point of an authored still. */
-    .ui-fin__station > *,
+    /*
+     * `transform: none` must NOT be applied to the station's children. They
+     * are positioned by an SVG `transform` ATTRIBUTE, and the CSS property
+     * overrides it — the readout collapsed onto the axis labels at x=0, which
+     * only a reduced-motion screenshot showed. Their arrival is opacity-only,
+     * so opacity is all that needs settling.
+     */
+    .ui-fin__station > * {
+      animation: none;
+      opacity: 1;
+    }
+
     .ui-fin--single .ui-fin__bay .ui-fin__in,
     .ui-fin--single .ui-fin__bay .ui-fin__in-side,
     .ui-fin--single .ui-fin__bay .ui-fin__out,
     .ui-fin--single .ui-fin__bay .ui-fin__out-side {
       animation: none;
-      opacity: 1;
       transform: none;
     }
     .ui-fin__bay { transition: none; }

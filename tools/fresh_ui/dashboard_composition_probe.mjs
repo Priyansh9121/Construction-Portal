@@ -95,7 +95,9 @@ for (const empty of [false, true]) {
       const s = {
         attention: box(".ui-attention"),
         health: box(".ui-health"),
-        chart: box(".ui-chart"),
+        /* The Dashboard's finance chapter is now the authored SVG finance
+         * instrument; Recharts remains on the unmigrated routes. */
+        chart: box(".ui-fin"),
         pipe: box(".ui-pipe"),
         deadline: box(".ui-dl"),
         activity: box(".ui-activity"),
