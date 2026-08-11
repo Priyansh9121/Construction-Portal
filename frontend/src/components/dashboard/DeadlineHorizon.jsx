@@ -284,6 +284,10 @@ function DeadlineHorizon({ tenders = [] }) {
              * lane logic thought were somewhere else.
              */
             data-side={m.side}
+            /* This mark IS the tender, at its date. The tender register is
+             * the same object with its detail. */
+            data-origin="tender"
+            data-origin-id={m.id}
             style={{ "--at": `${m.at}%`, "--lane": m.lane }}
           >
             <span className="ui-dl__stem" aria-hidden="true" />

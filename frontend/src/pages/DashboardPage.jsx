@@ -430,7 +430,7 @@ function DashboardPage({
    * frame, two custom properties, no layout read, no React state. */
   const navigate = useNavigate();
   const roomRef = useRef(null);
-  useWorldParallax(roomRef, { scroll: 0.4, pointer: 1 });
+  useWorldParallax(roomRef, { scroll: 0.4, camera: 26 });
 
   /*
    * The occlusion contract is switched on for this route and removed when it

@@ -136,7 +136,12 @@ function toItem(tender) {
 function PipelineRow({ item }) {
   return (
     <li className="ui-pipe__item">
-      <AppLink to={`/tenders/${item.id}`} className="ui-pipe__row">
+      <AppLink
+        to={`/tenders/${item.id}`}
+        className="ui-pipe__row"
+        data-origin="tender"
+        data-origin-id={item.id}
+      >
         <span className="ui-pipe__detail">
           <span className="ui-pipe__item-title">{item.title}</span>
 

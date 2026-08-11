@@ -1,0 +1,63 @@
+<!doctype html><meta charset=utf-8><style>
+body{margin:0;background:#12171d;font:12px ui-monospace,monospace;color:#cbd5e1}
+#out{padding:10px;white-space:pre}#stage{position:relative;width:1100px;height:280px}
+svg,canvas{position:absolute;inset:0;width:1100px;height:280px}
+</style>
+<div id=stage></div><div id=out>measuring…</div>
+<script type="module">
+// Same scene concept in both: N depth-sorted filled quads, one animated transform
+// group, painter's-algorithm occlusion. This is the actual shape of the world.
+const N = Number(new URLSearchParams(location.search).get("n") || 260);
+const MODE = new URLSearchParams(location.search).get("mode") || "svg";
+const quads = [];
+for (let i = 0; i < N; i++) {
+  const z = i / N, x = (i * 137) % 1000, y = 40 + ((i * 61) % 150);
+  const w = 18 + (i % 5) * 9, h = 30 + (i % 7) * 14;
+  quads.push({ x, y, w, h, z, shade: 0.25 + z * 0.5 });
+}
+quads.sort((a, b) => a.z - b.z);
+const stage = document.getElementById("stage");
+
+if (MODE === "svg") {
+  const parts = quads.map(q => {
+    const d = 6 * (1 - q.z);
+    const c = Math.round(90 + q.shade * 120);
+    return `<path fill="rgb(${c},${c+8},${c+16})" d="M${q.x} ${q.y}h${q.w}v${q.h}h${-q.w}Z"/>` +
+           `<path fill="rgb(${c-30},${c-24},${c-16})" d="M${q.x+q.w} ${q.y}l${d} ${-d}v${q.h}l${-d} ${d}Z"/>`;
+  }).join("");
+  stage.innerHTML = `<svg viewBox="0 0 1100 280"><g id="rig">${parts}</g></svg>`;
+} else {
+  const cv = document.createElement("canvas");
+  cv.width = 2200; cv.height = 560; stage.appendChild(cv);
+  const gl = cv.getContext("webgl");
+  const vs = `attribute vec2 p;attribute vec3 c;uniform float t;varying vec3 vc;
+    void main(){vc=c;gl_Position=vec4((p.x+t)/550.0-1.0,1.0-p.y/140.0,0.0,1.0);}`;
+  const fs = `precision mediump float;varying vec3 vc;void main(){gl_FragColor=vec4(vc,1.0);}`;
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o};
+  const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(pr);gl.useProgram(pr);
+  const verts=[],cols=[];
+  for(const q of quads){const c=(0.35+q.shade*0.45);
+    const pts=[[q.x,q.y],[q.x+q.w,q.y],[q.x+q.w,q.y+q.h],[q.x,q.y],[q.x+q.w,q.y+q.h],[q.x,q.y+q.h]];
+    for(const [x,y] of pts){verts.push(x,y);cols.push(c,c+0.03,c+0.06);}}
+  const buf=(data,loc,size)=>{const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);
+    const l=gl.getAttribLocation(pr,loc);gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,size,gl.FLOAT,false,0,0);};
+  buf(verts,"p",2);buf(cols,"c",3);
+  window.__gl={gl,pr,count:verts.length/2};
+}
+
+let frames = 0, t0 = performance.now();
+const rig = document.getElementById("rig");
+function tick(now) {
+  const t = Math.sin(now / 1400) * 14;
+  if (MODE === "svg") rig.setAttribute("transform", `translate(${t} 0)`);
+  else { const {gl,pr,count}=window.__gl; gl.uniform1f(gl.getUniformLocation(pr,"t"),t);
+         gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,count); }
+  frames++;
+  if (now - t0 > 4000) { window.__fps = +(frames / ((now - t0) / 1000)).toFixed(1);
+    document.getElementById("out").textContent = `${MODE} n=${N} fps=${window.__fps}`; return; }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>

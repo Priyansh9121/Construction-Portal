@@ -73,41 +73,23 @@ html:has(body.ui-world-page) {
 }
 
 @layer system-pages {
-  /* ---- Ink ------------------------------------------------------------- */
+  /* ---- Surfaces --------------------------------------------------------- */
 
   /*
-   * Distance is carried by CONTRAST falling off, which is how distance
-   * actually reads, and is also the only version that stays cheap: no blur,
-   * no filter, no fog volume. One ink at five strengths.
-   */
-  /*
-   * THE SITE PALETTE.
-   *
-   * Scoped to `.ui-world` and the dashboard body class -- no global semantic
-   * token is repainted, so finance, status and every unmigrated route keep
-   * their meanings exactly. These colours describe SYSTEMS on a site, which is
-   * why they are named for what they mark and not for their hue:
-   *
-   *   plant    machinery under power        construction amber
-   *   active   structure being worked on    structural violet
-   *   signal   survey and setting-out       instrument cyan
-   *   alert    something is overdue         safety red
-   *
-   * Line work stays in one steel ink at four strengths; the colour is spent
-   * only where a system is live, which is what keeps a busy site from reading
-   * as a rainbow.
+   * The generator emits each face's LUMINANCE, never its colour, so the whole
+   * world can be re-lit from here without regenerating a single polygon. `--s`
+   * is that scalar; the mix between the shadow and the lit tone is the surface.
    */
   .ui-world {
-    --world-far: #b9c2cb;
-    --world-mid: #98a3ae;
-    --world-ink: #6f7b87;
-    --world-near: #56626e;
+    --w-dark: #0d1319;
+    --w-lit: #93a8bc;
+    --w-edge: #1b232c;
 
-    --world-plant: #e8933a;
-    --world-active: #6d3fd4;
-    --world-signal: #21a7bd;
-    --world-alert: #d8483c;
-    --world-lit: #f2c98c;
+    --w-plant: #f0932f;
+    --w-active: #7d55ff;
+    --w-signal: #2fc7de;
+    --w-alert: #ff5f50;
+    --w-lamp: #ffd79a;
   }
 
   .ui-world__svg {
@@ -119,250 +101,173 @@ html:has(body.ui-world-page) {
     pointer-events: none;
   }
 
-  /*
-   * The plane is an HTML LAYER, not an SVG group.
-   *
-   * Measured: five `<g>` siblings translated by SVG transforms held 60fps at
-   * rest and dropped to 52 during scroll, because Chrome does not promote an
-   * SVG group transform to the compositor — every frame repainted the whole
-   * drawing. Translating an element instead makes the movement a composite.
-   */
   .ui-world__plane {
     position: absolute;
     inset: 0;
-
-    /* Depth. One transform per layer, composited, driven by two custom
-     * properties that the scheduler writes at most once a frame. */
     transform: translate3d(
-      calc(var(--world-px, 0) * var(--depth) * -22px),
-      calc(var(--world-scroll, 0px) * var(--depth) * -1),
+      calc(var(--cam-x, 0px) * var(--depth)),
+      calc(var(--cam-y, 0px) * var(--depth) + var(--world-scroll, 0px) * var(--depth) * -1),
       0
     );
     will-change: transform;
   }
 
-  .ui-world__svg > g {
-    fill: none;
-    stroke: var(--world-ink);
-    stroke-width: 1.15;
-
-    /* The world is drawn at one scale and displayed at several. Without this
-     * a 2400-unit world sliced into a 390px band renders sub-pixel strokes
-     * that disappear entirely. */
+  /* A face is a solid, not an outline. The hairline is the arris between two
+   * faces of the same solid, which is what stops a box reading as a flat
+   * silhouette. */
+  .w-f {
+    fill: color-mix(in srgb, var(--w-lit) calc(var(--s) * 100%), var(--w-dark));
+    stroke: var(--w-edge);
+    stroke-width: 0.6;
     vector-effect: non-scaling-stroke;
   }
 
-  .ui-world__haze { stroke: none; fill: currentColor; color: var(--ui-ink); }
-  .ui-world__distant { stroke: var(--world-far); }
-  .ui-world__frame { stroke: var(--world-mid); }
-  /* Machinery under power reads as plant, not as more line work. */
-  .ui-world__rigs { stroke: var(--world-plant); stroke-width: 1.5; }
-  .ui-world__near { stroke: var(--world-near); stroke-width: 1.5; }
+  /* Systems take their identity from the palette rather than from the light,
+   * because a lit crane is still a crane. Depth still attenuates them. */
+  .w-mast .w-f, .w-jib .w-f, .w-cap .w-f, .w-cwt .w-f, .w-cab .w-f {
+    fill: color-mix(in srgb, var(--w-plant) calc(var(--s) * 92%), var(--w-dark));
+  }
 
-  .ui-world__brace { stroke-dasharray: 5 4; opacity: 0.75; }
-  .ui-world__partial { stroke-width: 2.6; stroke: var(--world-active); }
+  .w-slab-partial .w-f {
+    fill: color-mix(in srgb, var(--w-active) calc(var(--s) * 95%), var(--w-dark));
+  }
+
+  .w-ground path {
+    fill: none;
+    stroke: color-mix(in srgb, var(--w-signal) calc(var(--s) * 120%), transparent);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* ---- Plant ------------------------------------------------------------ */
+
+  .w-plant rect, .w-plant line { stroke: none; }
+  .w-trolley-car { fill: var(--w-plant); }
+  .w-load { fill: color-mix(in srgb, var(--w-plant) 70%, var(--w-dark)); }
+  .w-cable { stroke: var(--w-plant); stroke-width: 1.5; }
+  .w-hoist rect { fill: var(--w-plant); }
+
+  /*
+   * THE CRANE CYCLE.
+   *
+   * Authored as a sequence of states rather than as a loop: the trolley runs
+   * out, HOLDS while the hook works, runs back, and holds again. The idle
+   * holds are what stop it reading as a shuttle, and the two cranes are given
+   * different durations and a negative offset so they never fall into step.
+   */
+  .w-trolley {
+    transform: translate(var(--x), var(--y));
+    animation: w-travel calc(46s + var(--i) * 13s) cubic-bezier(0.5, 0, 0.5, 1)
+      calc(var(--i) * -17s) infinite;
+    will-change: transform;
+  }
+
+  @keyframes w-travel {
+    0%, 12%   { transform: translate(var(--x), var(--y)); }
+    38%, 62%  { transform: translate(calc(var(--x) + var(--dx)), calc(var(--y) + var(--dy))); }
+    88%, 100% { transform: translate(var(--x), var(--y)); }
+  }
+
+  /*
+   * The hook is lowered while the trolley is stopped and raised before it
+   * moves off. The cable SCALES because it is a cable being paid out; the load
+   * translates with it. Sway is a separate, shorter rhythm that decays into
+   * the holds rather than running continuously.
+   */
+  .w-hook {
+    transform-origin: 0 0;
+    animation: w-hoisting calc(46s + var(--i) * 13s) ease-in-out
+      calc(var(--i) * -17s) infinite;
+  }
+
+  @keyframes w-hoisting {
+    0%, 30%   { transform: translateY(0) rotate(0deg); }
+    44%, 56%  { transform: translateY(58px) rotate(1.4deg); }
+    70%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  }
+
+  .w-cable { transform-origin: 0 0; }
+
+  /* The hoist ascends, stops at level, descends, and rests — on its own
+   * duration, deliberately coprime with both cranes. */
+  .w-hoist {
+    transform: translate(var(--x), var(--y0));
+    animation: w-hoist 37s cubic-bezier(0.45, 0, 0.55, 1) -11s infinite;
+    will-change: transform;
+  }
+
+  @keyframes w-hoist {
+    0%, 8%    { transform: translate(var(--x), var(--y0)); }
+    34%, 52%  { transform: translate(var(--x), calc(var(--y0) - var(--rise))); }
+    78%, 100% { transform: translate(var(--x), var(--y0)); }
+  }
 
   /* ---- Live systems ----------------------------------------------------- */
 
-  /*
-   * An ACTIVE BAY is a floor with work in flight on it. The count comes from
-   * the Dashboard's own running-tender figure; which bays light is geometry,
-   * not data, because this world represents system activity and not a
-   * building anyone is actually putting up.
-   */
-  .ui-world__bay {
-    fill: var(--world-active);
-    stroke: none;
-    opacity: 0;
-    animation: ui-world-bay var(--dur, 14s) ease-in-out var(--d, 0s) infinite;
+  .w-bay {
+    fill: var(--w-active);
+    mix-blend-mode: screen;
+    animation: w-bay var(--dur, 14s) ease-in-out var(--d, 0s) infinite;
   }
 
-  @keyframes ui-world-bay {
-    0%, 100% { opacity: 0.05; }
-    45% { opacity: 0.17; }
+  @keyframes w-bay {
+    0%, 100% { opacity: 0.1; }
+    30%, 46% { opacity: 0.5; }
   }
 
-  /* The hoist runs the face of the frame. Long, uneven interval. */
-  .ui-world__hoist {
-    fill: var(--world-plant);
-    stroke: none;
-    animation: ui-world-hoist var(--dur, 19s) cubic-bezier(0.5, 0, 0.5, 1)
-      var(--d, 0s) infinite alternate;
-  }
+  .w-beacon { fill: var(--w-alert); animation: w-beacon 3.4s ease-in-out infinite; }
 
-  @keyframes ui-world-hoist {
-    from { transform: translateY(0); }
-    to { transform: translateY(calc(var(--rise) * -1px)); }
-  }
-
-  /* Setting-out signal travelling the ground line. */
-  .ui-world__scan {
-    stroke: var(--world-signal);
-    stroke-width: 2;
-    opacity: 0.55;
-    animation: ui-world-scan var(--dur, 23s) linear infinite;
-  }
-
-  @keyframes ui-world-scan {
-    from { transform: translateX(-8%); opacity: 0; }
-    12% { opacity: 0.5; }
-    88% { opacity: 0.5; }
-    to { transform: translateX(108%); opacity: 0; }
-  }
-
-  /* A beacon marks something overdue. One pulse, red, and only when the
-   * Dashboard actually has overdue work -- never decorative. */
-  .ui-world__beacon {
-    fill: var(--world-alert);
-    stroke: none;
-    animation: ui-world-beacon 3.4s ease-in-out infinite;
-  }
-
-  .ui-world__beacon-ring {
+  .w-beacon-ring {
     fill: none;
-    stroke: var(--world-alert);
-    stroke-width: 1.5;
-    animation: ui-world-ring 3.4s ease-out infinite;
+    stroke: var(--w-alert);
+    stroke-width: 1.6;
+    animation: w-ring 3.4s ease-out infinite;
   }
 
-  @keyframes ui-world-beacon {
-    0%, 100% { opacity: 0.55; }
-    50% { opacity: 1; }
-  }
+  @keyframes w-beacon { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  @keyframes w-ring { 0% { r: 5; opacity: 0.7; } 70%, 100% { r: 20; opacity: 0; } }
 
-  @keyframes ui-world-ring {
-    0% { r: 4; opacity: 0.7; }
-    70%, 100% { r: 16; opacity: 0; }
-  }
-  .ui-world__lit { fill: var(--world-lit); stroke: none; }
-  .ui-world__mark { stroke-width: 2; }
+  /* ---- The room --------------------------------------------------------- */
 
-  .ui-world__mark-t {
-    font-family: var(--ui-font-mono, "IBM Plex Mono", ui-monospace, monospace);
-    font-size: 13px;
-    font-weight: 500;
-    fill: var(--world-near);
-    stroke: none;
-
-    /* Chrome the application owns, and not a value anyone typed, so tracking
-     * is permitted here — foundation/type.css. */
-    letter-spacing: 0.08em;
-  }
-
-  /* ---- The room -------------------------------------------------------- */
-
-  /*
-   * Fixed, behind everything, the full height of the viewport. It does not
-   * scroll: the PLANES move against the scroll offset instead, at five
-   * different rates, which is what produces depth rather than a background
-   * image sliding past.
-   */
   .ui-world--room {
     position: fixed;
     inset-block: 0;
     inset-inline-start: 0;
 
-    /*
-     * Sized to the VIEWPORT, not to the layout box.
-     *
-     * `inset: 0` makes the layer as wide as the containing block, which loses
-     * ~15px the moment the route's data arrives and a scrollbar appears. The
-     * layer narrows, a `slice` viewBox rescales to cover it, and the Layout
-     * Instability API correctly reports the SVG as having moved: 0.13 at 1440
-     * and 0.28 at 390, from a purely decorative element.
-     *
-     * `100vw` includes the scrollbar, so the layer's width never changes and
-     * there is nothing to rescale. Containment alone could not fix this —
-     * `contain` stops this element affecting the outside, and the scrollbar is
-     * the outside affecting this element.
-     */
+    /* Sized to the VIEWPORT so a scrollbar appearing cannot rescale a `slice`
+     * viewBox — that was worth 0.13 cumulative layout shift when it was
+     * `inset: 0`. */
     inline-size: 100vw;
     z-index: 0;
     overflow: hidden;
     pointer-events: none;
+    contain: layout paint;
+
+    --world-overdraw: 99px;
 
     /*
-     * Containment, for correctness before performance.
-     *
-     * Measured 0.13 cumulative layout shift at 1440 and 0.28 at 390, and the
-     * Layout Instability API named the offending node: this SVG. A fixed
-     * `inset: 0` layer is re-laid-out when the scrollbar appears as the
-     * route's data arrives, and its contents re-flow with it — a decorative
-     * layer was reporting instability against the page's score.
-     *
-     * `contain` says what is already true: nothing inside this element can
-     * affect the layout or paint of anything outside it. Shift goes to zero
-     * and the layer also stops being re-rastered by unrelated page changes.
+     * The room is CONTEXT, and it is now solid geometry rather than hairlines.
+     * At the opacity the stroked version wanted, filled masses read as grey
+     * blocks crowding the sheet from the gutters — visible immediately in
+     * review. It sits far back and stays there.
      */
-    contain: layout paint;
+    opacity: 0.13;
   }
 
-  /*
-   * ─────────────────────────────────────────────────────────────────────────
-   * THE OVERDRAW BELONGS TO THE LAYER, NOT TO THE DRAWING
-   * ─────────────────────────────────────────────────────────────────────────
-   * The planes translate vertically as the page scrolls, so the world must be
-   * drawn taller than the viewport or a parallaxing plane would reveal its own
-   * edge. The first version bought that headroom by oversizing the SVG itself
-   * — `block-size: 122%` with `inset-block-end: -11%` — so the SVG's box
-   * overhung the viewport by 99px at each end.
-   *
-   * That box was the entire CLS regression: 0.13 at 1440 and 0.28 at 390
-   * against a baseline of exactly 0. An element-tree bisection isolated it to
-   * the room (the band scored 0 on its own), then to this rule (hiding the
-   * planes scored 0, and so did sizing the SVG to 100%). The Layout
-   * Instability API had been naming the SVG all along; what it could not say
-   * was that the box was oversized rather than moving — its reported
-   * `previousRect` and `currentRect` were identical, which is the signature of
-   * an unstable visual box rather than a document reflow.
-   *
-   * The headroom now belongs to the LAYER. The plane is inset beyond the
-   * viewport by the overdraw; the SVG exactly fills its plane and therefore
-   * never has a box of its own to be unstable about. Same drawing, same
-   * scale, same travel, zero shift — verified 0.00 at 1440 and 390.
-   */
+  /* The room drops its foreground band entirely. Site fencing a few pixels
+   * behind an operational sheet is noise, not depth. */
+  .ui-world--room .ui-world__plane[data-band="3"] { display: none; }
+
   .ui-world--room .ui-world__plane {
     inset-block: calc(-1 * var(--world-overdraw));
   }
 
-  .ui-world--room .ui-world__svg {
-    inset: 0;
-    block-size: 100%;
-  }
+  /* ---- The window ------------------------------------------------------- */
 
-  /* ---- The window ------------------------------------------------------ */
-
-  /*
-   * The one place the world is seen at full strength. It sits at the top of
-   * the instrument, above the greeting — which is words — and stops before
-   * the first row, which is figures.
-   */
-  /*
-   * THE BAND IS A LIT SITE, NOT A DRAWING ON PAPER.
-   *
-   * At full strength on white, steel linework at 1.15px reads as a faint
-   * technical drawing however much colour is spent on it -- reviewed in a
-   * screenshot and rejected twice. Grounding the window in deep site dark
-   * inverts the problem: the same geometry becomes luminous, the plant amber
-   * and the active violet finally carry, and the machinery reads as machinery.
-   *
-   * The evidence is untouched by this. Every sheet below the window is still
-   * white paper, and the greeting sits BELOW the band rather than over it, so
-   * nothing on this page is text over a moving scene.
-   */
   .ui-world--band {
-    --world-far: #46545f;
-    --world-mid: #6a7a88;
-    --world-ink: #93a5b4;
-    --world-near: #c2d2de;
-    --world-plant: #ffab42;
-    --world-active: #9a76ff;
-    --world-signal: #37d0e8;
-    --world-alert: #ff6a5c;
-    --world-lit: #ffd79a;
-
-    background:
-      radial-gradient(120% 150% at 76% 118%, #26313c 0%, #171e26 46%, #11161c 100%);
+    --w-dark: #0a0f14;
+    --w-lit: #a8c0d6;
+    --w-edge: #151d25;
 
     position: absolute;
     inset-block-start: 0;
@@ -371,86 +276,19 @@ html:has(body.ui-world-page) {
     overflow: hidden;
     z-index: 0;
     pointer-events: none;
-
-    /* Same containment, same reason: a window onto a world cannot move
-     * anything in the sheet it is cut into. */
     contain: layout paint;
-
-    /* The ground is opaque; only the GEOMETRY dissolves toward the sentence,
-     * so the window has a real edge instead of fading into the paper. */
     border-radius: var(--ui-radius-container) var(--ui-radius-container) 0 0;
+    background: radial-gradient(120% 150% at 74% 116%, #1d2731 0%, #131a22 48%, #0b1015 100%);
   }
 
-  .ui-world--band .ui-world__svg {
-    inset-block-start: auto;
-    inset-block-end: 0;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%);
-    mask-image: linear-gradient(90deg, transparent, #000 18%);
-  }
-
-  /* Heavier on dark: a 1.15px steel line that reads on paper disappears
-   * against a lit ground. */
-  .ui-world--band .ui-world__svg > g { stroke-width: 1.35; }
-  .ui-world--band .ui-world__rigs { stroke-width: 1.9; }
-  .ui-world--band .ui-world__near { stroke-width: 1.7; }
-  .ui-world--band .ui-world__partial { stroke-width: 3.2; }
-  .ui-world--band .ui-world__haze { display: none; }
-
-  /* Work in flight is the brightest information in the window. */
-  .ui-world--band .ui-world__bay {
-    mix-blend-mode: screen;
-    fill: var(--world-active);
-  }
-
-  /* The bay's own edge, so a lit floor reads as a floor rather than as a
-   * rectangle of glow. */
-  .ui-world--band .ui-world__bay-edge {
-    stroke: var(--world-active);
-    stroke-width: 1.6;
-    fill: none;
-    opacity: 0.85;
-  }
-
-  @keyframes ui-world-bay-lit {
-    0%, 100% { opacity: 0.34; }
-    45% { opacity: 0.78; }
-  }
-
-  .ui-world--band .ui-world__bay {
-    animation-name: ui-world-bay-lit;
-  }
-
-  .ui-world--band .ui-world__scan { stroke-width: 2.5; opacity: 0.8; }
-
-  /* The band's own planes do not parallax on scroll: it is part of the sheet
-   * and travels with it. Only the room has depth against the page. */
-  .ui-world--band .ui-world__plane {
-    transform: translate3d(calc(var(--world-px, 0) * var(--depth) * -14px), 0, 0);
-  }
-
-  /* ---- Light ----------------------------------------------------------- */
+  /* ---- Work lighting ---------------------------------------------------- */
 
   /*
-   * One light, crossing the band only.
-   *
-   * `soft-light` brightens the paper instead of greying it, and one wide band
-   * composites more cheaply than a gradient stack or any filter. Confined to
-   * the band because a full-viewport version measured 8fps at 1440 and 0 at
-   * 390 — paint area, not geometry.
+   * One light crossing the site, on the band only. `screen` on a lit ground
+   * reads as a lamp; the same band over paper read as nothing, and a
+   * full-viewport version cost ~8fps at 1440 and nothing at 390 — paint area,
+   * not geometry.
    */
-  /* Work lighting crossing the site. `screen` on a dark ground reads as a
-   * lamp; `soft-light` on paper read as nothing. */
-  .ui-world--band .ui-world__light {
-    mix-blend-mode: screen;
-    background: linear-gradient(
-      100deg,
-      transparent,
-      rgb(255 214 150 / 0.16) 46%,
-      rgb(255 190 120 / 0.09) 62%,
-      transparent
-    );
-  }
-
   .ui-world__light {
     position: absolute;
     inset-block: 0;
@@ -458,17 +296,10 @@ html:has(body.ui-world-page) {
     inline-size: 52%;
     z-index: 1;
     pointer-events: none;
-
-    background: linear-gradient(
-      100deg,
-      transparent,
-      rgb(255 252 244 / 0.55) 46%,
-      rgb(255 250 238 / 0.34) 60%,
-      transparent
-    );
-    mix-blend-mode: soft-light;
-
-    animation: ui-world-light 38s linear infinite;
+    mix-blend-mode: screen;
+    background: linear-gradient(100deg, transparent,
+      rgb(255 214 150 / 0.14) 46%, rgb(255 190 120 / 0.08) 62%, transparent);
+    animation: ui-world-light 41s linear infinite;
     will-change: transform;
   }
 
@@ -477,111 +308,50 @@ html:has(body.ui-world-page) {
     to { transform: translate3d(315%, 0, 0); }
   }
 
-  /* ---- The machine ----------------------------------------------------- */
+  /* ---- Arrival ---------------------------------------------------------- */
 
   /*
-   * The trolley runs jib-out and jib-in on an ease-in-out, because a real
-   * trolley accelerates off the stop and settles onto it.
-   *
-   * The hook's sway runs the SAME duration with a negative delay, so the load
-   * is permanently a beat behind the machine dragging it. That lag is the
-   * entire difference between a rectangle translating and a mass being
-   * carried, and it costs one line.
+   * The site is SET OUT once, from the ground up: the grid resolves, the
+   * structures rise from it, then plant comes online. Bands establish in depth
+   * order, so the world assembles away-to-near.
    */
-  .ui-world__trolley {
-    transform: translate(calc(var(--x0) + var(--jib) * var(--from)), var(--y));
-    animation: ui-world-travel 24s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
-    will-change: transform;
-  }
+  .ui-world__plane[data-band="0"] { --arr: 40ms; }
+  .ui-world__plane[data-band="1"] { --arr: 150ms; }
+  .ui-world__plane[data-band="2"] { --arr: 300ms; }
+  .ui-world__plane[data-band="3"] { --arr: 220ms; }
 
-  @keyframes ui-world-travel {
-    from { transform: translate(calc(var(--x0) + var(--jib) * var(--from)), var(--y)); }
-    to { transform: translate(calc(var(--x0) + var(--jib) * var(--to)), var(--y)); }
-  }
-
-  .ui-world__hook {
-    transform-origin: 0 0;
-    animation: ui-world-sway 7s cubic-bezier(0.37, 0, 0.63, 1) -1.9s infinite alternate;
-    will-change: transform;
-  }
-
-  @keyframes ui-world-sway {
-    from { transform: rotate(-2.6deg); }
-    to { transform: rotate(2.6deg); }
-  }
-
-  /* ---- Arrival --------------------------------------------------------- */
-
-  /*
-   * The structure is SET OUT once, bottom to top, and the cranes are raised.
-   * A one-time entrance, not a loop: looping it would say the building is
-   * being built while you watch, which is the data pretending.
-   *
-   * This is the moment the threshold handed over from — the sign-in scene's
-   * floor plates retract, and this frame draws.
-   */
-  .ui-world__beam {
-    stroke-dasharray: 1200;
-    stroke-dashoffset: 1200;
-    animation: ui-world-draw 900ms cubic-bezier(0.16, 1, 0.3, 1)
-      calc(var(--i) * 90ms + 160ms) both;
-  }
-
-  @keyframes ui-world-draw {
-    to { stroke-dashoffset: 0; }
-  }
-
-  .ui-world__crane {
+  .ui-world__plane .w-s {
     transform-box: fill-box;
     transform-origin: 50% 100%;
-    animation: ui-world-raise 1100ms cubic-bezier(0.16, 1, 0.3, 1)
-      calc(var(--i) * 180ms) both;
+    animation: w-rise 620ms cubic-bezier(0.16, 1, 0.3, 1) var(--arr, 0ms) both;
   }
 
-  @keyframes ui-world-raise {
-    from { transform: scaleY(0.82); opacity: 0; }
+  @keyframes w-rise {
+    from { transform: scaleY(0.86); opacity: 0; }
     to { transform: none; opacity: 1; }
   }
 
-  .ui-world__lit {
-    opacity: 0;
-    animation: ui-world-lamp 2.4s ease-out calc(var(--i) * 700ms + 1200ms) both;
+  .w-ground path {
+    animation: w-set 520ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
   }
 
-  @keyframes ui-world-lamp {
-    from { opacity: 0; }
-    to { opacity: 0.85; }
-  }
+  @keyframes w-set { from { opacity: 0; } to { opacity: 1; } }
 
-  /* ---- Particulate ----------------------------------------------------- */
+  /* ---- Field density ---------------------------------------------------- */
 
-  .ui-world__mote {
-    fill: var(--world-near);
-    stroke: none;
-    opacity: 0.16;
-    animation: ui-world-drift calc(26s + var(--i) * 1.4s) linear var(--d) infinite;
-  }
-
-  @keyframes ui-world-drift {
-    from { transform: translate3d(0, 0, 0); opacity: 0; }
-    12% { opacity: 0.2; }
-    88% { opacity: 0.14; }
-    to { transform: translate3d(120px, -190px, 0); opacity: 0; }
-  }
-
-  /* ---- Sheets ---------------------------------------------------------- */
+  /* ---- Sheets ----------------------------------------------------------- */
 
   /*
-   * The occlusion contract. Every operational compartment is opaque, and
-   * carries a small ring of its own surface so the world never crowds a
-   * figure at the edge of a compartment either.
+   * The occlusion contract for the PAGE, distinct from the world's own.
    *
-   * `.ui-horizon` is opaque like the rest: the band is a window cut into its
-   * top, not a hole through the whole sheet.
+   * Every operational compartment is opaque and carries a ring of its own
+   * surface, so the world is read around the composition and never behind a
+   * figure. A prototype made the instrument transparent and put structural
+   * geometry behind the attention rows; recorded, reviewed and rejected.
    */
   body.ui-world-page .ui-horizon,
   body.ui-world-page .ui-health,
-  body.ui-world-page .ui-chart,
+  body.ui-world-page .ui-fin,
   body.ui-world-page .ui-dl,
   body.ui-world-page .ui-pipe,
   body.ui-world-page .ui-activity,
@@ -597,24 +367,15 @@ html:has(body.ui-world-page) {
     z-index: 2;
   }
 
-  /* ---- Field density --------------------------------------------------- */
+  /* ---- Field density ---------------------------------------------------- */
 
   @media (max-width: 48rem) {
-    /*
-     * A 250px band at 390 is half the screen before the greeting is reached,
-     * measured on a recording. The band is REDUCED rather than scaled: it
-     * takes a narrower crop of the world at legible scale (see World.jsx)
-     * instead of showing the whole site as threads.
-     */
-    .ui-world--band {
-      /* Deeper than the paper band was, because the window is now a lit scene
-       * and a 112px slot cannot hold a crane at legible scale. */
-      --world-band: 156px;
-    }
+    /* A phone gets a composed camera, not a smaller one: a nearer crop, one
+     * fewer band (see World.jsx), and a quieter room. */
+    .ui-world--band { --world-band: 156px; }
+    .ui-world--room { opacity: 0.09; }
 
-    /* Pointer parallax has no meaning on a touch device, and the room's
-     * depth is barely legible in a 390px column — so the room keeps its
-     * geometry and drops its motion, which is the cheaper half. */
+    /* Pointer parallax has no meaning on a touch device; scroll depth stays. */
     .ui-world--room .ui-world__plane {
       transform: translate3d(0, calc(var(--world-scroll, 0px) * var(--depth) * -0.5), 0);
     }
