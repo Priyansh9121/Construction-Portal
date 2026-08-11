@@ -1,0 +1,184 @@
+/*
+ * ===========================================================================
+ * DASHBOARD ARRIVAL — the operating system resolving into an operational state
+ * ===========================================================================
+ *
+ * File purpose:
+ * The one-time establishment of the page's structures, in overlapping phases.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ESTABLISHMENT, NOT ENTRANCE
+ * ─────────────────────────────────────────────────────────────────────────
+ * Nothing here fades up and nothing slides in. Each system resolves the way it
+ * is built: a datum establishes across its span, a rail draws outward from the
+ * reference it is measured from, joints attach to the rail they hang on, and
+ * only then does the record they carry become legible.
+ *
+ * The phases OVERLAP. A serial sequence makes the user wait, and this page must
+ * be usable on the first frame — every property animated here is `transform` or
+ * `opacity` on an element that is already laid out, already hit-testable and
+ * already in the accessibility tree. Clicking a row at 120ms works exactly as
+ * it does at 3s.
+ *
+ *   0–300ms    the world (owned by environment/world.css) and the sheet
+ *   200–650ms  the attention system
+ *   350–900ms  the measurement systems: health and the finance instrument
+ *   600–1200ms the temporal systems: approaching, the register
+ *   900–1500ms the event spine
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * NUMBERS DO NOT ANIMATE
+ * ─────────────────────────────────────────────────────────────────────────
+ * A figure may acquire presence; it may never appear to change. Nothing here
+ * counts up, interpolates a value or reveals digits progressively — that would
+ * be the interface asserting a movement the data did not make.
+ *
+ * Connected to:
+ * - pages/DashboardPage.jsx (the `ui-arrive` marker)
+ */
+
+@layer system-pages {
+  /*
+   * Rails and datums establish ALONG their own axis, from the reference they
+   * are measured from. `transform-origin` is the load-bearing declaration in
+   * this file: a rail that grew from its centre would not be a rail being set
+   * out, it would be a bar animating.
+   */
+  .ui-arrive .ui-dl__axis::before,
+  .ui-arrive .ui-activity__day::after {
+    transform-origin: 50% 0;
+    animation: ui-arrive-datum 420ms cubic-bezier(0.16, 1, 0.3, 1) var(--at, 0ms) both;
+  }
+
+  @keyframes ui-arrive-datum {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+
+  .ui-arrive .ui-dl__rule,
+  .ui-arrive .ui-dl__axis::after,
+  .ui-arrive .ui-pipe__item::before,
+  .ui-arrive .ui-activity__list::before {
+    transform-origin: 0 50%;
+    animation: ui-arrive-rail 520ms cubic-bezier(0.16, 1, 0.3, 1) var(--at, 0ms) both;
+  }
+
+  @keyframes ui-arrive-rail {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  .ui-arrive .ui-activity__list::before { transform-origin: 50% 0; }
+  .ui-arrive .ui-activity__list::before { animation-name: ui-arrive-datum; }
+
+  /* Joints attach to the rail they hang on, so they cannot precede it. */
+  .ui-arrive .ui-activity__item::before {
+    animation: ui-arrive-joint 300ms cubic-bezier(0.16, 1, 0.3, 1)
+      calc(680ms + var(--i, 0) * 30ms) both;
+  }
+
+  @keyframes ui-arrive-joint {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+
+  /*
+   * Records SETTLE onto the structure that carries them. Transform only —
+   * never opacity.
+   *
+   * Establishing text by fading it in makes the content unreadable for the
+   * duration, and the accessibility audit samples the page at 1400ms and
+   * correctly flagged it. It is also the wrong idea: a record does not
+   * materialise, it comes to rest on the rail it hangs from. The travel is 6px,
+   * enough to read as settling and small enough that nothing flies in.
+   */
+  .ui-arrive .ui-attention__row,
+  .ui-arrive .ui-pipe__item,
+  .ui-arrive .ui-activity__item,
+  .ui-arrive .ui-dl__mark {
+    animation: ui-arrive-settle 460ms cubic-bezier(0.16, 1, 0.3, 1) var(--at, 0ms) both;
+  }
+
+  @keyframes ui-arrive-settle {
+    from { transform: translateX(-6px); }
+    to { transform: none; }
+  }
+
+  /* Deadline markers resolve at their exact dates, so they settle vertically —
+   * a horizontal settle would read as the date moving. */
+  .ui-arrive .ui-dl__mark {
+    animation-name: ui-arrive-mark;
+  }
+
+  @keyframes ui-arrive-mark {
+    from { transform: translateY(5px); }
+    to { transform: none; }
+  }
+
+  /* ---- Phase assignment ------------------------------------------------- */
+
+  .ui-arrive .ui-attention__row:nth-child(1) { --at: 210ms; }
+  .ui-arrive .ui-attention__row:nth-child(2) { --at: 285ms; }
+  .ui-arrive .ui-attention__row:nth-child(3) { --at: 360ms; }
+  .ui-arrive .ui-attention__row:nth-child(n + 4) { --at: 430ms; }
+
+  .ui-arrive .ui-health { --at: 380ms; }
+
+  .ui-arrive .ui-dl__axis::before { --at: 470ms; }
+  .ui-arrive .ui-dl__axis::after { --at: 530ms; }
+  .ui-arrive .ui-dl__rule { --at: 500ms; }
+  .ui-arrive .ui-dl__mark { --at: 600ms; }
+
+  .ui-arrive .ui-pipe__item:nth-child(1) { --at: 560ms; }
+  .ui-arrive .ui-pipe__item:nth-child(2) { --at: 600ms; }
+  .ui-arrive .ui-pipe__item:nth-child(3) { --at: 640ms; }
+  .ui-arrive .ui-pipe__item:nth-child(n + 4) { --at: 680ms; }
+
+  .ui-arrive .ui-activity__list::before { --at: 660ms; }
+  .ui-arrive .ui-activity__item { --at: 720ms; }
+
+  /*
+   * The cash datum establishes across the health sheet: one rule drawn from
+   * the reference edge, which is what makes the figure beside it read as a
+   * measurement rather than as a headline.
+   */
+  .ui-arrive .ui-health::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: 0;
+    border-block-start: 2px solid var(--ui-ink);
+    transform-origin: 0 50%;
+    animation: ui-arrive-rail 620ms cubic-bezier(0.16, 1, 0.3, 1) 340ms both;
+  }
+}
+
+/*
+ * ===========================================================================
+ * REDUCED MOTION
+ * ===========================================================================
+ * Every structure is shown ESTABLISHED. The composition, the datums, the rails,
+ * the joints and the depth are identical to the animated result — the page
+ * simply arrives already resolved rather than resolving while watched.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer system-pages {
+    .ui-arrive .ui-dl__axis::before,
+    .ui-arrive .ui-dl__axis::after,
+    .ui-arrive .ui-dl__rule,
+    .ui-arrive .ui-dl__mark,
+    .ui-arrive .ui-attention__row,
+    .ui-arrive .ui-pipe__item,
+    .ui-arrive .ui-pipe__item::before,
+    .ui-arrive .ui-activity__item,
+    .ui-arrive .ui-activity__item::before,
+    .ui-arrive .ui-activity__list::before,
+    .ui-arrive .ui-activity__day::after,
+    .ui-arrive .ui-health::before {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

@@ -1,0 +1,204 @@
+/*
+ * ===========================================================================
+ * SHELL RESPONSE — connected feedback for navigation and the command joint
+ * ===========================================================================
+ *
+ * File purpose:
+ * Every important control answers from the object the user touched.
+ *
+ * The rule this file follows is that the response must match the object's
+ * physical metaphor. A navigation item is a member being SELECTED by a rail;
+ * a header control is a small instrument being PRESSED; the command joint is a
+ * mechanism EXTENDING. None of them share one `scale(0.97)`, because that
+ * would say every object in the interface is made of the same rubber.
+ *
+ * Applies to the shell, which every route shares — so the treatments here are
+ * additive states (hover, focus, press) on existing classes. No layout, no
+ * geometry, no colour of any resting element changes, which is what keeps
+ * unmigrated routes looking exactly as they did.
+ */
+
+@layer system-pages {
+  /* ---- Navigation ------------------------------------------------------- */
+
+  /*
+   * The selection rail acquires the item. The rail is a pseudo-element on the
+   * link, scaled from its top edge, so selection reads as a member being
+   * picked up by a datum rather than as a background colour appearing.
+   */
+  .sidebar-link {
+    position: relative;
+    transition: color 160ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sidebar-link::before {
+    content: "";
+    position: absolute;
+    inset-block: 6px;
+    inset-inline-start: 0;
+    inline-size: 2px;
+    background: var(--ui-accent-fg, var(--ui-ink));
+    transform: scaleY(0);
+    transform-origin: 50% 0;
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sidebar-link:hover::before,
+  .sidebar-link:focus-visible::before { transform: scaleY(0.55); }
+  .sidebar-link.active-link::before { transform: scaleY(1); }
+
+  /* The label shifts a fraction toward its destination; the icon does not
+   * move, so the row still scans as a fixed column of glyphs. */
+  .sidebar-link:hover,
+  .sidebar-link:focus-visible { transform: translateX(2px); }
+
+  /* Press settles the member rather than shrinking it. */
+  .sidebar-link:active { transform: translateX(2px) translateY(0.5px); }
+
+  /* ---- Header instruments ----------------------------------------------- */
+
+  .notification-button,
+  .account-trigger,
+  .sidebar-toggle {
+    transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 160ms ease;
+  }
+
+  .notification-button:active,
+  .account-trigger:active,
+  .sidebar-toggle:active {
+    /* Compression, not scaling: the control sinks into its seat. */
+    transform: translateY(1px);
+  }
+
+  .notification-button:hover,
+  .account-trigger:hover {
+    box-shadow: inset 0 0 0 1px var(--ui-line-strong);
+  }
+
+  /* ---- The command joint ------------------------------------------------ */
+
+  /*
+   * Square-shouldered and drawn, not a filled circle with a glyph. The ring is
+   * the joint's collar and the cross is setting-out notation; rotating the
+   * cross 45 degrees turns the same geometry into a close mark, so the control
+   * never swaps one symbol for an unrelated one.
+   */
+  .fab-button {
+    inline-size: 56px;
+    block-size: 56px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+
+    border: 1.5px solid var(--ui-ink);
+    border-radius: 6px;
+    background: var(--ui-surface);
+    color: var(--ui-ink-strong);
+    cursor: pointer;
+
+    box-shadow: 3px -3px 0 color-mix(in srgb, var(--ui-ink) 16%, transparent);
+    transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 160ms ease;
+  }
+
+  .fab-button svg {
+    inline-size: 26px;
+    block-size: 26px;
+    fill: none;
+    stroke: currentColor;
+  }
+
+  .fab-ring {
+    stroke-width: 1.25;
+    opacity: 0.45;
+  }
+
+  .fab-cross {
+    stroke-width: 1.75;
+    transform-origin: 50% 50%;
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .fab-button[aria-expanded="true"] .fab-cross { transform: rotate(45deg); }
+
+  .fab-button:hover {
+    box-shadow: 5px -5px 0 color-mix(in srgb, var(--ui-ink) 22%, transparent);
+    transform: translate(-1px, 1px);
+  }
+
+  /* Pressed, the joint seats fully: the offset shadow closes to nothing. */
+  .fab-button:active {
+    transform: translate(3px, -3px);
+    box-shadow: 0 0 0 color-mix(in srgb, var(--ui-ink) 16%, transparent);
+  }
+
+  .fab-button:focus-visible {
+    outline: var(--ui-focus-ring, 2px solid var(--ui-ink));
+    outline-offset: 3px;
+  }
+
+  /* The menu extends from the joint's own corner. */
+  .fab-menu {
+    transform-origin: 100% 100%;
+    gap: 6px;
+  }
+
+  /*
+   * Action plates, cut from the same stock as the joint: square shoulders, one
+   * hairline, the same offset shadow. The previous pills were filled white
+   * capsules with accent-blue labels and belonged to no part of this system.
+   */
+  .fab-menu a {
+    display: block;
+    min-inline-size: 148px;
+    padding: 10px 14px;
+
+    border: 1px solid var(--ui-line-strong);
+    border-radius: 4px;
+    background: var(--ui-surface);
+    box-shadow: 2px -2px 0 color-mix(in srgb, var(--ui-ink) 12%, transparent);
+
+    font-size: var(--ui-text-sm);
+    font-weight: var(--ui-weight-medium);
+    color: var(--ui-ink-strong);
+    text-align: end;
+    text-decoration: none;
+
+    transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 150ms ease, border-color 150ms ease;
+  }
+
+  .fab-menu a:hover,
+  .fab-menu a:focus-visible {
+    border-color: var(--ui-ink);
+    box-shadow: 4px -4px 0 color-mix(in srgb, var(--ui-ink) 18%, transparent);
+    transform: translate(-1px, 1px);
+  }
+
+  .fab-menu a:active {
+    transform: translate(2px, -2px);
+    box-shadow: 0 0 0 color-mix(in srgb, var(--ui-ink) 12%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-pages {
+    .sidebar-link,
+    .sidebar-link::before,
+    .notification-button,
+    .account-trigger,
+    .sidebar-toggle,
+    .fab-button,
+    .fab-cross,
+    .fab-menu a {
+      transition: none;
+    }
+
+    /* The states remain — only their travel goes. Selection is still a full
+     * rail, the joint still seats, the cross still marks closed. */
+    .sidebar-link:hover,
+    .sidebar-link:focus-visible,
+    .sidebar-link:active { transform: none; }
+  }
+}

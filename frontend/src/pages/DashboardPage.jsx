@@ -441,7 +441,16 @@ function DashboardPage({
    */
   useEffect(() => {
     document.body.classList.add("ui-world-page");
-    return () => document.body.classList.remove("ui-world-page");
+
+    /* The arrival marker is added on mount and never removed while the route
+     * lives, so the establishment plays once. Re-renders do not replay it:
+     * the animations are `both`-filled and keyed to the element, not to state. */
+    document.body.classList.add("ui-arrive");
+
+    return () => {
+      document.body.classList.remove("ui-world-page");
+      document.body.classList.remove("ui-arrive");
+    };
   }, []);
 
   return (
