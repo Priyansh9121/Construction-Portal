@@ -149,3 +149,78 @@ export function checkSiteScale(THREE, scene) {
   }
   return result;
 }
+
+/**
+ * Which baked material each glTF material maps to, and at what world scale.
+ *
+ * The GLB's materials arrive as flat factors named after the concept's own
+ * slots — which is exactly why M2 preserved those names. This table turns a
+ * name into a real surface.
+ *
+ * `scale` is the size of one texture tile in METRES, and it is the number that
+ * decides whether a material reads as concrete or as wallpaper. The swatches
+ * are baked at 4 m, so a scale of 4 reproduces the authored density; anything
+ * else deliberately stretches or tightens it.
+ *
+ * Metals and glass are absent on purpose. Galvanised steel and glazing are
+ * defined by how they REFLECT, not by an albedo map: they read from the PMREM
+ * environment, and painting a diffuse texture onto them would flatten exactly
+ * the response that makes them look metallic.
+ */
+export const SITE_SURFACES = {
+  conc: { tex: "conc", scale: 4.0 },
+  wet: { tex: "wet", scale: 4.0 },
+  earth: { tex: "earth", scale: 3.0 },
+  ply: { tex: "ply", scale: 2.2 },
+  city_warm: { tex: "city_warm", scale: 4.0 },
+  city_cool: { tex: "city_cool", scale: 4.0 },
+  /* The road. Asphalt aggregate is fine, so its tile is tighter than the
+   * building's — a 4 m asphalt tile reads as gravel. */
+  spandrel: { tex: "spandrel", scale: 2.6 },
+};
+
+const TEXTURE_BASE = "/world/textures/";
+
+/**
+ * Load the baked PBR maps.
+ *
+ * Never rejects and never blocks: a surface whose maps fail keeps the flat
+ * factor it already has, which is duller but completely correct. The form has
+ * no relationship with any of this.
+ */
+export function loadSurfaceMaps(THREE) {
+  const loader = new THREE.TextureLoader();
+  const cache = new Map();
+
+  const grab = (name, kind, srgb) => {
+    const key = `${name}-${kind}`;
+    if (cache.has(key)) return cache.get(key);
+    const ext = kind === "normal" ? "png" : "jpg";
+    const tex = loader.load(
+      `${TEXTURE_BASE}${key}.${ext}`,
+      undefined,
+      undefined,
+      () => console.warn(`[world] texture ${key} unavailable; keeping factor`),
+    );
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    /* COLOUR SPACE IS NOT COSMETIC. Albedo is sRGB; roughness and normal are
+     * DATA. Tagging a roughness map sRGB silently lightens it and no amount
+     * of material tuning recovers the surface. */
+    if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    cache.set(key, tex);
+    return tex;
+  };
+
+  const out = new Map();
+  for (const [slot, def] of Object.entries(SITE_SURFACES)) {
+    out.set(slot, {
+      map: grab(def.tex, "albedo", true),
+      roughnessMap: grab(def.tex, "roughness", false),
+      normalMap: grab(def.tex, "normal", false),
+      scale: def.scale,
+    });
+  }
+  return out;
+}

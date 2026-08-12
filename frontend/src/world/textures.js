@@ -299,7 +299,7 @@ function plywood(THREE, { size = 256, repeat = 2, seed = 51 } = {}) {
  * written as a new ShaderMaterial, so shadows, fog, tone mapping and the whole
  * standard lighting model keep working untouched.
  */
-function triplanar(material, scale = 0.35) {
+export function triplanar(material, scale = 0.35) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uTriScale = { value: scale };
 

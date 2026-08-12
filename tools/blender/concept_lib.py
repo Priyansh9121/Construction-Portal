@@ -250,7 +250,27 @@ def painted(name, color, rough=0.42, wear=0.35):
     mix.inputs["Color2"].default_value = srgb(0x4A4640)
     nt.links.new(ramp.outputs["Color"], mix.inputs["Fac"])
     nt.links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
-    bsdf.inputs["Roughness"].default_value = rough
+
+    # Roughness and relief from a finer noise. Without this the baked normal
+    # came out blank (4 KB of flat blue) and asphalt read as painted card.
+    fine = nt.nodes.new("ShaderNodeTexNoise")
+    fine.location = (-800, -260)
+    fine.inputs["Scale"].default_value = 42.0
+    fine.inputs["Detail"].default_value = 8.0
+    fine.inputs["Roughness"].default_value = 0.7
+    nt.links.new(mp.outputs["Vector"], fine.inputs["Vector"])
+    rr = nt.nodes.new("ShaderNodeMapRange")
+    rr.location = (-560, -260)
+    rr.inputs["To Min"].default_value = max(0.05, rough - 0.14)
+    rr.inputs["To Max"].default_value = min(1.0, rough + 0.14)
+    nt.links.new(fine.outputs["Fac"], rr.inputs["Value"])
+    nt.links.new(rr.outputs["Result"], bsdf.inputs["Roughness"])
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.location = (-320, -320)
+    bump.inputs["Strength"].default_value = 0.28
+    bump.inputs["Distance"].default_value = 0.012
+    nt.links.new(fine.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
     bsdf.inputs["Metallic"].default_value = 0.25
     return mat
 
@@ -328,6 +348,14 @@ def earth(name="earth", damp=0.25):
     return mat
 
 
+def _shift(hex_value, factor):
+    """Scale an sRGB hex toward black, for joints and tonal variation."""
+    r = min(255, int(((hex_value >> 16) & 255) * factor))
+    g = min(255, int(((hex_value >> 8) & 255) * factor))
+    b = min(255, int((hex_value & 255) * factor))
+    return (r << 16) | (g << 8) | b
+
+
 def city_facade(name="city", tint=0x6E7684, lit=0.0):
     """
     A context building's facade, as a SHADER rather than as geometry.
@@ -347,9 +375,15 @@ def city_facade(name="city", tint=0x6E7684, lit=0.0):
     brick.inputs["Bias"].default_value = 0.0
     brick.inputs["Brick Width"].default_value = 1.5
     brick.inputs["Row Height"].default_value = 0.62
-    brick.inputs["Color1"].default_value = srgb(0x2A3038)
-    brick.inputs["Color2"].default_value = srgb(0x343B45)
-    brick.inputs["Mortar"].default_value = srgb(tint)
+    # THE FIELD IS THE MASONRY; THE JOINT IS THE DARK LINE.
+    #
+    # This was inverted: the brick field carried a near-black and the MORTAR
+    # carried the light tint, so a whole neighbouring building baked out almost
+    # black and read as a hole in the street. Real masonry is mid-tone with a
+    # recessed joint reading darker.
+    brick.inputs["Color1"].default_value = srgb(tint)
+    brick.inputs["Color2"].default_value = srgb(_shift(tint, 0.88))
+    brick.inputs["Mortar"].default_value = srgb(_shift(tint, 0.62))
     nt.links.new(mp.outputs["Vector"], brick.inputs["Vector"])
     nt.links.new(brick.outputs["Color"], bsdf.inputs["Base Color"])
 
@@ -359,6 +393,15 @@ def city_facade(name="city", tint=0x6E7684, lit=0.0):
     r.inputs["To Max"].default_value = 0.7        # spandrel
     nt.links.new(brick.outputs["Fac"], r.inputs["Value"])
     nt.links.new(r.outputs["Result"], bsdf.inputs["Roughness"])
+
+    # The brick pattern also drives relief, so mortar joints sit BELOW the
+    # face. Kept shallow -- deep mortar reads as a dry-stone wall.
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.location = (-380, -320)
+    bump.inputs["Strength"].default_value = 0.35
+    bump.inputs["Distance"].default_value = 0.01
+    nt.links.new(brick.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
     if lit > 0:
         # A second, offset brick pattern decides WHICH rooms are lit, so the
@@ -697,8 +740,8 @@ def standard_materials(wear=0.5, lit=0.0):
         "screen": painted("screen", 0x2F6F8C, rough=0.62, wear=0.25),
         "spandrel": painted("spandrel", 0x3A4149, rough=0.4, wear=0.15),
         "glass": glass("glass"),
-        "city_warm": city_facade("city_warm", 0x7A6E62, lit=lit),
-        "city_cool": city_facade("city_cool", 0x5E6874, lit=lit),
+        "city_warm": city_facade("city_warm", 0xA89684, lit=lit),
+        "city_cool": city_facade("city_cool", 0x93A0AD, lit=lit),
         "earth": earth("earth"),
         "hiviz": painted("hiviz", 0xCBE034, rough=0.62, wear=0.1),
         "workwear": painted("workwear", 0x2C3540, rough=0.85, wear=0.1),
