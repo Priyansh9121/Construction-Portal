@@ -41,6 +41,28 @@ const BASE = "/world/assets/";
 export async function loadAssets(THREE, names, { signal } = {}) {
   const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
   const loader = new GLTFLoader();
+
+  /*
+   * Meshopt decoding.
+   *
+   * The assets ship meshopt-compressed: 334 kB of GLB becomes 82 kB, a 76%
+   * saving with no change to triangle count, normals or silhouette, because
+   * nothing is simplified — only the vertex streams are quantised and packed.
+   *
+   * The decoder is the one three already ships, so this costs no new
+   * dependency. It is loaded alongside the loader and both are inside the
+   * lazily-imported world chunk, so a route without the world pays for
+   * neither. If this import ever fails the loader reports the asset as
+   * unavailable and the procedural geometry stays — the same path as a 404.
+   */
+  try {
+    const { MeshoptDecoder } = await import(
+      "three/examples/jsm/libs/meshopt_decoder.module.js");
+    loader.setMeshoptDecoder(MeshoptDecoder);
+  } catch (err) {
+    console.warn("[world] meshopt decoder unavailable", err);
+  }
+
   const out = new Map();
 
   await Promise.all(names.map((name) => new Promise((resolve) => {
@@ -81,6 +103,7 @@ function extract(THREE, gltf) {
     /* Bake the node transform. Blender's exporter may nest the mesh under a
      * root node, and an un-baked transform would place every instance at the
      * origin of that node instead of at its placement. */
+    dequantize(THREE, geometry);
     geometry.applyMatrix4(o.matrixWorld);
     geometry.computeBoundingSphere();
     const materials = Array.isArray(o.material) ? o.material : [o.material];
@@ -88,6 +111,38 @@ function extract(THREE, gltf) {
   });
   if (!prims.length) throw new Error("no meshes in asset");
   return prims;
+}
+
+/**
+ * Widen quantised attributes to float BEFORE any transform is baked in.
+ *
+ * Meshopt-compressed assets arrive with positions and normals stored as
+ * NORMALIZED INTEGERS, with the scale that maps them back to metres carried on
+ * the node transform. `BufferGeometry.applyMatrix4` transforms the position
+ * attribute in place — so it computes correct float coordinates and then
+ * writes them straight back into an Int16Array, where they are truncated to
+ * the integer grid.
+ *
+ * The result is not subtle: the cabins rendered as flattened slivers. It was
+ * invisible in every number — file sizes fell 70%, triangle counts were
+ * unchanged, no warning was logged, frame time did not move — and only showed
+ * up by cropping the compound out of a screenshot and looking at it.
+ */
+function dequantize(THREE, geometry) {
+  for (const name of ["position", "normal", "tangent", "uv", "uv1"]) {
+    const attr = geometry.getAttribute(name);
+    if (!attr || attr.array instanceof Float32Array) continue;
+    const out = new Float32Array(attr.count * attr.itemSize);
+    /* Read through the accessor, which applies the normalization, rather than
+     * copying the raw integer array. */
+    for (let i = 0; i < attr.count; i += 1) {
+      out[i * attr.itemSize] = attr.getX(i);
+      if (attr.itemSize > 1) out[i * attr.itemSize + 1] = attr.getY(i);
+      if (attr.itemSize > 2) out[i * attr.itemSize + 2] = attr.getZ(i);
+      if (attr.itemSize > 3) out[i * attr.itemSize + 3] = attr.getW(i);
+    }
+    geometry.setAttribute(name, new THREE.BufferAttribute(out, attr.itemSize));
+  }
 }
 
 /**
