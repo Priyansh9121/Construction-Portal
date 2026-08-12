@@ -225,6 +225,60 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
+## VISUAL RESET — the Cycles diagnostic settles it
+
+`.screenshots/REJECTED-gamelike-baseline-1440.png` is the rejected browser
+baseline. `.screenshots/concepts/C-infill-day-hero-cycles.png` is Cycles at the
+IDENTICAL camera station.
+
+**Cycles also looks game-like.** Cleaner and better lit, but still flat cream
+walls, perfectly clean surfaces, uniform scaffold, an orange cube, no clutter,
+no people, and every line perfectly straight.
+
+By the rule set at the concept gate — if Cycles also looks fake, the problem is
+geometry/assets/materials/composition, not the renderer — this is conclusive:
+
+**The browser was never the ceiling. The runtime triplanar bake is not the
+problem. The world itself has no content and no material identity.**
+
+Four milestones of material and terrain work did not move this, because they
+were all improving the wrong layer.
+
+### The five causes of the game-like look, ranked
+
+1. **NO CONTENT.** The site is empty. No people, no machinery, no vehicles, no
+   clutter, no tools, no hoses, no offcuts, no bins. Real sites are dense with
+   evidence of work. This is the single largest cause and no material fixes it.
+2. **NO WEAR OR HISTORY.** Every surface is factory-new. No dirt runs, no
+   splashback at the base of walls, no tyre marks, no chipped arrises, no
+   staining under openings. Clean geometry reads as CAD regardless of texture.
+3. **MATERIALS HAVE NO IDENTITY.** Procedural noise is not a material.
+   `city_facade`'s "brick rhythm" is at ~3 m per course — invisible as brick,
+   reads as flat cream. Noise varies a colour; it does not make a surface
+   *be* something.
+4. **EVERYTHING IS PERFECTLY STRAIGHT AND ALIGNED.** No settlement, no
+   tolerance, no member out of true, no sag. Real construction has millimetres
+   of error everywhere and the eye reads its absence.
+5. **NO ATMOSPHERE BETWEEN CAMERA AND SUBJECT.** No haze, no dust in the air,
+   no depth falloff at 40 m. Everything is equally sharp, which never happens.
+
+### DELETE, do not improve
+
+- The `city_facade` brick shader — wrong scale, no identity. Replace with
+  real CC0 masonry PBR.
+- The procedural `earth`, `spandrel` (asphalt) and `painted` swatches —
+  noise-based, no material identity. Replace with CC0 sets.
+- The placeholder props: mast-climber cube, skip, stacks, cabin boxes.
+- The box workers.
+
+### KEEP
+
+Concrete's baked formwork/pour/staining maps are the one genuinely authored
+surface and are worth keeping. Triplanar projection is worth keeping — it
+solved UV stretching and seams and is not the cause of anything above.
+Everything in the engineering column: camera, GLB pipeline, meshopt, clock,
+sun/moon, fallbacks, accessibility.
+
 ## Open defects after M4
 
 **Ranked by how strongly each still says "computer-generated":**
@@ -240,7 +294,27 @@ showed up as 4 KB blank normal maps.
 5. Contact shadows are soft; objects could sit into the ground more firmly.
    (M9 evaluates AO/GTAO — do NOT pre-empt it.)
 
-## Next exact actions — M5: AUTHORED SITE CONTENT
+## Next exact actions — RESET R1: CONTENT AND WEAR, IN BLENDER
+
+Do NOT return to production until the BLENDER frame looks substantially more
+real. Judge in Cycles, at the street station, against the baseline above.
+
+1. **CC0 materials first.** Verify licence and availability at the time, then
+   source from Poly Haven / ambientCG: masonry, asphalt, compacted earth,
+   plywood. Wire them into `concept_lib` replacing the procedural swatches.
+   Keep the authored concrete.
+2. **Wear pass.** Splashback at wall bases, dirt runs under openings, tyre
+   tracks on the pad, chipped arrises. This is a MATERIAL-MASK problem, not a
+   geometry one.
+3. **Content pass.** Clutter is the largest single cause: hoses, offcuts,
+   bins, tool stacks, barriers, pallets scattered as a working site is, not as
+   a tidy diagram.
+4. **Then** people and machinery.
+5. Re-render Cycles. Compare against
+   `.screenshots/REJECTED-gamelike-baseline-1440.png`. Only export when the
+   Blender frame is clearly better.
+
+## SUPERSEDED — the old M5 plan
 
 The world now has real architecture, real ground and real surfaces, and
 nothing living in it. Site content is the loudest remaining tell.
