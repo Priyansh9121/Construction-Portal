@@ -52,6 +52,7 @@ const GPU_ARGS = [
 const VIEWS = [
   { name: "1440", w: 1440, h: 900, motion: "no-preference" },
   { name: "390", w: 390, h: 844, motion: "no-preference" },
+  { name: "390-narrow", w: 320, h: 568, motion: "no-preference" },
   { name: "1440-reduced", w: 1440, h: 900, motion: "reduce" },
 ];
 
@@ -86,13 +87,21 @@ for (const view of VIEWS) {
    * look like it was missing objects. 5s is comfortably past the swap. */
   await page.waitForTimeout(view.motion === "reduce" ? 5000 : 8000);
 
-  const renderer = await page.evaluate(() => {
+  const caps = await page.evaluate(async () => {
     const c = document.createElement("canvas");
-    const gl = c.getContext("webgl2") || c.getContext("webgl");
-    if (!gl) return "none";
+    const gl2 = c.getContext("webgl2");
+    const gl = gl2 || c.getContext("webgl");
+    if (!gl) return { renderer: "none", webgl2: false, webgpu: false };
     const ext = gl.getExtension("WEBGL_debug_renderer_info");
-    return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : "unknown";
+    let webgpu = false;
+    try { webgpu = !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch { /* none */ }
+    return {
+      renderer: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : "unknown",
+      webgl2: !!gl2, webgpu,
+      maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+    };
   });
+  const renderer = caps.renderer;
   const software = /swiftshader|llvmpipe|softpipe|basic render|software/i.test(renderer);
 
   /* Frame timing, sampled over a real second of animation. */
@@ -132,6 +141,7 @@ for (const view of VIEWS) {
 
   report.push({
     view: view.name, renderer: software ? `SOFTWARE (${renderer})` : renderer,
+    webgl2: caps.webgl2, webgpu: caps.webgpu, maxTexture: caps.maxTexture,
     ...perf,
     worldLive: layout.live,
     overflow: layout.docWidth - layout.winWidth,
@@ -148,6 +158,7 @@ for (const r of report) {
   console.log(`\n[${r.view}] ${r.renderer}${warn}`);
   console.log(`  fps ${r.fps}  p50 ${r.p50}ms  p95 ${r.p95}ms  p99 ${r.p99}ms  `
     + `heap ${r.heapMB ?? "n/a"}MB`);
+  console.log(`  webgl2 ${r.webgl2}  webgpu ${r.webgpu}  maxTex ${r.maxTexture}`);
   console.log(`  world live: ${r.worldLive}   overflow: ${r.overflow}px`);
   for (const w of r.warnings) console.log(`  ! ${w}`);
 }

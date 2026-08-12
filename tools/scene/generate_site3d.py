@@ -518,8 +518,93 @@ def site(seed):
         "workerAt": worker_at,
         "lights": lights(r, g),
         "cameras": cameras(g),
+        "journey": journey(g),
         "camerasPortrait": cameras_portrait(g),
     }
+
+
+def journey(g):
+    """
+    The wheel journey: authored places in the site, not distances from a model.
+
+    THE PROBLEM THIS SOLVES
+    -----------------------
+    The wheel used to scale the orbit radius. That is a zoom, and a zoom is the
+    single clearest statement a scene can make that it is a MODEL being
+    inspected rather than a place being moved through: the whole image scales
+    together, nothing passes anything else, and no relationship between objects
+    changes.
+
+    A journey between authored stations changes the camera's POSITION IN THE
+    WORLD. Foreground scaffold sweeps across the frame while distant massing
+    barely moves, objects occlude each other in a different order at every
+    station, and the crane lines up differently against the building. That
+    parallax is the evidence that this is a world.
+
+    STATIONS ARE SPHERICAL, NOT CARTESIAN
+    -------------------------------------
+    Each is a target to look at, a distance to stand back, a compass bearing
+    and an EYE HEIGHT. Elevation is solved from the eye height rather than
+    guessed, because "1.8 m off the ground" is a fact about standing on a site
+    and "-0.141 radians" is not. Getting that wrong is what produced the
+    earlier stations that floated above the building looking down.
+
+    Focal lengths are photographic. 24 mm only where the camera is genuinely
+    close and the wide angle is the point; 35 mm for the architectural views;
+    nothing wider than 24, because the game-camera 60-plus FOV is itself a
+    strong tell.
+    """
+    span_x = g["bays_x"] * g["bay"]
+    depth = g["bays_z"] * g["bay"]
+    top = g["storeys"] * g["storey"]
+    near = g["oz"] + depth
+
+    def fov(mm):
+        # Vertical FOV of a 36x24 frame, which is what "35 mm" means.
+        return round(math.degrees(2 * math.atan(12.0 / mm)), 2)
+
+    # name, target, radius, azimuth (rad, 0 = due +z / the near face), eye (m), mm
+    plan = [
+        ("entrance", [-4, 8, 12], 46, 0.55, 1.8, 24),
+        ("hoarding", [-4, 9, 12], 32, 0.20, 2.0, 28),
+        ("scaffold", [-12, 11, 13], 19, -0.35, 2.2, 28),
+        ("lift", [-20, 16, 4], 30, -1.05, 3.0, 35),
+        ("deck", [-6, 27, 2], 26, -0.55, 22.0, 35),
+        ("hoist", [12, 19, 16], 20, 0.30, 17.0, 28),
+        ("overview", [-2, 14, 2], 80, 0.75, 30.0, 35),
+    ]
+
+    out = []
+    for name, target, radius, az, eye, mm in plan:
+        # Solve the elevation that puts the eye at the intended height.
+        sin_el = max(-0.95, min(0.95, (eye - target[1]) / radius))
+        el = math.asin(sin_el)
+        cos_el = math.cos(el)
+        pos = [target[0] + math.sin(az) * cos_el * radius,
+               eye,
+               target[2] + math.cos(az) * cos_el * radius]
+
+        # The camera must never end up inside the frame it is photographing.
+        inside_plan = (abs(pos[0]) < span_x / 2 + 1 and abs(pos[2]) < depth / 2 + 1)
+        assert not inside_plan or pos[1] > top + 2, \
+            f"station {name} stands inside the structure at {pos}"
+        assert pos[1] > 1.2, f"station {name} has the camera underground at {pos}"
+        assert pos[2] < near + 70, f"station {name} is off the site at {pos}"
+
+        out.append({
+            "name": name,
+            "target": [r3(v) for v in target],
+            "radius": r3(radius),
+            "azimuth": round(az, 4),
+            "elevation": round(el, 4),
+            "fov": fov(mm),
+            "mm": mm,
+            "eye": r3(eye),
+            "pos": [r3(v) for v in pos],     # recorded for verification only
+        })
+
+    assert len(out) >= 5, "a journey needs somewhere to go"
+    return out
 
 
 def counts(s):
