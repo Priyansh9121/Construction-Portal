@@ -136,16 +136,63 @@ Conclusion: real-time lighting is a REAL part of the remaining gap and Three.js
 will lose more of it again -- but the larger remaining half is still material
 detail, prop quality and clutter. Do not expect a renderer change to fix it.
 
-## Next exact actions, in order — PRODUCTION MIGRATION MAY NOW BEGIN
+## M2 COMPLETE — commit d96b093
 
-M2 (next): export the Concept C architecture as production GLB.
-   - `tools/blender/concept_c.py` gains an `--export` path writing
-     `frontend/public/world/assets/` via the existing lib_build export.
-   - Split by layer: hero frame, neighbours, scaffold, street.
-   - Meshopt via the existing pipeline; PRESERVE the dequantisation fix.
-   - Do NOT rebuild C from JavaScript boxes.
+Concept C IS the production world. Four GLBs from the same scene that made the
+winning renders.
 
-Then M3 city/terrain, M4 materials, M5 people/machinery.
+| layer | tris | raw | meshopt |
+|---|---|---|---|
+| architecture | 17,500 | 700 KB | 266 KB |
+| neighbours | 3,340 | 153 KB | 44 KB |
+| scaffold | 3,936 | 210 KB | 83 KB |
+| street | 264 | 23 KB | 14 KB |
+| **total** | **25,040** | 1.39 MB | **405 KB** (65%) |
+
+Runtime: `frontend/src/world/loginSite.js` holds the layer list, the four
+camera stations converted from the concept's own cameras, and the scale check.
+`authWorld.js` loads the layers progressively; the old procedural path is
+behind `opts.procedural` for bisection only.
+
+Verified: scale 22.0 x 31.1 x 34.2 m (authored 22 x 34). All nine camera
+claims pass — 776 deg drag, eye moved 69 m X / 70 m Z, opposing sides, four
+stations, 187 deg bearing change. Rear lane credible, no fake backside.
+60.1-60.4 fps at 1440/390/320/reduced, p95 17.0-17.3 ms, zero overflow.
+101 a11y + responsive passing.
+
+### The finding that shapes M4
+
+**glTF cannot export Blender node trees.** Every procedural material — formwork
+lift lines, pour steps, run-off staining — exists only inside Blender. The
+format carries base colour, roughness and metallic as numbers or textures, and
+a node chain driving base colour exports as nothing: the first import rendered
+the site near-white.
+
+Production materials are baked to constants with names and slots preserved.
+M4 must restore the detail as REAL TEXTURE MAPS (albedo/roughness/normal),
+either baked from these node trees in Blender or sourced CC0. This is now the
+single largest visual gap.
+
+## Open defects after M2
+
+- Materials are flat constants; no surface detail at all. (M4)
+- Neighbour rear elevations facing the laneway are blank. (M3)
+- Skip, cabin, stacks and the mast-climber car are boxes. (M5)
+- Workers are box figures. (M5)
+- No crane or hoist — removed with the old site coordinates. (M5)
+- No terrain variation; ground is a flat plane. (M3)
+
+## Next exact actions — M3: CITY / TERRAIN
+
+1. Extend `concept_c.py` neighbours: cut window reveals on the LANEWAY
+   elevations too, not only the street side.
+2. Replace the flat ground plane with graded terrain: kerb transitions,
+   the site pad, haul/access wear, drainage fall.
+3. Widen the street terrace so the city continues past the frame edges at
+   every camera station, including under 360 orbit.
+4. Re-export, re-run `build_assets.sh`, capture, compare.
+
+Then M4 materials/textures, M5 people/machinery.
 
 ## Commands
 
