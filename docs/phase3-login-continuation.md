@@ -24,7 +24,7 @@ and names the PID — that is intended. Do not let it drift to 5174/5175.
 | `B-commercial-day-ground.png` | PASS — foreground stacks, workers, crane, frame above |
 | `B-commercial-day-rear.png` | PASS for 360 viability |
 | `C-infill-day-hero.png` | **STRONGEST FRAME SO FAR** — reads as a real site |
-| `C-infill-day-ground.png` | Rendered, NOT yet reviewed |
+| `C-infill-day-ground.png` | FAIL — abstract scaffold wall, no human, no ground |
 | `C-infill-day-rear.png` | PASS — plot reads as a gap in a terrace |
 
 ## What has been settled
@@ -74,9 +74,20 @@ construction site rather than a model of one. What did it:
 - **The plot is a GAP IN A TERRACE.** Most of the frame is other people's
   buildings, which is what an infill site actually looks like.
 
+## Open defects in Concept C
+
+- **The ground frame fails.** At 24 mm pressed against the scaffold it becomes
+  an abstract lattice: no person, no ground plane, no context. Dramatic and
+  meaningless -- the same failure the production Login had at its tight
+  station. Fix: back off to ~12 m on the opposite footpath at 35 mm, with a
+  worker and the site gate in frame.
+- Neighbour rear elevations facing the laneway are blank; the window reveals
+  are only on the street side.
+- Skip, cabin and stacks in the laneway are still boxes.
+
 ## Next exact actions, in order
 
-1. Review `C-infill-day-ground.png` (rendered, not yet inspected).
+1. Fix the C ground camera (above) and re-render.
 2. Build **A2** replacing the failed Concept A, using `concept_mesh.py`:
    podium + tower, offset core, transfer level, setback, screens at the
    working levels.
