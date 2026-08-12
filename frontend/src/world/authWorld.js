@@ -25,7 +25,10 @@
  */
 
 import SITE from "./siteGeometry.json";
+import CRANE from "./craneGeometry.json";
+import SCAFFOLD from "./scaffoldGeometry.json";
 import { createSky, TIMES } from "./sky";
+import { buildMaterialLibrary } from "./textures";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -49,10 +52,34 @@ const PALETTE = {
   work: 0xffb45c,
 };
 
+/*
+ * Renderers that report themselves as software rasterisers.
+ *
+ * A software-backed WebGL context works, and it runs this scene at about 6fps
+ * at 1440. Measured on the same machine: filling five form fields took 5,214ms
+ * under SwiftShader against 111ms on the GPU — a 47x slowdown that makes the
+ * whole page feel broken, and starved a registration test badly enough to
+ * exceed a 30-second budget.
+ *
+ * `failIfMajorPerformanceCaveat` does NOT catch this: ANGLE-over-SwiftShader
+ * declares no caveat. The renderer string is the only reliable signal.
+ */
+const SOFTWARE = /swiftshader|llvmpipe|softpipe|basic render|software/i;
+
 export const CAPABLE = () => {
   try {
     const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+    const gl = c.getContext("webgl2") || c.getContext("webgl");
+    if (!gl) return false;
+
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    if (info) {
+      const name = String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL) || "");
+      /* A device that can only software-render gets the authored still. That
+       * is the better experience, not a lesser one. */
+      if (SOFTWARE.test(name)) return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -67,75 +94,195 @@ export const CAPABLE = () => {
  * system's cycle length is deliberately coprime with the others so the site
  * never resets in unison.
  */
-class Machinery {
-  constructor(THREE, crane, grid) {
-    this.THREE = THREE;
-    this.c = crane;
-    this.grid = grid;
-    /* Periods chosen to share no small common factor: 47, 31, 23, 53. The
-     * site's total cycle is therefore ~19 hours, which is another way of
-     * saying the user will never see it repeat. */
-    this.T = { slew: 47, trolley: 31, hook: 23, hoist: 53 };
+/**
+ * ONE WORLD WIND.
+ *
+ * A single environmental state that every wind-affected system reads. Without
+ * it each element invents its own sine and the site stops behaving like one
+ * place — which is the difference between "several things are moving" and
+ * "it is breezy".
+ *
+ * Base direction plus slowly-varying gusts, on periods long enough that the
+ * user perceives weather rather than animation.
+ */
+class Wind {
+  constructor() {
+    this.dir = Math.PI * 0.32;      // from the west-south-west
+    this.speed = 0;
   }
 
-  /** A phase curve with holds at both ends: 0 → 1 → hold → 0 → hold. */
-  static phase(t, period, out = 0.28, hold = 0.22) {
-    const u = (t % period) / period;
-    if (u < out) return Machinery.ease(u / out);
-    if (u < out + hold) return 1;
-    if (u < out * 2 + hold) return 1 - Machinery.ease((u - out - hold) / out);
-    return 0;
+  update(t) {
+    /* Three incommensurate terms: a slow swell, a medium gust, and a fast
+     * flutter. Real wind is gusty, not sinusoidal. */
+    const swell = Math.sin(t / 37) * 0.5 + 0.5;
+    const gust = Math.sin(t / 11.3 + 1.7) * 0.5 + 0.5;
+    const flutter = Math.sin(t / 3.1) * 0.5 + 0.5;
+    this.speed = 0.28 + swell * 0.42 + gust * 0.22 + flutter * 0.08;
+    this.dir += Math.sin(t / 53) * 0.0006;
+    this.x = Math.sin(this.dir) * this.speed;
+    this.z = Math.cos(this.dir) * this.speed;
+  }
+}
+
+/**
+ * The crane, performing a JOB.
+ *
+ * Not a loop of phases: a task with a beginning and an end, driven by a state
+ * machine whose transitions are decided by whether the previous action has
+ * finished. That is what produces uneven timing — a real lift takes as long as
+ * it takes — and why the user never sees a cycle boundary.
+ *
+ * The suspended load is a DAMPED PENDULUM driven by the trolley's and slew's
+ * accelerations plus the world wind, integrated each frame. It is four lines
+ * of physics and it is the single thing that makes the load read as mass
+ * rather than as a box parented to a rail.
+ */
+class CraneTask {
+  constructor(range, drop) {
+    this.range = range;
+    this.dropRange = drop;
+
+    this.state = "rest";
+    this.t = 0;
+    this.hold = 6;
+
+    /* Actuator states: where each axis is, and where it has been told to go.
+     * Motion is always toward a target at a limited rate, never a lerp along a
+     * fixed duration, so acceleration and braking fall out naturally. */
+    this.slew = 0.35;
+    this.slewTo = 0.35;
+    this.trolley = range[0];
+    this.trolleyTo = range[0];
+    this.drop = drop[0];
+    this.dropTo = drop[0];
+
+    /* Pendulum state, in radians, about two axes. */
+    this.swingX = 0;
+    this.swingZ = 0;
+    this.velX = 0;
+    this.velZ = 0;
+    this.laden = false;
   }
 
-  static ease(x) {
-    return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
+  static approach(cur, target, rate, dt) {
+    const d = target - cur;
+    const step = Math.sign(d) * Math.min(Math.abs(d), rate * dt);
+    return cur + step;
   }
 
-  update(t, rig) {
-    const { slew, trolley, cable, load, swing, hoist } = rig;
-    const c = this.c;
-
-    /* The slew is the slowest thing on the site and never completes a circle:
-     * a crane serves an arc, it does not spin. */
-    const s = Machinery.phase(t, this.T.slew, 0.34, 0.18);
-    slew.rotation.y = 0.15 + s * 0.85;
-
-    const u = Machinery.phase(t, this.T.trolley, 0.26, 0.24);
-    trolley.position.x = c.trolley[0] + (c.trolley[1] - c.trolley[0]) * u;
-
-    /* The cable pays out while the trolley is stopped. Scaling the cylinder is
-     * what makes it read as cable rather than as a rod that grew. */
-    const drop = c.hook_drop[0] + (c.hook_drop[1] - c.hook_drop[0]) * Machinery.phase(t, this.T.hook, 0.3, 0.2);
-    cable.scale.y = drop;
-    cable.position.y = -drop / 2;
-    load.position.y = -drop;
-
-    /* Sway follows the trolley's VELOCITY, not its position, so the load
-     * trails when the machine accelerates and settles when it stops. That lag
-     * is the only reason it reads as mass. */
-    const dt = 0.016;
-    const vel = (Machinery.phase(t, this.T.trolley, 0.26, 0.24) -
-      Machinery.phase(t - dt, this.T.trolley, 0.26, 0.24)) / dt;
-    this.sway = (this.sway || 0) * 0.94 + vel * -0.55;
-    swing.rotation.z = this.sway;
-    swing.rotation.x = Math.sin(t / 17) * 0.02;
-
-    const h = Machinery.phase(t, this.T.hoist, 0.22, 0.3);
-    hoist.position.y = 4 + h * (this.grid.storeys * this.grid.storey - 9);
+  arrived(a, b, eps = 0.02) {
+    return Math.abs(a - b) < eps;
   }
 
-  /** The composed still: every system parked where it was designed to sit. */
-  rest(rig) {
-    const c = this.c;
-    rig.slew.rotation.y = 0.62;
-    rig.trolley.position.x = c.trolley[0] + (c.trolley[1] - c.trolley[0]) * 0.72;
-    const drop = c.hook_drop[0] + (c.hook_drop[1] - c.hook_drop[0]) * 0.55;
-    rig.cable.scale.y = drop;
-    rig.cable.position.y = -drop / 2;
-    rig.load.position.y = -drop;
-    rig.swing.rotation.z = 0.02;
-    rig.hoist.position.y = 4 + 0.45 * (this.grid.storeys * this.grid.storey - 9);
+  /** The job, as a sequence of intentions rather than a timeline. */
+  advance(dt) {
+    this.t += dt;
+    const R = this.range;
+    const D = this.dropRange;
+
+    switch (this.state) {
+      case "rest":
+        if (this.t > this.hold) this.go("to-pickup");
+        break;
+      case "to-pickup":
+        this.slewTo = 0.1;
+        this.trolleyTo = R[0] + (R[1] - R[0]) * 0.16;
+        if (this.arrived(this.slew, this.slewTo, 0.01) &&
+            this.arrived(this.trolley, this.trolleyTo, 0.3)) this.go("lower");
+        break;
+      case "lower":
+        this.dropTo = D[1];
+        if (this.arrived(this.drop, this.dropTo, 0.2)) this.go("hook-on", 2.4);
+        break;
+      case "hook-on":
+        /* Dwell while the load is slung. The crane is still; the load is not,
+         * because it is still settling from the descent. */
+        if (this.t > this.hold) { this.laden = true; this.go("lift"); }
+        break;
+      case "lift":
+        this.dropTo = D[0] + (D[1] - D[0]) * 0.25;
+        if (this.arrived(this.drop, this.dropTo, 0.3)) this.go("settle", 3.2);
+        break;
+      case "settle":
+        /* Wait for the pendulum to calm before slewing. A real operator does
+         * exactly this, and it is why cranes look slow. */
+        if (this.t > this.hold && Math.abs(this.velZ) < 0.06) this.go("to-place");
+        break;
+      case "to-place":
+        this.slewTo = 0.92;
+        this.trolleyTo = R[0] + (R[1] - R[0]) * 0.82;
+        if (this.arrived(this.slew, this.slewTo, 0.01) &&
+            this.arrived(this.trolley, this.trolleyTo, 0.3)) this.go("place");
+        break;
+      case "place":
+        this.dropTo = D[1] * 0.62;
+        if (this.arrived(this.drop, this.dropTo, 0.25)) this.go("release", 2.0);
+        break;
+      case "release":
+        if (this.t > this.hold) { this.laden = false; this.go("clear"); }
+        break;
+      case "clear":
+        this.dropTo = D[0];
+        if (this.arrived(this.drop, this.dropTo, 0.3)) this.go("return");
+        break;
+      case "return":
+        this.slewTo = 0.35;
+        this.trolleyTo = R[0] + (R[1] - R[0]) * 0.45;
+        if (this.arrived(this.slew, this.slewTo, 0.015) &&
+            this.arrived(this.trolley, this.trolleyTo, 0.4)) {
+          /* Rest length varies, so the job never repeats on a fixed beat. */
+          this.go("rest", 9 + (Math.sin(this.t) * 0.5 + 0.5) * 14);
+        }
+        break;
+      default:
+        this.state = "rest";
+    }
   }
+
+  go(state, hold = 5) {
+    this.state = state;
+    this.t = 0;
+    this.hold = hold;
+  }
+
+  update(dt, wind) {
+    this.advance(dt);
+
+    const prevTrolleyV = this.trolleyV || 0;
+    const prevSlewV = this.slewV || 0;
+
+    const nt = CraneTask.approach(this.trolley, this.trolleyTo, 2.6, dt);
+    const ns = CraneTask.approach(this.slew, this.slewTo, 0.055, dt);
+    this.trolleyV = (nt - this.trolley) / Math.max(dt, 1e-4);
+    this.slewV = (ns - this.slew) / Math.max(dt, 1e-4);
+    this.trolley = nt;
+    this.slew = ns;
+    this.drop = CraneTask.approach(this.drop, this.dropTo, 3.4, dt);
+
+    /* Damped pendulum. The rope length sets the natural frequency, so a long
+     * drop swings slowly and a short one quickly — which is correct, and is
+     * why this is integrated rather than keyframed. */
+    const L = Math.max(2, this.drop);
+    const w2 = 9.81 / L;
+    const damping = this.laden ? 0.55 : 0.95;
+
+    const accT = (this.trolleyV - prevTrolleyV) / Math.max(dt, 1e-4);
+    const accS = (this.slewV - prevSlewV) / Math.max(dt, 1e-4);
+    const windForce = this.laden ? 0.55 : 1.3;
+
+    this.velZ += (-w2 * this.swingZ - damping * this.velZ - accT * 0.055
+                  + wind.x * windForce * 0.045) * dt;
+    this.velX += (-w2 * this.swingX - damping * this.velX - accS * 2.2
+                  + wind.z * windForce * 0.045) * dt;
+    this.swingZ += this.velZ * dt;
+    this.swingX += this.velX * dt;
+  }
+}
+
+/** Cubic ease-in-out. The camera's only curve; a linear dolly reads as a
+ * machine moving rather than as an operator framing a shot. */
+function easeInOut(x) {
+  return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
 }
 
 /**
@@ -206,7 +353,7 @@ class CameraRig {
     this.dolly0 = (this.dolly0 || 0) + ((this.dollyTarget || 0) - (this.dolly0 || 0)) * 0.06;
 
     const k = reduced ? 1 : Math.min(1, (now - this.t0) / this.dur);
-    const e = Machinery.ease(k);
+    const e = easeInOut(k);
     this.pos.lerpVectors(this.from.pos, this.to.pos, e);
     this.look.lerpVectors(this.from.look, this.to.look, e);
     this.fov = this.from.fov + (this.to.fov - this.from.fov) * e;
@@ -241,93 +388,28 @@ class CameraRig {
   }
 }
 
-/**
- * A small tileable ground break-up, drawn once into a canvas.
- *
- * Value noise at three octaves plus a few darker patches. 256px, generated at
- * runtime in about a millisecond, no asset to download and nothing to license.
- * Its only job is to stop a 520-metre plane reading as one flat colour under a
- * moving sun.
- */
-function groundTexture(THREE) {
-  const S = 256;
-  const c = document.createElement("canvas");
-  c.width = S;
-  c.height = S;
-  const ctx = c.getContext("2d");
-  const img = ctx.createImageData(S, S);
-
-  let seed = 20260811;
-  const rand = () => {
-    seed = (1664525 * seed + 1013904223) & 0xffffffff;
-    return seed / 0xffffffff;
-  };
-  const grid = [];
-  for (let o = 0; o < 3; o += 1) {
-    const n = 4 << o;
-    const g = new Float32Array(n * n);
-    for (let i = 0; i < g.length; i += 1) g[i] = rand();
-    grid.push({ n, g });
-  }
-  const sample = ({ n, g }, x, y) => {
-    const fx = x * n;
-    const fy = y * n;
-    const x0 = Math.floor(fx) % n;
-    const y0 = Math.floor(fy) % n;
-    const x1 = (x0 + 1) % n;
-    const y1 = (y0 + 1) % n;
-    const tx = fx - Math.floor(fx);
-    const ty = fy - Math.floor(fy);
-    const sx = tx * tx * (3 - 2 * tx);
-    const sy = ty * ty * (3 - 2 * ty);
-    const a = g[y0 * n + x0] + (g[y0 * n + x1] - g[y0 * n + x0]) * sx;
-    const b = g[y1 * n + x0] + (g[y1 * n + x1] - g[y1 * n + x0]) * sx;
-    return a + (b - a) * sy;
-  };
-
-  for (let y = 0; y < S; y += 1) {
-    for (let x = 0; x < S; x += 1) {
-      const u = x / S;
-      const v = y / S;
-      let n = sample(grid[0], u, v) * 0.55 + sample(grid[1], u, v) * 0.3 +
-              sample(grid[2], u, v) * 0.15;
-      n = 0.62 + n * 0.5;
-      const i = (y * S + x) * 4;
-      img.data[i] = 255 * n * 0.86;
-      img.data[i + 1] = 255 * n * 0.82;
-      img.data[i + 2] = 255 * n * 0.74;
-      img.data[i + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(26, 26);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-function buildSite(THREE, scene, portrait) {
-  const mat = (color, o = {}) =>
-    new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.05, ...o });
-
+function buildSite(THREE, scene, portrait, MAT) {
+  /*
+   * Materials come from the PBR library, not from flat colours. Every surface
+   * that the camera can approach carries albedo variation, a roughness map and
+   * a normal map — the last of which is what stops a face reading as one
+   * uniform value under a moving sun.
+   */
   const M = {
-    concrete: mat(PALETTE.concreteWarm, { roughness: 0.94 }),
-    concreteCool: mat(PALETTE.concreteCool, { roughness: 0.9 }),
-    steel: mat(PALETTE.steel, { roughness: 0.55, metalness: 0.6 }),
-    plant: mat(PALETTE.plant, {
-      roughness: 0.4,
-      metalness: 0.5,
-      emissive: 0x5a2f06,
-      emissiveIntensity: 0.4,
+    concrete: MAT.concrete,
+    concreteCool: MAT.concreteAlt,
+    steel: MAT.galv,
+    plant: MAT.paint,
+    pour: new THREE.MeshStandardMaterial({
+      color: 0x7d55ff, roughness: 0.72, metalness: 0.05,
+      emissive: 0x2a1170, emissiveIntensity: 0.45,
     }),
-    pour: mat(PALETTE.pour, { roughness: 0.65, emissive: 0x2a1170, emissiveIntensity: 0.55 }),
-    /* Unlit-ish: distant massing takes almost no key light, so its value comes
-     * from the fog it sits in rather than from which way it faces. */
-    far: mat(PALETTE.far, { roughness: 1, metalness: 0, emissive: 0x2c3a49, emissiveIntensity: 0.55 }),
-    dark: mat(0x2c343d, { roughness: 0.95 }),
+    far: new THREE.MeshStandardMaterial({
+      color: PALETTE.far, roughness: 1, metalness: 0,
+      emissive: 0x2c3a49, emissiveIntensity: 0.55,
+    }),
+    dark: MAT.dark,
+    ply: MAT.ply,
   };
 
   const unit = new THREE.BoxGeometry(1, 1, 1);
@@ -356,13 +438,94 @@ function buildSite(THREE, scene, portrait) {
   add(F.slabs.filter((s) => s.k === "slab"), M.concrete);
   add(F.slabs.filter((s) => s.k === "slab-pour"), M.pour, false);
   add([F.core], M.concreteCool);
-  add(SITE.massing, M.far, false);
-  add(SITE.works, M.dark);
-  if (!portrait) {
-    add(SITE.scaffold.standards, M.steel);
-    add(SITE.scaffold.ledgers, M.steel, false);
-    add(SITE.scaffold.boards, M.dark, false);
-  }
+
+  /* Perimeter downstands: the horizontal band and shadow line that give each
+   * floor visible depth. A flat plate has neither. */
+  add(F.beams, M.concreteCool);
+
+  /* The construction zone. Falsework, deck formwork, starter bars and edge
+   * protection — the things that say this frame is being worked on rather than
+   * finished and empty. All instanced; the props alone are ~500 members in one
+   * draw call. */
+  add(F.props, MAT.galv, false);
+  add(F.forms, MAT.ply);
+  add(F.rebar, MAT.galv, false);
+  add(F.edge, MAT.galv, false);
+  /* Distant massing is where a phone saves its budget: it is atmosphere, and
+   * atmosphere survives having half of it removed. */
+  add(portrait ? SITE.massing.filter((_, i) => i % 2 === 0) : SITE.massing, M.far, false);
+  /* Site clusters, by material rather than by heap: hoarding and cabins in
+   * painted panel, timber stacks in plywood, everything else in steel. */
+  const worksOf = (...kinds) => SITE.works.filter((w) => kinds.includes(w.k));
+  add(worksOf("cabin", "gate", "sign", "barrier", "hoard"), M.dark);
+  add(worksOf("ply", "pallet"), MAT.ply);
+  add(worksOf("plant", "mast", "lamp", "rebar-stack"), MAT.galv);
+
+  /*
+   * HUMAN SCALE.
+   *
+   * Three figures, five boxes each. Not population — scale: a 3.6 m storey
+   * means nothing to the eye until something of known size stands beside it,
+   * and a site with nobody on it reads as abandoned. Hi-vis and a hard hat are
+   * all that need to register at these distances, and building them from boxes
+   * avoids the uncanny result of a poor animated character.
+   */
+  const hiviz = new THREE.MeshStandardMaterial({
+    color: 0xd8e83a, roughness: 0.72, metalness: 0,
+    emissive: 0x3a4208, emissiveIntensity: 0.35,
+  });
+  const workwear = new THREE.MeshStandardMaterial({ color: 0x2b3138, roughness: 0.9 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0x8a6a52, roughness: 0.85 });
+  const hat = new THREE.MeshStandardMaterial({ color: 0xf0f0ee, roughness: 0.55 });
+  const PEOPLE = { hiviz, "hiviz-dark": workwear, skin, hat };
+  Object.entries(PEOPLE).forEach(([kind, material]) => {
+    add((SITE.workers || []).filter((w) => w.k === kind), material);
+  });
+  /*
+   * The scaffold is HERO geometry: it stands closer to the lens than the
+   * building it serves, so it is the most closely inspected object in the
+   * shot. 512 members to real tube-and-fitting dimensions — standards on base
+   * plates and sole boards, ledgers at every lift, transoms at every standard,
+   * boarded working platforms with guard rails, mid rails and toe boards,
+   * facade bracing in a zig-zag and ledger bracing across the width, and ties
+   * back to the frame.
+   *
+   * Three draw calls: tube, plate, board. The rotated members need per-member
+   * quaternions, so this uses the same transform path as the crane lattice.
+   */
+  const scaffoldOf = (kind) => SCAFFOLD.members.filter((m) => m.k === kind);
+  const addRotated = (list, material, cast = true) => {
+    if (!list.length) return;
+    const mesh = new THREE.InstancedMesh(unit, material, list.length);
+    const e = new THREE.Euler();
+    list.forEach((b, i) => {
+      o.position.set(b.p[0], b.p[1], b.p[2]);
+      o.scale.set(b.s[0], b.s[1], b.s[2]);
+      if (b.r) {
+        e.set(b.r[0], b.r[1], b.r[2], "YXZ");
+        o.quaternion.setFromEuler(e);
+      } else {
+        o.quaternion.identity();
+      }
+      o.updateMatrix();
+      mesh.setMatrixAt(i, o.matrix);
+    });
+    mesh.castShadow = cast && !portrait;
+    mesh.receiveShadow = !portrait;
+    scene.add(mesh);
+  };
+
+  /*
+   * The scaffold ships on MOBILE TOO.
+   *
+   * It was excluded as a cost saving, back when it was four rectangles. It is
+   * now the best object in the shot and the one that proves depth at any
+   * viewport, so the phone keeps it and saves elsewhere: fewer background
+   * blocks, no shadows, half the pixel ratio.
+   */
+  addRotated(scaffoldOf("tube"), MAT.galv);
+  addRotated(scaffoldOf("plate"), MAT.galv, false);
+  addRotated(scaffoldOf("board"), MAT.ply);
 
   /*
    * The ground is where the scene stops being a model.
@@ -375,12 +538,7 @@ function buildSite(THREE, scene, portrait) {
    */
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(SITE.ground, SITE.ground, 1, 1),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.ground,
-      roughness: 0.97,
-      metalness: 0,
-      map: groundTexture(THREE),
-    })
+    MAT.ground
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = !portrait;
@@ -392,7 +550,7 @@ function buildSite(THREE, scene, portrait) {
   const g = SITE.frame.grid;
   const pad = new THREE.Mesh(
     new THREE.PlaneGeometry(g.bays_x * g.bay + 14, g.bays_z * g.bay + 14),
-    new THREE.MeshStandardMaterial({ color: 0x6f6f6c, roughness: 0.92 })
+    MAT.pad
   );
   pad.rotation.x = -Math.PI / 2;
   pad.position.set(0, 0.03, 0);
@@ -402,48 +560,101 @@ function buildSite(THREE, scene, portrait) {
   /* Haul road: compacted, darker, running across the site's near edge. */
   const road = new THREE.Mesh(
     new THREE.PlaneGeometry(SITE.ground * 0.7, 11),
-    new THREE.MeshStandardMaterial({ color: 0x40382e, roughness: 1 })
+    new THREE.MeshStandardMaterial({
+      color: 0x4a4136, roughness: 1,
+      map: MAT.ground.map, normalMap: MAT.ground.normalMap,
+    })
   );
   road.rotation.x = -Math.PI / 2;
   road.position.set(0, 0.02, g.oz + 34);
   road.receiveShadow = !portrait;
   scene.add(road);
 
-  /* ---- The crane, as an articulated rig ---- */
+  /* ---- The crane: real lattice steelwork ---------------------------------
+   *
+   * 374 members from generate_crane.py — four chords, ties at every section,
+   * K-bracing on all four faces, a tapering flat-top jib. Drawn as one
+   * InstancedMesh per section, so the whole machine is four draw calls.
+   *
+   * The previous crane was four boxes. A solid rectangular mast reads as a
+   * model OF a crane; the lattice is most of what the eye uses to identify one,
+   * and it was the single strongest reason the scene looked cheap.
+   */
   const C = SITE.crane;
   const rigRoot = new THREE.Group();
   rigRoot.position.set(C.base[0], 0, C.base[2]);
-  const mast = new THREE.Mesh(
-    new THREE.BoxGeometry(C.mast_w * 1.4, C.mast_h, C.mast_w * 1.4),
-    M.plant
-  );
-  mast.position.y = C.mast_h / 2;
-  mast.castShadow = !portrait;
-  rigRoot.add(mast);
+
+  /* Real steel: rough, properly metallic, and dark enough that the highlight
+   * does the work rather than the base colour. */
+  const painted = MAT.paint;
+  const galv = MAT.galv;
+
+  const memberGeom = new THREE.BoxGeometry(1, 1, 1);
+  const euler = new THREE.Euler();
+  const addMembers = (list, material, parent) => {
+    if (!list.length) return;
+    const m = new THREE.InstancedMesh(memberGeom, material, list.length);
+    list.forEach((b, i) => {
+      o.position.set(b.p[0], b.p[1], b.p[2]);
+      o.scale.set(b.s[0], b.s[1], b.s[2]);
+      if (b.r) {
+        euler.set(b.r[0], b.r[1], b.r[2], "YXZ");
+        o.quaternion.setFromEuler(euler);
+      } else {
+        o.quaternion.identity();
+      }
+      o.updateMatrix();
+      m.setMatrixAt(i, o.matrix);
+    });
+    m.castShadow = !portrait;
+    m.receiveShadow = !portrait;
+    parent.add(m);
+  };
+
+  addMembers(CRANE.mast, painted, rigRoot);
 
   const slew = new THREE.Group();
-  slew.position.y = C.mast_h;
   rigRoot.add(slew);
-  const jib = new THREE.Mesh(new THREE.BoxGeometry(C.jib, 0.85, 0.85), M.plant);
-  jib.position.set(C.jib / 2, 1.2, 0);
-  slew.add(jib);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(C.back, 0.85, 0.85), M.plant);
-  back.position.set(-C.back / 2, 1.2, 0);
-  slew.add(back);
-  const cwt = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.7, 2.2), M.dark);
-  cwt.position.set(-C.back, 1.2, 0);
-  slew.add(cwt);
+  addMembers(CRANE.jib, painted, slew);
+  addMembers(CRANE.back, painted, slew);
+
+  const BODY = { deck: galv, cab: galv, cwt: M.dark, pad: M.concreteCool };
+  CRANE.bodies.forEach((b) => {
+    const mesh = new THREE.Mesh(memberGeom, BODY[b.k] || galv);
+    mesh.position.set(b.p[0], b.p[1], b.p[2]);
+    mesh.scale.set(b.s[0], b.s[1], b.s[2]);
+    mesh.castShadow = !portrait;
+    mesh.receiveShadow = !portrait;
+    (b.k === "pad" ? rigRoot : slew).add(mesh);
+  });
 
   const trolley = new THREE.Group();
-  trolley.position.y = 1.2;
+  trolley.position.y = CRANE.trolley.y;
   slew.add(trolley);
-  trolley.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 1.0), M.plant));
+  const tb = CRANE.trolley.body;
+  trolley.add(new THREE.Mesh(new THREE.BoxGeometry(tb[0], tb[1], tb[2]), galv));
+
   const swing = new THREE.Group();
   trolley.add(swing);
-  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 5), M.steel);
+  /* Two falls of rope, not one rod: a hook block hangs on a reeved cable. */
+  const cable = new THREE.Group();
+  const ropeGeom = new THREE.CylinderGeometry(0.035, 0.035, 1, 5);
+  const ropeA = new THREE.Mesh(ropeGeom, galv);
+  const ropeB = new THREE.Mesh(ropeGeom, galv);
+  ropeA.position.x = -0.16;
+  ropeB.position.x = 0.16;
+  cable.add(ropeA, ropeB);
   swing.add(cable);
-  const load = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 1.7), M.dark);
-  load.castShadow = !portrait;
+
+  const hb = CRANE.hook.block;
+  const load = new THREE.Group();
+  const block = new THREE.Mesh(new THREE.BoxGeometry(hb[0], hb[1], hb[2]), galv);
+  load.add(block);
+  /* A slung load: a banded pallet of material, not a floating cube. */
+  const pallet = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.75, 1.5), M.dark);
+  pallet.position.y = -1.25;
+  pallet.castShadow = !portrait;
+  load.add(pallet);
   swing.add(load);
   scene.add(rigRoot);
 
@@ -521,7 +732,20 @@ export async function createAuthWorld(canvas, opts = {}) {
     canvas,
     antialias: !portrait,
     powerPreference: "high-performance",
-    failIfMajorPerformanceCaveat: false,
+    /*
+     * REFUSE a software-rendered context.
+     *
+     * When the GPU is unavailable the browser will happily give back a WebGL
+     * context backed by a software rasteriser. It works, and it runs this
+     * scene at about 6fps at 1440 — measured. That is worse than no world at
+     * all, and it starved the auth routes badly enough to time a registration
+     * test out under parallel workers.
+     *
+     * Refusing the context means `createAuthWorld` throws, the caller keeps
+     * its authored SVG still, and the form is untouched. A weak device gets
+     * the composed scene rather than a stuttering one.
+     */
+    failIfMajorPerformanceCaveat: true,
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, portrait ? 1.5 : 2));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
@@ -545,9 +769,47 @@ export async function createAuthWorld(canvas, opts = {}) {
   );
 
   const sky = createSky(THREE, scene, time);
-  const rigParts = buildSite(THREE, scene, portrait);
+
+  /*
+   * THE PRESENTATION BRIDGE.
+   *
+   * The world publishes its lighting state as CSS custom properties on the
+   * document root, so the DOM form can be lit by the same sun as the concrete
+   * behind it. Written imperatively at a low rate — the values change over
+   * minutes, not frames — so React never re-renders for this and the style
+   * recalculation is one element's inline properties.
+   *
+   * Presentation only. No business state crosses this bridge in either
+   * direction.
+   */
+  const hex = (c) => `#${c.getHexString()}`;
+  const root = document.documentElement;
+  const publishLight = () => {
+    const s = sky.material.uniforms;
+    root.style.setProperty("--auth-world-key", `#${new THREE.Color(preset.key).getHexString()}`);
+    root.style.setProperty("--auth-world-fill", `#${new THREE.Color(preset.fill).getHexString()}`);
+    root.style.setProperty("--auth-world-horizon", hex(s.uHorizon.value));
+    root.style.setProperty("--auth-world-zenith", hex(s.uZenith.value));
+    root.style.setProperty("--auth-world-sun", hex(s.uSunTint.value));
+    /* Which side of the form the sun is on, as a signed number the CSS can
+     * use to place the warm edge without knowing any geometry. */
+    root.style.setProperty("--auth-world-sun-x", s.uSun.value.x.toFixed(3));
+  };
+  publishLight();
+  const MAT = buildMaterialLibrary(THREE);
+  const rigParts = buildSite(THREE, scene, portrait, MAT);
   const lights = buildLights(THREE, scene, portrait, preset, sky.sun);
-  const machinery = new Machinery(THREE, SITE.crane, SITE.frame.grid);
+  /* Travel ranges come from the crane ASSET, so the trolley can never run off
+   * the end of a jib whose length the generator changed. */
+  const wind = new Wind();
+  const task = new CraneTask(CRANE.trolley.range, CRANE.hook.drop);
+
+  /* The hoist stops AT landings, dwells, and departs later — it does not
+   * shuttle. Levels are the frame's own storeys, so it can only ever stop
+   * where a floor exists. */
+  const storey = SITE.frame.grid.storey;
+  const topFloor = SITE.frame.grid.storeys - 1;
+  const hoistState = { y: storey, to: storey * 4, wait: 0, floor: 4 };
   const stations = portrait ? SITE.camerasPortrait : SITE.cameras;
   const rig = new CameraRig(THREE, cam, stations);
 
@@ -557,7 +819,20 @@ export async function createAuthWorld(canvas, opts = {}) {
   let paused = false;
 
   rig.fly("station", reduced ? 0 : 5400, performance.now());
-  if (reduced) machinery.rest(rigParts);
+  if (reduced) {
+    /* The composed still: the load slung mid-lift, the hoist at a landing. */
+    task.trolley = CRANE.trolley.range[0] +
+      (CRANE.trolley.range[1] - CRANE.trolley.range[0]) * 0.62;
+    task.drop = CRANE.hook.drop[0] + (CRANE.hook.drop[1] - CRANE.hook.drop[0]) * 0.4;
+    task.slew = 0.55;
+    rigParts.slew.rotation.y = 0.15 + task.slew * 0.85;
+    rigParts.trolley.position.x = task.trolley;
+    rigParts.cable.scale.y = task.drop;
+    rigParts.cable.position.y = -task.drop / 2;
+    rigParts.load.position.y = -task.drop;
+    rigParts.swing.rotation.z = 0.03;
+    rigParts.hoist.position.y = storey * 4;
+  }
 
   const onPointer = (e) => {
     rig.point(
@@ -594,15 +869,69 @@ export async function createAuthWorld(canvas, opts = {}) {
   };
 
   let elapsed = 0;
+  let lastPublish = 0;
+
+  let lastFrame = performance.now();
 
   function loop(now) {
     if (!alive || paused) return;
+    /* Clamped so a backgrounded tab returning does not integrate the pendulum
+     * through a two-second step and fling the load. */
+    const dt = Math.min(0.05, Math.max(0.001, (now - lastFrame) / 1000));
+    lastFrame = now;
     elapsed = (now - started) / 1000;
     if (!reduced) {
-      machinery.update(elapsed, rigParts);
+      wind.update(elapsed);
+      task.update(dt, wind);
+
+      rigParts.slew.rotation.y = 0.15 + task.slew * 0.85;
+      rigParts.trolley.position.x = task.trolley;
+      rigParts.cable.scale.y = task.drop;
+      rigParts.cable.position.y = -task.drop / 2;
+      rigParts.load.position.y = -task.drop;
+      rigParts.swing.rotation.z = task.swingZ;
+      rigParts.swing.rotation.x = task.swingX;
+      rigParts.load.visible = true;
+
+      /* Hoist: travel, decelerate into the landing, dwell, depart. */
+      if (hoistState.wait > 0) {
+        hoistState.wait -= dt;
+        if (hoistState.wait <= 0) {
+          const next = Math.max(1, Math.min(topFloor,
+            hoistState.floor + (Math.random() < 0.5 ? -3 : 3)));
+          hoistState.floor = next;
+          hoistState.to = storey * next;
+        }
+      } else {
+        const d = hoistState.to - hoistState.y;
+        const speed = Math.min(2.2, Math.max(0.35, Math.abs(d) * 0.55));
+        hoistState.y += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+        if (Math.abs(d) < 0.05) hoistState.wait = 5 + Math.random() * 9;
+      }
+      rigParts.hoist.position.y = hoistState.y;
+
+      /* A read-only probe for verification harnesses. Written on the canvas
+       * rather than through React so it costs one property write and cannot
+       * influence rendering. */
+      canvas.__probe = {
+        state: task.state,
+        slew: +task.slew.toFixed(3),
+        trolley: +task.trolley.toFixed(2),
+        drop: +task.drop.toFixed(2),
+        swing: +task.swingZ.toFixed(4),
+        laden: task.laden,
+        hoist: +hoistState.y.toFixed(2),
+        wind: +wind.speed.toFixed(3),
+      };
       /* The sun moves and the key light moves with it: shadows swing across
        * the concrete over minutes rather than seconds. */
       sky.advance(elapsed, lights.key);
+      /* Republish at ~2 Hz: the sun moves over minutes, so a per-frame write
+       * would be 60x the cost for no visible difference. */
+      if (elapsed - (lastPublish || 0) > 0.5) {
+        lastPublish = elapsed;
+        publishLight();
+      }
       /* Lamps breathe very slightly, out of step with each other. */
       lights.lamps.forEach((l, i) => {
         l.light.intensity = l.base * (0.94 + 0.06 * Math.sin(elapsed * 0.35 + i * 1.7));
@@ -631,10 +960,40 @@ export async function createAuthWorld(canvas, opts = {}) {
   return {
     reduced,
     portrait,
-    /** Micro-spatial responses. Field focus is not a camera flight. */
+    /**
+     * Micro-spatial responses. Field focus is not a camera flight.
+     *
+     * Each field gets a DISTINCT response, because repeating one animation for
+     * every focus teaches the user that nothing specific happened. The email
+     * station settles the shot; the password station pushes fractionally
+     * closer; leaving both returns to the working station.
+     */
     focus(which) {
       if (reduced || !alive) return;
-      rig.fly(which === "password" ? "focus" : "station", 900, performance.now());
+      const now = performance.now();
+      if (which === "password") rig.fly("focus", 850, now);
+      else if (which === "email") rig.fly("station", 750, now);
+      else rig.fly("station", 1100, now);
+    },
+
+    /**
+     * The Sign In press, before authentication resolves.
+     *
+     * The world TIGHTENS: the work lamps come up and the camera holds. It does
+     * not depart — nothing here anticipates success, because the request has
+     * not been answered yet. `relax()` puts it back, which is what a failed
+     * sign-in calls.
+     */
+    arm() {
+      if (!alive) return;
+      lights.lamps.forEach((l) => { l.light.intensity = l.base * 1.45; });
+      if (!reduced) rig.fly("focus", 420, performance.now());
+    },
+
+    relax() {
+      if (!alive) return;
+      lights.lamps.forEach((l) => { l.light.intensity = l.base; });
+      if (!reduced) rig.fly("station", 900, performance.now());
     },
     /*
      * The cinematic handover into the destination is the next phase's work.

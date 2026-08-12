@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 const require = createRequire("/Users/priyanshranpura/construction-portal/frontend/package.json");
 const { chromium } = require("@playwright/test");
-const b = await chromium.launch();
+const b = await chromium.launch({args:["--use-gl=angle","--enable-gpu","--ignore-gpu-blocklist"]});
 for (const time of ["dawn","dusk","day"]) {
   const c = await b.newContext({viewport:{width:1440,height:900}});
   const p = await c.newPage();
