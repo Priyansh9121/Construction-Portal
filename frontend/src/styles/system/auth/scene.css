@@ -572,3 +572,180 @@
     .auth-world { transition-duration: 160ms; }
   }
 }
+
+/*
+ * ===========================================================================
+ * THE CONTROL STATION
+ * ===========================================================================
+ * The form is DOM — real inputs, real focus, real autofill, real screen-reader
+ * output. What changes here is that it stops reading as a dark rectangle laid
+ * over a photograph and starts reading as an instrument standing in the scene.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY AN ENCLOSURE
+ * ─────────────────────────────────────────────────────────────────────────
+ * A single plane with a border has one edge, and one edge cannot describe
+ * depth: it is a cut-out. A physical instrument has an outer frame, a recess,
+ * and a control plane seated inside it — three edges at three depths, which is
+ * what the eye reads as an object rather than a shape.
+ *
+ * The enclosure is deliberately quiet. The form is still the first thing seen;
+ * the frame exists only to give it somewhere to be.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * LIT BY THE SAME SUN
+ * ─────────────────────────────────────────────────────────────────────────
+ * `--auth-world-*` are published by the world controller at about 2 Hz from
+ * the live sky and sun. The station takes its warm edge from the sun's own
+ * colour and its cool edge from the sky's, so when the sun moves the panel's
+ * highlight moves with it. That single fact is most of what stops two layers
+ * looking like two layers.
+ *
+ * Fallbacks are the pre-world values, so the composition is correct before the
+ * WebGL layer exists and stays correct if it never does.
+ */
+@layer system-pages {
+  .auth-scene__content:has(.auth-card) {
+    --station-sun: var(--auth-world-sun, #ffb98a);
+    --station-sky: var(--auth-world-fill, #5b82c4);
+  }
+
+  /* ---- The outer frame -------------------------------------------------- */
+
+  .auth-card {
+    position: relative;
+
+    /* The recess: the control plane sits inside a frame rather than on top of
+     * the scene. 10px of visible frame on every side. */
+    padding: calc(var(--ui-space-6) + 10px) calc(var(--ui-space-5) + 10px);
+  }
+
+  .auth-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+
+    /*
+     * The frame's own material: a steel section catching the sun on one side
+     * and the sky on the other. The gradient angle is fixed because the sun's
+     * screen-side does not change within a station.
+     */
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--station-sun) 22%, transparent),
+      transparent 38% 62%,
+      color-mix(in srgb, var(--station-sky) 26%, transparent)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    padding: 1px;
+    transition: background 600ms linear;
+  }
+
+  /* ---- The control plane ------------------------------------------------ */
+
+  .auth-card::after {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border-radius: calc(var(--ui-radius-container) - 6px);
+    pointer-events: none;
+    z-index: -1;
+
+    background: var(--auth-plane);
+
+    /* Seated, not floating: a hairline lit edge at the top where the sky falls
+     * on it, and a contact shadow below where it meets its own frame. */
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--station-sky) 30%, transparent),
+      inset 0 -1px 0 rgb(0 0 0 / 0.45),
+      0 2px 6px -1px rgb(0 0 0 / 0.55);
+  }
+
+  /* The plane provides the fill now, so the section itself carries only the
+   * frame and its cast shadow. */
+  .auth-card {
+    background: transparent;
+    border-color: color-mix(in srgb, var(--station-sky) 18%, var(--auth-edge));
+  }
+
+  /* ---- Mounting detail --------------------------------------------------- */
+
+  /*
+   * Four fixings, one per corner of the recess. This is the smallest possible
+   * amount of hardware that reads as "this panel is bolted to something", and
+   * it is the detail that stops the frame looking like a second border.
+   */
+  .auth-card-head::before,
+  .auth-card-head::after,
+  .auth-links::before,
+  .auth-links::after {
+    content: "";
+    position: absolute;
+    inline-size: 3px;
+    block-size: 3px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--station-sky) 55%, transparent);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+  }
+
+  .auth-card-head { position: relative; }
+  .auth-card-head::before { inset-block-start: -12px; inset-inline-start: -12px; }
+  .auth-card-head::after { inset-block-start: -12px; inset-inline-end: -12px; }
+
+  .auth-links { position: relative; }
+  .auth-links::before { inset-block-end: -12px; inset-inline-start: -12px; }
+  .auth-links::after { inset-block-end: -12px; inset-inline-end: -12px; }
+
+  /* ---- Focus response ---------------------------------------------------- */
+
+  /*
+   * The station resolves forward when a field is being used. 2px and a
+   * fractionally brighter frame — enough to register as the instrument
+   * becoming live, small enough that nothing appears to jump.
+   */
+  .auth-card { transition: transform 420ms cubic-bezier(0.23, 1, 0.32, 1); }
+
+  .auth-card:has(:focus-visible),
+  .auth-card:focus-within { transform: translateY(-2px); }
+
+  .auth-card:focus-within::before {
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--station-sun) 34%, transparent),
+      transparent 36% 64%,
+      color-mix(in srgb, var(--station-sky) 38%, transparent)
+    );
+  }
+
+  /* ---- Field density ----------------------------------------------------- */
+
+  @media (max-width: 48rem) {
+    /* The enclosure simplifies rather than shrinking: the recess narrows and
+     * the fixings go, because a 3px detail at arm's length is noise. */
+    .auth-card { padding: calc(var(--ui-space-5) + 6px) calc(var(--ui-space-4) + 6px); }
+    .auth-card::after { inset: 6px; }
+    .auth-card-head::before,
+    .auth-card-head::after,
+    .auth-links::before,
+    .auth-links::after { display: none; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @layer system-pages {
+    /* The station keeps its depth, lighting and focus states; only the
+     * settle-forward travel goes. */
+    .auth-card { transition: none; }
+    .auth-card:has(:focus-visible),
+    .auth-card:focus-within { transform: none; }
+  }
+}

@@ -28,6 +28,7 @@
 
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { worldFocus, worldArm, worldRelax } from "../components/auth/authWorldSignal";
 
 import AuthShell, { AuthLink } from "../components/auth/AuthShell";
 import { describeDestination } from "../utils/authDestinations";
@@ -82,6 +83,10 @@ function LoginPage({
       setSubmitting(true);
       setLocalError("");
 
+      /* The world tightens while the request is in flight. It does NOT depart:
+       * nothing may anticipate success before the server has answered. */
+      worldArm();
+
       // Keep the controlled email normalised.
       setEmail(cleanEmail);
 
@@ -99,6 +104,9 @@ function LoginPage({
       );
     } finally {
       setSubmitting(false);
+      /* Resolved without leaving — a failed or rejected attempt puts the world
+       * back. A successful sign-in navigates away before this matters. */
+      worldRelax();
     }
   };
 
@@ -204,6 +212,10 @@ function LoginPage({
             className="field"
             id="login-email"
             name="email"
+            /* Presentation only: the world settles its shot toward the
+             * control station. Dispatching an event rather than calling the
+             * world keeps the form working identically when there is none. */
+            onFocus={() => worldFocus("email")}
             type="email"
             autoComplete="email"
             value={email}
@@ -242,6 +254,7 @@ function LoginPage({
             <input
               className="field"
               id="login-password"
+              onFocus={() => worldFocus("password")}
               name="password"
               type={
                 showPassword

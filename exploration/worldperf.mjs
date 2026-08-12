@@ -1,7 +1,9 @@
 import { createRequire } from "node:module";
 const require = createRequire("/Users/priyanshranpura/construction-portal/frontend/package.json");
 const { chromium } = require("@playwright/test");
-const b = await chromium.launch();
+// GPU flags. Without them headless Chromium falls back to SwiftShader and
+// measures software rasterisation, not the experience any user gets.
+const b = await chromium.launch({ args: ["--use-gl=angle","--enable-gpu","--ignore-gpu-blocklist"] });
 for (const [w,h,tag,rm] of [[1440,900,"1440",0],[390,844,"390",0],[1440,900,"1440",1]]) {
   const c = await b.newContext({viewport:{width:w,height:h}, reducedMotion: rm?"reduce":"no-preference"});
   const p = await c.newPage();

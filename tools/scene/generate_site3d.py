@@ -63,16 +63,31 @@ def frame(r):
     """
     The building under construction.
 
-    A real frame is a GRID: columns on a regular bay, slabs at a constant
-    storey height, a stair/lift core running the full height, and a top storey
-    that is only partly poured because that is where the work is. Irregular
-    storeys read as a mistake to anyone who has stood on a site.
+    ARCHETYPE, encoded rather than implied: a mid-rise reinforced-concrete
+    commercial frame during its structural cycle. Everything below follows from
+    that one decision — 7.2 m bays, 3.6 m floor-to-floor, 600 mm columns, a
+    300 mm flat slab with 600 mm perimeter downstands, a lift/stair core, and a
+    three-level construction zone at the top where the work actually is.
+
+    The floors are NOT identical, because a real frame under construction never
+    is. Reading up the building:
+
+        completed          struck, edge protection only
+        recently struck    props still in place, back-propping the new pour
+        formwork level     plywood deck, falsework beneath, no slab yet
+        active pour        partial slab, starter bars, open perimeter
+
+    That vertical story is most of what separates "a building being built" from
+    "an empty structural model".
     """
     bays_x, bays_z = 6, 4
     bay, storey = 7.2, 3.6
     storeys = r.i(9, 11)
     col = 0.62
+    slab_t = 0.3
+    downstand = 0.62
     ox, oz = -bays_x * bay / 2, -bays_z * bay / 2
+    W, D = bays_x * bay, bays_z * bay
 
     out = []
     for i in range(bays_x + 1):
@@ -81,18 +96,79 @@ def frame(r):
             out.append(box(ox + i * bay, h / 2, oz + j * bay, col, h, col, "column"))
 
     slabs = []
-    for s in range(1, storeys + 1):
-        y = s * storey
-        full = s < storeys
-        w = bays_x * bay if full else bays_x * bay * r.f(0.42, 0.64)
-        slabs.append(box(ox + w / 2, y, 0, w, 0.34, bays_z * bay,
+    beams = []
+    for s_i in range(1, storeys + 1):
+        y = s_i * storey
+        full = s_i < storeys
+        w = W if full else W * r.f(0.42, 0.64)
+        slabs.append(box(ox + w / 2, y, 0, w, slab_t, D,
                          "slab" if full else "slab-pour"))
+
+        # Perimeter downstand beams. These are what give a floor its visible
+        # depth and the shadow line beneath it; a flat plate has neither.
+        if full:
+            beams.append(box(ox + w / 2, y - downstand / 2, oz, w, downstand, 0.42, "beam"))
+            beams.append(box(ox + w / 2, y - downstand / 2, oz + D, w, downstand, 0.42, "beam"))
+            beams.append(box(ox, y - downstand / 2, 0, 0.42, downstand, D, "beam"))
+            beams.append(box(ox + W, y - downstand / 2, 0, 0.42, downstand, D, "beam"))
 
     core = box(ox + 2 * bay, storeys * storey / 2 + 2, oz + 2 * bay,
                bay * 1.05, storeys * storey + 4, bay * 1.05, "core")
 
+    # ---- The construction zone -------------------------------------------
+    #
+    # Falsework beneath the two most recent pours, on a 1.8 m grid — the props
+    # a slab is actually left standing on while it gains strength. Instanced,
+    # so a few hundred cost one draw call.
+    props = []
+    for level in (storeys - 1, storeys):
+        y0 = (level - 1) * storey
+        x = ox + 1.2
+        while x < ox + W - 1.2:
+            z = oz + 1.2
+            while z < oz + D - 1.2:
+                props.append(box(x, y0 + (storey - slab_t) / 2, z,
+                                 0.09, storey - slab_t, 0.09, "prop"))
+                z += 1.8
+            x += 1.8
+
+    # Plywood deck formwork on the level currently being formed, with the
+    # soldier beams that carry it.
+    deck_y = storeys * storey - slab_t
+    forms = [box(ox + W * 0.55 / 2, deck_y, 0, W * 0.55, 0.05, D, "ply")]
+    for i in range(9):
+        forms.append(box(ox + W * 0.55 / 2, deck_y - 0.16, oz + i * (D / 8),
+                         W * 0.55, 0.22, 0.14, "ply"))
+
+    # Column starter bars projecting through the active pour: the reinforcement
+    # the next lift will be cast around. Four per column, restrained.
+    rebar = []
+    for i in range(bays_x + 1):
+        for j in range(bays_z + 1):
+            cx = ox + i * bay
+            cz = oz + j * bay
+            if cx > ox + W * 0.6:
+                continue
+            for dx, dz in ((-0.2, -0.2), (0.2, -0.2), (0.2, 0.2), (-0.2, 0.2)):
+                rebar.append(box(cx + dx, storeys * storey + 0.55, cz + dz,
+                                 0.028, 1.1, 0.028, "rebar"))
+
+    # Edge protection on struck floors: the guard rail every open slab edge
+    # legally carries, and a strong horizontal cue at every level.
+    edge = []
+    for s_i in range(1, storeys):
+        y = s_i * storey
+        for h_off in (0.5, 1.05):
+            edge.append(box(ox + W / 2, y + h_off, oz + D, W, 0.05, 0.05, "rail"))
+        for k in range(int(W / 2.4) + 1):
+            edge.append(box(ox + k * 2.4, y + 0.55, oz + D, 0.06, 1.1, 0.06, "rail"))
+
     assert any(s["k"] == "slab-pour" for s in slabs), "no storey under construction"
-    return {"columns": out, "slabs": slabs, "core": core,
+    assert len(props) > 80, "falsework too sparse to read"
+    assert len(beams) > 20, "no perimeter downstands"
+
+    return {"columns": out, "slabs": slabs, "beams": beams, "core": core,
+            "props": props, "forms": forms, "rebar": rebar, "edge": edge,
             "grid": {"bay": bay, "storey": storey, "storeys": storeys,
                      "bays_x": bays_x, "bays_z": bays_z, "ox": ox, "oz": oz}}
 
@@ -124,7 +200,13 @@ def crane(r, g):
 def scaffold(r, g):
     """Standards, ledgers and boards on the near face -- the layer the camera
     passes closest to, and the reason the site has a foreground at all."""
-    z = g["oz"] - 1.9
+    # The NEAR face — the side the camera stands on.
+    #
+    # The scaffold was on the far elevation, so from every camera station it
+    # sat behind the building and contributed nothing. On the near face it
+    # crosses the foreground, which is what gives the shot a depth reference
+    # and makes pointer movement produce real parallax against the structure.
+    z = g["oz"] + g["bays_z"] * g["bay"] + 1.9
     x0 = g["ox"] - 1.5
     span = g["bays_x"] * g["bay"] + 3
     lifts = 7
@@ -172,16 +254,121 @@ def massing(r):
 
 
 def works(r, g):
-    """Site cabins, material stacks and hoarding -- the things that make a
-    construction site a workplace rather than a model of a building."""
+    """
+    The site's operational clusters.
+
+    A construction site is messy but ORGANISED: materials are stacked where the
+    crane can reach them, cabins sit by the gate, and the haul road connects
+    them. Scattering props at random reads as clutter; grouping them by
+    function reads as a site that someone runs.
+
+    Zones, all placed relative to the frame so they stay coherent if the
+    building's grid changes:
+
+        entry       hoarding, gate, signage, traffic barriers
+        staging     formwork stacks, pallets, rebar bundles, blocks
+        services    cabins, generator, light tower
+        lift zone   the crane's pickup area, kept clear
+    """
     out = []
+    W = g["bays_x"] * g["bay"]
+    D = g["bays_z"] * g["bay"]
+    near = g["oz"] + D
+
+    # ---- Temporary services: a cabin stack by the gate -----------------
     for i in range(3):
-        out.append(box(g["ox"] - 16 + i * 7, 1.4, g["oz"] + 26, 6.2, 2.8, 2.6, "cabin"))
+        out.append(box(g["ox"] - 19 + i * 6.6, 1.35, near + 19,
+                       6.1, 2.7, 2.5, "cabin"))
+    # A second cabin stacked, which is what a real compound does for space.
+    out.append(box(g["ox"] - 12.4, 4.1, near + 19, 6.1, 2.7, 2.5, "cabin"))
+    out.append(box(g["ox"] - 24.5, 1.1, near + 19, 2.2, 2.2, 2.0, "plant"))
+
+    # ---- Material staging, inside the crane's radius --------------------
+    #
+    # Formwork panels stacked on bearers, pallets of block, and rebar bundles.
+    # Stacks are irregular in height because a stack that is being worked from
+    # never is uniform.
+    for i in range(5):
+        h = r.f(0.5, 1.15)
+        out.append(box(g["ox"] + 3 + i * 3.1, h / 2, near + 7.5,
+                       2.9, h, 1.35, "ply"))
+    for i in range(6):
+        out.append(box(g["ox"] + 16 + (i % 3) * 1.5, 0.42 + (i // 3) * 0.85,
+                       near + 7.2 + (i % 2) * 1.3, 1.2, 0.8, 1.0, "pallet"))
+    for i in range(4):
+        out.append(box(g["ox"] + 22 + i * 1.1, 0.28, near + 10.5,
+                       0.9, 0.5, 6.0, "rebar-stack"))
+
+    # ---- Access and security -------------------------------------------
+    #
+    # Hoarding along the site boundary with a gate opening, plus traffic
+    # barriers marking the vehicle route.
+    hoard_len = W + 34
+    seg = 2.4
+    n = int(hoard_len / seg)
+    gate_at = int(n * 0.34)
+    for i in range(n):
+        if gate_at <= i <= gate_at + 3:
+            continue
+        out.append(box(g["ox"] - 17 + i * seg + seg / 2, 1.1, near + 27,
+                       seg - 0.06, 2.2, 0.12, "hoard"))
+    # Gate leaves, standing open.
+    out.append(box(g["ox"] - 17 + gate_at * seg + 1.2, 1.1, near + 26.2,
+                   2.3, 2.2, 0.1, "gate"))
+    out.append(box(g["ox"] - 17 + (gate_at + 4) * seg - 1.2, 1.1, near + 26.2,
+                   2.3, 2.2, 0.1, "gate"))
+    # Site sign beside the gate.
+    out.append(box(g["ox"] - 17 + gate_at * seg - 1.4, 1.7, near + 26.9,
+                   2.4, 1.6, 0.08, "sign"))
+
     for i in range(7):
-        out.append(box(g["ox"] + 4 + (i % 4) * 3.4, 0.5, g["oz"] + 21 + (i // 4) * 3,
-                       3.0, 1.0, 1.4, "stack"))
-    span = g["bays_x"] * g["bay"] + 26
-    out.append(box(g["ox"] + span / 2 - 13, 1.2, g["oz"] + 31, span, 2.4, 0.2, "hoarding"))
+        out.append(box(g["ox"] - 8 + i * 3.2, 0.42, near + 22,
+                       1.9, 0.85, 0.5, "barrier"))
+
+    # ---- Light towers, on the two working corners ----------------------
+    for x in (g["ox"] - 4, g["ox"] + W + 3):
+        out.append(box(x, 3.4, near + 4, 0.22, 6.8, 0.22, "mast"))
+        out.append(box(x, 6.9, near + 4, 1.5, 0.4, 0.45, "lamp"))
+
+    return out
+
+
+def workers(r, g):
+    """
+    Three figures, for SCALE.
+
+    Not population — scale. A 3.6 m storey height means nothing to the eye
+    until something of known size stands beside it, and a construction site
+    without a single person reads as abandoned.
+
+    Each is five boxes: legs, torso, head, hard hat. At the distances these are
+    seen that is enough to read as a person in hi-vis, and it avoids the
+    uncanny result of a low-quality animated character.
+    """
+    D = g["bays_z"] * g["bay"]
+    near = g["oz"] + D
+    out = []
+
+    def figure(x, z, facing=0.0, tag="worker"):
+        # 1.78 m: legs 0.86, torso 0.62, head 0.22, hat on top.
+        out.append(box(x - 0.09, 0.43, z, 0.15, 0.86, 0.18, "hiviz-dark", ))
+        out.append(box(x + 0.09, 0.43, z, 0.15, 0.86, 0.18, "hiviz-dark"))
+        out.append(box(x, 1.17, z, 0.42, 0.62, 0.24, "hiviz"))
+        out.append(box(x, 1.58, z, 0.19, 0.21, 0.19, "skin"))
+        out.append(box(x, 1.72, z, 0.27, 0.09, 0.27, "hat"))
+        return facing
+
+    # One at the material staging, one at the gate, one on the boarded lift.
+    figure(g["ox"] + 8.5, near + 8.2)
+    figure(g["ox"] - 6.0, near + 21.4)
+    figure(g["ox"] - 9.0, 16.3 + 0.9)   # on the scaffold platform run
+    out[-3]["p"][1] += 6.0              # lift the torso group to lift 3
+    out[-2]["p"][1] += 6.0
+    out[-1]["p"][1] += 6.0
+    out[-5]["p"][1] += 6.0
+    out[-4]["p"][1] += 6.0
+
+    assert len(out) == 15, "three figures, five members each"
     return out
 
 
@@ -201,67 +388,104 @@ def lights(r, g):
 
 def cameras(g):
     """
-    Camera stations, and the choreography between them.
+    Camera stations, composed as architectural photography rather than as views
+    of a model.
 
-    Named rather than numeric so the runtime reads as direction: an approach
-    that holds the whole site, a working station beside the form, and the
-    interior the sign-in flight arrives at. Movement is always between two
-    stations -- a camera that wanders has no composition.
+    THE CAMERA STANDS ON THE SITE. Every station is at roughly eye height
+    (1.6-2.4 m) looking UP at the structure. The previous stations sat at
+    1.5x the building's height looking down, which is a position no person can
+    occupy and the single strongest reason the scene read as a 3D viewer: a
+    model is something you orbit, a place is somewhere you stand.
+
+    Framing follows the same logic:
+
+      - the frame is pushed off-centre, so the composition has a subject and a
+        space rather than a centred object
+      - the camera sits BEHIND the scaffold line, so foreground steel crosses
+        the near frame and gives the eye something to measure depth against
+      - verticals stay near-vertical: the look-at is only slightly above the
+        camera, because a steeply tilted camera converges the columns and
+        reads as a snapshot rather than as architecture
+
+    Focal lengths are recorded as 35 mm-equivalent and converted, so the
+    stations can be reasoned about in photographic terms.
     """
     top = g["storeys"] * g["storey"]
     span = g["bays_x"] * g["bay"]
 
-    # Distances are derived from the building, not chosen. A 43m frame at
-    # fov 32 needs roughly 2.2x its span to sit in shot with air around it;
-    # the first version was framed at 57m and put the camera inside the
-    # structure, which a render showed immediately.
-    d = span * 2.6
+    def fov(mm):
+        # Vertical FOV for a 35mm-equivalent focal length on a 3:2 frame.
+        return round(math.degrees(2 * math.atan(24.0 / (2 * mm))), 2)
+
+    # The site's near edge, where the scaffold and fencing stand.
+    near_z = g["oz"] + g["bays_z"] * g["bay"] + 26
+
+    # The subject is not the building: it is the building AND the crane above
+    # it, roughly 60 m of vertical. At a 35mm-equivalent half-angle of 18.9
+    # degrees that needs about 90 m of stand-off, so the stations sit at the far
+    # side of the site rather than on top of the structure. A first attempt put
+    # them 40 m closer and the frame filled with slabs -- no crane, no sky, no
+    # site, and no composition.
+    subject_h = top + 26
+    stand = (subject_h * 0.5) / math.tan(math.radians(fov(35) / 2))
+
     return {
-        # Wide: the whole site, the crane above it and the skyline behind.
-        "approach": {"pos": [d * 0.78, top * 1.5, d * 1.05],
-                     "look": [-span * 0.1, top * 0.5, 0], "fov": 32},
-        # Working: closer and lower, the frame filling the right of frame while
-        # the form holds the left.
-        "station": {"pos": [d * 0.6, top * 1.05, d * 0.78],
-                    "look": [-span * 0.12, top * 0.46, 0], "fov": 34},
-        # Focus: a small push in. The move must read without being noticed.
-        "focus": {"pos": [d * 0.53, top * 0.95, d * 0.68],
-                  "look": [-span * 0.14, top * 0.42, 0], "fov": 33},
+        # Approach: the whole site from the boundary, crane included.
+        "approach": {"pos": [span * 1.05, 2.3, near_z + stand * 0.75],
+                     "look": [-span * 0.3, top * 0.52, 0], "fov": fov(28)},
+        # Working station: the frame off to the right of the shot, the form
+        # holding the left third, the crane crossing the sky above.
+        "station": {"pos": [span * 0.92, 1.8, near_z + stand * 0.56],
+                    "look": [-span * 0.34, top * 0.5, 0], "fov": fov(35)},
+        # Focus: a small settle, not a re-frame.
+        "focus": {"pos": [span * 0.86, 1.7, near_z + stand * 0.48],
+                  "look": [-span * 0.36, top * 0.47, 0], "fov": fov(35)},
         # The sign-in flight ends inside the structure, at slab level.
-        "through": {"pos": [span * 0.1, top * 0.55, g["bays_z"] * g["bay"] * 0.4],
-                    "look": [-span * 0.6, top * 0.5, -g["bays_z"] * g["bay"]], "fov": 54},
-        # Where the destination takes over: looking down the frame's centre
-        # bay, which is the corridor the handover flight travels.
-        "operational": {"pos": [0, top * 0.5, d * 0.42],
-                        "look": [0, top * 0.46, -g["bays_z"] * g["bay"] * 2], "fov": 40},
+        "through": {"pos": [span * 0.08, g["storey"] * 2.2, g["bays_z"] * g["bay"] * 0.5],
+                    "look": [-span * 0.6, g["storey"] * 2.2, -g["bays_z"] * g["bay"] * 2],
+                    "fov": fov(24)},
+        "operational": {"pos": [0, g["storey"] * 2.4, near_z * 0.5],
+                        "look": [0, g["storey"] * 2.2, -g["bays_z"] * g["bay"] * 2],
+                        "fov": fov(35)},
     }
 
 
 def cameras_portrait(g):
     """
-    A phone gets its OWN stations, not the desktop ones at a taller aspect.
-    Reusing them cropped into the structure and lost the site and the crane
-    entirely — visible the moment it was rendered.
+    A phone gets its own shot, not the desktop one cropped.
 
-    Portrait wants height, not width: the camera stands back and low so the
-    frame rises through the shot with the crane above it, and the form occupies
-    the lower half against sky and massing rather than against a wall of slabs.
+    The previous portrait stations predated the human-height rework and looked
+    down at the model. Portrait wants HEIGHT: the camera stands closer and
+    lower so the frame rises through the tall side of the shot with the crane
+    above it, and the form sits in the lower half against sky and scaffold
+    rather than against a wall of slabs.
+
+    Closer than desktop, deliberately. A phone cannot resolve the whole site,
+    so it gets one corner of it at a scale where the scaffold's braces and the
+    slab edges are still legible.
     """
     top = g["storeys"] * g["storey"]
     span = g["bays_x"] * g["bay"]
-    d = span * 3.4
+    near_z = g["oz"] + g["bays_z"] * g["bay"] + 26
+
+    def fov(mm):
+        # Portrait: the 24mm dimension is now the WIDTH, so the vertical field
+        # comes from the 36mm side of the frame.
+        return round(math.degrees(2 * math.atan(36.0 / (2 * mm))), 2)
+
     return {
-        "approach": {"pos": [d * 0.5, top * 0.42, d * 0.86],
-                     "look": [-span * 0.05, top * 0.78, 0], "fov": 44},
-        "station": {"pos": [d * 0.42, top * 0.34, d * 0.72],
-                    "look": [-span * 0.05, top * 0.72, 0], "fov": 46},
-        "focus": {"pos": [d * 0.38, top * 0.3, d * 0.64],
-                  "look": [-span * 0.06, top * 0.66, 0], "fov": 45},
-        "through": {"pos": [span * 0.06, top * 0.5, g["bays_z"] * g["bay"] * 0.5],
-                    "look": [-span * 0.2, top * 0.48, -g["bays_z"] * g["bay"] * 2],
-                    "fov": 62},
-        "operational": {"pos": [0, top * 0.5, d * 0.3],
-                        "look": [0, top * 0.46, -g["bays_z"] * g["bay"] * 2], "fov": 52},
+        "approach": {"pos": [span * 0.62, 2.1, near_z + 26],
+                     "look": [-span * 0.16, top * 0.58, 0], "fov": fov(32)},
+        "station": {"pos": [span * 0.54, 1.7, near_z + 15],
+                    "look": [-span * 0.18, top * 0.56, 0], "fov": fov(30)},
+        "focus": {"pos": [span * 0.5, 1.6, near_z + 10],
+                  "look": [-span * 0.2, top * 0.53, 0], "fov": fov(30)},
+        "through": {"pos": [span * 0.06, g["storey"] * 2.2, g["bays_z"] * g["bay"] * 0.5],
+                    "look": [-span * 0.6, g["storey"] * 2.2, -g["bays_z"] * g["bay"] * 2],
+                    "fov": fov(22)},
+        "operational": {"pos": [0, g["storey"] * 2.4, near_z * 0.45],
+                        "look": [0, g["storey"] * 2.2, -g["bays_z"] * g["bay"] * 2],
+                        "fov": fov(30)},
     }
 
 
@@ -278,6 +502,7 @@ def site(seed):
         "scaffold": scaffold(r, g),
         "massing": massing(r),
         "works": works(r, g),
+        "workers": workers(r, g),
         "lights": lights(r, g),
         "cameras": cameras(g),
         "camerasPortrait": cameras_portrait(g),
@@ -286,8 +511,10 @@ def site(seed):
 
 def counts(s):
     f = s["frame"]
-    return (len(f["columns"]) + len(f["slabs"]) + 1 + len(s["massing"])
-            + len(s["works"]) + sum(len(v) for v in s["scaffold"].values()))
+    return (len(f["columns"]) + len(f["slabs"]) + len(f["beams"]) + len(f["props"])
+            + len(f["forms"]) + len(f["rebar"]) + len(f["edge"]) + 1
+            + len(s["massing"]) + len(s["works"])
+            + sum(len(v) for v in s["scaffold"].values()))
 
 
 if __name__ == "__main__":

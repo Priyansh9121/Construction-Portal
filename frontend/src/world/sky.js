@@ -98,10 +98,15 @@ export const TIMES = {
     ground: [0.05, 0.055, 0.07],
     tint: [1.0, 0.5, 0.28],
     haze: 1.5,
-    key: 0xff9a5c,
-    keyI: 1.7,
-    fill: 0x3d5c8c,
-    fillI: 1.15,
+    /* Less saturated than the sun disk itself. A fully saturated key paints
+     * every surface its own colour and destroys material identity; the disk
+     * can be orange while the light it throws is only warm. */
+    key: 0xffc79a,
+    keyI: 1.85,
+    /* Strong cool sky bounce. This is what fills the shadow side of concrete
+     * and stops the whole scene collapsing into one warm value. */
+    fill: 0x5b82c4,
+    fillI: 1.9,
     fog: 0x141821,
     fogD: 0.0068,
     work: 1.0,
