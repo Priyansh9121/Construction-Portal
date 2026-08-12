@@ -37,6 +37,8 @@ import random
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import bpy
+
 import concept_lib as L
 import concept_mesh as M
 
@@ -60,7 +62,7 @@ def plate(level):
     return M.chamfered(PX0, y0, PX1, PY1, 3.5)
 
 
-def build(dusk=False):
+def build(dusk=False, join_by_material=True):
     L.reset()
     rng = random.Random(41)
     mats = L.standard_materials(wear=0.72, lit=0.5 if dusk else 0.0)
@@ -285,10 +287,12 @@ def build(dusk=False):
                 raise AssertionError(
                     f"camera {cam_name} is inside the block at {cx:.0f},{cy:.0f}")
 
-    for key, objs in parts.items():
-        objs = [o for o in objs if o]
-        if objs:
-            L.join_all(f"c-{key}", objs)
+    if join_by_material:
+        for key, objs in parts.items():
+            objs = [o for o in objs if o]
+            if objs:
+                L.join_all(f"c-{key}", objs)
+    return parts
 
 
 def light(dusk):
@@ -300,6 +304,184 @@ def light(dusk):
         # and from the south so the street elevation is actually lit.
         L.sky_world(46, 196, strength=0.5)
         L.sun_lamp(46, 196, 6.5, color=(1.0, 0.94, 0.86), angle=0.6)
+
+
+# ---------------------------------------------------------------------------
+# PRODUCTION EXPORT
+# ---------------------------------------------------------------------------
+#
+# The production world is EXPORTED FROM THIS SCENE, not rebuilt from Three.js
+# primitives. That rule is the entire reason the concept gate existed: the
+# previous world was assembled from JavaScript boxes and no amount of shader or
+# camera work made it stop looking like assembled boxes.
+#
+# Layers exist so the browser can load progressively and so a layer can be
+# swapped, budgeted or dropped on mobile without touching the others. The
+# classification happens BEFORE the material join -- joining by material first
+# would weld the project, its neighbours and the street into one mesh and make
+# the split impossible.
+#
+# Order matters. "cabin" must be tested before any short architecture prefix
+# would swallow it.
+LAYER_RULES = (
+    ("street", ("ground", "street", "kerb", "path", "lane", "sitepad",
+                "hoard", "cabin", "skip", "stack")),
+    ("neighbours", ("nb", "np", "nw", "nplant", "city")),
+    ("scaffold", ("std", "ldg", "tr", "board", "gr", "mast", "climber")),
+)
+
+
+def layer_of(name):
+    """Which production layer an object belongs to, from its authored name."""
+    base = name.split(".")[0]
+    for layer, prefixes in LAYER_RULES:
+        for pre in prefixes:
+            if base == pre or base.startswith(pre):
+                return layer
+    return "architecture"
+
+
+# glTF EXPORTS FACTORS, NOT NODE TREES.
+#
+# Every material in concept_lib is a procedural node graph -- formwork lift
+# lines, pour-to-pour colour steps, run-off staining, worked roughness. NONE of
+# that survives a glTF export: the format carries base colour, roughness and
+# metallic as numbers (or as image textures), and a node chain driving base
+# colour exports as nothing, which is why the first import rendered the whole
+# site near-white.
+#
+# So production materials are baked down to representative CONSTANTS here. The
+# material NAMES and slots are preserved exactly, because M4 has to be able to
+# attach real texture maps per surface without touching any geometry.
+#
+# This is a known, deliberate loss. The procedural detail returns in M4 as
+# actual albedo/roughness/normal maps.
+PRODUCTION_FACTORS = {
+    #                     base colour  rough  metal
+    "conc":              (0x9AA0A6,    0.86,  0.0),
+    "wet":               (0x6E747C,    0.42,  0.0),
+    "ply":               (0xB8823F,    0.78,  0.0),
+    "galv":              (0x8C949B,    0.38,  1.0),
+    "paint":             (0x8A9096,    0.5,   0.25),
+    "crane":             (0xC8611A,    0.44,  0.25),
+    "screen":            (0x2F6F8C,    0.62,  0.2),
+    "spandrel":          (0x3A4149,    0.4,   0.25),
+    "glass":             (0x1A2229,    0.06,  0.0),
+    "city_warm":         (0x8A7F72,    0.72,  0.0),
+    "city_cool":         (0x6E7684,    0.7,   0.0),
+    "earth":             (0x7A6852,    0.95,  0.0),
+    "hiviz":             (0xCBE034,    0.62,  0.0),
+    "workwear":          (0x2C3540,    0.85,  0.0),
+    "hat":               (0xE8E4DC,    0.42,  0.0),
+    "skin":              (0x8A6A52,    0.78,  0.0),
+}
+
+
+def bake_production_materials():
+    """Flatten every procedural material to the factors glTF can carry."""
+    for mat in bpy.data.materials:
+        key = mat.name.split(".")[0]
+        if key not in PRODUCTION_FACTORS:
+            continue
+        colour, rough, metal = PRODUCTION_FACTORS[key]
+        mat.use_nodes = True
+        nt = mat.node_tree
+        for n in list(nt.nodes):
+            nt.nodes.remove(n)
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+        bsdf.location = (-260, 0)
+        bsdf.inputs["Base Color"].default_value = L.srgb(colour)
+        bsdf.inputs["Roughness"].default_value = rough
+        bsdf.inputs["Metallic"].default_value = metal
+        nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+
+
+def export_production():
+    """
+    Build the winning concept and write it out as four production GLBs.
+
+    Geometry is joined per (layer, material) so material identity survives --
+    concrete, wet concrete, galvanised steel, plywood, glass and the painted
+    screens stay separate, because M4 has to be able to upgrade them
+    individually without rebuilding any geometry.
+    """
+    parts = build(dusk=False, join_by_material=False)
+    bake_production_materials()
+
+    # Everything in the scene, including the loose objects build() never put
+    # into `parts` (ground, street, cabins, the city, the climber).
+    tagged = {}
+    claimed = set()
+    for key, objs in parts.items():
+        for o in objs:
+            if o is None or o.name in claimed:
+                continue
+            claimed.add(o.name)
+            tagged.setdefault((layer_of(o.name), key), []).append(o)
+    for o in list(bpy.context.scene.objects):
+        if o.type != "MESH" or o.name in claimed:
+            continue
+        claimed.add(o.name)
+        tagged.setdefault((layer_of(o.name), "misc"), []).append(o)
+
+    merged = {}
+    for (layer, key), objs in tagged.items():
+        ob = L.join_all(f"{layer}-{key}", objs)
+        if ob:
+            merged.setdefault(layer, []).append(ob)
+
+    out_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "frontend", "public", "world", "assets")
+    report = []
+    for layer, objs in merged.items():
+        path = os.path.join(out_dir, f"login-site-{layer}.glb")
+        stats = export_group(objs, path)
+        report.append((layer, stats))
+        print(f"OK  {os.path.basename(path)}  {stats['triangles']} tris  "
+              f"{stats['meshes']} meshes  {stats['materials']} materials  "
+              f"{stats['bytes'] / 1024:.0f} KB")
+
+    total = sum(s["triangles"] for _, s in report)
+    print(f"OK  TOTAL {total} triangles across {len(report)} layers")
+    return report
+
+
+def export_group(objs, path):
+    """Export a set of objects as one GLB, keeping their world transforms."""
+    import bpy as _b
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    for o in _b.context.scene.objects:
+        o.select_set(False)
+    for o in objs:
+        o.select_set(True)
+    _b.context.view_layer.objects.active = objs[0]
+
+    args = {
+        "filepath": path, "export_format": "GLB", "use_selection": True,
+        "export_yup": True, "export_apply": True, "export_normals": True,
+        "export_materials": "EXPORT", "export_cameras": False,
+        "export_lights": False, "export_extras": False,
+        "export_animations": False, "export_texcoords": True,
+        "export_draco_mesh_compression_enable": False,
+    }
+    props = {p.identifier for p in _b.ops.export_scene.gltf.get_rna_type().properties}
+    _b.ops.export_scene.gltf(**{k: v for k, v in args.items() if k in props})
+
+    dg = _b.context.evaluated_depsgraph_get()
+    tris = 0
+    mats = set()
+    for o in objs:
+        me = o.evaluated_get(dg).to_mesh()
+        me.calc_loop_triangles()
+        tris += len(me.loop_triangles)
+        for m in me.materials:
+            if m:
+                mats.add(m.name)
+        o.evaluated_get(dg).to_mesh_clear()
+    return {"triangles": tris, "meshes": len(objs), "materials": len(mats),
+            "bytes": os.path.getsize(path)}
 
 
 CAMERAS = {
@@ -332,6 +514,10 @@ def main():
     # ambiguous-option error before the script ever runs.
     cycles = "--ref" in args
     which = args[args.index("--frames") + 1] if "--frames" in args else "hero,ground,rear"
+
+    if "--export" in args:
+        export_production()
+        return
 
     build(dusk=dusk)
     light(dusk)

@@ -35,6 +35,13 @@ for script in cabin hoist light_tower worker; do
       echo "FAILED: asset_$script.py" >&2; exit 1; }
 done
 
+# The SITE itself, exported from the winning concept scene in production
+# layers. Same geometry source as the concept renders -- the production world
+# is not a second, hand-maintained copy of it.
+"$BLENDER" -b -P "$ROOT/tools/blender/concept_c.py" -- --export 2>&1 \
+  | grep -E '^OK|^AssertionError|Error:' || {
+    echo "FAILED: concept_c.py --export" >&2; exit 1; }
+
 # --- Optimise ---------------------------------------------------------------
 #
 # The narrow `meshopt` command, NOT `optimize`.
@@ -63,7 +70,9 @@ if [[ $OPTIMISE -eq 1 ]]; then
   command -v npx >/dev/null || { echo "npx not found; use --raw" >&2; exit 1; }
   total_before=0
   total_after=0
-  for a in cabin hoist light-tower worker; do
+  for a in cabin hoist light-tower worker \
+           login-site-architecture login-site-neighbours \
+           login-site-scaffold login-site-street; do
     before=$(stat -f%z "$ASSETS/$a.glb")
     npx --yes @gltf-transform/cli meshopt \
       "$ASSETS/$a.glb" "$ASSETS/$a.glb" --level medium >/dev/null 2>&1

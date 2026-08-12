@@ -35,6 +35,7 @@ import { loadAssets, placeAsset, assetCost } from "./assets";
 import { createDust } from "./dust";
 import { CameraRig } from "./camera";
 import { worldEnvironment } from "./environment";
+import { SITE_LAYERS, SITE_JOURNEY, checkSiteScale } from "./loginSite";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -293,7 +294,33 @@ class CraneTask {
  * wherever the camera currently is, so an interrupted move continues from its
  * real position rather than snapping back to a station it already left.
  */
-function buildSite(THREE, scene, portrait, MAT) {
+function buildSite(THREE, scene, portrait, MAT, opts = {}) {
+  /*
+   * MINIMAL: the authored site is doing the work, so none of the procedural
+   * geometry below is built.
+   *
+   * The crane and hoist are skipped too. They are procedural machinery placed
+   * in the OLD site's coordinates, and Concept C has no tower crane -- it is a
+   * plot too tight for one, which is why it has a mast climber instead, and
+   * that is already part of the authored scaffold layer. Machinery returns in
+   * M5, authored and placed against this site.
+   *
+   * Stubs are returned in the shape the animation loop expects, so every
+   * machinery update still runs and simply moves nothing.
+   */
+  if (opts.minimal) {
+    const stub = () => new THREE.Object3D();
+    const group = stub();
+    scene.add(group);
+    return {
+      slew: stub(), trolley: stub(), cable: stub(), load: stub(),
+      swing: stub(), hoist: group,
+      materials: { concrete: MAT.concrete, dark: MAT.dark },
+      stats: { draws: 0, tris: 0, buckets: 0 },
+      swappable: new Map(),
+    };
+  }
+
   /*
    * Materials come from the PBR library, not from flat colours. Every surface
    * that the camera can approach carries albedo variation, a roughness map and
@@ -955,7 +982,19 @@ export async function createAuthWorld(canvas, opts = {}) {
   };
   publishLight();
   const MAT = buildMaterialLibrary(THREE);
-  const rigParts = buildSite(THREE, scene, portrait, MAT);
+  /*
+   * THE SITE IS AUTHORED, NOT GENERATED.
+   *
+   * `buildSite()` assembles the old procedural world from boxes. Three concept
+   * rounds established that box assembly is what made this read as BIM, so the
+   * architecture now arrives as GLB from tools/blender/concept_c.py.
+   *
+   * The old path stays reachable behind `opts.procedural` purely so a visual
+   * regression can be bisected against it — not as a second permanent
+   * representation of the same site.
+   */
+  const useProcedural = opts.procedural === true;
+  const rigParts = buildSite(THREE, scene, portrait, MAT, { minimal: !useProcedural });
   const lights = buildLights(THREE, scene, portrait, preset, sky.sun);
   /* Travel ranges come from the crane ASSET, so the trolley can never run off
    * the end of a jib whose length the generator changed. */
@@ -989,7 +1028,7 @@ export async function createAuthWorld(canvas, opts = {}) {
    * world, and a phone is standing in the same world — what changes for
    * portrait is the focal length, handled per-station below.
    */
-  const rig = new CameraRig(THREE, cam, SITE.journey, { portrait });
+  const rig = new CameraRig(THREE, cam, useProcedural ? SITE.journey : SITE_JOURNEY, { portrait });
   if (portrait) {
     /* A 390 px-wide viewport crops a horizontal frame hard. Widening each
      * station keeps the same SUBJECT in shot rather than a slice of it. */
@@ -1048,6 +1087,47 @@ export async function createAuthWorld(canvas, opts = {}) {
 
     for (const l of lights.lamps) l.base = l.warmBase * g.work;
   };
+
+  /*
+   * THE AUTHORED SITE, LOADED PROGRESSIVELY.
+   *
+   * Layer by layer, in the order they matter, so the form is usable long
+   * before the world finishes and a slow connection gets architecture before
+   * it gets street furniture. Nothing here is awaited: authentication has
+   * never had any relationship with this module and still does not.
+   *
+   * Geometry arrives already in world coordinates, so each layer is added at
+   * the origin -- no placement, no scaling. Scaling an authored asset would
+   * be exactly as wrong here as it was for the bevelled boxes.
+   */
+  const siteAbort = new AbortController();
+  if (!useProcedural) {
+    const wanted = SITE_LAYERS.filter((l) => (portrait ? l.mobile : true));
+    loadAssets(THREE, wanted.map((l) => l.name), { signal: siteAbort.signal })
+      .then((loaded) => {
+        if (!alive) return;
+        let tris = 0;
+        for (const layer of wanted) {
+          const prims = loaded.get(layer.name);
+          if (!prims) continue;
+          for (const { geometry, material } of prims) {
+            const mesh = new THREE.Mesh(geometry, material);
+            /* Everything here is static architecture: it both casts and
+             * receives, which is what puts the window reveals into shadow and
+             * the scaffold onto the facade. */
+            mesh.castShadow = !portrait;
+            mesh.receiveShadow = true;
+            mesh.name = layer.name;
+            scene.add(mesh);
+            const idx = geometry.getIndex();
+            tris += (idx ? idx.count : geometry.getAttribute("position").count) / 3;
+          }
+        }
+        rigParts.stats.site = Math.round(tris);
+        canvas.__siteScale = checkSiteScale(THREE, scene);
+      })
+      .catch((err) => console.warn("[world] authored site unavailable", err));
+  }
 
   const assetAbort = new AbortController();
   loadAssets(THREE, [...rigParts.swappable.keys()], { signal: assetAbort.signal })
@@ -1108,9 +1188,17 @@ export async function createAuthWorld(canvas, opts = {}) {
    * "this is a construction site" before it says anything else; the dramatic
    * frames are one wheel-notch away.
    */
-  rig.progress = 0;
-  rig.progressTo = reduced ? 0 : 0.28;
-  if (reduced) rig.progress = 0;
+  /*
+   * Station 0 IS the composition. The old entry eased to 0.28, which in the
+   * generated journey was a gentle push toward a similar station -- in the
+   * authored journey station 1 is 11 m closer, so the same number landed the
+   * default inside the scaffold instead of on the far footpath.
+   *
+   * The entry is now a PULL-BACK: it starts part-way in and settles out to the
+   * street view, which reveals the site rather than diving into it.
+   */
+  rig.progress = reduced ? 0 : 0.45;
+  rig.progressTo = 0;
   /* A slow azimuth settle on entry, damped by the rig's own drag channel. The
    * site arrives as if the viewer has just turned to face it, rather than
    * cutting to a composed frame. */
@@ -1427,6 +1515,7 @@ export async function createAuthWorld(canvas, opts = {}) {
       /* An auth route can unmount while a GLB is still in flight. Aborting
        * stops the loader resolving into a scene that is being torn down. */
       assetAbort.abort();
+      siteAbort.abort();
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointer);
       surface.removeEventListener("pointerdown", onPointerDown);
