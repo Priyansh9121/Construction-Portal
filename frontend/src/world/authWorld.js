@@ -29,6 +29,7 @@ import CRANE from "./craneGeometry.json";
 import SCAFFOLD from "./scaffoldGeometry.json";
 import { createSky, TIMES } from "./sky";
 import { buildMaterialLibrary } from "./textures";
+import { bevelBox, CHAMFER, bucketBySize } from "./geometry";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -414,19 +415,60 @@ function buildSite(THREE, scene, portrait, MAT) {
 
   const unit = new THREE.BoxGeometry(1, 1, 1);
   const o = new THREE.Object3D();
+
+  /*
+   * Solids are drawn with BEVELLED geometry wherever the object type calls for
+   * it, and with the plain unit cube where it does not.
+   *
+   * The bevel is baked in world units, so the instance transform carries no
+   * scale — which means solids must be bucketed by exact dimension, one
+   * geometry and one InstancedMesh per bucket. In practice this world collapses
+   * to a handful of buckets per material (every column is identical, every
+   * downstand shares a section), so the draw-call cost barely moves.
+   *
+   * `stats` records what that actually cost, because "add real geometry" is
+   * exactly the kind of change that should be measured rather than assumed.
+   */
+  const stats = { draws: 0, tris: 0, buckets: 0 };
+
   const add = (list, material, cast = true) => {
     if (!list.length) return null;
-    const m = new THREE.InstancedMesh(unit, material, list.length);
-    list.forEach((b, i) => {
-      o.position.set(b.p[0], b.p[1], b.p[2]);
-      o.scale.set(b.s[0], b.s[1], b.s[2]);
-      o.updateMatrix();
-      m.setMatrixAt(i, o.matrix);
-    });
-    m.castShadow = cast && !portrait;
-    m.receiveShadow = !portrait;
-    scene.add(m);
-    return m;
+    const chamfer = CHAMFER[list[0].k] ?? 0;
+
+    if (!chamfer) {
+      const m = new THREE.InstancedMesh(unit, material, list.length);
+      list.forEach((b, i) => {
+        o.position.set(b.p[0], b.p[1], b.p[2]);
+        o.scale.set(b.s[0], b.s[1], b.s[2]);
+        o.updateMatrix();
+        m.setMatrixAt(i, o.matrix);
+      });
+      m.castShadow = cast && !portrait;
+      m.receiveShadow = !portrait;
+      scene.add(m);
+      stats.draws += 1;
+      stats.tris += list.length * 12;
+      return m;
+    }
+
+    for (const bucket of bucketBySize(list)) {
+      const geom = bevelBox(THREE, bucket.size[0], bucket.size[1], bucket.size[2], chamfer);
+      const m = new THREE.InstancedMesh(geom, material, bucket.items.length);
+      bucket.items.forEach((b, i) => {
+        o.position.set(b.p[0], b.p[1], b.p[2]);
+        o.scale.set(1, 1, 1);
+        o.quaternion.identity();
+        o.updateMatrix();
+        m.setMatrixAt(i, o.matrix);
+      });
+      m.castShadow = cast && !portrait;
+      m.receiveShadow = !portrait;
+      scene.add(m);
+      stats.draws += 1;
+      stats.buckets += 1;
+      stats.tris += bucket.items.length * 44;
+    }
+    return null;
   };
 
   const F = SITE.frame;
@@ -620,12 +662,19 @@ function buildSite(THREE, scene, portrait, MAT) {
 
   const BODY = { deck: galv, cab: galv, cwt: M.dark, pad: M.concreteCool };
   CRANE.bodies.forEach((b) => {
-    const mesh = new THREE.Mesh(memberGeom, BODY[b.k] || galv);
+    /* Counterweight, machinery deck and cab are fabricated steel: their edges
+     * are formed, not cast, so they take a larger chamfer than the concrete
+     * and are built as individual meshes since each is a different size. */
+    const chamfer = CHAMFER[b.k] ?? 0.04;
+    const mesh = new THREE.Mesh(
+      bevelBox(THREE, b.s[0], b.s[1], b.s[2], chamfer),
+      BODY[b.k] || galv
+    );
     mesh.position.set(b.p[0], b.p[1], b.p[2]);
-    mesh.scale.set(b.s[0], b.s[1], b.s[2]);
     mesh.castShadow = !portrait;
     mesh.receiveShadow = !portrait;
     (b.k === "pad" ? rigRoot : slew).add(mesh);
+    stats.draws += 1;
   });
 
   const trolley = new THREE.Group();
@@ -667,7 +716,7 @@ function buildSite(THREE, scene, portrait, MAT) {
   hoist.castShadow = !portrait;
   scene.add(hoist);
 
-  return { slew, trolley, cable, load, swing, hoist, materials: M };
+  return { slew, trolley, cable, load, swing, hoist, materials: M, stats };
 }
 
 function buildLights(THREE, scene, portrait, preset, sunDir) {
@@ -953,6 +1002,8 @@ export async function createAuthWorld(canvas, opts = {}) {
       /* A read-only probe for verification harnesses. Written on the canvas
        * rather than through React so it costs one property write and cannot
        * influence rendering. */
+      canvas.__geom = { ...rigParts.stats, drawCalls: renderer.info.render.calls,
+                        triangles: renderer.info.render.triangles };
       canvas.__probe = {
         state: task.state,
         slew: +task.slew.toFixed(3),
