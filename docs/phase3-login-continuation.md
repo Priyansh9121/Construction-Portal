@@ -225,7 +225,36 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
-## VISUAL RESET — the Cycles diagnostic settles it
+## R1 IN PROGRESS — commit 8bb8272. CYCLES GATE NOT YET PASSED.
+
+Real CC0 photographic PBR wired into the Blender scene (ambientCG, CC0 1.0
+verified from their licence page). The 3 m brick failure is fixed — measured
+from the image at ~12 courses over 512 px, 86 mm a course, giving a 2.06 x
+1.03 m tile. Box projection, so no UVs and no stretching. Exposure retuned for
+photographic albedos (the first CC0 render clipped every highlight).
+
+**Judged against `.screenshots/REJECTED-gamelike-baseline-1440.png`: better on
+materials, NOT yet passing.** The frame still reads brighter and cleaner than a
+photograph, and causes 1, 2, 4 and 5 from the diagnosis below are untouched.
+
+### R1 remaining, in order
+
+1. **CONTENT** (cause 1, the largest). Hoses, leads, offcuts, bins, tool
+   stacks, barriers, pallets — placed by logistics, near the work that uses
+   them, not scattered.
+2. **WEAR** (cause 2). Splashback at wall bases, dirt runs under openings,
+   tyre tracks on the pad, chipped arrises. Material MASKS, not geometry.
+3. **TOLERANCE** (cause 4). Nothing is out of true. Millimetres of error on
+   scaffold members, props and stacks.
+4. **ATMOSPHERE** (cause 5). No haze between camera and subject; everything
+   equally sharp at 40 m.
+5. Then people, then machinery.
+6. Re-render Cycles at all four gate views (street / entrance / side / 180).
+   Only export when it clearly beats the baseline.
+
+### Still true from the reset diagnosis
+
+## SUPERSEDED — the reset diagnosis (kept: causes 1-5 still drive R1)
 
 `.screenshots/REJECTED-gamelike-baseline-1440.png` is the rejected browser
 baseline. `.screenshots/concepts/C-infill-day-hero-cycles.png` is Cycles at the
