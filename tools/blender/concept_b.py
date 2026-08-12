@@ -140,9 +140,16 @@ def build(dusk=False):
                 parts["conc"].append(eb)
 
         # Upper columns: the tighter, offset grid.
+        #
+        # THE GRID REACHES THE PERIMETER. It previously stopped at +/-42 x
+        # +/-26 against a plate running to +/-46 x +/-30, leaving a 4 m
+        # cantilever on every edge with nothing under it -- which is why the
+        # building read as a stack of trays rather than as a frame. The line is
+        # now 2 m inside the slab edge, which is an ordinary slab overhang and
+        # puts visible structure under every plate.
         if lvl < LEVELS:
-            for x in range(-42, 43, 8):
-                for y in range(-26, 27, 9):
+            for x in range(-44, 45, 8):
+                for y in range(-28, 29, 8):
                     if ATRIUM[0] - 1 < x < ATRIUM[2] + 1 and ATRIUM[1] - 1 < y < ATRIUM[3] + 1:
                         continue
                     if CORE_MAIN[0] < x < CORE_MAIN[2] and CORE_MAIN[1] < y < CORE_MAIN[3]:
@@ -267,8 +274,14 @@ CAMERAS = {
     # HERO: from the far street corner, low, with the hoarding crossing the
     # foreground and the building running OUT OF FRAME to the right.
     "hero": ((-78, -57, 2.3), (8, -6, 20), 28),
-    # GROUND: standing in the compound looking through the podium.
-    "ground": ((-14, -40, 1.68), (10, -2, 9), 35),
+    # GROUND: standing INSIDE the hoarding among the staged material, with
+    # workers and stacks in the midground and the frame rising beyond.
+    #
+    # The first position stood under the podium and photographed an empty
+    # car-park underside -- structurally accurate and completely lifeless. The
+    # human-scale frame has to contain humans and the things they are working
+    # with, or it is testing nothing.
+    "ground": ((-6, -45, 1.66), (28, -12, 11), 35),
     # REAR: the loading edge, which nothing was composed for.
     "rear": ((72, 92, 3.2), (0, 6, 16), 35),
 }
