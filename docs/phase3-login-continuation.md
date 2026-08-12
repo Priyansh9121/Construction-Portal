@@ -173,26 +173,61 @@ M4 must restore the detail as REAL TEXTURE MAPS (albedo/roughness/normal),
 either baked from these node trees in Blender or sourced CC0. This is now the
 single largest visual gap.
 
-## Open defects after M2
+## M3 COMPLETE — commit 180507e
 
-- Materials are flat constants; no surface detail at all. (M4)
-- Neighbour rear elevations facing the laneway are blank. (M3)
+Terrain, rear elevations and world continuity.
+
+- **Street corridor is one graded ribbon** from a real cross-section: crown,
+  gutter each side, 140 mm kerb upstand, footpath falling back to the gutter.
+  No seams between road/gutter/kerb/pavement.
+- **Site pad sits proud of the footpath** with a graded ramp to the gate, so
+  the road physically connects into the site and the site sits INTO the ground.
+- **Rear/laneway neighbour elevations** now carry smaller irregular openings,
+  a service door, an external fire stair with landings and handrails,
+  condensers and a downpipe. Deliberately meaner than the street front.
+- **Far tier: 34 blocks on a 190-430 m ring**, so no bearing of a 360 orbit
+  finds the edge of the world.
+
+| | M2 | M3 |
+|---|---|---|
+| site triangles | 25,040 | 29,168 |
+| site payload (meshopt) | 405 KB | 465 KB |
+| scene draw calls | 50 | 55 |
+| scene triangles | 50,092 | 58,336 |
+| fps 1440 / 390 / 320 / reduced | 60.2 | 60.0-60.2 |
+| p95 | 17.3 ms | 17.2-17.4 ms |
+
+All nine camera claims still pass; opening eye lands exactly on the concept
+station at (-19.00, 1.64, 37.03). 101 a11y + responsive passing.
+
+## Open defects after M3
+
+- **Materials are flat constants; no surface detail at all. This is now by far
+  the largest visual gap.** (M4 — see `docs/world-material-plan.md`)
+- Mid-orbit angles that look up into the project's open rear frame read as
+  abstract grey slabs, because untextured concrete soffits have nothing to
+  show. Expected to resolve with M4 materials; re-check after.
 - Skip, cabin, stacks and the mast-climber car are boxes. (M5)
 - Workers are box figures. (M5)
 - No crane or hoist — removed with the old site coordinates. (M5)
-- No terrain variation; ground is a flat plane. (M3)
+- Rear window openings are cut but read shallow; may want deeper reveals.
 
-## Next exact actions — M3: CITY / TERRAIN
+## Next exact actions — M4: REAL PBR MATERIALS
 
-1. Extend `concept_c.py` neighbours: cut window reveals on the LANEWAY
-   elevations too, not only the street side.
-2. Replace the flat ground plane with graded terrain: kerb transitions,
-   the site pad, haul/access wear, drainage fall.
-3. Widen the street terrace so the city continues past the frame edges at
-   every camera station, including under 360 orbit.
-4. Re-export, re-run `build_assets.sh`, capture, compare.
+`docs/world-material-plan.md` holds the per-surface decision. In order:
 
-Then M4 materials/textures, M5 people/machinery.
+1. UV-unwrap the exported meshes in `concept_c.py` (smart project is enough
+   for these forms) so texture maps have somewhere to land.
+2. BAKE the concrete node tree — formwork lift lines, pour steps, staining —
+   to albedo/roughness/normal in Blender. This is the highest-value single
+   surface and it is authored, not photographic.
+3. Verify licence and availability, then source CC0 sets for brick, plywood,
+   asphalt and compacted earth. Record provenance.
+4. Re-evaluate KTX2 ONLY once real image textures exist; today the GLBs have
+   none, so a KTX2 step would report success and do nothing.
+5. Re-export, meshopt, capture, compare against the M3 frames.
+
+Then M5 people/machinery/props.
 
 ## Commands
 
