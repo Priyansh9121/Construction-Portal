@@ -29,13 +29,15 @@ import CRANE from "./craneGeometry.json";
 import SCAFFOLD from "./scaffoldGeometry.json";
 import HOIST from "./hoistGeometry.json";
 import { createSky } from "./sky";
-import { buildMaterialLibrary } from "./textures";
+import { buildMaterialLibrary, triplanar } from "./textures";
 import { bevelBox, CHAMFER, bucketBySize } from "./geometry";
 import { loadAssets, placeAsset, assetCost } from "./assets";
 import { createDust } from "./dust";
 import { CameraRig } from "./camera";
 import { worldEnvironment } from "./environment";
-import { SITE_LAYERS, SITE_JOURNEY, checkSiteScale } from "./loginSite";
+import {
+  SITE_LAYERS, SITE_JOURNEY, checkSiteScale, loadSurfaceMaps,
+} from "./loginSite";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -773,6 +775,37 @@ function buildSite(THREE, scene, portrait, MAT, opts = {}) {
   return { slew, trolley, cable, load, swing, hoist, materials: M, stats, swappable };
 }
 
+/**
+ * Give one imported glTF material its real surface.
+ *
+ * Matched by NAME, which is why the production export preserves the concept's
+ * material slots exactly. A slot with no entry keeps its factors: metals and
+ * glass are defined by how they reflect the environment, not by an albedo map,
+ * and painting diffuse detail onto them would flatten the very response that
+ * makes them read as metal.
+ */
+function dressSurface(THREE, material, surfaces) {
+  const slot = String(material.name || "").split(".")[0];
+  const surface = surfaces.get(slot);
+  if (!surface) return material;
+
+  material.map = surface.map;
+  material.roughnessMap = surface.roughnessMap;
+  material.normalMap = surface.normalMap;
+  /* Shallow. A strong normal on concrete reads as rock, and this is micro
+   * relief -- aggregate and formwork grain, not geology. */
+  material.normalScale = new THREE.Vector2(0.6, 0.6);
+  /* The albedo map already carries the colour, so the factor must go white or
+   * it multiplies the texture down and the surface reads muddy. */
+  material.color.setRGB(1, 1, 1);
+  material.roughness = 1;
+  material.metalness = material.metalness > 0.5 ? material.metalness : 0;
+  triplanar(material, 1 / surface.scale);
+  material.needsUpdate = true;
+  return material;
+}
+
+
 function buildLights(THREE, scene, portrait, preset, sunDir) {
   /*
    * Every light here is DERIVED FROM THE SKY. The key sits at the sun's own
@@ -1100,6 +1133,21 @@ export async function createAuthWorld(canvas, opts = {}) {
    * the origin -- no placement, no scaling. Scaling an authored asset would
    * be exactly as wrong here as it was for the bevelled boxes.
    */
+  /*
+   * BAKED SURFACES.
+   *
+   * The GLB materials arrive as flat factors named after the concept's own
+   * slots. `dressSurface` turns a name into a real surface: albedo, roughness
+   * and normal from the Blender bake, projected TRIPLANAR in world space.
+   *
+   * Triplanar rather than UVs because these meshes have none worth using --
+   * a 34 m party wall and a 600 mm column joined into one mesh cannot share a
+   * sane unwrap, and stretching is one of the failure modes this milestone is
+   * judged on. Sampling three times by world position and blending on the
+   * normal makes scale a property of the WORLD, not of the mesh.
+   */
+  const surfaces = loadSurfaceMaps(THREE);
+
   const siteAbort = new AbortController();
   if (!useProcedural) {
     const wanted = SITE_LAYERS.filter((l) => (portrait ? l.mobile : true));
@@ -1111,6 +1159,7 @@ export async function createAuthWorld(canvas, opts = {}) {
           const prims = loaded.get(layer.name);
           if (!prims) continue;
           for (const { geometry, material } of prims) {
+            dressSurface(THREE, material, surfaces);
             const mesh = new THREE.Mesh(geometry, material);
             /* Everything here is static architecture: it both casts and
              * receives, which is what puts the window reveals into shadow and
@@ -1130,6 +1179,7 @@ export async function createAuthWorld(canvas, opts = {}) {
   }
 
   const assetAbort = new AbortController();
+
   loadAssets(THREE, [...rigParts.swappable.keys()], { signal: assetAbort.signal })
     .then((assets) => {
       if (!alive) return;
@@ -1141,6 +1191,7 @@ export async function createAuthWorld(canvas, opts = {}) {
           /* A MOVING object: the authored meshes go inside the group the
            * animation already drives, so nothing about the motion changes. */
           for (const { geometry, material } of prims) {
+            dressSurface(THREE, material, surfaces);
             const mesh = new THREE.Mesh(geometry, material);
             mesh.castShadow = !portrait;
             mesh.receiveShadow = !portrait;

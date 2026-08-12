@@ -51,3 +51,78 @@ modified. Do not fabricate provenance.
 Not yet justified: the current GLBs contain **no image textures at all**, so a
 KTX2 step would report success and do nothing. Re-evaluate once real maps
 exist and the texture payload is measurable.
+
+---
+
+# M4 RESULT — what was actually built
+
+Commit: see `docs/phase3-login-continuation.md`.
+
+## Route taken: BAKE, not CC0
+
+**No external assets were downloaded.** Every map is baked from the Blender
+procedural materials that were already authored for the concept. That means
+there is no third-party licence to track and no provenance to record — the
+"CC0" column in the plan above went unused this milestone.
+
+Why baking won over sourcing: these are *authored* surfaces specific to this
+project (formwork lift lines at real 600 mm spacing, pour-to-pour steps, the
+staining pattern), and a photographic set would have replaced that with
+somebody else's concrete.
+
+## Swatches, not per-object bakes
+
+Each material is baked once onto a flat plane of known world size — a 4 m
+tile — and projected TRIPLANAR at runtime.
+
+Per-object baking was rejected: it needs a good unwrap across meshes that join
+a 34 m party wall to a 600 mm column, texel density would vary wildly between
+them, and stretching is one of the failure modes this milestone is judged on.
+Triplanar samples three times by world position and blends on the normal, so
+scale is a property of the world rather than of the mesh, and there are no
+seams to line up.
+
+## Map inventory
+
+| Slot | Albedo | Roughness | Normal | World tile |
+|---|---|---|---|---|
+| `conc` | 1024 JPEG | 1024 JPEG | 512 PNG | 4.0 m |
+| `wet` | 512 JPEG | 512 JPEG | 512 PNG | 4.0 m |
+| `earth` | 512 | 512 | 512 | 3.0 m |
+| `ply` | 512 | 512 | 512 | 2.2 m |
+| `city_warm` | 512 | 512 | 512 | 4.0 m |
+| `city_cool` | 512 | 512 | 512 | 4.0 m |
+| `spandrel` (asphalt) | 512 | 512 | 512 | 2.6 m |
+
+Total texture payload **2.5 MB**.
+
+Normals are capped at 512 everywhere: a 1024 concrete normal cost 1.8 MB for
+micro relief no camera resolves. JPEG for colour and roughness, PNG for
+normals — JPEG's chroma subsampling mangles the per-channel precision a normal
+map depends on, and a bad normal reads as shimmering.
+
+**No maps for metal or glass.** Galvanised steel and glazing are defined by how
+they REFLECT, and they read from the PMREM environment. Painting an albedo
+texture onto them would flatten exactly the response that makes them metallic.
+
+## Colour space
+
+Albedo is baked and loaded as sRGB; roughness and normal are `Non-Color` in
+Blender and untagged in three. Tagging a roughness map sRGB silently lightens
+it, and no amount of material tuning recovers the surface afterwards.
+
+## Lighting is not baked in
+
+Diffuse bake with direct and indirect passes OFF. The world has a real moving
+sun and will have a moon, so any light baked into albedo would be wrong within
+the hour.
+
+## KTX2: EVALUATED, REJECTED THIS MILESTONE
+
+`toktx`, `basisu`, `ktx` and `gltfpack` are all **absent** from this machine —
+verified, not assumed. `KTX2Loader` exists in three, but that is the decode
+side only; encoding needs KTX-Software installed.
+
+At 2.5 MB of texture the payload does not yet justify asking to install system
+software. Re-evaluate if a later milestone pushes textures past ~8 MB or if
+mobile GPU memory becomes a measured problem.
