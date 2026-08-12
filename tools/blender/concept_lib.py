@@ -727,8 +727,35 @@ def figure(loc, mats, facing=0.0):
 
 
 def standard_materials(wear=0.5, lit=0.0):
-    """The full material set every concept shares, so a difference between
-    two concepts is a difference in ARCHITECTURE, not in colour grading."""
+    """
+    The full material set every concept shares, so a difference between two
+    concepts is a difference in ARCHITECTURE, not in colour grading.
+
+    Photographic CC0 sets replace the procedural swatches wherever a real
+    surface exists for them. The procedural versions remain as the fallback
+    when the CC0 files are not on disk -- and only as that.
+    """
+    if cc0_available():
+        return {
+            # Tiles measured from the images, in metres (horizontal, vertical).
+            "conc": cc0("conc", "concrete", (2.4, 2.4)),
+            "wet": cc0("wet", "concrete", (2.4, 2.4), tint=0x6F757C),
+            # ~12 courses over the 512 px height at ~86 mm a course.
+            "city_warm": cc0("city_warm", "brick", (2.06, 1.03)),
+            "city_cool": cc0("city_cool", "concrete", (2.4, 2.4), tint=0xAEB6BE),
+            "spandrel": cc0("spandrel", "asphalt", (2.0, 2.0)),
+            "earth": cc0("earth", "ground", (2.4, 2.4)),
+            "ply": cc0("ply", "ply", (2.0, 2.0)),
+            "galv": galvanised("galv"),
+            "paint": painted("paint", 0x8A9096, rough=0.5),
+            "crane": painted("crane", 0xC8611A, rough=0.44, wear=0.4),
+            "screen": painted("screen", 0x2F6F8C, rough=0.62, wear=0.25),
+            "glass": glass("glass"),
+            "hiviz": painted("hiviz", 0xCBE034, rough=0.62, wear=0.1),
+            "workwear": painted("workwear", 0x2C3540, rough=0.85, wear=0.1),
+            "hat": painted("hat", 0xE8E4DC, rough=0.42, wear=0.1),
+            "skin": painted("skin", 0x8A6A52, rough=0.78, wear=0.05),
+        }
     return {
         "conc": concrete("conc", 0x9AA0A6, wear=wear),
         # Fresh concrete: darker, bluer, and much smoother because it is wet.
@@ -748,3 +775,109 @@ def standard_materials(wear=0.5, lit=0.0):
         "hat": painted("hat", 0xE8E4DC, rough=0.42, wear=0.1),
         "skin": painted("skin", 0x8A6A52, rough=0.78, wear=0.05),
     }
+
+
+# ---------------------------------------------------------------------------
+# CC0 photographic PBR materials
+# ---------------------------------------------------------------------------
+#
+# Procedural noise varies a COLOUR. It does not make a surface BE something.
+# The reset diagnosis found the procedural brick running at ~3 m per course --
+# invisible as brick, reading as flat cream -- and that is the general failure,
+# not a tuning error.
+#
+# These are photographic CC0 sets from ambientCG, licence verified from their
+# own licence page (Creative Commons CC0 1.0 Universal). Provenance is recorded
+# in docs/world-material-plan.md.
+
+# NOT under frontend/public. These are AUTHORING sources for Blender; the
+# runtime does not reference them yet, and 15 MB of unused images in the
+# public directory would ship in the bundle for nothing. When production
+# consumes them they will be re-exported at runtime resolution, not copied.
+CC0_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "tools", "textures", "cc0")
+
+
+def cc0(name, base, tile=(2.0, 2.0), rough_boost=0.0, tint=None):
+    """
+    A photographic PBR material, box-projected at a REAL WORLD SCALE.
+
+    `tile` is the physical size the texture represents, in metres, as
+    (horizontal, vertical). It is the single most important number here: the
+    brick set is 1024x512 showing about twelve courses, and a course with its
+    mortar is ~86 mm, so its tile is 2.06 x 1.03 m. Measured off the image, not
+    guessed -- guessing is what produced a three-metre brick last time.
+
+    BOX projection is Blender's own triplanar. It means these materials need no
+    UVs and cannot stretch, which matters because the production meshes join a
+    34 m party wall to a 600 mm column and no unwrap serves both.
+    """
+    mat, nt, bsdf = _new_material(name)
+
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    geo.location = (-1500, 0)
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.location = (-1300, 0)
+    # Scale is the RECIPROCAL of the tile: a 2 m tile repeats every 2 m.
+    mp.inputs["Scale"].default_value = (1.0 / tile[0], 1.0 / tile[0], 1.0 / tile[1])
+    nt.links.new(geo.outputs["Position"], mp.inputs["Vector"])
+
+    def image(slot, filename, non_color):
+        path = os.path.join(CC0_DIR, filename)
+        if not os.path.exists(path):
+            return None
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = bpy.data.images.load(path, check_existing=True)
+        tex.projection = "BOX"
+        tex.projection_blend = 0.35
+        tex.extension = "REPEAT"
+        if non_color:
+            tex.image.colorspace_settings.name = "Non-Color"
+        tex.location = (-1050, slot * 300)
+        nt.links.new(mp.outputs["Vector"], tex.inputs["Vector"])
+        return tex
+
+    color = image(1, f"{base}-color.jpg", False)
+    rough = image(0, f"{base}-roughness.jpg", True)
+    norm = image(-1, f"{base}-normal.jpg", True)
+
+    if color:
+        if tint:
+            mix = nt.nodes.new("ShaderNodeMixRGB")
+            mix.location = (-700, 300)
+            mix.blend_type = "MULTIPLY"
+            mix.inputs["Fac"].default_value = 1.0
+            mix.inputs["Color2"].default_value = srgb(tint)
+            nt.links.new(color.outputs["Color"], mix.inputs["Color1"])
+            nt.links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
+        else:
+            nt.links.new(color.outputs["Color"], bsdf.inputs["Base Color"])
+
+    if rough:
+        if rough_boost:
+            rr = nt.nodes.new("ShaderNodeMapRange")
+            rr.location = (-700, 0)
+            rr.inputs["To Min"].default_value = min(1.0, rough_boost)
+            rr.inputs["To Max"].default_value = 1.0
+            nt.links.new(rough.outputs["Color"], rr.inputs["Value"])
+            nt.links.new(rr.outputs["Result"], bsdf.inputs["Roughness"])
+        else:
+            nt.links.new(rough.outputs["Color"], bsdf.inputs["Roughness"])
+
+    if norm:
+        nm = nt.nodes.new("ShaderNodeNormalMap")
+        nm.location = (-700, -300)
+        # Shallow. A strong normal turns concrete into rock and asphalt into
+        # lava; this is micro relief, not geology.
+        nm.inputs["Strength"].default_value = 0.7
+        nt.links.new(norm.outputs["Color"], nm.inputs["Color"])
+        nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return mat
+
+
+def cc0_available():
+    """Whether the CC0 sets are actually on disk, so a build can fall back to
+    the procedural materials rather than exporting untextured geometry."""
+    return os.path.exists(os.path.join(CC0_DIR, "brick-color.jpg"))

@@ -126,3 +126,41 @@ side only; encoding needs KTX-Software installed.
 At 2.5 MB of texture the payload does not yet justify asking to install system
 software. Re-evaluate if a later milestone pushes textures past ~8 MB or if
 mobile GPU memory becomes a measured problem.
+
+---
+
+# R1 — CC0 PROVENANCE
+
+Verified at download time, not assumed.
+
+**Source:** ambientCG (https://ambientcg.com)
+**Licence:** Creative Commons CC0 1.0 Universal — confirmed by fetching
+https://ambientcg.com/license and reading the declaration, not from memory.
+CC0 requires no attribution; this record exists for our own traceability.
+**Downloaded:** during the R1 session. **Resolution:** 1K-JPG.
+
+| Local name | ambientCG asset | Maps used | Measured world tile |
+|---|---|---|---|
+| `concrete` | Concrete034 | Color, Roughness, NormalGL | 2.4 x 2.4 m |
+| `brick` | Bricks097 | Color, Roughness, NormalGL | **2.06 x 1.03 m** |
+| `asphalt` | Asphalt033 | Color, Roughness, NormalGL | 2.0 x 2.0 m |
+| `ground` | Ground108 | Color, Roughness, NormalGL | 2.4 x 2.4 m |
+| `ply` | Chipboard004 | Color, Roughness, NormalGL | 2.0 x 2.0 m |
+
+**Modifications:** none to the image data. Only Color/Roughness/NormalGL were
+kept; AO, Displacement and NormalDX were discarded. `wet` and `city_cool` reuse
+the concrete set with a multiply tint rather than carrying their own images.
+
+## How the brick tile was measured
+
+The reset diagnosis found the procedural brick running at roughly 3 m per
+course — invisible as brick. This one was measured rather than guessed: the
+1024x512 image shows about twelve courses across its height, and a brick course
+including mortar is ~86 mm, giving 12 x 86 = 1.03 m of height and, at 2:1,
+2.06 m of width.
+
+## Location
+
+`tools/textures/cc0/` — authoring sources, deliberately NOT under
+`frontend/public`. The runtime does not reference them yet and 15 MB of unused
+images would otherwise ship in the bundle.
