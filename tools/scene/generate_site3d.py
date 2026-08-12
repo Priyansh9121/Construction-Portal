@@ -225,31 +225,70 @@ def massing(r):
     Background city. Coarse on purpose: it is silhouette and depth cue, and
     every polygon spent here is one not spent on the structure in focus.
 
-    Placed on an arc that EXCLUDES the camera's own quadrant. The first version
-    scattered blocks on a full circle and one landed between the camera and the
-    site, filling the right of frame with a dark slab — background geometry in
-    the foreground, which a render showed at once. The camera stations all sit
-    toward +x/+z, so that wedge is kept clear and everything else reads as
-    distance.
+    A SINGLE BOX PER BUILDING IS NOT ENOUGH. That was the previous version and
+    it was the strongest remaining game/demo tell in the frame: 26 identical
+    cuboids of one tone, every roofline flat and at the same angle, every
+    silhouette a rectangle. Distance forgives detail; it does not forgive every
+    building in a city being the same shape.
+
+    So each block is COMPOSED rather than extruded:
+
+        podium      a wider base, because streets have shops and car parks
+        shaft       the tower, sometimes stepped back from the podium
+        cap         a setback upper section on the taller ones
+        plant       lift overrun and rooftop machinery, off-centre
+
+    That is four boxes instead of one, and it buys the two things that actually
+    read at 150 m: a varied roofline and a silhouette that steps. The camera
+    can now orbit a full circle, so nothing may be left out of the far half of
+    the arc either -- the previous exclusion wedge assumed the camera never
+    went round the back.
     """
     out = []
-    # The camera looks from roughly 45 degrees; keep 110 degrees around it free.
-    blocked = (math.radians(-10), math.radians(100))
     placed = 0
     guard = 0
-    while placed < 26 and guard < 400:
+    # A near ring and a far ring, so the city has depth rather than sitting on
+    # one circle at one distance.
+    while placed < 34 and guard < 600:
         guard += 1
         a = r.f(0, math.tau)
-        d = r.f(110, 250)
-        norm = a % math.tau
-        if blocked[0] % math.tau <= norm <= blocked[1] % math.tau and d < 200:
+        d = r.f(115, 300)
+        cx, cz = math.cos(a) * d, math.sin(a) * d - 30
+
+        # Nothing may stand inside the site itself.
+        if abs(cx) < 70 and abs(cz) < 70:
             continue
-        h = r.f(14, 74)
-        w, dp = r.f(10, 26), r.f(10, 26)
-        out.append(box(math.cos(a) * d, h / 2, math.sin(a) * d - 30, w, h, dp, "mass"))
+
+        h = r.f(16, 78)
+        w, dp = r.f(12, 30), r.f(12, 30)
+        tall = h > 44
+
+        # Podium: wider and short, which is what gives a block a base.
+        ph = r.f(4, 9)
+        out.append(box(cx, ph / 2, cz, w * r.f(1.08, 1.3), ph,
+                       dp * r.f(1.08, 1.3), "mass"))
+        # Shaft, offset slightly off the podium's centre.
+        ox, oz = r.f(-1.5, 1.5), r.f(-1.5, 1.5)
+        sh = h * (r.f(0.62, 0.8) if tall else 1.0)
+        out.append(box(cx + ox, ph + sh / 2, cz + oz, w, sh, dp, "mass"))
+        # Cap: a setback upper section, on the taller blocks only.
+        if tall:
+            ch = h - sh
+            out.append(box(cx + ox + r.f(-1, 1), ph + sh + ch / 2, cz + oz + r.f(-1, 1),
+                           w * r.f(0.6, 0.82), ch, dp * r.f(0.6, 0.82), "mass"))
+        # Roof plant: the lift overrun. Small, off-centre, and the single
+        # cheapest thing that stops a roofline reading as a cut.
+        top = ph + h
+        if r.next() < 0.75:
+            out.append(box(cx + ox + r.f(-w * 0.25, w * 0.25), top + r.f(1.2, 2.6) / 2,
+                           cz + oz + r.f(-dp * 0.25, dp * 0.25),
+                           r.f(3, 7), r.f(1.2, 2.6), r.f(3, 7), "mass"))
         placed += 1
 
-    assert placed >= 18, "massing band too sparse after exclusion"
+    heights = [b["p"][1] * 2 for b in out]
+    assert placed >= 24, "massing band too sparse"
+    assert len(out) > placed * 2, "blocks are still single extrusions"
+    assert max(heights) - min(heights) > 30, "the skyline has no variation"
     return out
 
 
@@ -565,8 +604,14 @@ def journey(g):
 
     # name, target, radius, azimuth (rad, 0 = due +z / the near face), eye (m), mm
     plan = [
-        ("entrance", [-4, 8, 12], 46, 0.55, 1.8, 24),
-        ("hoarding", [-4, 9, 12], 32, 0.20, 2.0, 28),
+        # The ESTABLISHING shot, and the one the page opens on. It has to say
+        # "construction site" before it says anything else, which means the
+        # frame must contain the building, the crane above it and sky -- from
+        # a position a person could stand in, with the hoarding and compound
+        # crossing the foreground to carry depth. 72 m at 28 mm covers 62 m of
+        # vertical at the subject, which fits a 36 m frame plus its crane.
+        ("entrance", [-2, 17, 8], 72, 0.46, 2.3, 28),
+        ("hoarding", [-4, 11, 12], 44, 0.24, 2.0, 28),
         ("scaffold", [-12, 11, 13], 19, -0.35, 2.2, 28),
         ("lift", [-20, 16, 4], 30, -1.05, 3.0, 35),
         ("deck", [-6, 27, 2], 26, -0.55, 22.0, 35),
