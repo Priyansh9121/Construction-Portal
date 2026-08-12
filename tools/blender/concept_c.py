@@ -66,17 +66,58 @@ def build(dusk=False, join_by_material=True):
     L.reset()
     rng = random.Random(41)
     mats = L.standard_materials(wear=0.72, lit=0.5 if dusk else 0.0)
-    parts = {"conc": [], "galv": [], "ply": [], "paint": [], "glass": []}
+    parts = {"conc": [], "galv": [], "ply": [], "paint": [], "glass": [],
+             "street": []}
 
     top = GROUND_H + LEVELS * STOREY_H
 
-    # ---- Street, footpath, laneway --------------------------------------
-    L.box("ground", (500, 500, 0.4), (0, 0, -0.2), mats["earth"])
-    L.box("street", (500, 13, 0.32), (0, -31, 0.04), mats["spandrel"])
-    L.box("kerb", (500, 0.35, 0.4), (0, -24.6, 0.18), mats["conc"])
-    L.box("path", (500, 7.2, 0.34), (0, -21, 0.15), mats["conc"])
-    L.box("lane", (500, 7.0, 0.3), (0, 26, 0.04), mats["spandrel"])
-    L.box("sitepad", (26, 38, 0.4), (0, 0, 0.18), mats["conc"])
+    # ---- TERRAIN: a graded street, not a game plane ----------------------
+    #
+    # The world used to be five flat boxes at five heights, which is exactly
+    # what a game plane looks like from eye level: no crossfall, no gutter, and
+    # a kerb that is a step rather than an upstand.
+    #
+    # The street corridor is now ONE ribbon built from a real cross-section, so
+    # the road crowns at its centre and falls to a gutter on each side, the
+    # kerb is a 140 mm upstand, and the footpath falls BACK toward the gutter.
+    # That drainage logic is what makes ground read as engineered rather than
+    # as deformed: water has somewhere to go, and the eye reads that even when
+    # it is not looking for it.
+    #
+    # The numbers are small on purpose. An urban site is nearly flat, and the
+    # realism is in 20-150 mm level changes, not in topography.
+    ROAD = [
+        (-46.0, 0.02),          # far verge
+        (-38.4, 0.14), (-38.0, 0.02),     # far kerb, then gutter
+        (-31.0, 0.20),          # crown of the carriageway
+        (-25.4, 0.02),          # near gutter, the low point
+        (-25.0, 0.16),          # near kerb upstand
+        (-21.0, 0.20),          # footpath, falling back to the kerb
+        (-17.6, 0.24),          # footpath at the building line
+    ]
+    L.box("ground", (900, 900, 0.4), (0, 0, -0.22), mats["earth"])
+    parts["street"].append(M.ribbon("road", -320, 320, ROAD, mats["spandrel"]))
+
+    # The rear laneway: narrower, no footpath, a single fall to one gutter.
+    LANE = [
+        (17.6, 0.22), (21.0, 0.06), (22.0, 0.16),
+        (26.0, 0.12), (30.0, 0.05), (30.4, 0.16), (38.0, 0.04),
+    ]
+    parts["street"].append(M.ribbon("lane", -220, 220, LANE, mats["spandrel"]))
+
+    # The site pad, sitting slightly PROUD of the footpath so the site reads as
+    # a thing built into the ground rather than a plate laid on it, with a
+    # graded ramp down to the gate where vehicles actually cross the kerb.
+    parts["street"].append(
+        M.prism("pad", M.rect(-13, -19, 13, 19), 0.24, 0.16, mats["conc"]))
+    RAMP = [(-19.0, 0.24), (-20.4, 0.20), (-21.6, 0.10), (-23.0, 0.03)]
+    parts["street"].append(M.ribbon("ramp", -6.0, 6.0, RAMP, mats["conc"]))
+    # A compacted access strip worn across the pad from the gate to the core.
+    parts["street"].append(
+        M.prism("haul", M.rect(-5.4, -19, 5.4, 12), 0.395, 0.03, mats["earth"]))
+    # The gutter drain the site falls toward.
+    parts["street"].append(
+        M.prism("drain", M.rect(-1.2, -25.6, 1.2, -25.0), 0.0, 0.06, mats["galv"]))
 
     # ---- NEIGHBOURS, hard against both flanks ---------------------------
     #
@@ -103,10 +144,67 @@ def build(dusk=False, join_by_material=True):
                               M.rect(wx - 1.05, PY0 - 3.35, wx + 1.05, PY0 - 2.75),
                               0.2 + lv * 3.4, 1.7)
                 M.cut(body, rec)
-        # Rooftop plant, off-centre.
+        # ---- THE BACK OF THE BUILDING ---------------------------------
+        #
+        # A 360 camera reaches the laneway, and until now it found two blank
+        # walls there. Rear elevations are not glamorous and should not be:
+        # they are where the servicing happens. So the laneway face gets
+        # SMALLER, IRREGULAR openings (bathrooms and stairs, not living
+        # rooms), a service door, a fire stair, condensers and a downpipe.
+        #
+        # Utilitarian, not decorated. The tell of a fake city is a back that
+        # looks like a front.
+        rear_y = PY1 + 3.0
+        for lv in range(1, int(nh / 3.4)):
+            for i in range(3):
+                wx = nx - 5.6 + i * 5.6
+                # Narrower and shorter than the street windows, and the middle
+                # bay is a blank riser rather than a window.
+                if i == 1 and lv % 2 == 0:
+                    continue
+                M.cut(body, M.prism(f"nrw{side}{lv}{i}",
+                                    M.rect(wx - 0.62, rear_y - 0.65, wx + 0.62, rear_y + 0.05),
+                                    0.2 + lv * 3.4 + 0.4, 1.15))
+        # Service door at lane level.
+        M.cut(body, M.prism(f"nrd{side}",
+                            M.rect(nx + sx * 4.2 - 0.65, rear_y - 0.6,
+                                   nx + sx * 4.2 + 0.65, rear_y + 0.05), 0.18, 2.15))
+        # An external fire stair: the single most recognisable rear-elevation
+        # object there is.
+        for lv in range(1, int(nh / 3.4)):
+            zz = 0.2 + lv * 3.4
+            parts["galv"].append(
+                M.prism(f"nfl{side}{lv}",
+                        M.rect(nx - 7.6, rear_y - 1.5, nx - 5.4, rear_y - 0.1),
+                        zz, 0.06, mats["galv"]))
+            for hh in (0.5, 1.05):
+                parts["galv"].append(
+                    M.prism(f"nfr{side}{lv}{hh}",
+                            M.rect(nx - 7.6, rear_y - 1.55, nx - 5.4, rear_y - 1.49),
+                            zz + hh, 0.04, mats["galv"]))
+        for lv in range(int(nh / 3.4)):
+            parts["galv"].append(
+                M.prism(f"nfp{side}{lv}",
+                        M.rect(nx - 7.62, rear_y - 1.56, nx - 7.54, rear_y - 1.48),
+                        0.2 + lv * 3.4, 3.4, mats["galv"]))
+        # Condensers and a downpipe.
+        for i in range(3):
+            parts["galv"].append(
+                L.box(f"nac{side}{i}", (0.85, 0.4, 0.7),
+                      (nx + sx * 1.2 + i * 1.3, rear_y - 0.3, 3.4 + i * 4.5),
+                      mats["galv"], bevel=0.03))
+        parts["galv"].append(
+            L.cyl(f"ndp{side}", 0.075, nh, (nx + sx * 8.2, rear_y - 0.16, nh / 2),
+                  mats["galv"], verts=7))
+
+        # Rooftop plant, off-centre, plus a lift overrun on the taller one.
         parts["conc"].append(
             L.box(f"nplant{side}", (4.2, 3.4, 2.2), (nx + sx * 2.5, 4.0, nh + 1.3),
                   mats["city_cool"]))
+        if nh > 21:
+            parts["conc"].append(
+                L.box(f"nplant2{side}", (2.6, 2.6, 3.2), (nx - sx * 3.6, -6.0, nh + 1.8),
+                      mats["city_cool"]))
 
     # ---- THE PROJECT ----------------------------------------------------
     # Party walls: blind concrete up both flanks, cast against the neighbours.
@@ -276,6 +374,17 @@ def build(dusk=False, join_by_material=True):
     for i in range(5):
         blocks.append((rng.uniform(-70, 70), 76 + i * 26, rng.uniform(20, 34),
                        rng.uniform(18, 28), rng.uniform(20, 46), i % 2))
+    # FAR TIER. Silhouette and massing only -- these are 200-450 m away, where
+    # window geometry is below a pixel and the only thing that reads is a
+    # varied roofline sitting in atmosphere. Placed on a RING so that every
+    # bearing of a 360 orbit has city in it: the acceptance test for this
+    # milestone is that no angle finds the edge of the world.
+    for i in range(34):
+        a = (i / 34) * math.tau + rng.uniform(-0.06, 0.06)
+        d = rng.uniform(190, 430)
+        blocks.append((math.cos(a) * d, math.sin(a) * d,
+                       rng.uniform(26, 54), rng.uniform(26, 54),
+                       rng.uniform(24, 96), i % 2))
     L.context_city(rng, blocks, mats, lit=0.5 if dusk else 0.0)
 
     # A camera inside a neighbour is invisible in source and obvious in a
@@ -325,8 +434,12 @@ def light(dusk):
 # would swallow it.
 LAYER_RULES = (
     ("street", ("ground", "street", "kerb", "path", "lane", "sitepad",
-                "hoard", "cabin", "skip", "stack")),
-    ("neighbours", ("nb", "np", "nw", "nplant", "city")),
+                "hoard", "cabin", "skip", "stack",
+                # M3 terrain
+                "road", "pad", "ramp", "haul", "drain")),
+    ("neighbours", ("nb", "np", "nw", "nplant", "city",
+                    # M3 rear elevations: openings, fire stair, plant
+                    "nrw", "nrd", "nfl", "nfr", "nfp", "nac", "ndp")),
     ("scaffold", ("std", "ldg", "tr", "board", "gr", "mast", "climber")),
 )
 

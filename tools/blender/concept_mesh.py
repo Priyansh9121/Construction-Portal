@@ -286,3 +286,53 @@ def facade_bay(name, a, b, z, storey_h, mat_glass, mat_frame, mullions=3):
     if head:
         parts.append(head)
     return parts
+
+
+def ribbon(name, x0, x1, section, mat=None):
+    """
+    A long surface extruded along X from a CROSS-SECTION.
+
+    `section` is a list of (y, z) points read left to right across the strip.
+    This is how a real street is described -- a crown at the centre, a fall to
+    the gutter, a kerb upstand, a footpath falling back toward it -- and it
+    produces genuine slopes instead of the stepped boxes a stack of flat
+    prisms gives.
+
+    The whole street corridor is one mesh, so there are no seams between road,
+    gutter, kerb and pavement where a camera at eye height would find them.
+    """
+    verts, faces = [], []
+    n = len(section)
+    for (y, z) in section:
+        verts.append((x0, y, z))
+        verts.append((x1, y, z))
+    for i in range(n - 1):
+        a = i * 2
+        faces.append((a, a + 1, a + 3, a + 2))
+    # Close the underside so the strip is a solid, not a sheet: a one-sided
+    # ribbon shows its back face the moment the camera drops below it.
+    base = len(verts)
+    for (y, _z) in section:
+        verts.append((x0, y, -0.6))
+        verts.append((x1, y, -0.6))
+    for i in range(n - 1):
+        a = base + i * 2
+        faces.append((a + 2, a + 3, a + 1, a))
+    for (i0, i1) in ((0, base), (n * 2 - 2, base + n * 2 - 2)):
+        faces.append((i0, i0 + 1, i1 + 1, i1))
+    for side in (0, 1):
+        for i in range(n - 1):
+            a = i * 2 + side
+            b = (i + 1) * 2 + side
+            c = base + (i + 1) * 2 + side
+            d = base + i * 2 + side
+            faces.append((a, b, c, d) if side == 0 else (d, c, b, a))
+
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    me.validate()
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(ob)
+    if mat:
+        ob.data.materials.append(mat)
+    return ob
