@@ -581,9 +581,51 @@
    * frame. The fallback stays MOUNTED (a lost context must have something to
    * fall back to) and simply stops being visible.
    */
-  .auth-scene:has(.auth-world[data-live="1"]) .auth-scene__layer {
+  /*
+   * The authored still steps aside — EXCEPT THE VEIL.
+   *
+   * The veil is not artwork, it is the legibility guarantee, and hiding it
+   * along with the rest left the form's contrast resting on the assumption
+   * that the world behind it was dark. That assumption held for exactly as
+   * long as the sky was a fixed dusk preset. The first capture taken after
+   * the world started following the real clock was at 3 pm, put sunlit ground
+   * behind the supporting copy, and the body text became unreadable.
+   */
+  .auth-scene:has(.auth-world[data-live="1"])
+    .auth-scene__layer:not([data-layer="veil"]) {
     opacity: 0;
     transition: opacity 900ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  /*
+   * Over a live world the veil ANSWERS THE SKY.
+   *
+   * `--auth-world-luma` is published by the world controller from the sun's
+   * real altitude: 0 at night, 1 in full daylight. The veil is nearly absent
+   * at night, when the scene is already dark enough to read against, and
+   * strong at midday, when it is not.
+   *
+   * Contrast is therefore measured against a floor that moves with the
+   * artwork rather than against whatever pixel happens to be behind the text.
+   */
+  .auth-scene:has(.auth-world[data-live="1"]) .auth-scene__layer[data-layer="veil"] {
+    /* Tuned against the copy's actual footprint: text occupies the left
+     * third, so the veil only has to be dense there. Falling off by 38%
+     * keeps the guarantee where it is needed and leaves the daylight in the
+     * rest of the frame -- an earlier pass held 0.76 alpha out to 46% and
+     * darkened the whole scene back to something that no longer read as
+     * afternoon. */
+    --veil-near: calc(0.60 + 0.30 * var(--auth-world-luma, 0));
+    --veil-mid: calc(0.22 + 0.30 * var(--auth-world-luma, 0));
+    --veil-far: calc(0.0 + 0.05 * var(--auth-world-luma, 0));
+    background:
+      linear-gradient(
+        var(--auth-veil-angle, 90deg),
+        rgb(var(--auth-veil-rgb) / var(--veil-near)) 0%,
+        rgb(var(--auth-veil-rgb) / var(--veil-mid)) 38%,
+        rgb(var(--auth-veil-rgb) / var(--veil-far)) 72%
+      );
+    transition: background 1200ms linear;
   }
 }
 
