@@ -20,8 +20,8 @@ and names the PID — that is intended. Do not let it drift to 5174/5175.
 |---|---|
 | `A-urban-tower-day-hero.png` | FAIL — reads as BIM |
 | `A-urban-tower-day-ground.png` | FAIL — camera behind a cabin, marble-like materials |
-| `B-commercial-day-hero.png` | Much better. Real architecture, still tray-like |
-| `B-commercial-day-ground.png` | Rendered, not yet reviewed |
+| `B-commercial-day-hero.png` | PASS — cantilever fixed, perimeter structure reads |
+| `B-commercial-day-ground.png` | PASS — foreground stacks, workers, crane, frame above |
 | `B-commercial-day-rear.png` | PASS for 360 viability |
 
 ## What has been settled
@@ -47,30 +47,31 @@ dramatically better than Concept A in one pass.
 
 ## Open defects in Concept B
 
-- **Plates cantilever ~4 m past the perimeter columns**, so the building reads
-  as a stack of trays. This is the single biggest remaining tell. Fix: run the
-  upper column grid out to the plate edge (`range(-42, 43, 8)` stops short of
-  `X1 = 46`), or pull the plate in to the column line.
+- FIXED: the 4 m cantilever. The upper grid now runs to +/-44 x +/-28 against a
+  plate at +/-46 x +/-30, an ordinary 2 m slab overhang with visible structure
+  under every plate.
+- FIXED: the ground camera stood under the podium photographing an empty
+  car-park underside. It now stands inside the hoarding among staged material.
+- **Workers are box figures and are visibly crude at ground range.** Needs a
+  properly licensed rigged human, per the directive.
 - Facade panels read as pale cards, not glazing.
 - Concrete still reads flat; procedural node texture may not be enough.
 - No site clutter or people visible in the hero frame.
 
 ## Next exact actions, in order
 
-1. Fix the cantilever in `tools/blender/concept_b.py` (column grid vs `X0/X1`).
-2. Review `B-commercial-day-ground.png`.
-3. Build **Concept C** — tight inner-city infill — using `concept_mesh.py`.
+1. Build **Concept C** — tight inner-city infill — using `concept_mesh.py`.
    Must NOT reuse B's composition: narrow parcel, masonry party walls, street
    frontage, scaffold dominating one elevation, city filling more of the frame.
    Render `C-HERO`, `C-GROUND`, `C-REAR`.
-4. Build **A2** replacing the failed Concept A, using `concept_mesh.py`:
+2. Build **A2** replacing the failed Concept A, using `concept_mesh.py`:
    podium + tower, offset core, transfer level, setback, screens at the
    working levels.
-5. Run ONE Cycles diagnostic on the strongest concept
+3. Run ONE Cycles diagnostic on the strongest concept
    (`--cycles`, already wired in `concept_b.py`) to separate a modelling
    failure from a real-time-lighting failure.
-6. Build the contact sheet, score all concepts, choose the winner.
-7. Only then begin production migration.
+4. Build the contact sheet, score all concepts, choose the winner.
+5. Only then begin production migration.
 
 ## Commands
 
