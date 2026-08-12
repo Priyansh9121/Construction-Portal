@@ -32,6 +32,7 @@ import { createSky, TIMES } from "./sky";
 import { buildMaterialLibrary } from "./textures";
 import { bevelBox, CHAMFER, bucketBySize } from "./geometry";
 import { loadAssets, placeAsset, assetCost } from "./assets";
+import { createDust } from "./dust";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -403,9 +404,16 @@ function buildSite(THREE, scene, portrait, MAT) {
     concreteCool: MAT.concreteAlt,
     steel: MAT.galv,
     plant: MAT.paint,
+    /* The active pour is WET CONCRETE.
+     *
+     * It was emissive violet, and it read as a neon strip laid along the
+     * seventh floor — the one object in the scene that announced itself as
+     * graphics. Fresh concrete is darker than cured concrete, slightly blue,
+     * and above all WET: the low roughness is what does the work here,
+     * because a wet surface returns the sky as a broad sheen and that is
+     * exactly how a fresh slab reads from across a site. */
     pour: new THREE.MeshStandardMaterial({
-      color: 0x7d55ff, roughness: 0.72, metalness: 0.05,
-      emissive: 0x2a1170, emissiveIntensity: 0.45,
+      color: 0x6a7078, roughness: 0.26, metalness: 0.0,
     }),
     far: new THREE.MeshStandardMaterial({
       color: PALETTE.far, roughness: 1, metalness: 0,
@@ -623,25 +631,68 @@ function buildSite(THREE, scene, portrait, MAT) {
    * and no network asset.
    */
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(SITE.ground, SITE.ground, 1, 1),
+    new THREE.PlaneGeometry(SITE.ground, SITE.ground, portrait ? 48 : 96, portrait ? 48 : 96),
     MAT.ground
   );
+  /*
+   * GRADED, NOT FLAT.
+   *
+   * A perfectly flat plane is the single most reliable signal that a scene is
+   * rendered rather than photographed: real ground has fall, and fall is what
+   * makes the sun's grazing light break into long soft bands instead of one
+   * uniform value. Two octaves at long wavelengths are enough — this is
+   * compacted site earth, not terrain, and anything more reads as a landscape.
+   *
+   * The working area is held FLAT. Every placed object stands at y = 0, and a
+   * cabin half-buried in a hummock is a worse defect than a flat plane. The
+   * mask is a smooth ramp from 45 m (every placed object is inside that) to
+   * 100 m, so
+   * there is no crease where it lets go.
+   */
+  {
+    const pos = ground.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i += 1) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);           /* plane is authored in XY, rotated below */
+      const r = Math.hypot(x, y);
+      const mask = Math.min(1, Math.max(0, (r - 45) / 55));
+      const fall =
+        Math.sin(x * 0.021 + 1.3) * Math.cos(y * 0.017 - 0.4) * 0.85 +
+        Math.sin(x * 0.058 - 2.1) * Math.cos(y * 0.049 + 1.1) * 0.28;
+      pos.setZ(i, fall * mask * mask);
+    }
+    pos.needsUpdate = true;
+    ground.geometry.computeVertexNormals();
+  }
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = !portrait;
   scene.add(ground);
 
-  /* The poured slab the frame stands on: lighter, flatter, and squarely
-   * under the structure, which is what tells the eye the building has
-   * foundations rather than resting on dirt. */
+  /* The poured slab the frame stands on, as a SLAB rather than a decal.
+   *
+   * It was a plane at y = 0.03, and a plane has no edge — so the lighter
+   * rectangle ended in a razor line and the building read as standing on a
+   * floating platform. 180 mm of thickness gives the edge a face for the sun
+   * to catch, which is what says "poured" rather than "painted". */
   const g = SITE.frame.grid;
   const pad = new THREE.Mesh(
-    new THREE.PlaneGeometry(g.bays_x * g.bay + 14, g.bays_z * g.bay + 14),
+    new THREE.BoxGeometry(g.bays_x * g.bay + 14, 0.18, g.bays_z * g.bay + 14),
     MAT.pad
   );
-  pad.rotation.x = -Math.PI / 2;
-  pad.position.set(0, 0.03, 0);
+  pad.position.set(0, 0.06, 0);
   pad.receiveShadow = !portrait;
   scene.add(pad);
+
+  /* The crane's foundation. A tower crane transfers its whole overturning
+   * moment into a mass-concrete base; without one the mast grows out of bare
+   * soil, which is the same class of error the hoist's missing mast was. */
+  const craneBase = new THREE.Mesh(
+    new THREE.BoxGeometry(7.4, 0.7, 7.4), MAT.pad
+  );
+  craneBase.position.set(SITE.crane.base[0], 0.3, SITE.crane.base[2]);
+  craneBase.receiveShadow = !portrait;
+  craneBase.castShadow = !portrait;
+  scene.add(craneBase);
 
   /* Haul road: compacted, darker, running across the site's near edge. */
   const road = new THREE.Mesh(
@@ -965,6 +1016,20 @@ export async function createAuthWorld(canvas, opts = {}) {
   /* Travel ranges come from the crane ASSET, so the trolley can never run off
    * the end of a jib whose length the generator changed. */
   const wind = new Wind();
+  /*
+   * Suspended dust, on the world wind.
+   *
+   * Kept deliberately sparse, and halved on a phone where the same count would
+   * cover proportionally more of a smaller screen. Under reduced motion the
+   * field is still built and still drawn — it is atmosphere, and removing it
+   * would leave a thinner scene rather than a calmer one — but it does not
+   * move.
+   */
+  const dust = createDust(THREE, scene, {
+    count: portrait ? 210 : 420,
+    tint: preset.work,
+  });
+  if (reduced) dust.freeze();
   const task = new CraneTask(CRANE.trolley.range, CRANE.hook.drop);
 
   /* The hoist stops AT landings, dwells, and departs later — it does not
@@ -1026,6 +1091,18 @@ export async function createAuthWorld(canvas, opts = {}) {
         const cost = assetCost(prims, slot.placements?.length ?? 1);
         rigParts.stats.authored = (rigParts.stats.authored || 0) + cost.tris;
       }
+
+      /*
+       * Under reduced motion the world draws ONE frame and then stops asking
+       * for more. The assets arrive after that frame, so without this the
+       * swap happened correctly and was simply never rendered — the still
+       * showed procedural boxes for the cabins and light tower while the
+       * animated view showed the authored assets.
+       *
+       * Reduced motion means no CONTINUOUS animation. It does not mean the
+       * canvas may never be redrawn when its contents change.
+       */
+      if (reduced) renderer.render(scene, cam);
     })
     .catch((err) => console.warn("[world] asset upgrade skipped", err));
 
@@ -1095,6 +1172,10 @@ export async function createAuthWorld(canvas, opts = {}) {
     if (!reduced) {
       wind.update(elapsed);
       task.update(dt, wind);
+      /* Dust drifts on the SAME wind vector as the clouds and the slung load,
+       * which is what makes a gust read as weather rather than as three
+       * animations that happen to be running. */
+      dust?.update(dt, wind, elapsed);
 
       rigParts.slew.rotation.y = 0.15 + task.slew * 0.85;
       rigParts.trolley.position.x = task.trolley;
@@ -1239,6 +1320,7 @@ export async function createAuthWorld(canvas, opts = {}) {
         if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
         else o.material?.dispose?.();
       });
+      dust?.dispose();
       envRT?.dispose();
       pmrem.dispose();
       sky.dispose();
