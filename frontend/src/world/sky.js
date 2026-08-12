@@ -35,6 +35,33 @@ const FRAG = /* glsl */ `
   uniform vec3 uSunTint;
   uniform float uHaze;
   uniform float uExposure;
+  uniform float uTime;
+  uniform vec2 uWind;
+  uniform float uCloud;
+
+  // ---- Value noise and fBm, for cloud shape -----------------------------
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x),
+               mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
+  }
+
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+      v += vnoise(p) * a;
+      p *= 2.03;
+      a *= 0.5;
+    }
+    return v;
+  }
 
   void main() {
     vec3 d = normalize(vDir);
@@ -62,6 +89,39 @@ const FRAG = /* glsl */ `
 
     // Horizon lift: atmosphere is thickest along the ground line.
     sky += uSunTint * pow(1.0 - abs(up), 9.0) * 0.16 * uHaze;
+
+    /*
+     * CLOUD LAYER.
+     *
+     * A gradient sky is the most synthetic thing in the frame — real sky has
+     * structure, and structure is what gives it distance. This is a flat cloud
+     * plane sampled by projecting the view ray onto it, so clouds bunch toward
+     * the horizon exactly as a real layer does, at no geometric cost.
+     *
+     * They drift on the WORLD WIND, so the sky obeys the same environment as
+     * the crane's load and the dust. Two octave sets at different scales and
+     * speeds give the layer internal motion rather than sliding as one sheet.
+     */
+    if (up > 0.005) {
+      vec2 proj = d.xz / max(up, 0.02) * 0.35;
+      vec2 drift = uWind * uTime * 0.006;
+
+      float base = fbm(proj * 0.55 + drift);
+      float detail = fbm(proj * 1.7 - drift * 1.7);
+      /* Threshold tuned by render, not by taste: at 0.46-0.86 almost no
+       * pixels passed and the layer was invisible. */
+      float mask = smoothstep(0.34, 0.74, base * 0.78 + detail * 0.36);
+
+      // Fade out toward the zenith and at the horizon, so the layer reads as
+      // having an edge rather than filling the dome.
+      mask *= smoothstep(0.0, 0.1, up) * (1.0 - smoothstep(0.62, 1.0, up));
+      mask *= uCloud;
+
+      // Lit from the same sun: the side facing it is bright, the body is not.
+      float lit = pow(max(mu, 0.0), 3.0);
+      vec3 cloudCol = mix(uHorizon * 0.75, uSunTint * 1.25, lit * 0.8 + 0.12);
+      sky = mix(sky, cloudCol, clamp(mask, 0.0, 0.88));
+    }
 
     gl_FragColor = vec4(sky * uExposure, 1.0);
   }
@@ -147,6 +207,9 @@ export function createSky(THREE, scene, time) {
       uSunTint: { value: new THREE.Color(...T.tint) },
       uHaze: { value: T.haze },
       uExposure: { value: T.exposure },
+      uTime: { value: 0 },
+      uWind: { value: new THREE.Vector2(1, 0.3) },
+      uCloud: { value: T.cloud ?? 0.85 },
     },
   });
 
@@ -167,12 +230,17 @@ export function createSky(THREE, scene, time) {
     sun,
     preset: T,
     material,
+    /* Exposed so the environment bake can render the same dome into a cube
+     * without rebuilding the shader. */
+    dome,
     /**
      * The sun moves, very slowly, and everything derived from it moves too.
      * A degree a minute is below the threshold of noticing frame to frame and
      * unmistakable after thirty seconds — which is the whole point.
      */
-    advance(seconds, key) {
+    advance(seconds, key, wind) {
+      material.uniforms.uTime.value = seconds;
+      if (wind) material.uniforms.uWind.value.set(wind.x, wind.z);
       const a = seconds * 0.0016;
       const s = new THREE.Vector3(...T.sun);
       s.applyAxisAngle(new THREE.Vector3(0, 1, 0), a);

@@ -1,0 +1,13 @@
+import { createRequire } from "node:module";
+const require = createRequire("/Users/priyanshranpura/construction-portal/frontend/package.json");
+const { chromium } = require("@playwright/test");
+const b = await chromium.launch({args:["--use-gl=angle","--enable-gpu","--ignore-gpu-blocklist"]});
+const p = await (await b.newContext({viewport:{width:1440,height:900}})).newPage();
+await p.goto("http://localhost:5173/login",{waitUntil:"networkidle"});
+await p.waitForSelector('.auth-world[data-live="1"]',{timeout:15000});
+await p.waitForTimeout(3000);
+// Look up to inspect the sky layer specifically.
+await p.evaluate(()=>{const c=document.querySelector("canvas.auth-world"); c.dispatchEvent(new Event("x"));});
+await p.screenshot({path:".screenshots/login3d/sky-check.png", clip:{x:520,y:0,width:920,height:340}});
+console.log("sky captured");
+await b.close();
