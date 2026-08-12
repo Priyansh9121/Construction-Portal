@@ -200,34 +200,63 @@ Terrain, rear elevations and world continuity.
 All nine camera claims still pass; opening eye lands exactly on the concept
 station at (-19.00, 1.64, 37.03). 101 a11y + responsive passing.
 
-## Open defects after M3
+## M4 COMPLETE — commit e7d1e1c
 
-- **Materials are flat constants; no surface detail at all. This is now by far
-  the largest visual gap.** (M4 — see `docs/world-material-plan.md`)
-- Mid-orbit angles that look up into the project's open rear frame read as
-  abstract grey slabs, because untextured concrete soffits have nothing to
-  show. Expected to resolve with M4 materials; re-check after.
-- Skip, cabin, stacks and the mast-climber car are boxes. (M5)
-- Workers are box figures. (M5)
-- No crane or hoist — removed with the old site coordinates. (M5)
-- Rear window openings are cut but read shallow; may want deeper reveals.
+Baked PBR surfaces from Blender, projected triplanar. See
+`docs/world-material-plan.md` for the full map inventory and the KTX2 decision.
 
-## Next exact actions — M4: REAL PBR MATERIALS
+- 7 material families baked to albedo/roughness/normal at a 4 m world tile.
+- Triplanar at runtime, so no UVs, no seams, no stretching.
+- **No external assets downloaded** — everything baked from the concept's own
+  procedural materials, so no third-party licence to track.
+- **No maps for metal or glass**: they read from the PMREM environment, and an
+  albedo texture would flatten the reflection that makes them metallic.
+- **KTX2 rejected this milestone**: toktx/basisu/ktx/gltfpack all verified
+  ABSENT; 2.5 MB does not justify installing system software.
 
-`docs/world-material-plan.md` holds the per-surface decision. In order:
+| | M3 | M4 |
+|---|---|---|
+| texture payload | 0 | 2.5 MB |
+| site GLB | 465 KB | 454 KB |
+| fps 1440/390/320/reduced | 60.0-60.2 | 60.2-60.3 |
+| p95 | 17.2-17.4 ms | 16.8-17.7 ms |
 
-1. UV-unwrap the exported meshes in `concept_c.py` (smart project is enough
-   for these forms) so texture maps have somewhere to land.
-2. BAKE the concrete node tree — formwork lift lines, pour steps, staining —
-   to albedo/roughness/normal in Blender. This is the highest-value single
-   surface and it is authored, not photographic.
-3. Verify licence and availability, then source CC0 sets for brick, plywood,
-   asphalt and compacted earth. Record provenance.
-4. Re-evaluate KTX2 ONLY once real image textures exist; today the GLBs have
-   none, so a KTX2 step would report success and do nothing.
-5. Re-export, meshopt, capture, compare against the M3 frames.
+Two defects the renders caught: the masonry field/joint were inverted, baking a
+whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
+showed up as 4 KB blank normal maps.
 
-Then M5 people/machinery/props.
+## Open defects after M4
+
+**Ranked by how strongly each still says "computer-generated":**
+
+1. **Site content is placeholder boxes.** The mast-climber car is a flat orange
+   cube, the skip and stacks are boxes, workers are box figures, and there is
+   no crane or hoist at all. This is now the single loudest tell. (M5)
+2. **Nothing moves.** The site is completely static — no machinery cycle, no
+   people, no dust. A still frame hides this; interaction does not. (M6)
+3. Concrete variation is honest but subtle; it may want stronger meso-scale
+   pour-to-pour tonal steps to read at distance.
+4. Rear window openings are cut but read shallow.
+5. Contact shadows are soft; objects could sit into the ground more firmly.
+   (M9 evaluates AO/GTAO — do NOT pre-empt it.)
+
+## Next exact actions — M5: AUTHORED SITE CONTENT
+
+The world now has real architecture, real ground and real surfaces, and
+nothing living in it. Site content is the loudest remaining tell.
+
+1. **Mast-climber car** — authored GLB replacing the orange cube. It is the
+   most prominent placeholder in the hero frame.
+2. **Workers** — properly licensed rigged humans, NOT box figures. Verify
+   licence at the time (Mixamo terms, or a CC0 source). Three convincing
+   figures beat twenty.
+3. **Skip, stacks, cabin** — authored props, placed against the M3 terrain.
+4. **Hoist/crane** — this plot is too tight for a tower crane, which is why it
+   has the mast climber. Do NOT reintroduce a tower crane; upgrade the climber
+   and its mast instead.
+5. Re-export via `build_assets.sh`, capture, compare against M4 frames.
+
+Then M6 animation/activity, M7 environment, M8 physics, M9 post, M10 handover.
 
 ## Commands
 
