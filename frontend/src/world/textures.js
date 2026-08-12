@@ -440,7 +440,11 @@ export function buildMaterialLibrary(THREE) {
    * makes a building read as an extrusion. */
   const conc2 = concrete(THREE, { tint: [0.55, 0.58, 0.64], seed: 19, repeat: 2.4 });
   const gnd = soil(THREE, {});
-  const pad = concrete(THREE, { tint: [0.63, 0.66, 0.7], seed: 5, repeat: 9 });
+  // The working slab is DIRTY. At [0.63, 0.66, 0.7] it read as a bright
+  // rectangle laid on the site -- a clean slab is what a slab looks like the
+  // day it is poured, not the day a tower crane and a hoist have been tracking
+  // mud across it for three months.
+  const pad = concrete(THREE, { tint: [0.45, 0.455, 0.475], seed: 5, repeat: 9 });
   const pnt = paint(THREE, {});
   const ply = plywood(THREE, {});
 

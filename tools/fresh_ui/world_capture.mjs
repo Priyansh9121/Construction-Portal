@@ -80,7 +80,11 @@ for (const view of VIEWS) {
   /* The world is imported on idle and the camera flies in over ~5.4s. Waiting
    * a fixed time is what makes two captures comparable; waiting for
    * "networkidle" alone would photograph a camera mid-flight. */
-  await page.waitForTimeout(view.motion === "reduce" ? 1500 : 8000);
+  /* Reduced motion skips the entry flight but NOT the authored-asset load,
+   * which is a network round trip either way. Waiting 1.5s here photographed
+   * a site whose hero assets had not landed yet and made the reduced capture
+   * look like it was missing objects. 5s is comfortably past the swap. */
+  await page.waitForTimeout(view.motion === "reduce" ? 5000 : 8000);
 
   const renderer = await page.evaluate(() => {
     const c = document.createElement("canvas");
