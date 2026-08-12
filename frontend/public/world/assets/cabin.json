@@ -1,0 +1,20 @@
+{
+  "name": "cabin",
+  "triangles": 4760,
+  "vertices": 2512,
+  "materials": [
+    "cabin-chassis",
+    "cabin-glass",
+    "cabin-seal",
+    "cabin-shell",
+    "cabin-trim"
+  ],
+  "size_m": [
+    6.221,
+    2.62,
+    3.098
+  ],
+  "origin_at_base": 0.0,
+  "file": "cabin.glb",
+  "bytes": 183512
+}

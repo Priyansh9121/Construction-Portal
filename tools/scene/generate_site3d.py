@@ -275,12 +275,19 @@ def works(r, g):
     D = g["bays_z"] * g["bay"]
     near = g["oz"] + D
 
-    # ---- Temporary services: a cabin stack by the gate -----------------
+    # ---- Temporary services: the welfare compound by the gate ----------
+    #
+    # Sizes match the AUTHORED cabin exactly (tools/blender/asset_cabin.py):
+    # 6.22 x 2.62 x 2.44 m over a 20 ft chassis. The runtime replaces these
+    # boxes with the GLB, so a box that disagreed with the asset would make the
+    # site shuffle the moment the asset loaded.
+    #
+    # A row rather than a stack. Stacking is what a real compound does for
+    # space, but the authored unit carries its own access steps, and a stacked
+    # unit would stand its stair on the roof below it.
     for i in range(3):
-        out.append(box(g["ox"] - 19 + i * 6.6, 1.35, near + 19,
-                       6.1, 2.7, 2.5, "cabin"))
-    # A second cabin stacked, which is what a real compound does for space.
-    out.append(box(g["ox"] - 12.4, 4.1, near + 19, 6.1, 2.7, 2.5, "cabin"))
+        out.append(box(g["ox"] - 19 + i * 7.4, 1.31, near + 19,
+                       6.22, 2.62, 2.44, "cabin"))
     out.append(box(g["ox"] - 24.5, 1.1, near + 19, 2.2, 2.2, 2.0, "plant"))
 
     # ---- Material staging, inside the crane's radius --------------------
@@ -341,35 +348,39 @@ def workers(r, g):
     until something of known size stands beside it, and a construction site
     without a single person reads as abandoned.
 
-    Each is five boxes: legs, torso, head, hard hat. At the distances these are
-    seen that is enough to read as a person in hi-vis, and it avoids the
-    uncanny result of a low-quality animated character.
+    Each is five boxes: legs, torso, head, hard hat. That is the FALLBACK. The
+    runtime replaces it with the authored figure (tools/blender/asset_worker.py)
+    whenever the GLB is available, so this emits both the boxes and the
+    per-figure anchors the asset needs.
+
+    The anchors carry a yaw. Three figures all facing the same way read as
+    props; the same three turned to face the work they are doing read as
+    people, and rotation is the cheapest variety there is.
     """
     D = g["bays_z"] * g["bay"]
     near = g["oz"] + D
     out = []
+    at = []
 
-    def figure(x, z, facing=0.0, tag="worker"):
+    def figure(x, z, base=0.0, facing=0.0):
         # 1.78 m: legs 0.86, torso 0.62, head 0.22, hat on top.
-        out.append(box(x - 0.09, 0.43, z, 0.15, 0.86, 0.18, "hiviz-dark", ))
-        out.append(box(x + 0.09, 0.43, z, 0.15, 0.86, 0.18, "hiviz-dark"))
-        out.append(box(x, 1.17, z, 0.42, 0.62, 0.24, "hiviz"))
-        out.append(box(x, 1.58, z, 0.19, 0.21, 0.19, "skin"))
-        out.append(box(x, 1.72, z, 0.27, 0.09, 0.27, "hat"))
-        return facing
+        out.append(box(x - 0.09, base + 0.43, z, 0.15, 0.86, 0.18, "hiviz-dark"))
+        out.append(box(x + 0.09, base + 0.43, z, 0.15, 0.86, 0.18, "hiviz-dark"))
+        out.append(box(x, base + 1.17, z, 0.42, 0.62, 0.24, "hiviz"))
+        out.append(box(x, base + 1.58, z, 0.19, 0.21, 0.19, "skin"))
+        out.append(box(x, base + 1.72, z, 0.27, 0.09, 0.27, "hat"))
+        # The anchor is a GROUND position, because the authored asset's origin
+        # is its ground contact.
+        at.append({"p": [r3(x), r3(base), r3(z)], "ry": round(facing, 4)})
 
     # One at the material staging, one at the gate, one on the boarded lift.
-    figure(g["ox"] + 8.5, near + 8.2)
-    figure(g["ox"] - 6.0, near + 21.4)
-    figure(g["ox"] - 9.0, 16.3 + 0.9)   # on the scaffold platform run
-    out[-3]["p"][1] += 6.0              # lift the torso group to lift 3
-    out[-2]["p"][1] += 6.0
-    out[-1]["p"][1] += 6.0
-    out[-5]["p"][1] += 6.0
-    out[-4]["p"][1] += 6.0
+    figure(g["ox"] + 8.5, near + 8.2, 0.0, -0.6)
+    figure(g["ox"] - 6.0, near + 21.4, 0.0, 2.5)
+    figure(g["ox"] - 9.0, 16.3 + 0.9, 6.0, 1.2)   # on the scaffold platform run
 
     assert len(out) == 15, "three figures, five members each"
-    return out
+    assert len(at) == 3, "one anchor per figure"
+    return out, at
 
 
 def lights(r, g):
@@ -493,6 +504,7 @@ def site(seed):
     r = Rng(seed)
     f = frame(r)
     g = f["grid"]
+    worker_boxes, worker_at = workers(r, g)
     return {
         "seed": seed,
         "units": "metres",
@@ -502,7 +514,8 @@ def site(seed):
         "scaffold": scaffold(r, g),
         "massing": massing(r),
         "works": works(r, g),
-        "workers": workers(r, g),
+        "workers": worker_boxes,
+        "workerAt": worker_at,
         "lights": lights(r, g),
         "cameras": cameras(g),
         "camerasPortrait": cameras_portrait(g),

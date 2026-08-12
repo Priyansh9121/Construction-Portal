@@ -1,0 +1,19 @@
+{
+  "name": "hoist",
+  "triangles": 1516,
+  "vertices": 936,
+  "materials": [
+    "hoist-deck",
+    "hoist-galv",
+    "hoist-mesh",
+    "hoist-paint"
+  ],
+  "size_m": [
+    1.74,
+    2.45,
+    3.48
+  ],
+  "origin_at_base": 0.0,
+  "file": "hoist.glb",
+  "bytes": 63864
+}

@@ -1,0 +1,20 @@
+{
+  "name": "light-tower",
+  "triangles": 1296,
+  "vertices": 752,
+  "materials": [
+    "lt-dark",
+    "lt-galv",
+    "lt-lens",
+    "lt-paint",
+    "lt-rubber"
+  ],
+  "size_m": [
+    2.24,
+    6.805,
+    3.14
+  ],
+  "origin_at_base": 0.0,
+  "file": "light-tower.glb",
+  "bytes": 45552
+}

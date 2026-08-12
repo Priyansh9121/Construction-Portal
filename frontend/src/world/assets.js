@@ -1,0 +1,139 @@
+/**
+ * Authored GLB assets: loading, instancing and — most importantly — failing
+ * safely.
+ *
+ * THE CONTRACT
+ * ------------
+ * An authored asset is an UPGRADE over the procedural box that stands in its
+ * place, never a dependency. The world is built first from the generated
+ * layout, entirely from procedural geometry. When a GLB arrives, the boxes for
+ * that kind are removed and the authored mesh is instanced at exactly the same
+ * positions. If the fetch 404s, the decode fails, or the network never
+ * answers, nothing is removed and the site is still coherent — just blockier.
+ *
+ * That ordering is deliberate. It means:
+ *
+ *   - the world never waits on a network request to appear
+ *   - a broken asset degrades one object, not the scene
+ *   - authentication is untouched either way, because the form has never had
+ *     any relationship with this module
+ *
+ * INSTANCING
+ * ----------
+ * A GLB exported from Blender arrives as one mesh with one primitive per
+ * material. Cloning the whole scene per placement would multiply draw calls by
+ * the number of placements; instead each primitive becomes a single
+ * InstancedMesh carrying every placement of that asset. Four cabins therefore
+ * cost five draw calls — the same as one cabin.
+ *
+ * Geometry is baked into world space at load, so the instance transform only
+ * ever carries position and a Y rotation. Placements never scale: these assets
+ * are modelled at real size, and scaling one would be as wrong here as it was
+ * for the bevelled boxes.
+ */
+
+const BASE = "/world/assets/";
+
+/**
+ * Load a set of GLBs. Never rejects: a failure is reported as a missing entry
+ * so the caller keeps its procedural geometry rather than losing the object.
+ */
+export async function loadAssets(THREE, names, { signal } = {}) {
+  const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
+  const loader = new GLTFLoader();
+  const out = new Map();
+
+  await Promise.all(names.map((name) => new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    loader.load(
+      `${BASE}${name}.glb`,
+      (gltf) => {
+        try {
+          out.set(name, extract(THREE, gltf));
+        } catch (err) {
+          report(name, err);
+        }
+        resolve();
+      },
+      undefined,
+      (err) => { report(name, err); resolve(); },
+    );
+  })));
+
+  return out;
+}
+
+function report(name, err) {
+  /* Deliberately a warning, not a throw. A missing hero asset is a visual
+   * regression, not a broken page, and the console is where that belongs. */
+  console.warn(`[world] asset "${name}" unavailable; keeping procedural form`, err);
+}
+
+/**
+ * Flatten a loaded glTF into world-space primitives ready to instance.
+ */
+function extract(THREE, gltf) {
+  gltf.scene.updateMatrixWorld(true);
+  const prims = [];
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    const geometry = o.geometry.clone();
+    /* Bake the node transform. Blender's exporter may nest the mesh under a
+     * root node, and an un-baked transform would place every instance at the
+     * origin of that node instead of at its placement. */
+    geometry.applyMatrix4(o.matrixWorld);
+    geometry.computeBoundingSphere();
+    const materials = Array.isArray(o.material) ? o.material : [o.material];
+    materials.forEach((material) => prims.push({ geometry, material }));
+  });
+  if (!prims.length) throw new Error("no meshes in asset");
+  return prims;
+}
+
+/**
+ * Instance one asset at a list of placements.
+ *
+ * `placements` are `{ p: [x, y, z], ry?: radians }` — a ground position and an
+ * optional yaw. The asset's own origin sits at its ground contact, which is
+ * what makes `p` a position on the site rather than a mesh centre that every
+ * caller would have to offset by half a height.
+ */
+export function placeAsset(THREE, scene, prims, placements, {
+  cast = true, receive = true, envIntensity = 1,
+} = {}) {
+  if (!prims?.length || !placements.length) return [];
+  const dummy = new THREE.Object3D();
+  const meshes = [];
+
+  for (const { geometry, material } of prims) {
+    const mat = material.clone();
+    mat.envMapIntensity = envIntensity;
+    const mesh = new THREE.InstancedMesh(geometry, mat, placements.length);
+    placements.forEach((placement, i) => {
+      dummy.position.set(placement.p[0], placement.p[1], placement.p[2]);
+      dummy.rotation.set(0, placement.ry || 0, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.castShadow = cast;
+    mesh.receiveShadow = receive;
+    mesh.frustumCulled = true;
+    scene.add(mesh);
+    meshes.push(mesh);
+  }
+  return meshes;
+}
+
+/**
+ * Count what an asset actually costs, so "the cabin is authored now" comes
+ * with a number rather than a claim.
+ */
+export function assetCost(prims, count) {
+  let tris = 0;
+  for (const { geometry } of prims) {
+    const index = geometry.getIndex();
+    tris += (index ? index.count : geometry.getAttribute("position").count) / 3;
+  }
+  return { draws: prims.length, tris: Math.round(tris * count) };
+}

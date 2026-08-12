@@ -1,0 +1,20 @@
+{
+  "name": "worker",
+  "triangles": 2052,
+  "vertices": 1064,
+  "materials": [
+    "wk-boot",
+    "wk-hat",
+    "wk-hiviz",
+    "wk-skin",
+    "wk-work"
+  ],
+  "size_m": [
+    0.662,
+    1.788,
+    0.42
+  ],
+  "origin_at_base": 0.0,
+  "file": "worker.glb",
+  "bytes": 41420
+}
