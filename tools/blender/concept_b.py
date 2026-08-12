@@ -290,7 +290,10 @@ CAMERAS = {
 def main():
     args = L.argv()
     dusk = "--dusk" in args
-    cycles = "--cycles" in args
+    # NOT "--cycles": the Cycles addon parses sys.argv itself and claims
+    # that flag even after the "--" separator, so Blender aborts with an
+    # ambiguous-option error before the script ever runs.
+    cycles = "--ref" in args
     which = args[args.index("--frames") + 1] if "--frames" in args else "hero,ground,rear"
 
     build(dusk=dusk)

@@ -306,8 +306,16 @@ CAMERAS = {
     # HERO: up the street from the footpath opposite, so the neighbours frame
     # the plot and the scaffold is read THROUGH. Building runs out of frame.
     "hero": ((-19.0, -37.0, 1.65), (2.0, -6.0, 17.0), 28),
-    # GROUND: on the footpath directly below, looking up inside the scaffold.
-    "ground": ((-2.0, -24.0, 1.62), (3.0, -10.0, 15.0), 24),
+    # GROUND: standing on the OPPOSITE footpath, across the street.
+    #
+    # The first position pressed a 24 mm lens against the scaffold from 6 m and
+    # produced an abstract lattice -- striking, and evidence of nothing, because
+    # a frame with no person, no ground and no context cannot test human scale.
+    # 26 m back at 28 mm is where a person actually stands to look at a site:
+    # the hoarding, the workers on the footpath, the scaffolded elevation and
+    # the neighbours all land in one frame, and the building crops at the top
+    # rather than being fitted into the picture.
+    "ground": ((-7.0, -38.0, 1.68), (3.0, -12.0, 10.0), 28),
     # REAR: the laneway, the side nothing was composed for.
     # Far enough back to show the plot IN ITS TERRACE. At 36 m the building
     # filled the frame and the shot became a section through it, which proves
@@ -319,7 +327,10 @@ CAMERAS = {
 def main():
     args = L.argv()
     dusk = "--dusk" in args
-    cycles = "--cycles" in args
+    # NOT "--cycles": the Cycles addon parses sys.argv itself and claims
+    # that flag even after the "--" separator, so Blender aborts with an
+    # ambiguous-option error before the script ever runs.
+    cycles = "--ref" in args
     which = args[args.index("--frames") + 1] if "--frames" in args else "hero,ground,rear"
 
     build(dusk=dusk)

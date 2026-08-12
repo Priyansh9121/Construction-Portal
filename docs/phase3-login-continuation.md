@@ -24,8 +24,12 @@ and names the PID — that is intended. Do not let it drift to 5174/5175.
 | `B-commercial-day-ground.png` | PASS — foreground stacks, workers, crane, frame above |
 | `B-commercial-day-rear.png` | PASS for 360 viability |
 | `C-infill-day-hero.png` | **STRONGEST FRAME SO FAR** — reads as a real site |
-| `C-infill-day-ground.png` | FAIL — abstract scaffold wall, no human, no ground |
+| `C-infill-day-ground.png` | PASS — opposite footpath, worker at hoarding, scale reads |
 | `C-infill-day-rear.png` | PASS — plot reads as a gap in a terrace |
+| `A2-highrise-day-hero.png` | PASS — podium/tower/transfer reads, but presented not seen-through |
+| `A2-highrise-day-ground.png` | Rendered; not individually reviewed |
+| `A2-highrise-day-rear.png` | PASS — offset tower and podium terrace read from behind |
+| `C-infill-day-hero-cycles.png` | Cycles diagnostic |
 
 ## What has been settled
 
@@ -85,17 +89,63 @@ construction site rather than a model of one. What did it:
   are only on the street side.
 - Skip, cabin and stacks in the laneway are still boxes.
 
-## Next exact actions, in order
+## THE CONCEPT GATE IS CLOSED. WINNER: CONCEPT C.
 
-1. Fix the C ground camera (above) and re-render.
-2. Build **A2** replacing the failed Concept A, using `concept_mesh.py`:
-   podium + tower, offset core, transfer level, setback, screens at the
-   working levels.
-3. Run ONE Cycles diagnostic on the strongest concept
-   (`--cycles`, already wired in `concept_b.py`) to separate a modelling
-   failure from a real-time-lighting failure.
-4. Build the contact sheet, score all concepts, choose the winner.
-5. Only then begin production migration.
+Scored from the nine EEVEE frames, not from code. 5 = best.
+
+| | B | C | A2 |
+|---|---|---|---|
+| architectural realism | 4 | 5 | 4 |
+| structural credibility | 4 | 4 | 5 |
+| construction authenticity | 4 | 5 | 4 |
+| human scale | 4 | 5 | 2 |
+| site context | 3 | 5 | 3 |
+| material realism | 3 | 3 | 3 |
+| silhouette | 3 | 4 | 4 |
+| foreground depth | 3 | 5 | 2 |
+| midground depth | 4 | 5 | 3 |
+| background depth | 3 | 5 | 4 |
+| lighting | 3 | 4 | 3 |
+| 360 viability | 4 | 4 | 4 |
+| city integration | 2 | 5 | 3 |
+| memorability | 3 | 5 | 3 |
+| Login suitability | 3 | 5 | 3 |
+| browser translatability | 4 | 4 | 3 |
+| **total** | **54** | **73** | **53** |
+
+**C wins on the three things that were always the problem**: foreground depth,
+city integration and Login suitability. Its hero frame is the only one where
+the project is seen THROUGH something, and the only one where most of the
+frame is a real city rather than a hero object on a plane.
+
+A2 is the better *building* -- the transfer level is the most legible piece of
+structural engineering in the set -- but it is PRESENTED rather than inhabited,
+and its ground frame has no human scale. B sits between them.
+
+## Cycles diagnostic — the answer is BOTH, and geometry is still the larger half
+
+`C-infill-day-hero-cycles.png` against `C-infill-day-hero.png`:
+
+Cycles is clearly better -- softer shadow falloff, warmer bounce into the ply
+boards, genuine shading inside the window reveals. But it is NOT a
+transformation. The composition, the blank stucco flanks, the box mast-climber
+car and the absence of clutter are identical, because those are not lighting
+problems.
+
+Conclusion: real-time lighting is a REAL part of the remaining gap and Three.js
+will lose more of it again -- but the larger remaining half is still material
+detail, prop quality and clutter. Do not expect a renderer change to fix it.
+
+## Next exact actions, in order — PRODUCTION MIGRATION MAY NOW BEGIN
+
+M2 (next): export the Concept C architecture as production GLB.
+   - `tools/blender/concept_c.py` gains an `--export` path writing
+     `frontend/public/world/assets/` via the existing lib_build export.
+   - Split by layer: hero frame, neighbours, scaffold, street.
+   - Meshopt via the existing pipeline; PRESERVE the dequantisation fix.
+   - Do NOT rebuild C from JavaScript boxes.
+
+Then M3 city/terrain, M4 materials, M5 people/machinery.
 
 ## Commands
 
