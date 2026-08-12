@@ -411,8 +411,11 @@ def light(dusk):
     else:
         # High enough to reach down a narrow street between tall neighbours,
         # and from the south so the street elevation is actually lit.
-        L.sky_world(46, 196, strength=0.5)
-        L.sun_lamp(46, 196, 6.5, color=(1.0, 0.94, 0.86), angle=0.6)
+        # Retuned for PHOTOGRAPHIC albedos. The previous values were set
+        # against dark procedural swatches; real CC0 sets are far brighter, so
+        # the same sun clipped every highlight and turned red brick pale pink.
+        L.sky_world(46, 196, strength=0.32)
+        L.sun_lamp(46, 196, 3.2, color=(1.0, 0.95, 0.88), angle=0.8)
 
 
 # ---------------------------------------------------------------------------
@@ -641,11 +644,11 @@ def main():
         if cycles:
             L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}-cycles.png"), cam,
                      width=960, height=600, samples=96, engine="CYCLES",
-                     exposure=0.25 if dusk else -0.45)
+                     exposure=0.25 if dusk else -1.05)
         else:
             L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}.png"), cam,
                      width=1440, height=900, samples=48,
-                     exposure=0.25 if dusk else -0.45)
+                     exposure=0.25 if dusk else -1.05)
 
 
 main()
