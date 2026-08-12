@@ -93,3 +93,6 @@ coverage/
 # schema-production.sql that no longer exists in the repository.
 backend/database/snapshots/*.local.sql
 .screenshots/
+
+# Blender bytecode from headless concept runs
+tools/blender/__pycache__/
