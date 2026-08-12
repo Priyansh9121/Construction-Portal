@@ -23,6 +23,9 @@ and names the PID — that is intended. Do not let it drift to 5174/5175.
 | `B-commercial-day-hero.png` | PASS — cantilever fixed, perimeter structure reads |
 | `B-commercial-day-ground.png` | PASS — foreground stacks, workers, crane, frame above |
 | `B-commercial-day-rear.png` | PASS for 360 viability |
+| `C-infill-day-hero.png` | **STRONGEST FRAME SO FAR** — reads as a real site |
+| `C-infill-day-ground.png` | Rendered, NOT yet reviewed |
+| `C-infill-day-rear.png` | PASS — plot reads as a gap in a terrace |
 
 ## What has been settled
 
@@ -58,12 +61,22 @@ dramatically better than Concept A in one pass.
 - Concrete still reads flat; procedural node texture may not be enough.
 - No site clutter or people visible in the hero frame.
 
+## Concept C — built, and it is the front-runner
+
+The hero frame is the first image in this whole effort that reads as a real
+construction site rather than a model of one. What did it:
+
+- **Neighbours with real cut window reveals.** Boolean recesses on the party
+  buildings mean the sun puts a shadow in every opening. This is doing more
+  work than anything else in the frame.
+- **Scaffold read THROUGH.** The street elevation is fully scaffolded, so the
+  building is seen behind steelwork instead of presented in front of it.
+- **The plot is a GAP IN A TERRACE.** Most of the frame is other people's
+  buildings, which is what an infill site actually looks like.
+
 ## Next exact actions, in order
 
-1. Build **Concept C** — tight inner-city infill — using `concept_mesh.py`.
-   Must NOT reuse B's composition: narrow parcel, masonry party walls, street
-   frontage, scaffold dominating one elevation, city filling more of the frame.
-   Render `C-HERO`, `C-GROUND`, `C-REAR`.
+1. Review `C-infill-day-ground.png` (rendered, not yet inspected).
 2. Build **A2** replacing the failed Concept A, using `concept_mesh.py`:
    podium + tower, offset core, transfer level, setback, screens at the
    working levels.
