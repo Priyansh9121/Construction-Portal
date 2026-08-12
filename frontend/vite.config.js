@@ -27,4 +27,28 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+
+  /*
+   * THE DEV SERVER OWNS 5173, OR IT FAILS.
+   *
+   * Vite's default is to hunt for the next free port, which is how three
+   * instances of this project ended up listening on 5173, 5174 and 5175 at
+   * once -- each new session silently moved along and left the last one
+   * running. Every capture harness and test run then had to be told which port
+   * to use, and a stale server from a previous day could serve a stale build
+   * to a probe that believed it was measuring current work.
+   *
+   * `strictPort` turns that silent drift into an immediate, named failure:
+   * either 5173 is ours, or the run stops and says which process has it.
+   *
+   * Dev only. `vite build` and the production deployment are untouched.
+   */
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
+  preview: {
+    port: 5173,
+    strictPort: true,
+  },
 })

@@ -28,12 +28,13 @@ import SITE from "./siteGeometry.json";
 import CRANE from "./craneGeometry.json";
 import SCAFFOLD from "./scaffoldGeometry.json";
 import HOIST from "./hoistGeometry.json";
-import { createSky, TIMES } from "./sky";
+import { createSky } from "./sky";
 import { buildMaterialLibrary } from "./textures";
 import { bevelBox, CHAMFER, bucketBySize } from "./geometry";
 import { loadAssets, placeAsset, assetCost } from "./assets";
 import { createDust } from "./dust";
 import { CameraRig } from "./camera";
+import { worldEnvironment } from "./environment";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -765,9 +766,23 @@ function buildLights(THREE, scene, portrait, preset, sunDir) {
   }
   scene.add(key);
 
+  /*
+   * THE MOON IS NOT A SECOND SUN.
+   *
+   * Moonlight is about 400,000x weaker than sunlight, so this exists to give
+   * night a DIRECTION and a cool cast, not to illuminate the site. Its
+   * intensity is the illuminated fraction times how far the sun is below the
+   * horizon, which means a new moon contributes exactly nothing -- and that
+   * is why some nights here are genuinely dark and others are not.
+   */
+  const moon = new THREE.DirectionalLight(0xb9c9e8, 0);
+  moon.castShadow = false;
+  scene.add(moon);
+
   /* Sky above, site below. Two colours, because the ground of a construction
    * site is not the colour of its sky. */
-  scene.add(new THREE.HemisphereLight(preset.fill, 0x1a1712, preset.fillI));
+  const hemi = new THREE.HemisphereLight(preset.fill, preset.bounce ?? 0x1a1712, preset.fillI);
+  scene.add(hemi);
 
   /* Practical work lamps. Their intensity comes from the time of day: at noon
    * they are all but off, at dusk they are the scene. */
@@ -784,10 +799,14 @@ function buildLights(THREE, scene, portrait, preset, sunDir) {
     s.target.position.set(...l.aim);
     scene.add(s);
     scene.add(s.target);
-    return { light: s, base: (l.warm ? 300 : 190) * preset.work };
+    /* `warmBase` is the lamp's full output; `base` is what it is currently
+     * set to. Keeping both means the environment can rescale by time of day
+     * without the value decaying toward zero on every update. */
+    const warmBase = l.warm ? 300 : 190;
+    return { light: s, warmBase, base: warmBase * preset.work };
   });
 
-  return { key, lamps };
+  return { key, moon, hemi, lamps };
 }
 
 /**
@@ -800,8 +819,16 @@ export async function createAuthWorld(canvas, opts = {}) {
   const portrait = opts.portrait ?? window.innerWidth < 700;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const time = opts.time || "dusk";
-  const preset = TIMES[time];
+  /*
+   * THE WORLD RUNS ON THE REAL CLOCK.
+   *
+   * `opts.at` lets a harness drive the world to a chosen instant — a night
+   * scene has to be verifiable without waiting until night — but the default
+   * is now, in Asia/Kolkata, the same timezone the product's business logic
+   * uses to decide what "today" means.
+   */
+  let env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
+  const preset = env.grade;
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -843,7 +870,7 @@ export async function createAuthWorld(canvas, opts = {}) {
     900
   );
 
-  const sky = createSky(THREE, scene, time);
+  const sky = createSky(THREE, scene, env.grade, env.sun.dir);
 
   /*
    * ENVIRONMENT LIGHTING FROM THE SKY ITSELF.
@@ -908,6 +935,23 @@ export async function createAuthWorld(canvas, opts = {}) {
     /* Which side of the form the sun is on, as a signed number the CSS can
      * use to place the warm edge without knowing any geometry. */
     root.style.setProperty("--auth-world-sun-x", s.uSun.value.x.toFixed(3));
+
+    /*
+     * HOW BRIGHT THE WORLD CURRENTLY IS, 0..1.
+     *
+     * The veil that guarantees the form's contrast was tuned against a world
+     * that was permanently at dusk. The moment the sky became real, a 3 pm
+     * capture put pale sunlit ground behind the supporting copy and the body
+     * text stopped being readable — a genuine accessibility regression
+     * introduced by a lighting change, which is exactly the kind of coupling
+     * a fixed veil cannot survive.
+     *
+     * Publishing the scene's luminance lets the veil answer the sky instead
+     * of assuming it. Derived from the sun's altitude rather than sampled
+     * pixels: it is the cause, it is free, and it cannot flicker.
+     */
+    const luma = Math.min(1, Math.max(0, (env.sun.altitude + 6) / 26));
+    root.style.setProperty("--auth-world-luma", luma.toFixed(3));
   };
   publishLight();
   const MAT = buildMaterialLibrary(THREE);
@@ -969,6 +1013,42 @@ export async function createAuthWorld(canvas, opts = {}) {
    * and `loadAssets` never rejects: if the GLBs are missing the boxes simply
    * stay. The form has never had any relationship with this module either way.
    */
+  /*
+   * Push the current environment into every system that depends on it: the
+   * sky shader, the key light's direction and colour, the moon, the sky
+   * bounce, the fog, the exposure and the work lamps.
+   *
+   * One function, so those can never disagree about what time it is.
+   */
+  let lastEnv = 0;
+  const applyEnvironment = () => {
+    const g = env.grade;
+    sky.applyGrade(g, env.sun.dir);
+
+    lights.key.color.setHex(g.key);
+    /* Below the horizon the sun contributes nothing. Without this the key
+     * keeps lighting the site from underneath all night. */
+    lights.key.intensity = env.sun.up ? g.keyI : 0;
+    lights.key.position.set(...env.sun.dir).multiplyScalar(140);
+
+    lights.moon.intensity = env.moon.intensity;
+    lights.moon.position.set(...env.moon.dir).multiplyScalar(160);
+
+    lights.hemi.color.setHex(g.fill);
+    /* The lower half of a hemisphere light is BOUNCE OFF THE GROUND, and at
+     * midday a sunlit site throws a great deal of warm light back up. Left at
+     * a fixed near-black it crushed every shadowed facade to black the moment
+     * the world first ran in real daylight. */
+    lights.hemi.groundColor.setHex(g.bounce);
+    lights.hemi.intensity = g.fillI;
+
+    scene.fog.color.setHex(g.fog);
+    scene.fog.density = g.fogD * (portrait ? 1.25 : 1);
+    renderer.toneMappingExposure = g.exposure;
+
+    for (const l of lights.lamps) l.base = l.warmBase * g.work;
+  };
+
   const assetAbort = new AbortController();
   loadAssets(THREE, [...rigParts.swappable.keys()], { signal: assetAbort.signal })
     .then((assets) => {
@@ -1214,7 +1294,25 @@ export async function createAuthWorld(canvas, opts = {}) {
       };
       /* The sun moves and the key light moves with it: shadows swing across
        * the concrete over minutes rather than seconds. */
-      sky.advance(elapsed, lights.key, wind);
+      sky.advance(elapsed, wind);
+
+      /*
+       * THE WORLD FOLLOWS THE REAL CLOCK.
+       *
+       * Re-read the environment every two seconds rather than every frame:
+       * the sun moves a quarter of a degree in that time, which is far below
+       * anything visible, and it keeps three trig-heavy calls plus their
+       * allocations off the frame budget.
+       *
+       * Nothing is snapped. The state is continuous because real time is
+       * continuous, so a two-second step in a value that changes over hours
+       * cannot produce a visible jump — there is no cross-fade to write.
+       */
+      if (elapsed - lastEnv > 2) {
+        lastEnv = elapsed;
+        env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
+        applyEnvironment();
+      }
       /* Republish at ~2 Hz: the sun moves over minutes, so a per-frame write
        * would be 60x the cost for no visible difference. */
       if (elapsed - (lastPublish || 0) > 0.5) {

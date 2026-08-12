@@ -190,9 +190,17 @@ export const TIMES = {
   },
 };
 
-export function createSky(THREE, scene, time) {
-  const T = TIMES[time] || TIMES.dusk;
-  const sun = new THREE.Vector3(...T.sun).normalize();
+/**
+ * The sky, driven by a GRADE and a real sun direction.
+ *
+ * `grade` is the interpolated colour set produced by the world environment
+ * from the sun's actual altitude; `sunDir` is where the sun actually is. The
+ * old signature took the NAME of one of three hand-painted presets, which is
+ * why the world was permanently at dusk regardless of the time of day.
+ */
+export function createSky(THREE, scene, grade, sunDir) {
+  const T = grade || TIMES.dusk;
+  const sun = new THREE.Vector3(...(sunDir || T.sun)).normalize();
 
   const material = new THREE.ShaderMaterial({
     vertexShader: VERT,
@@ -226,29 +234,36 @@ export function createSky(THREE, scene, time) {
   dome.renderOrder = -1;
   scene.add(dome);
 
+  const applyGrade = (g, dir) => {
+    if (dir) material.uniforms.uSun.value.copy(dir).normalize();
+    material.uniforms.uZenith.value.setRGB(...g.zenith);
+    material.uniforms.uHorizon.value.setRGB(...g.horizon);
+    material.uniforms.uGround.value.setRGB(...g.ground);
+    material.uniforms.uSunTint.value.setRGB(...g.tint);
+    material.uniforms.uHaze.value = g.haze;
+    material.uniforms.uExposure.value = g.exposure;
+  };
+
   return {
     sun,
     preset: T,
     material,
+    applyGrade,
     /* Exposed so the environment bake can render the same dome into a cube
      * without rebuilding the shader. */
     dome,
     /**
-     * The sun moves, very slowly, and everything derived from it moves too.
-     * A degree a minute is below the threshold of noticing frame to frame and
-     * unmistakable after thirty seconds — which is the whole point.
+     * Clouds drift; the SUN DOES NOT MOVE HERE ANY MORE.
+     *
+     * This used to rotate an invented sun about Y at "a degree a minute",
+     * which was a nice effect and a lie: the light had no relationship to
+     * anything. The sun's position now comes from the real clock and real
+     * coordinates, and is pushed in through `applyGrade`.
      */
-    advance(seconds, key, wind) {
+    advance(seconds, wind) {
       material.uniforms.uTime.value = seconds;
       if (wind) material.uniforms.uWind.value.set(wind.x, wind.z);
-      const a = seconds * 0.0016;
-      const s = new THREE.Vector3(...T.sun);
-      s.applyAxisAngle(new THREE.Vector3(0, 1, 0), a);
-      s.y = Math.max(0.045, T.sun[1] + Math.sin(a * 0.6) * 0.035);
-      s.normalize();
-      material.uniforms.uSun.value.copy(s);
-      if (key) key.position.copy(s).multiplyScalar(140);
-      return s;
+      return material.uniforms.uSun.value;
     },
     dispose() {
       dome.geometry.dispose();
