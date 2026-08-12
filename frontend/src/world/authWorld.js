@@ -771,6 +771,45 @@ export async function createAuthWorld(canvas, opts = {}) {
   const sky = createSky(THREE, scene, time);
 
   /*
+   * ENVIRONMENT LIGHTING FROM THE SKY ITSELF.
+   *
+   * Until now every material was lit by one directional light and a flat
+   * two-colour hemisphere. That is why steel had nothing to reflect and why
+   * concrete in shadow was a single dead value: there was no environment, only
+   * lamps.
+   *
+   * PMREMGenerator renders the procedural sky dome into a prefiltered
+   * mipmapped radiance map, which three then uses as the indirect term for
+   * every MeshStandardMaterial in the scene. The sky the user can see becomes
+   * the sky the surfaces are lit by — so shadowed concrete picks up the
+   * horizon's warmth, galvanised tube picks up a real specular gradient, and
+   * the crane's paint gets a highlight that moves with the sun.
+   *
+   * Cost: one render of twelve triangles into a 256px cube, once. It is
+   * regenerated only when the sun has moved far enough to matter, not per
+   * frame.
+   */
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+
+  const skyOnly = new THREE.Scene();
+  const envDome = sky.dome.clone();
+  envDome.material = sky.material;
+  skyOnly.add(envDome);
+
+  let envRT = null;
+  const bakeEnvironment = () => {
+    const next = pmrem.fromScene(skyOnly, 0.04);
+    /* Dispose AFTER the swap: releasing the live target first leaves every
+     * material referencing a destroyed texture for a frame. */
+    const previous = envRT;
+    envRT = next;
+    scene.environment = next.texture;
+    previous?.dispose();
+  };
+  bakeEnvironment();
+
+  /*
    * THE PRESENTATION BRIDGE.
    *
    * The world publishes its lighting state as CSS custom properties on the
@@ -870,6 +909,7 @@ export async function createAuthWorld(canvas, opts = {}) {
 
   let elapsed = 0;
   let lastPublish = 0;
+  let lastBake = 0;
 
   let lastFrame = performance.now();
 
@@ -925,12 +965,19 @@ export async function createAuthWorld(canvas, opts = {}) {
       };
       /* The sun moves and the key light moves with it: shadows swing across
        * the concrete over minutes rather than seconds. */
-      sky.advance(elapsed, lights.key);
+      sky.advance(elapsed, lights.key, wind);
       /* Republish at ~2 Hz: the sun moves over minutes, so a per-frame write
        * would be 60x the cost for no visible difference. */
       if (elapsed - (lastPublish || 0) > 0.5) {
         lastPublish = elapsed;
         publishLight();
+      }
+      /* Re-bake the environment every twelve seconds. The sun moves about a
+       * degree a minute, so anything faster is spending a cube render on a
+       * change nobody can see. */
+      if (elapsed - lastBake > 12) {
+        lastBake = elapsed;
+        bakeEnvironment();
       }
       /* Lamps breathe very slightly, out of step with each other. */
       lights.lamps.forEach((l, i) => {
@@ -1015,6 +1062,8 @@ export async function createAuthWorld(canvas, opts = {}) {
         if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose());
         else o.material?.dispose?.();
       });
+      envRT?.dispose();
+      pmrem.dispose();
       sky.dispose();
       renderer.dispose();
     },
