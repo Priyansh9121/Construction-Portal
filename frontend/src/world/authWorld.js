@@ -33,6 +33,7 @@ import { buildMaterialLibrary } from "./textures";
 import { bevelBox, CHAMFER, bucketBySize } from "./geometry";
 import { loadAssets, placeAsset, assetCost } from "./assets";
 import { createDust } from "./dust";
+import { CameraRig } from "./camera";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -283,12 +284,6 @@ class CraneTask {
   }
 }
 
-/** Cubic ease-in-out. The camera's only curve; a linear dolly reads as a
- * machine moving rather than as an operator framing a shot. */
-function easeInOut(x) {
-  return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
-}
-
 /**
  * The camera rig.
  *
@@ -297,101 +292,6 @@ function easeInOut(x) {
  * wherever the camera currently is, so an interrupted move continues from its
  * real position rather than snapping back to a station it already left.
  */
-class CameraRig {
-  constructor(THREE, cam, stations) {
-    this.THREE = THREE;
-    this.cam = cam;
-    this.stations = stations;
-    const s = stations.approach;
-    this.pos = new THREE.Vector3(...s.pos);
-    this.look = new THREE.Vector3(...s.look);
-    this.fov = s.fov;
-    this.from = { pos: this.pos.clone(), look: this.look.clone(), fov: s.fov };
-    this.to = { ...this.from };
-    this.t0 = 0;
-    this.dur = 1;
-    this.px = 0;
-    this.py = 0;
-    this.tx = 0;
-    this.ty = 0;
-    this.onArrive = null;
-  }
-
-  fly(name, ms, now, onArrive = null) {
-    const s = this.stations[name];
-    if (!s) return;
-    this.from = { pos: this.pos.clone(), look: this.look.clone(), fov: this.fov };
-    this.to = {
-      pos: new this.THREE.Vector3(...s.pos),
-      look: new this.THREE.Vector3(...s.look),
-      fov: s.fov,
-    };
-    this.t0 = now;
-    this.dur = ms;
-    this.onArrive = onArrive;
-    this.arrived = false;
-  }
-
-  point(x, y) {
-    this.tx = x;
-    this.ty = y;
-  }
-
-  /* Wheel intent accumulates into a bounded dolly along the camera's own view
-   * axis. Clamped, damped, and never trapping the page: the caller decides
-   * whether a given wheel event belongs to the world. */
-  dolly(delta) {
-    this.dollyTarget = Math.max(-1, Math.min(1, (this.dollyTarget || 0) + delta * 0.0009));
-  }
-
-  update(now, reduced) {
-    /* Heavy: the pointer sets a target and the camera closes 4.5% of the
-     * remaining distance per frame. A raw write is the novelty tilt every
-     * portfolio site has. */
-    /* Heavy. The pointer sets a target and the camera closes a fixed fraction
-     * of the gap each frame; a raw write is the novelty tilt every portfolio
-     * site has. The orbit is large enough to explore with and clamped so the
-     * structure can never be walked through. */
-    this.px += (this.tx - this.px) * 0.05;
-    this.py += (this.ty - this.py) * 0.05;
-    this.dolly0 = (this.dolly0 || 0) + ((this.dollyTarget || 0) - (this.dolly0 || 0)) * 0.06;
-
-    const k = reduced ? 1 : Math.min(1, (now - this.t0) / this.dur);
-    const e = easeInOut(k);
-    this.pos.lerpVectors(this.from.pos, this.to.pos, e);
-    this.look.lerpVectors(this.from.look, this.to.look, e);
-    this.fov = this.from.fov + (this.to.fov - this.from.fov) * e;
-
-    /*
-     * Orbit, not pan. The camera swings about the station's look-at point, so
-     * moving the pointer reveals the site's other side instead of sliding the
-     * whole scene sideways — and because it is an arc about a fixed centre, it
-     * cannot clip into the structure it is orbiting.
-     */
-    const off = this.pos.clone().sub(this.look);
-    const radius = off.length();
-    const yaw = Math.atan2(off.x, off.z) + this.px * 0.30;
-    const pitchNow = Math.asin(Math.max(-1, Math.min(1, off.y / radius)));
-    const pitch = Math.max(0.06, Math.min(0.95, pitchNow + this.py * 0.16));
-    const r = radius * (1 - this.dolly0 * 0.42);
-    const cr = Math.cos(pitch) * r;
-
-    this.cam.position.set(
-      this.look.x + Math.sin(yaw) * cr,
-      this.look.y + Math.sin(pitch) * r,
-      this.look.z + Math.cos(yaw) * cr
-    );
-    this.cam.lookAt(this.look);
-    this.cam.fov = this.fov;
-    this.cam.updateProjectionMatrix();
-
-    if (k >= 1 && !this.arrived) {
-      this.arrived = true;
-      this.onArrive?.();
-    }
-  }
-}
-
 function buildSite(THREE, scene, portrait, MAT) {
   /*
    * Materials come from the PBR library, not from flat colours. Every surface
@@ -1038,8 +938,19 @@ export async function createAuthWorld(canvas, opts = {}) {
   const storey = SITE.frame.grid.storey;
   const topFloor = SITE.frame.grid.storeys - 1;
   const hoistState = { y: storey, to: storey * 4, wait: 0, floor: 4 };
-  const stations = portrait ? SITE.camerasPortrait : SITE.cameras;
-  const rig = new CameraRig(THREE, cam, stations);
+  /*
+   * The journey is authored in metres by the generator, so the camera stands
+   * in places on the site rather than at coordinates that happened to frame
+   * the model. Portrait uses the same journey: the stations are positions in a
+   * world, and a phone is standing in the same world — what changes for
+   * portrait is the focal length, handled per-station below.
+   */
+  const rig = new CameraRig(THREE, cam, SITE.journey, { portrait });
+  if (portrait) {
+    /* A 390 px-wide viewport crops a horizontal frame hard. Widening each
+     * station keeps the same SUBJECT in shot rather than a slice of it. */
+    for (const st of rig.stations) st.fov = Math.min(72, st.fov * 1.28);
+  }
 
   let raf = 0;
   let alive = true;
@@ -1106,7 +1017,24 @@ export async function createAuthWorld(canvas, opts = {}) {
     })
     .catch((err) => console.warn("[world] asset upgrade skipped", err));
 
-  rig.fly("station", reduced ? 0 : 5400, performance.now());
+  /*
+   * Enter the site rather than cutting to a composition: the camera starts at
+   * the entrance and walks in to the hoarding station.
+   *
+   * NOT further. Station 2 (the scaffold, 19 m out) is the most striking frame
+   * in the journey and the wrong ESTABLISHING one -- at that distance there is
+   * no sky, no crane and no building, only an abstract lattice, and the
+   * supporting copy became unreadable against it. The default has to say
+   * "this is a construction site" before it says anything else; the dramatic
+   * frames are one wheel-notch away.
+   */
+  rig.progress = 0;
+  rig.progressTo = reduced ? 0 : 0.28;
+  if (reduced) rig.progress = 0;
+  /* A slow azimuth settle on entry, damped by the rig's own drag channel. The
+   * site arrives as if the viewer has just turned to face it, rather than
+   * cutting to a composed frame. */
+  if (!reduced) { rig.dragAz = 0.20; rig.dragAzTo = 0; }
   if (reduced) {
     /* The composed still: the load slung mid-lift, the hoist at a landing. */
     task.trolley = CRANE.trolley.range[0] +
@@ -1123,19 +1051,82 @@ export async function createAuthWorld(canvas, opts = {}) {
   }
 
   const onPointer = (e) => {
-    rig.point(
+    rig.setPointer(
       (e.clientX / window.innerWidth - 0.5) * 2,
-      (e.clientY / window.innerHeight - 0.5) * 2
+      (e.clientY / window.innerHeight - 0.5) * 2,
+      performance.now(),
     );
+    if (rig.dragging) rig.drag(e.clientX, e.clientY,
+                               { width: window.innerWidth, height: window.innerHeight });
+    /* Operating a control must not swing the world under it. Over the form the
+     * pointer keeps a quarter of its authority — enough that the scene still
+     * answers to presence, little enough that a field stays still while it is
+     * being aimed at. */
+    const overForm = !!e.target?.closest?.(".auth-card, .auth-scene__content");
+    rig.setCalm(overForm ? 0.22 : 1);
+  };
+
+  /*
+   * DRAG TO ORBIT.
+   *
+   * Bound on the canvas, not the window, so a drag that starts on the form is
+   * a text selection and a drag that starts on the world is an orbit. Pointer
+   * capture keeps the gesture alive when it leaves the canvas mid-turn, which
+   * matters because a full 360 will always leave it.
+   */
+  /*
+   * WHERE THE WORLD'S GESTURES ARE BOUND.
+   *
+   * Not to the canvas. `.auth-scene__content` is a full-viewport layer at
+   * z-index 5 carrying the form, so it sits over the canvas EVERYWHERE and
+   * swallows every pointerdown and wheel before the canvas can see one.
+   * Binding to the canvas produced a drag handler and a wheel handler that
+   * could never fire — and the failure hid itself, because pointer DRIFT is
+   * bound to the window and kept answering the mouse just enough to look like
+   * the camera was working.
+   *
+   * So the gestures live on the scene root and are rejected by target instead:
+   * anything starting inside the form, its role list, or any control or text
+   * element belongs to the DOM, and everything else is the world.
+   */
+  const surface = canvas.closest(".auth-scene") || canvas.parentElement || canvas;
+  const OWNED_BY_DOM = ".auth-card, .auth-brand-list, a, button, input, label, [role=\"button\"]";
+
+  const onPointerDown = (e) => {
+    if (reduced || e.button !== 0) return;
+    if (e.target?.closest?.(OWNED_BY_DOM)) return;
+    rig.beginDrag(e.clientX, e.clientY);
+    surface.setPointerCapture?.(e.pointerId);
+    surface.style.cursor = "grabbing";
+  };
+  /* Touch: no hover channel, so drag moves arrive here. */
+  const onTouchDrag = (e) => {
+    if (!rig.dragging) return;
+    rig.drag(e.clientX, e.clientY,
+             { width: window.innerWidth, height: window.innerHeight });
+  };
+
+  const onPointerUp = (e) => {
+    if (!rig.dragging) return;
+    rig.endDrag();
+    surface.releasePointerCapture?.(e.pointerId);
+    surface.style.cursor = "";
   };
 
   /* The wheel drives the dolly only while the pointer is over the world, and
    * only when the page itself is not the thing being scrolled. Outside the
    * canvas, wheel behaves exactly as it always did. */
+  /*
+   * The wheel walks the journey.
+   *
+   * `preventDefault` only when the gesture was actually consumed: at the ends
+   * of the journey the event is released so the page can scroll and the world
+   * never traps someone trying to reach what is below it.
+   */
   const onWheel = (e) => {
     if (reduced) return;
-    e.preventDefault();
-    rig.dolly(e.deltaY);
+    if (e.target?.closest?.(".auth-card")) return;
+    if (rig.wheel(e.deltaY)) e.preventDefault();
   };
 
   const onResize = () => {
@@ -1208,6 +1199,9 @@ export async function createAuthWorld(canvas, opts = {}) {
        * influence rendering. */
       canvas.__geom = { ...rigParts.stats, drawCalls: renderer.info.render.calls,
                         triangles: renderer.info.render.triangles };
+      /* Camera state, so a harness can assert that a drag really produced a
+       * full turn rather than trusting that it looked like one. */
+      canvas.__camera = rig.probe();
       canvas.__probe = {
         state: task.state,
         slew: +task.slew.toFixed(3),
@@ -1239,22 +1233,46 @@ export async function createAuthWorld(canvas, opts = {}) {
         l.light.intensity = l.base * (0.94 + 0.06 * Math.sin(elapsed * 0.35 + i * 1.7));
       });
     }
-    rig.update(now, false);
+    rig.update(dt, now, false);
     renderer.render(scene, cam);
     raf = requestAnimationFrame(loop);
   }
 
   if (reduced) {
-    rig.update(performance.now(), true);
+    rig.update(0.016, performance.now(), true);
     renderer.render(scene, cam);
   } else {
     raf = requestAnimationFrame(loop);
   }
 
   const fine = window.matchMedia("(pointer: fine)").matches;
-  if (fine && !reduced) {
-    window.addEventListener("pointermove", onPointer, { passive: true });
-    canvas.addEventListener("wheel", onWheel, { passive: false });
+  if (!reduced) {
+    /*
+     * DRAG WORKS ON TOUCH TOO.
+     *
+     * Hover-drift and the wheel are mouse behaviours and stay gated behind a
+     * fine pointer, but orbiting is the interaction that proves this is a
+     * world rather than a picture, and withholding it from phones would make
+     * the mobile build a different — lesser — experience.
+     *
+     * `touch-action: none` on the canvas is what lets a horizontal drag orbit
+     * instead of being claimed by the browser as a scroll. It is set on the
+     * canvas alone, so the page still scrolls normally everywhere else.
+     */
+    surface.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    /* `pan-y`, not `none`: a vertical swipe still scrolls the page, a
+     * horizontal one orbits. Blanket `none` here would trap a phone. */
+    surface.style.touchAction = "pan-y";
+    if (fine) {
+      window.addEventListener("pointermove", onPointer, { passive: true });
+      surface.addEventListener("wheel", onWheel, { passive: false });
+      surface.style.cursor = "grab";
+    } else {
+      /* Touch has no hover channel, so drag is the only orbit input. */
+      surface.addEventListener("pointermove", onTouchDrag, { passive: true });
+    }
   }
   window.addEventListener("resize", onResize);
   document.addEventListener("visibilitychange", onVisibility);
@@ -1272,10 +1290,11 @@ export async function createAuthWorld(canvas, opts = {}) {
      */
     focus(which) {
       if (reduced || !alive) return;
-      const now = performance.now();
-      if (which === "password") rig.fly("focus", 850, now);
-      else if (which === "email") rig.fly("station", 750, now);
-      else rig.fly("station", 1100, now);
+      /* Each field recomposes to a different place on the site. Email is the
+       * approach; password moves in to the scaffold, closer and tighter. */
+      if (which === "password") rig.goTo("scaffold");
+      else if (which === "email") rig.goTo("hoarding");
+      else rig.goTo("scaffold");
     },
 
     /**
@@ -1289,13 +1308,13 @@ export async function createAuthWorld(canvas, opts = {}) {
     arm() {
       if (!alive) return;
       lights.lamps.forEach((l) => { l.light.intensity = l.base * 1.45; });
-      if (!reduced) rig.fly("focus", 420, performance.now());
+      if (!reduced) rig.goTo("lift");
     },
 
     relax() {
       if (!alive) return;
       lights.lamps.forEach((l) => { l.light.intensity = l.base; });
-      if (!reduced) rig.fly("station", 900, performance.now());
+      if (!reduced) rig.goTo("scaffold");
     },
     /*
      * The cinematic handover into the destination is the next phase's work.
@@ -1312,7 +1331,11 @@ export async function createAuthWorld(canvas, opts = {}) {
       assetAbort.abort();
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointer);
-      canvas.removeEventListener("wheel", onWheel);
+      surface.removeEventListener("pointerdown", onPointerDown);
+      surface.removeEventListener("pointermove", onTouchDrag);
+      surface.removeEventListener("wheel", onWheel);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
       scene.traverse((o) => {

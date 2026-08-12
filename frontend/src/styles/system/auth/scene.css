@@ -549,7 +549,29 @@
     pointer-events: none;
   }
 
-  .auth-world[data-live="1"] { opacity: 1; }
+  /*
+   * A LIVE WORLD IS OPERABLE.
+   *
+   * The canvas starts with `pointer-events: none` because until it is live it
+   * is an invisible rectangle covering the whole viewport, and that must never
+   * intercept anything. Once the world is real it becomes the thing the user
+   * orbits and journeys through, so it has to receive pointerdown and wheel.
+   *
+   * This was the bug that made the camera look like it worked: the rig had a
+   * drag handler and a wheel handler bound to the canvas the whole time, and
+   * neither could ever fire. Pointer DRIFT still worked, because that is bound
+   * to the window, so the scene answered to the mouse just enough to hide the
+   * fact that drag and wheel were dead.
+   *
+   * The form is unaffected: `.auth-scene__content` sits at z-index 5 above
+   * this, so it captures its own events first.
+   */
+  .auth-world[data-live="1"] {
+    opacity: 1;
+    pointer-events: auto;
+    /* Let a horizontal drag orbit rather than be claimed as a page scroll. */
+    touch-action: none;
+  }
 
   /*
    * Once the world is real, the authored still steps aside.
