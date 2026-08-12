@@ -27,9 +27,11 @@
 import SITE from "./siteGeometry.json";
 import CRANE from "./craneGeometry.json";
 import SCAFFOLD from "./scaffoldGeometry.json";
+import HOIST from "./hoistGeometry.json";
 import { createSky, TIMES } from "./sky";
 import { buildMaterialLibrary } from "./textures";
 import { bevelBox, CHAMFER, bucketBySize } from "./geometry";
+import { loadAssets, placeAsset, assetCost } from "./assets";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -432,8 +434,9 @@ function buildSite(THREE, scene, portrait, MAT) {
   const stats = { draws: 0, tris: 0, buckets: 0 };
 
   const add = (list, material, cast = true) => {
-    if (!list.length) return null;
+    if (!list.length) return [];
     const chamfer = CHAMFER[list[0].k] ?? 0;
+    const made = [];
 
     if (!chamfer) {
       const m = new THREE.InstancedMesh(unit, material, list.length);
@@ -448,7 +451,7 @@ function buildSite(THREE, scene, portrait, MAT) {
       scene.add(m);
       stats.draws += 1;
       stats.tris += list.length * 12;
-      return m;
+      return [m];
     }
 
     for (const bucket of bucketBySize(list)) {
@@ -464,11 +467,12 @@ function buildSite(THREE, scene, portrait, MAT) {
       m.castShadow = cast && !portrait;
       m.receiveShadow = !portrait;
       scene.add(m);
+      made.push(m);
       stats.draws += 1;
       stats.buckets += 1;
       stats.tris += bucket.items.length * 44;
     }
-    return null;
+    return made;
   };
 
   const F = SITE.frame;
@@ -499,9 +503,43 @@ function buildSite(THREE, scene, portrait, MAT) {
   /* Site clusters, by material rather than by heap: hoarding and cabins in
    * painted panel, timber stacks in plywood, everything else in steel. */
   const worksOf = (...kinds) => SITE.works.filter((w) => kinds.includes(w.k));
-  add(worksOf("cabin", "gate", "sign", "barrier", "hoard"), M.dark);
+  add(worksOf("gate", "sign", "barrier", "hoard"), M.dark);
   add(worksOf("ply", "pallet"), MAT.ply);
-  add(worksOf("plant", "mast", "lamp", "rebar-stack"), MAT.galv);
+  add(worksOf("rebar-stack"), MAT.galv);
+
+  /*
+   * UPGRADEABLE OBJECTS.
+   *
+   * These kinds have an authored GLB counterpart. They are still built here as
+   * procedural solids, so the world is complete the moment it is constructed
+   * and stays complete if the network never delivers the assets. `swappable`
+   * hands the loader the meshes to remove and the ground placements to build
+   * from, and nothing happens until a GLB has actually decoded.
+   *
+   * `p` is a box CENTRE, so the ground contact is the centre less half the
+   * height — the authored assets have their origin on the ground precisely so
+   * that this conversion happens once, here.
+   */
+  const swappable = new Map();
+  /*
+   * `anchor` is the kind that defines WHERE the asset stands; `also` are the
+   * other procedural kinds the authored asset subsumes. A light tower is a
+   * mast plus a lamp head — two boxes, one object — so its placement comes
+   * from the mast alone while the swap removes both.
+   */
+  const upgradeable = (asset, anchor, material, also = []) => {
+    const list = worksOf(anchor);
+    if (!list.length) return;
+    const meshes = add(list, material);
+    for (const kind of also) meshes.push(...add(worksOf(kind), material));
+    swappable.set(asset, {
+      meshes,
+      placements: list.map((b) => ({ p: [b.p[0], b.p[1] - b.s[1] / 2, b.p[2]] })),
+    });
+  };
+  upgradeable("cabin", "cabin", M.dark);
+  upgradeable("light-tower", "mast", MAT.galv, ["lamp"]);
+  add(worksOf("plant"), MAT.galv);
 
   /*
    * HUMAN SCALE.
@@ -520,9 +558,15 @@ function buildSite(THREE, scene, portrait, MAT) {
   const skin = new THREE.MeshStandardMaterial({ color: 0x8a6a52, roughness: 0.85 });
   const hat = new THREE.MeshStandardMaterial({ color: 0xf0f0ee, roughness: 0.55 });
   const PEOPLE = { hiviz, "hiviz-dark": workwear, skin, hat };
+  const peopleBoxes = [];
   Object.entries(PEOPLE).forEach(([kind, material]) => {
-    add((SITE.workers || []).filter((w) => w.k === kind), material);
+    peopleBoxes.push(...add((SITE.workers || []).filter((w) => w.k === kind), material));
   });
+  /* The authored figure replaces all five boxes of all three people at once.
+   * Anchors carry a yaw, so the same mesh reads as three different people. */
+  if (SITE.workerAt?.length) {
+    swappable.set("worker", { meshes: peopleBoxes, placements: SITE.workerAt });
+  }
   /*
    * The scaffold is HERO geometry: it stands closer to the lens than the
    * building it serves, so it is the most closely inspected object in the
@@ -707,16 +751,47 @@ function buildSite(THREE, scene, portrait, MAT) {
   swing.add(load);
   scene.add(rigRoot);
 
-  const hoist = new THREE.Mesh(new THREE.BoxGeometry(2.3, 2.7, 2.1), M.plant);
-  hoist.position.set(
-    F.grid.ox + F.grid.bays_x * F.grid.bay + 1.4,
-    4,
-    F.grid.oz + 3
-  );
-  hoist.castShadow = !portrait;
-  scene.add(hoist);
+  /*
+   * THE HOIST.
+   *
+   * Previously one orange box positioned against the facade — and the box was
+   * the lesser problem. It had NO MAST. A rack-and-pinion hoist climbs a tied
+   * lattice mast, so a car floating on a facade with nothing to climb does not
+   * read as a coarse detail, it reads as a mistake.
+   *
+   * The split follows the same rule as everywhere else: the mast is repeated
+   * lattice and is generated, the car is one fabricated product and is
+   * authored. The ties, base enclosure and per-floor landing gates are what
+   * make the car's stops mean something — it arrives AT A LANDING rather than
+   * at an altitude.
+   */
+  addRotated(HOIST.mast.filter((m) => m.k === "steel"), MAT.galv, false);
+  addRotated(HOIST.mast.filter((m) => m.k === "rack"), M.dark, false);
+  addRotated(HOIST.ties, MAT.galv, false);
+  addRotated(HOIST.base.filter((m) => m.k === "cage"), MAT.galv, false);
+  addRotated(HOIST.base.filter((m) => m.k === "pad"), M.concrete);
+  addRotated(HOIST.landings.filter((m) => m.k === "gate"), MAT.galv, false);
+  addRotated(HOIST.landings.filter((m) => m.k === "deck"), MAT.ply);
 
-  return { slew, trolley, cable, load, swing, hoist, materials: M, stats };
+  /* The car is a GROUP, not a mesh, so the authored GLB can replace its
+   * contents without the animation code knowing anything changed. Its y is
+   * driven by the hoist state machine; x and z come from the generator, which
+   * is also what guarantees the car sits on its own mast. */
+  const hoist = new THREE.Group();
+  const carBox = new THREE.Mesh(
+    new THREE.BoxGeometry(HOIST.car.size[0], HOIST.car.size[1], HOIST.car.size[2]),
+    M.plant,
+  );
+  /* The authored car's origin is its ground contact; the stand-in box's is its
+   * centre, so it is lifted by half its height to agree with it. */
+  carBox.position.y = HOIST.car.size[1] / 2;
+  carBox.castShadow = !portrait;
+  hoist.add(carBox);
+  hoist.position.set(HOIST.car.at[0], HOIST.car.travel[0], HOIST.car.at[2]);
+  scene.add(hoist);
+  swappable.set("hoist", { meshes: [], group: hoist, stand: carBox });
+
+  return { slew, trolley, cable, load, swing, hoist, materials: M, stats, swappable };
 }
 
 function buildLights(THREE, scene, portrait, preset, sunDir) {
@@ -905,6 +980,54 @@ export async function createAuthWorld(canvas, opts = {}) {
   let alive = true;
   let started = performance.now();
   let paused = false;
+
+  /*
+   * AUTHORED ASSETS ARRIVE LATE, OR NOT AT ALL.
+   *
+   * The site above is already complete and already on screen. This replaces
+   * the procedural stand-ins for objects that have an authored counterpart —
+   * a cabin is a manufactured shell, not a chamfered box, and no amount of
+   * generation gets there.
+   *
+   * Deliberately fire-and-forget. Nothing awaits it, no frame is held for it,
+   * and `loadAssets` never rejects: if the GLBs are missing the boxes simply
+   * stay. The form has never had any relationship with this module either way.
+   */
+  const assetAbort = new AbortController();
+  loadAssets(THREE, [...rigParts.swappable.keys()], { signal: assetAbort.signal })
+    .then((assets) => {
+      if (!alive) return;
+      for (const [name, prims] of assets) {
+        const slot = rigParts.swappable.get(name);
+        if (!slot) continue;
+
+        if (slot.group) {
+          /* A MOVING object: the authored meshes go inside the group the
+           * animation already drives, so nothing about the motion changes. */
+          for (const { geometry, material } of prims) {
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = !portrait;
+            mesh.receiveShadow = !portrait;
+            slot.group.add(mesh);
+          }
+          slot.group.remove(slot.stand);
+          slot.stand.geometry.dispose();
+        } else {
+          placeAsset(THREE, scene, prims, slot.placements, {
+            cast: !portrait, receive: !portrait,
+          });
+          for (const mesh of slot.meshes) {
+            scene.remove(mesh);
+            mesh.geometry.dispose();
+            mesh.dispose?.();
+          }
+          slot.meshes = [];
+        }
+        const cost = assetCost(prims, slot.placements?.length ?? 1);
+        rigParts.stats.authored = (rigParts.stats.authored || 0) + cost.tris;
+      }
+    })
+    .catch((err) => console.warn("[world] asset upgrade skipped", err));
 
   rig.fly("station", reduced ? 0 : 5400, performance.now());
   if (reduced) {
@@ -1103,6 +1226,9 @@ export async function createAuthWorld(canvas, opts = {}) {
 
     dispose() {
       alive = false;
+      /* An auth route can unmount while a GLB is still in flight. Aborting
+       * stops the loader resolving into a scene that is being torn down. */
+      assetAbort.abort();
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointer);
       canvas.removeEventListener("wheel", onWheel);
