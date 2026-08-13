@@ -4,6 +4,79 @@
 
 ---
 
+## CHECKPOINT — RUNTIME STABILITY + ESTABLISHING CAMERA
+
+**CURRENT COMMIT** `9174d88`
+
+**COMPLETED**
+
+1. **Readiness contract.** The world publishes `INITIALISING / LOADING / READY
+   / DEGRADED / FAILED` on `canvas.dataset.worldState`, and **only `READY` may
+   hide the fallback**. `READY` requires the essential layers *and* a completed
+   authored frame. Previously `live` was set the moment `createAuthWorld`
+   resolved — whose only await is the three.js import — so a failed world
+   showed an empty sky with the fallback already faded out. That is precisely
+   what production displayed during the CSP incident.
+2. **Reduced motion.** Both redraw sites now go through `renderStill()`, which
+   settles the rig *before* drawing. Rendering while the rig sits at its
+   default pose frustum-culls the whole site: **12 triangles against the
+   101,068** a composed frame draws. The still previously rendered before the
+   GLBs arrived and never redrew.
+3. **Camera station contract.** `SITE_INTENTS` in `loginSite.js` is the single
+   mapping from intent to station; no station literal survives outside that
+   file. `goTo()` now returns a boolean and warns loudly on a miss. Every
+   focus/pending/failure response had been a silent no-op since M2 because the
+   form named stations from the deleted procedural journey.
+4. **Establishing camera** moved from 62 m to **70 m at 35 mm**, eye 1.7 m,
+   target lifted to 13 m. Full frontage, both neighbours, hoarding, worker and
+   sky above the parapet in one frame.
+
+**FILES** `frontend/src/world/{loginSite,authWorld,camera}.js`,
+`frontend/src/components/auth/AuthWorld.jsx`,
+`frontend/src/world/stationContract.test.mjs`,
+`frontend/tests/world-runtime.spec.js`, `tools/fresh_ui/compose_check.mjs`
+
+**TESTS** station contract **8/8** (falsified: pointing `passwordFocus` back at
+`"scaffold"` fails it), world runtime **6/6**, a11y **44/44**, responsive
+**314/314**, build + eslint clean.
+
+**PERFORMANCE** 1440 DPR 2 — 60.2 fps, p50 16.7 ms, p95 17.4 ms, p99 17.6 ms,
+0 px overflow. P0 architecture untouched.
+
+**VISUAL EVIDENCE** `.screenshots/camera/daylight.png`, captured through
+`tools/fresh_ui/compose_check.mjs`, which pins the clock. **This matters:** the
+world runs real Asia/Kolkata time, so an unpinned capture is a night frame
+roughly half the time and no composition judgement is possible against it.
+`world_capture.mjs` documents that it pins time-of-day and **does not** — a
+tooling defect worth fixing.
+
+**KNOWN FAILURE — ranked by how fast each says "not a photograph"**
+
+1. **The ground is a flat featureless sheet.** The bottom third of the frame is
+   a bare gradient: no kerb, gutter, gully, footpath edge, camber, markings or
+   wear. The strongest fake cue in the frame by a wide margin — it reads as a
+   model resting on paper.
+2. **Every floor of the hero building is identical.** No struck-versus-formed
+   distinction, no back-propping, no active pour deck, no varying envelope.
+   The construction sequence is not communicated at all, so it reads as an
+   extrusion.
+3. **The right neighbour is a flat pale slab** — faint recessed rectangles read
+   as embossed panels, not glazing. No reveals, no depth, no roof plant.
+4. **No city beyond.** Behind the neighbours the world simply stops into sky.
+5. **Cloudless gradient sky.**
+6. **No crane.** Concept C is a tight infill plot deliberately chosen as *too
+   tight for a tower crane* (hence the mast climber). The brief asks for a
+   crane above the hero. **These conflict — a decision is needed**, either a
+   plot revision or accepting the mast climber as the lifting story.
+
+**NEXT EXACT ACTION** Author the street in `concept_c.py`: kerb upstand,
+camber, gutter, gully, footpath, gate threshold — then wear via
+CAUSE → MASK → MATERIAL RESPONSE, as already proven in `site_ground()`. Then
+per-floor construction state on the hero. Both re-export through the proven
+pipeline and are judged in Cycles before promotion.
+
+---
+
 ## CHECKPOINT — PIPELINE RESET, vertical slice PASSED
 
 **CURRENT COMMIT** `0f79fab`
