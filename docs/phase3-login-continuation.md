@@ -225,7 +225,41 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
-## R1 IN PROGRESS — commit 8bb8272. CYCLES GATE NOT YET PASSED.
+## R1A COMPLETE — commit 51579cf. CYCLES GATE NOT PASSED.
+
+Content, wear and tolerance done. See `tools/blender/site_dressing.py`.
+
+- **Content by work zone**: delivery / facade / waste / services / deck. Real
+  forms — plank stacks of actual boards, banded rebar, curve-bevel hoses.
+- **Wear as a height-driven mask**: splashback strongest at ground, gone by
+  620 mm. On concrete and brick, not the road.
+- **Tolerance**: yaw and offset on every hand-placed item; structure untouched.
+
+**What the render showed:** the street camera looks UP from 1.65 m and never
+sees the ground, so none of the content appears in the hero frame. The new
+site-entrance camera (gate view B) does show it — rebar, hose and compacted
+ground read in the foreground.
+
+**Known defect, recorded not patched:** the entrance camera sits UNDER the slab
+behind a column. It needs to stand at the gate line looking in, not inside the
+ground floor.
+
+## R1 REMAINING, in order
+
+1. **Fix the entrance camera** — stand at the gate (about y = −21, z = 1.68)
+   looking in and slightly up, so the frame reads as stepping onto the site
+   rather than standing under it.
+2. **ATMOSPHERE** (cause 5, still untouched). Blender mist/volumetric so the
+   far city loses contrast and the foreground scaffold does not share a black
+   level with buildings 300 m away.
+3. **PEOPLE**. Verify licence FIRST — evaluate BlenderKit free assets and
+   Mixamo terms. No box figures. Three or four, with PPE.
+4. **MACHINERY**. The mast-climber car is still a plain orange cube in every
+   frame; it is the most prominent placeholder left.
+5. **FOUR-VIEW CYCLES GATE**: street / entrance / side / 180°. Compare against
+   `.screenshots/REJECTED-gamelike-baseline-1440.png`. Only then export.
+
+## SUPERSEDED — earlier R1 material notes
 
 Real CC0 photographic PBR wired into the Blender scene (ambientCG, CC0 1.0
 verified from their licence page). The 3 m brick failure is fixed — measured
