@@ -160,11 +160,27 @@ export class CameraRig {
   }
 
   /** Jump the journey to a named station (the form's focus responses). */
+  /**
+   * Move toward a named station. Returns whether the name resolved.
+   *
+   * The silent `return` this used to do is exactly how the form's entire
+   * camera response died unnoticed: after the authored journey replaced the
+   * procedural one, every station name the form passed stopped existing, and
+   * `goTo` obligingly did nothing without a word. A miss is now loud, because
+   * a mis-typed station is a bug in the caller every single time.
+   */
   goTo(name, { immediate = false } = {}) {
     const i = this.stations.findIndex((s) => s.name === name);
-    if (i < 0) return;
+    if (i < 0) {
+      console.warn(
+        `[world] camera station "${name}" does not exist. Known stations: `
+        + `${this.stations.map((s) => s.name).join(", ")}. `
+        + "Intents belong in SITE_INTENTS (loginSite.js), not in components.");
+      return false;
+    }
     this.progressTo = i;
     if (immediate) this.progress = i;
+    return true;
   }
 
   /* ---- the interpolated station ---------------------------------------- */
