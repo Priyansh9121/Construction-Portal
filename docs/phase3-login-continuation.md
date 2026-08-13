@@ -2,6 +2,77 @@
 
 **Status: CHECKPOINT. The concept phase is NOT complete.**
 
+---
+
+## CHECKPOINT — PIPELINE RESET, vertical slice PASSED
+
+**CURRENT COMMIT** `0f79fab`
+
+**PIPELINE STAGE** Blender → Cycles → cube-projected UVs → Meshopt GLB →
+CC0 maps shipped once → Three.js glTF PBR → Login. End to end, in production.
+
+**COMPLETED**
+
+- The real gap was found and it was not the one assumed. Production never built
+  the hero world from Three.js boxes — `useProcedural` has defaulted to `false`
+  since M2. The defect was that the production GLBs were six R1 milestones
+  behind the Blender source, and that **no CC0 texture had ever crossed the
+  Blender boundary**.
+- Cause: the CC0 materials use `tex.projection = "BOX"` on world Position.
+  glTF carries a texture and a UV set — it cannot carry a projection mode. So
+  the exporter flattened every material to a constant and the runtime
+  substituted baked swatches through a triplanar shader patch.
+- Fix: `uv_project_for_export()` cube-projects each mesh at its material's real
+  world tile (`EXPORT_UV_TILE`), so the GLB carries UVs whose scale IS the
+  authored metre scale. Cube projection, not Smart UV Project: smart unwrap
+  optimises for packing, which gives every face a different texel density.
+- The maps ship once at 512 px (1169 KB total) rather than embedded. The first
+  export embedded them and the set went from 0.5 MB to ~30 MB — the street
+  layer alone was 14.9 MB, carrying its own copy of the same concrete image
+  four times.
+- `dressSurface()` no longer patches a triplanar shader. It is ordinary glTF
+  PBR now.
+- Opening camera moved from 40 m / 28 mm to 62 m / 35 mm. The camera moved; the
+  lens did not widen.
+- Anisotropy follows the hardware maximum, not 4.
+
+**FILES** `tools/blender/concept_lib.py`, `tools/blender/concept_c.py`,
+`tools/blender/prep_web_textures.py`, `frontend/src/world/loginSite.js`,
+`frontend/src/world/authWorld.js`, `tools/fresh_ui/surface_probe.mjs`
+
+**VISUAL EVIDENCE** `.screenshots/pipeline/1440.png`. Brick reads as brick,
+plywood boards carry grain, concrete carries aggregate, the worker and the
+hoarding line sit at the gate, and the full frontage reads against sky. This is
+a category change from the previous production frame, and it is the acceptance
+test the pipeline reset asked for.
+
+**PERFORMANCE** Real DPR 2, 1440: 60.3 fps, p50 16.7 ms, p95 17.0 ms,
+p99 17.6 ms, heap 38 MB, 0 px overflow. Geometry 970 KB / 50,528 tris over five
+layers. The P0 gate holds.
+
+**KNOWN FAILURE** The remaining defects are now **source-asset failures in
+Blender, not pipeline failures** — which is the distinction the reset existed
+to establish. Ranked:
+
+1. **The carriageway has no features.** `spandrel` is a featureless CC0 tarmac
+   field on a flat plane: no kerb, no camber, no gully, no patching, no tyre
+   polish. Proven with `surface_probe.mjs` — the maps are bound at the correct
+   2 m tile, so this is missing geometry and missing macro variation, not a
+   missing texture.
+2. **The right neighbour (`city_cool`) is a pale flat slab.** Samples
+   182,187,195 across its whole face. No openings, no staining, no relief.
+3. **The hoarding panels are flat saturated teal.** `screen` at `#2f6f8c` has
+   no map at all and is not in `SITE_SURFACES`.
+4. **The sky is a cloudless gradient.**
+
+**NEXT EXACT ACTION** Author the street in Blender as a street: kerb upstand,
+camber, gully, and a wear mask that follows the CAUSE → MASK → MATERIAL
+RESPONSE rule already used for `site_ground()`. Then the right neighbour's
+elevation. Both are `concept_c.py` work, re-exported through the now-proven
+pipeline.
+
+---
+
 ## Current commit
 
 See `git log -1`. Production Login is untouched by all concept work; the last
