@@ -705,7 +705,7 @@ def main():
         loc, tgt, mm = CAMERAS[key.strip()]
         cam = L.camera(f"cam-{key}", loc, tgt, mm=mm)
         if cycles:
-            L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}-cycles.png"), cam,
+            L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}-s{int(SUN_ELEV)}a{int(SUN_AZ)}-cycles.png"), cam,
                      width=720, height=450, samples=24, engine="CYCLES",
                      exposure=0.25 if dusk else -0.35)
         else:

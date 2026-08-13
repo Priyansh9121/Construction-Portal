@@ -781,7 +781,7 @@ def standard_materials(wear=0.5, lit=0.0):
             "city_cool": cc0("city_cool", "concrete", (2.4, 2.4), tint=0xAEB6BE,
                              wear_mask=0.7),
             "spandrel": cc0("spandrel", "asphalt", (2.0, 2.0)),
-            "earth": cc0("earth", "ground", (2.4, 2.4)),
+            "earth": site_ground("earth"),
             "ply": cc0("ply", "ply", (2.0, 2.0)),
             "galv": galvanised("galv"),
             "paint": painted("paint", 0x8A9096, rough=0.5),
@@ -1008,3 +1008,135 @@ def atmosphere_box(size=1400.0, height=320.0, density=2.2e-5,
     nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
     ob.data.materials.append(mat)
     return ob
+
+
+def site_ground(name="site_ground", base="ground", tile=(2.4, 2.4)):
+    """
+    Site ground whose condition is derived from WHAT HAPPENS ON IT.
+
+    The pad rendered as one uniform grey field in every gate view, which is a
+    strong CG tell: real site ground is a record of activity. But the fix is
+    not a mud texture or scattered stains -- that produces a game terrain.
+
+    The rule is CAUSE -> MASK -> MATERIAL RESPONSE. Four zones, each with a
+    physical reason, each blended with a metre-scale noise so no boundary is a
+    clean edge:
+
+        haul route    vehicles drive from the gate to the core, so a band down
+                      the middle is COMPACTED: darker, smoother, less rough
+        gate apron    the street/site transition, where soil is tracked out and
+                      road dirt tracked in -- the busiest ground on any site
+        staging       around the delivered material: dust, aggregate and
+                      concrete residue, so lighter and rougher
+        quiet edges   nobody walks there, so it stays as delivered
+
+    Every mask is expressed in METRES against world position, because the
+    commonest CG tell in ground is procedural variation at the wrong scale.
+    """
+    mat, nt, bsdf = _new_material(name)
+
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    geo.location = (-1700, 0)
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.location = (-1500, 0)
+    mp.inputs["Scale"].default_value = (1.0 / tile[0], 1.0 / tile[0], 1.0 / tile[1])
+    nt.links.new(geo.outputs["Position"], mp.inputs["Vector"])
+
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    sep.location = (-1500, -400)
+    nt.links.new(geo.outputs["Position"], sep.inputs["Vector"])
+
+    def image(slot, filename, non_color):
+        path = os.path.join(CC0_DIR, filename)
+        if not os.path.exists(path):
+            return None
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = bpy.data.images.load(path, check_existing=True)
+        tex.projection = "BOX"
+        tex.projection_blend = 0.35
+        if non_color:
+            tex.image.colorspace_settings.name = "Non-Color"
+        tex.location = (-1250, slot * 300)
+        nt.links.new(mp.outputs["Vector"], tex.inputs["Vector"])
+        return tex
+
+    color = image(1, f"{base}-color.jpg", False)
+    rough = image(0, f"{base}-roughness.jpg", True)
+    norm = image(-1, f"{base}-normal.jpg", True)
+
+    # ---- Edge-breaking noise, at a ~1.5 m feature size -------------------
+    edge = nt.nodes.new("ShaderNodeTexNoise")
+    edge.location = (-1250, -520)
+    edge.inputs["Scale"].default_value = 0.7
+    edge.inputs["Detail"].default_value = 6.0
+    nt.links.new(mp.outputs["Vector"], edge.inputs["Vector"])
+
+    def band(node_x, value_socket, lo, hi, invert=False):
+        """1 inside [lo, hi] metres, falling off over ~1.2 m at each side."""
+        r = nt.nodes.new("ShaderNodeMapRange")
+        r.location = (node_x, -400)
+        r.inputs["From Min"].default_value = lo
+        r.inputs["From Max"].default_value = hi
+        r.inputs["To Min"].default_value = 1.0 if invert else 0.0
+        r.inputs["To Max"].default_value = 0.0 if invert else 1.0
+        r.clamp = True
+        nt.links.new(value_socket, r.inputs["Value"])
+        return r
+
+    # HAUL ROUTE: |x| under about 3.5 m, running the depth of the pad.
+    haul = band(-1050, sep.outputs["X"], 5.2, 2.6)     # 1 at centre
+    haul_abs = nt.nodes.new("ShaderNodeMath")
+    haul_abs.location = (-1250, -400)
+    haul_abs.operation = "ABSOLUTE"
+    nt.links.new(sep.outputs["X"], haul_abs.inputs[0])
+    nt.links.new(haul_abs.outputs["Value"], haul.inputs["Value"])
+
+    # GATE APRON: the street transition, y under about -14 m.
+    apron = band(-1050, sep.outputs["Y"], -12.0, -20.0)
+
+    # Combine, then break both edges with the noise so nothing is a clean line.
+    zones = nt.nodes.new("ShaderNodeMath")
+    zones.location = (-850, -400)
+    zones.operation = "MAXIMUM"
+    nt.links.new(haul.outputs["Result"], zones.inputs[0])
+    nt.links.new(apron.outputs["Result"], zones.inputs[1])
+
+    broken = nt.nodes.new("ShaderNodeMath")
+    broken.location = (-680, -400)
+    broken.operation = "MULTIPLY"
+    nt.links.new(zones.outputs["Value"], broken.inputs[0])
+    nt.links.new(edge.outputs["Fac"], broken.inputs[1])
+
+    # ---- Response: compacted ground is DARKER and SMOOTHER ---------------
+    if color:
+        dark = nt.nodes.new("ShaderNodeMixRGB")
+        dark.location = (-420, 300)
+        dark.blend_type = "MULTIPLY"
+        dark.inputs["Color2"].default_value = srgb(0x6E6455)
+        nt.links.new(color.outputs["Color"], dark.inputs["Color1"])
+        nt.links.new(broken.outputs["Value"], dark.inputs["Fac"])
+        nt.links.new(dark.outputs["Color"], bsdf.inputs["Base Color"])
+
+    if rough:
+        smooth = nt.nodes.new("ShaderNodeMixRGB")
+        smooth.location = (-420, 0)
+        smooth.blend_type = "MIX"
+        smooth.inputs["Color2"].default_value = (0.62, 0.62, 0.62, 1.0)
+        nt.links.new(rough.outputs["Color"], smooth.inputs["Color1"])
+        nt.links.new(broken.outputs["Value"], smooth.inputs["Fac"])
+        nt.links.new(smooth.outputs["Color"], bsdf.inputs["Roughness"])
+
+    if norm:
+        nm = nt.nodes.new("ShaderNodeNormalMap")
+        nm.location = (-420, -260)
+        # Traffic flattens relief as well as roughness.
+        st = nt.nodes.new("ShaderNodeMath")
+        st.location = (-600, -160)
+        st.operation = "SUBTRACT"
+        st.inputs[0].default_value = 0.85
+        nt.links.new(broken.outputs["Value"], st.inputs[1])
+        nt.links.new(st.outputs["Value"], nm.inputs["Strength"])
+        nt.links.new(norm.outputs["Color"], nm.inputs["Color"])
+        nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return mat
