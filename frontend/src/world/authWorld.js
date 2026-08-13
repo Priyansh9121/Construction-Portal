@@ -1180,6 +1180,48 @@ export async function createAuthWorld(canvas, opts = {}) {
       .then((loaded) => {
         if (!alive) return;
         let tris = 0;
+        /*
+         * WHAT ACTUALLY ARRIVED.
+         *
+         * This exists because of a production incident that was invisible from
+         * every angle we had. All five layers fetched 200 with the correct
+         * MIME type and the correct `glTF` magic bytes, so curl said the deploy
+         * was fine. They then failed to DECODE, because production sends a CSP
+         * that the dev server does not and meshopt decodes through WebAssembly.
+         * The loader logged a warning per layer and the world carried on with
+         * sky, atmosphere and a login form -- which is the correct behaviour,
+         * and is exactly why nobody could see what was wrong.
+         *
+         * Published unconditionally rather than behind a dev flag: the failure
+         * this diagnoses only happens in production, so a dev-only version
+         * would never once have fired. It carries asset names and load status
+         * and nothing else -- all of which is already public, since these are
+         * URLs any visitor's network tab lists.
+         */
+        const status = {};
+        for (const layer of SITE_LAYERS) {
+          status[layer.name] = !wanted.includes(layer) ? "skipped (mobile)"
+            : loaded.get(layer.name) ? "loaded" : "FAILED";
+        }
+        const missing = wanted.filter((l) => !loaded.get(l.name));
+        const essentialMissing = missing.filter((l) => l.essential);
+        canvas.__authWorldDebug = {
+          layers: status,
+          essentialMissing: essentialMissing.map((l) => l.name),
+          degraded: missing.length > 0,
+        };
+        /*
+         * An ESSENTIAL layer is the architecture itself. Losing it is not a
+         * cosmetic degradation, and saying nothing louder than a per-asset
+         * warning is what let this ship. It stays an error rather than a throw
+         * because the form must not care -- authentication never depends on
+         * WebGL, and it is not going to start depending on it here.
+         */
+        if (essentialMissing.length) {
+          console.error(
+            `[world] ESSENTIAL layers failed: ${essentialMissing.map((l) => l.name).join(", ")}. `
+            + "The site will render without its architecture. See canvas.__authWorldDebug.");
+        }
         for (const layer of wanted) {
           const prims = loaded.get(layer.name);
           if (!prims) continue;
