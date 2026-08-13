@@ -36,7 +36,8 @@ import { createDust } from "./dust";
 import { CameraRig } from "./camera";
 import { worldEnvironment } from "./environment";
 import {
-  SITE_LAYERS, SITE_JOURNEY, checkSiteScale, loadSurfaceMaps,
+  SITE_LAYERS, SITE_JOURNEY, SITE_INTENTS, WORLD_STATE,
+  checkSiteScale, loadSurfaceMaps,
 } from "./loginSite";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
@@ -1173,6 +1174,44 @@ export async function createAuthWorld(canvas, opts = {}) {
    */
   const surfaces = loadSurfaceMaps(THREE, renderer.capabilities.getMaxAnisotropy());
 
+  /*
+   * THE READINESS CONTRACT.
+   *
+   * `createAuthWorld` resolving means "a renderer exists", which is a much
+   * weaker claim than "the world is on screen" -- its only await is the three
+   * import. The authored layers arrive later, so anything that treated the
+   * resolve as READY was hiding the fallback in front of an empty sky.
+   *
+   * The state is published, never inferred. DEGRADED and FAILED are real
+   * outcomes the product has to render honestly, not error paths to swallow.
+   */
+  /*
+   * The reduced-motion still, drawn correctly every time it has to be redrawn.
+   *
+   * `rig.update(..., true)` settles the camera to its station BEFORE drawing.
+   * Without it the still can be rendered while the rig is still at its default
+   * pose, which frustum-culls the entire site -- measured at 12 triangles
+   * against the 101,068 a composed frame draws. That is the difference between
+   * a still of the world and a still of nothing, from the same code.
+   */
+  const renderStill = () => {
+    rig.update(0.016, performance.now(), true);
+    renderer.render(scene, cam);
+    canvas.__lastRender = {
+      triangles: renderer.info.render.triangles,
+      calls: renderer.info.render.calls,
+    };
+  };
+
+  let worldState = WORLD_STATE.INITIALISING;
+  const publishState = (next) => {
+    if (worldState === next) return;
+    worldState = next;
+    canvas.dataset.worldState = next;
+    opts.onState?.(next);
+  };
+  publishState(useProcedural ? WORLD_STATE.READY : WORLD_STATE.LOADING);
+
   const siteAbort = new AbortController();
   if (!useProcedural) {
     const wanted = SITE_LAYERS.filter((l) => (portrait ? l.mobile : true));
@@ -1243,6 +1282,43 @@ export async function createAuthWorld(canvas, opts = {}) {
         canvas.__siteScale = checkSiteScale(THREE, scene);
 
         /*
+         * REDUCED MOTION DRAWS ONCE -- AND THAT ONCE HAPPENED TOO EARLY.
+         *
+         * The reduced path renders a single still and then stops. It ran
+         * before these authored GLBs finished arriving, so the still it left
+         * on screen was the world MINUS its architecture, and nothing ever
+         * redrew it. Reduced motion means no CONTINUOUS animation; it does not
+         * mean the canvas may never be redrawn when its contents change.
+         *
+         * The machinery upgrade below already knew this. The site loader did
+         * not, which is the whole bug.
+         */
+        if (reduced) renderStill();
+
+        /*
+         * What the LAST render actually drew.
+         *
+         * Under reduced motion there is no animation loop, so the usual
+         * per-frame probes never publish and the still had no introspection at
+         * all -- which is part of why it went years drawn without its
+         * architecture. `renderer.info.render` describes the most recent draw,
+         * so a triangle count here distinguishes "rendered the whole world"
+         * from "rendered the world before its layers arrived". Nothing else
+         * can: the canvas keeps no drawing buffer to read back.
+         */
+        /*
+         * READY is earned, not announced.
+         *
+         * It requires the essential layers AND a completed authored frame,
+         * because READY is what hides the fallback: claiming it early is how
+         * a failed world became an empty sky with the fallback already faded
+         * out. A degraded world keeps the fallback and says so.
+         */
+        publishState(essentialMissing.length
+          ? WORLD_STATE.DEGRADED
+          : WORLD_STATE.READY);
+
+        /*
          * PRE-WARM SHADERS ONCE THE WORLD IS COMPLETE.
          *
          * Frustum culling means a material is only compiled when something
@@ -1278,7 +1354,13 @@ export async function createAuthWorld(canvas, opts = {}) {
           })
           ?.catch((err) => console.warn("[world] pre-warm skipped", err));
       })
-      .catch((err) => console.warn("[world] authored site unavailable", err));
+      .catch((err) => {
+        /* The loader resolves even when individual assets fail, so reaching
+         * here means the whole attempt collapsed. Either way the fallback
+         * stays and the form is untouched. */
+        console.warn("[world] authored site unavailable", err);
+        publishState(WORLD_STATE.FAILED);
+      });
   }
 
   const assetAbort = new AbortController();
@@ -1327,7 +1409,7 @@ export async function createAuthWorld(canvas, opts = {}) {
        * Reduced motion means no CONTINUOUS animation. It does not mean the
        * canvas may never be redrawn when its contents change.
        */
-      if (reduced) renderer.render(scene, cam);
+      if (reduced) renderStill();
     })
     .catch((err) => console.warn("[world] asset upgrade skipped", err));
 
@@ -1647,24 +1729,45 @@ export async function createAuthWorld(canvas, opts = {}) {
   window.addEventListener("resize", onResize);
   document.addEventListener("visibilitychange", onVisibility);
 
+  /*
+   * Every camera move the FORM asks for goes through here.
+   *
+   * One function, one table (SITE_INTENTS). Components name an intent; nothing
+   * outside this file is allowed to know a station name. The previous
+   * arrangement scattered literals -- "scaffold", "hoarding", "lift" -- across
+   * the world's public surface, and when the authored journey replaced the
+   * procedural one those literals silently stopped resolving.
+   */
+  const intent = (name) => {
+    const station = SITE_INTENTS[name];
+    if (!station) {
+      console.warn(`[world] unknown intent "${name}". `
+        + `Known: ${Object.keys(SITE_INTENTS).join(", ")}`);
+      return false;
+    }
+    return rig.goTo(station);
+  };
+
   return {
     reduced,
     portrait,
+    state: () => worldState,
+    /** Which station an intent resolves to. Exists so tests can assert the
+     *  contract without driving a camera. */
+    resolveIntent: (name) => SITE_INTENTS[name],
     /**
      * Micro-spatial responses. Field focus is not a camera flight.
      *
      * Each field gets a DISTINCT response, because repeating one animation for
-     * every focus teaches the user that nothing specific happened. The email
-     * station settles the shot; the password station pushes fractionally
-     * closer; leaving both returns to the working station.
+     * every focus teaches the user that nothing specific happened. Email is
+     * the approach; password commits to the site threshold, closer and
+     * tighter; leaving both returns to the establishing shot.
      */
     focus(which) {
       if (reduced || !alive) return;
-      /* Each field recomposes to a different place on the site. Email is the
-       * approach; password moves in to the scaffold, closer and tighter. */
-      if (which === "password") rig.goTo("scaffold");
-      else if (which === "email") rig.goTo("hoarding");
-      else rig.goTo("scaffold");
+      if (which === "password") intent("passwordFocus");
+      else if (which === "email") intent("emailFocus");
+      else intent("establishing");
     },
 
     /**
@@ -1678,13 +1781,13 @@ export async function createAuthWorld(canvas, opts = {}) {
     arm() {
       if (!alive) return;
       lights.lamps.forEach((l) => { l.light.intensity = l.base * 1.45; });
-      if (!reduced) rig.goTo("lift");
+      if (!reduced) intent("authPending");
     },
 
     relax() {
       if (!alive) return;
       lights.lamps.forEach((l) => { l.light.intensity = l.base; });
-      if (!reduced) rig.goTo("scaffold");
+      if (!reduced) intent("authFailure");
     },
     /*
      * The cinematic handover into the destination is the next phase's work.

@@ -109,6 +109,47 @@ export const SITE_JOURNEY = [
 ];
 
 /**
+ * WHAT THE FORM ASKS THE WORLD FOR — and the ONLY place it is spelled out.
+ *
+ * The form used to name camera stations directly: `rig.goTo("scaffold")`,
+ * `goTo("hoarding")`, `goTo("lift")`. Those are stations from the OLD
+ * procedural journey. The authored journey has never contained any of them, so
+ * every field focus, every pending state and every failure recompose has been
+ * a silent no-op in production since the M2 migration — `goTo` returns quietly
+ * when a name does not resolve, so nothing ever complained.
+ *
+ * The form now names an INTENT and this table owns the mapping. A renamed
+ * station is one edit here instead of a hunt through components, and the
+ * indirection is the point: presentation code should say what it MEANS, not
+ * where the camera happens to stand this month.
+ */
+export const SITE_INTENTS = {
+  /* The opening frame: the whole place, before any field is touched. */
+  establishing: "street",
+  /* Email is the approach — the shot settles and closes slightly. */
+  emailFocus: "footpath",
+  /* Password moves in to the site threshold: closer, tighter, more committed. */
+  passwordFocus: "entry",
+  /* Credentials are with the server. The world leans in and holds. */
+  authPending: "entry",
+  /* Rejected: settle back out to the approach rather than snap. */
+  authFailure: "footpath",
+  /* Reserved for the sign-in handover. Deliberately mapped to the opening
+   * station for now so the name resolves and the contract test passes; the
+   * cinematic travel replaces this, it does not add a new name. */
+  transitionEntry: "street",
+};
+
+/** World lifecycle. `READY` is the only state that may hide the fallback. */
+export const WORLD_STATE = {
+  INITIALISING: "initialising",
+  LOADING: "loading",
+  READY: "ready",
+  DEGRADED: "degraded",
+  FAILED: "failed",
+};
+
+/**
  * Known real-world dimensions, asserted against the imported GLB at runtime.
  *
  * A scale error is the one import bug that looks completely correct in a

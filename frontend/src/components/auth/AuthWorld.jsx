@@ -13,11 +13,24 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { WORLD_STATE } from "../../world/loginSite";
+
 function AuthWorld({ onReady }) {
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
   const cleanupRef = useRef(null);
-  const [live, setLive] = useState(false);
+  /*
+   * `live` is what fades the authored SVG fallback out, so it must mean "the
+   * authored world is ON SCREEN" -- not "a renderer was constructed".
+   *
+   * It used to be set the moment `createAuthWorld` resolved. That function's
+   * only await is the three.js import; the GLB layers arrive afterwards. So on
+   * any deploy where those layers failed, the fallback was already gone and
+   * the user got an empty sky. That is exactly what production showed during
+   * the CSP incident, and the page had no way to know it was wrong.
+   */
+  const [state, setState] = useState(WORLD_STATE.INITIALISING);
+  const live = state === WORLD_STATE.READY;
 
   useEffect(() => {
     let cancelled = false;
@@ -45,13 +58,16 @@ function AuthWorld({ onReady }) {
          * same build rather than from three branches. */
         const world = await createAuthWorld(canvas, {
           time: window.__AUTH_TIME || "dusk",
+          /* The world tells us when it is genuinely ready; we never guess.
+           * DEGRADED and FAILED both keep the fallback on screen, which is the
+           * whole point of routing this through state rather than a boolean. */
+          onState: (next) => { if (!cancelled) setState(next); },
         });
         if (cancelled) {
           world.dispose();
           return;
         }
         worldRef.current = world;
-        setLive(true);
         onReady?.(world);
 
         /*
@@ -76,8 +92,9 @@ function AuthWorld({ onReady }) {
       } catch (error) {
         /* A world that fails to build is a missing decoration, not a broken
          * page. The fallback is already on screen and the form already works,
-         * so this is logged and nothing else happens. */
+         * so this is logged and the state says so. */
         console.warn("Auth world unavailable:", error);
+        if (!cancelled) setState(WORLD_STATE.FAILED);
       }
     })();
 
@@ -100,6 +117,9 @@ function AuthWorld({ onReady }) {
       ref={canvasRef}
       className="auth-world"
       data-live={live ? "1" : undefined}
+      /* Readable from the DOM so a test -- and a future incident -- can tell
+       * "still loading" apart from "loaded without its architecture". */
+      data-world-state={state}
       aria-hidden="true"
     />
   );
