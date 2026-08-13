@@ -538,6 +538,7 @@ def sky_world(sun_elev_deg, sun_rot_deg, strength=1.0, dusk=False):
     # viewer never thinks "there is fog" -- only "that is far away". Anything
     # an order of magnitude stronger becomes visible haze and reads as a
     # weather effect rather than as air.
+    # See atmosphere_box() for the working implementation.
     # NOTE: a WORLD volume rendered the entire frame black in Cycles here,
     # even at a density of 3e-5 where the optical depth over 300 m is under
     # 0.01. Bisected by removing it and the frame returned immediately, so it
@@ -951,3 +952,45 @@ def cc0_available():
     """Whether the CC0 sets are actually on disk, so a build can fall back to
     the procedural materials rather than exporting untextured geometry."""
     return os.path.exists(os.path.join(CC0_DIR, "brick-color.jpg"))
+
+
+def atmosphere_box(size=1400.0, height=320.0, density=2.2e-5,
+                   tint=0x9FB4D4):
+    """
+    Atmospheric perspective as a BOUNDED volume, not an infinite medium.
+
+    The infinite world volume rendered every frame black even at a density
+    whose optical depth over 300 m is under 0.01, so the world-volume path
+    itself is unusable here. A finite box the camera sits inside behaves
+    normally.
+
+    What this buys is the single relationship that communicates distance:
+    contrast loss with range. Foreground scaffold keeps its darkest darks,
+    the city 300 m away lifts and desaturates. The viewer should never think
+    "there is fog" -- only "that is far away" -- so the density is set so a
+    surface at 20 m is essentially untouched.
+
+    Cube normals point outward; a volume needs the camera INSIDE it, and
+    Cycles handles that as long as the mesh is closed, which a default cube is.
+    """
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, height / 2 - 20))
+    ob = bpy.context.active_object
+    ob.name = "atmosphere"
+    ob.scale = (size, size, height)
+    # It must not block the sun or cast anything.
+    ob.visible_shadow = False
+
+    mat = bpy.data.materials.new("atmosphere")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    for n in list(nt.nodes):
+        if n.type != "OUTPUT_MATERIAL":
+            nt.nodes.remove(n)
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+    vol = nt.nodes.new("ShaderNodeVolumeScatter")
+    vol.inputs["Density"].default_value = density
+    vol.inputs["Anisotropy"].default_value = 0.3
+    vol.inputs["Color"].default_value = srgb(tint)
+    nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
+    ob.data.materials.append(mat)
+    return ob

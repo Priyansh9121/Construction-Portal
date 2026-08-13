@@ -229,10 +229,7 @@ def dress(parts, mats, rng, PX0, PX1, PY0, PY1, pad_z=0.40):
     add("ply", plank_stack("board", -5.6, -15.4, pad_z, mats, rng,
                            w=0.9, d=3.9, layers=5))
     # A ladder left leaning where somebody stopped using it.
-    lad = L.box("ladder", (0.44, 0.05, 3.4), (2.6, -16.2, pad_z + 1.7),
-                mats["galv"], bevel=0.01)
-    lad.rotation_euler = (0.28, 0, 0.06)
-    add("galv", [lad])
+    add("galv", ladder("ladder", 2.6, -16.2, pad_z, mats, rng))
 
     # ---- WASTE, by the lane where a truck collects it --------------------
     add("crane", bin_skip("skip", 6.2, 20.6, pad_z, mats, rng))
@@ -262,3 +259,114 @@ def dress(parts, mats, rng, PX0, PX1, PY0, PY1, pad_z=0.40):
         (-3.5, -6.0, pad_z + 0.02), (-3.0, 2.0, pad_z + 0.02),
         (-4.5, 9.0, pad_z + 0.02)], mats, radius=0.018)])
     return parts
+
+
+def ladder(name, x, y, z, mats, rng, length=3.4, lean=0.26):
+    """
+    A real ladder: two stiles and rungs.
+
+    It was ONE FLAT BOX 0.44 x 0.05 x 3.4 m, which edge-on rendered as an
+    unexplained grey plank leaning in the middle of the site -- the artefact
+    the entrance frame kept showing. A ladder is defined by the gap between
+    its stiles; a solid panel is a board.
+    """
+    out = []
+    w = 0.42
+    for sx in (-1, 1):
+        s = L.cyl(f"{name}s{sx}", 0.022, length, (x + sx * w / 2, y, z + length / 2),
+                  mats["galv"], verts=6)
+        out.append(s)
+    rungs = int(length / 0.28)
+    for i in range(1, rungs):
+        out.append(L.cyl(f"{name}r{i}", 0.014, w, (x, y, z + i * 0.28),
+                         mats["galv"], axis="X", verts=6))
+    grp = L.join_all(name, out)
+    grp.rotation_euler = (lean, 0, rng.uniform(-0.06, 0.06))
+    return [grp]
+
+
+def mast_climber(name, x, y, z, top, mats, rng, car_z=12.0):
+    """
+    A rack-and-pinion mast climbing work platform.
+
+    Replaces a plain orange cube. The cube was rejected outright, and the fix
+    is not to bevel it: a machine has to answer HOW IT MOVES, HOW IT IS
+    GUIDED, HOW IT IS ATTACHED and WHERE A PERSON STANDS. Every part below
+    exists to answer one of those.
+
+        mast        modular sections with diagonal bracing and a toothed rack
+                    up one face -- the rack is HOW IT MOVES
+        rollers     guide wheels gripping the mast -- HOW IT IS GUIDED
+        ties        brackets back to the slab edges -- HOW IT IS ATTACHED
+        platform    floor, kick rail, guard rails, mesh, a gate -- WHERE A
+                    PERSON STANDS and how they get off
+        drive       motor and gearbox housing over the rack
+    """
+    out = []
+    galv, paint, mesh = mats["galv"], mats["crane"], mats["screen"]
+    mw = 0.62                                    # mast is 620 mm square
+
+    # ---- MAST: modular sections, braced, with a rack up the front --------
+    sections = int(top / 1.5)
+    for i in range(sections):
+        zz = z + i * 1.5
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                out.append(L.box(f"{name}c{i}{sx}{sy}", (0.075, 0.075, 1.5),
+                                 (x + sx * mw / 2, y + sy * mw / 2, zz + 0.75),
+                                 galv))
+        for sy in (-1, 1):
+            out.append(L.box(f"{name}h{i}{sy}", (mw, 0.05, 0.05),
+                             (x, y + sy * mw / 2, zz + 1.5), galv))
+        # One diagonal per section, alternating hand.
+        d = L.box(f"{name}d{i}", (0.045, 0.045, 1.62), (x, y + mw / 2, zz + 0.75), galv)
+        d.rotation_euler = (0, math.radians(22 if i % 2 else -22), 0)
+        out.append(d)
+    # The RACK: pitched teeth up the front face. This is the single detail
+    # that says rack-and-pinion rather than "painted tower".
+    for i in range(int(top / 0.12)):
+        out.append(L.box(f"{name}rk{i}", (0.09, 0.05, 0.06),
+                         (x, y - mw / 2 - 0.05, z + 0.06 + i * 0.12), galv))
+
+    # ---- TIES back to the structure --------------------------------------
+    for i in range(1, int(top / 6.0)):
+        out.append(L.box(f"{name}t{i}", (0.08, 1.9, 0.08),
+                         (x, y + mw / 2 + 0.95, z + i * 6.0), galv))
+
+    # ---- PLATFORM ---------------------------------------------------------
+    pw, pd = 4.2, 1.5
+    px, pz = x, z + car_z
+    out.append(L.box(f"{name}floor", (pw, pd, 0.08), (px, y - mw / 2 - pd / 2, pz),
+                     paint, bevel=0.01))
+    # Kick rail, then guard rails at 500 and 1100 -- real heights, and the
+    # thing a worker's scale is read against.
+    for hh, th in ((0.09, 0.18), (0.5, 0.045), (1.1, 0.045)):
+        for sy in (-1, 1):
+            out.append(L.box(f"{name}gr{hh}{sy}", (pw, 0.04, th),
+                             (px, y - mw / 2 - pd / 2 + sy * pd / 2, pz + hh),
+                             paint if hh < 0.2 else galv))
+        for sx in (-1, 1):
+            out.append(L.box(f"{name}ge{hh}{sx}", (0.04, pd, th),
+                             (px + sx * pw / 2, y - mw / 2 - pd / 2, pz + hh),
+                             paint if hh < 0.2 else galv))
+    # Corner posts and mesh infill.
+    for sx in (-1, 1):
+        out.append(L.box(f"{name}p{sx}", (0.06, 0.06, 1.15),
+                         (px + sx * pw / 2, y - mw / 2 - pd / 2, pz + 0.58), galv))
+    n = int(pw / 0.16)
+    for i in range(1, n):
+        out.append(L.box(f"{name}m{i}", (0.02, 0.02, 0.92),
+                         (px - pw / 2 + i * pw / n, y - mw / 2 - pd, pz + 0.55),
+                         mesh))
+    # ---- DRIVE: motor and gearbox over the rack --------------------------
+    out.append(L.box(f"{name}drv", (0.7, 0.62, 0.75), (px, y - mw / 2 - 0.3, pz + 0.5),
+                     paint, bevel=0.02))
+    out.append(L.cyl(f"{name}mot", 0.17, 0.5, (px + 0.42, y - mw / 2 - 0.3, pz + 0.62),
+                     galv, axis="X", verts=10))
+    # ---- GUIDE ROLLERS: how it is held to the mast -----------------------
+    for dz in (0.18, 1.0):
+        for sx in (-1, 1):
+            out.append(L.box(f"{name}rl{sx}{dz}", (0.13, 0.2, 0.16),
+                             (px + sx * 0.34, y - mw / 2 + 0.04, pz + dz), galv,
+                             bevel=0.03))
+    return out

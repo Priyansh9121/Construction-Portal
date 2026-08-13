@@ -339,17 +339,13 @@ def build(dusk=False, join_by_material=True):
                     M.prism(f"gr{lift}{h}", M.rect(PX0 - 0.45, sy - 1.36, PX1 + 0.45, sy - 1.30),
                             zz + h, 0.04, mats["galv"]))
 
-    # Mast climber against the east end of the scaffold.
-    for i in range(int(top / 1.5)):
-        parts["galv"].append(
-            M.prism(f"mast{i}", M.rect(PX1 - 1.4, sy - 2.4, PX1 - 0.6, sy - 1.9),
-                    i * 1.5, 1.2, mats["galv"]))
-    # The car rides the FRONT face of its mast. At sy - 3.2 it sat 0.8 m clear
-    # of the mast and read as a floating orange box -- the same class of error
-    # as the production hoist that had no mast at all.
-    L.box("climber", (2.6, 1.5, 2.3), (PX1 - 1.0, sy - 2.9, 13.0), mats["crane"],
-          bevel=0.05)
-    L.box("climber-deck", (3.0, 0.2, 0.12), (PX1 - 1.0, sy - 2.1, 11.9), mats["galv"])
+    # ---- MAST CLIMBER ----------------------------------------------------
+    # A real rack-and-pinion machine, not a cube on a stack of blocks. See
+    # site_dressing.mast_climber for what each part is answering.
+    parts["galv"].extend(
+        D.mast_climber("mc", PX1 - 1.0, sy - 2.6, 0.2, top, mats, rng,
+                       car_z=12.0))
+
 
     # ---- Street furniture, hoarding, people -----------------------------
     # THE HOARDING NEEDS A GATE.
@@ -453,6 +449,7 @@ def light(dusk):
         # the same sun clipped every highlight and turned red brick pale pink.
         L.sky_world(46, 196, strength=0.32)
         L.sun_lamp(46, 196, 3.2, color=(1.0, 0.95, 0.88), angle=0.8)
+    L.atmosphere_box()
 
 
 # ---------------------------------------------------------------------------
@@ -480,7 +477,7 @@ LAYER_RULES = (
     ("neighbours", ("nb", "np", "nw", "nplant", "city",
                     # M3 rear elevations: openings, fire stair, plant
                     "nrw", "nrd", "nfl", "nfr", "nfp", "nac", "ndp")),
-    ("scaffold", ("std", "ldg", "tr", "board", "gr", "mast", "climber")),
+    ("scaffold", ("std", "ldg", "tr", "board", "gr", "mast", "climber", "mc")),
     ("people", ("wk-",)),
 )
 
@@ -689,7 +686,7 @@ def main():
         cam = L.camera(f"cam-{key}", loc, tgt, mm=mm)
         if cycles:
             L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}-cycles.png"), cam,
-                     width=960, height=600, samples=96, engine="CYCLES",
+                     width=720, height=450, samples=24, engine="CYCLES",
                      exposure=0.25 if dusk else -1.05)
         else:
             L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}.png"), cam,
