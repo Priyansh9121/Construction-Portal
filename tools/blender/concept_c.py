@@ -46,6 +46,17 @@ import human as H
 
 NAME = "C-infill"
 
+# Sun position for the daylight gate. Overridable from the command line so the
+# same world can be checked at morning, midday and afternoon -- the runtime
+# will eventually drive these from real IST and coordinates, so the world has
+# to survive ORDINARY light, not one flattering angle.
+SUN_ELEV = 46.0
+# Azimuth 196 put the sun BEHIND the building, so the whole street elevation
+# sat in shade. That was invisible while the sky carried a fake sun disc which
+# filled the shadow back in; removing the double sun exposed it immediately.
+# The street face looks -Y, so the sun has to come from -Y to light it.
+SUN_AZ = 18.0
+
 # ---- The plot, in metres ---------------------------------------------------
 PX0, PX1 = -11.0, 11.0          # 22 m frontage
 PY0, PY1 = -17.0, 17.0          # 34 m deep
@@ -447,8 +458,12 @@ def light(dusk):
         # Retuned for PHOTOGRAPHIC albedos. The previous values were set
         # against dark procedural swatches; real CC0 sets are far brighter, so
         # the same sun clipped every highlight and turned red brick pale pink.
-        L.sky_world(46, 196, strength=0.32)
-        L.sun_lamp(46, 196, 3.2, color=(1.0, 0.95, 0.88), angle=0.8)
+        # Sun:sky ratio, not sun elevation, is what makes daylight read. Real
+        # direct sun is several times the ambient sky contribution; at
+        # 3.2 against 0.32 the ambient was filling every shadow. Midday stays
+        # midday -- this is a ratio fix, so it holds at any elevation.
+        L.sky_world(SUN_ELEV, SUN_AZ, strength=0.16)
+        L.sun_lamp(SUN_ELEV, SUN_AZ, 5.0, color=(1.0, 0.96, 0.90))
     L.atmosphere_box()
 
 
@@ -668,6 +683,11 @@ CAMERAS = {
 def main():
     args = L.argv()
     dusk = "--dusk" in args
+    global SUN_ELEV, SUN_AZ
+    if "--sun" in args:
+        SUN_ELEV = float(args[args.index("--sun") + 1])
+    if "--az" in args:
+        SUN_AZ = float(args[args.index("--az") + 1])
     # NOT "--cycles": the Cycles addon parses sys.argv itself and claims
     # that flag even after the "--" separator, so Blender aborts with an
     # ambiguous-option error before the script ever runs.
@@ -687,11 +707,11 @@ def main():
         if cycles:
             L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}-cycles.png"), cam,
                      width=720, height=450, samples=24, engine="CYCLES",
-                     exposure=0.25 if dusk else -1.05)
+                     exposure=0.25 if dusk else -0.35)
         else:
             L.render(os.path.join(L.OUT, f"{NAME}-{suffix}-{key}.png"), cam,
                      width=1440, height=900, samples=48,
-                     exposure=0.25 if dusk else -1.05)
+                     exposure=0.25 if dusk else -0.35)
 
 
 main()
