@@ -225,7 +225,57 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
-## P0 PERFORMANCE — IN PROGRESS (R1D paused, not abandoned)
+## P0 PERFORMANCE — **FIXED**, commit 4d0ed0d
+
+### Root cause: a style write/read thrash, from two mistakes together
+
+`publishLight()` wrote six `--auth-world-*` properties to **documentElement**,
+while every consumer lives inside `.auth-scene` — so each publish invalidated
+inherited custom properties for the whole document. `onPointer()` then ran
+`e.target.closest(...)` on **every** pointermove against that freshly
+invalidated tree.
+
+Either alone was survivable; together they thrashed.
+
+**Why drag was clean and hover was not:** during drag, `setPointerCapture`
+retargets events to the scene root so `closest()` starts 1-2 hops from its
+match. On hover, `e.target` is the deep node under the cursor -- and
+`.auth-scene__content` is a **full-viewport layer**, so the selector matched
+almost everywhere and always walked to the deepest match. That also meant
+pointer authority was suppressed across the entire scene rather than only over
+the controls -- a behavioural bug too, now fixed.
+
+### Before -> after, real DPR 2, buffer 2880x1808
+
+| scenario | p95 | p99 | max |
+|---|---|---|---|
+| idle | 17.4 -> 17.5 | 17.6 -> 17.7 | 17.6 -> 17.7 |
+| **pointer** | **33.4 -> 17.3** | **183.3 -> 17.6** | **483.4 -> 49.9** |
+| drag | 17.2 -> 18.1 | 17.7 -> 18.6 | 17.7 -> 18.6 |
+| wheel | 17.1 -> 17.9 | 17.4 -> 18.5 | 17.5 -> 18.7 |
+
+Zero frames over 50 ms in any scenario. Repeated sweeps: pass 1 max 49.9 ms,
+passes 2-3 max 17.7 ms -- the residual is one-time first-interaction cost.
+
+### The fix
+- CSS vars scoped to `.auth-scene`; change-gated so unchanged values never
+  re-invalidate style; reused `THREE.Color`.
+- Region state from `pointerover`/`pointerout` on the card, read as a boolean.
+- `compileAsync` + `initTexture` pre-warm after the site loads.
+
+**DPR 2 kept. No shadows, materials, geometry or visual quality touched.**
+
+### Harness correction that made this findable
+`world_capture.mjs` still uses `deviceScaleFactor: 1` for *visual* captures,
+which is fine. But **performance must be measured with
+`tools/fresh_ui/perf_bisect.mjs`**, which runs at real DPR and reports frame
+distribution per interaction. Averages hid this bug completely.
+
+## R1D RESUME POINT — 5ce6f30
+
+Visual work resumes at the ranked list below. Nothing in P0 touched Blender.
+
+## SUPERSEDED — P0 investigation notes
 
 `tools/fresh_ui/perf_bisect.mjs` measures the real page at REAL DPR, per
 interaction, with full frame distribution.
