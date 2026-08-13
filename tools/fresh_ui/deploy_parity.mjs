@@ -77,6 +77,8 @@ async function probe({ name, url }) {
       canvas: true, perf: true,
       layers: Object.keys(layers).sort(),
       meshCount: names.length,
+      authWorldDebug: c.__authWorldDebug || null,
+      siteScale: c.__siteScale || null,
       live: document.documentElement.dataset.world || document.querySelector("[data-world]")?.dataset?.world || "?",
     };
   }).catch((e) => ({ evalError: String(e.message).split("\n")[0] }));
