@@ -1171,7 +1171,7 @@ export async function createAuthWorld(canvas, opts = {}) {
    * judged on. Sampling three times by world position and blending on the
    * normal makes scale a property of the WORLD, not of the mesh.
    */
-  const surfaces = loadSurfaceMaps(THREE);
+  const surfaces = loadSurfaceMaps(THREE, renderer.capabilities.getMaxAnisotropy());
 
   const siteAbort = new AbortController();
   if (!useProcedural) {

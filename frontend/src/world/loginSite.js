@@ -220,7 +220,7 @@ const TEXTURE_BASE = "/world/textures/cc0/";
  * factor it already has, which is duller but completely correct. The form has
  * no relationship with any of this.
  */
-export function loadSurfaceMaps(THREE) {
+export function loadSurfaceMaps(THREE, maxAnisotropy = 4) {
   const loader = new THREE.TextureLoader();
   const cache = new Map();
 
@@ -240,7 +240,15 @@ export function loadSurfaceMaps(THREE) {
      * DATA. Tagging a roughness map sRGB silently lightens it and no amount
      * of material tuning recovers the surface. */
     if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
+    /* ANISOTROPY IS NOT A NICETY HERE.
+     *
+     * The carriageway runs 530 m to the horizon and is read at a few degrees
+     * off grazing, so an isotropic sample averages hundreds of texels into one
+     * and the road turns into flat grey paint. That is exactly what it did at
+     * 4. This is the one case where the maximum the hardware offers is the
+     * correct value, not a luxury -- and it costs nothing on surfaces the
+     * camera faces square-on, because the sample count adapts per fragment. */
+    tex.anisotropy = maxAnisotropy;
     cache.set(key, tex);
     return tex;
   };
