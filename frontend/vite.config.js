@@ -7,7 +7,11 @@
  *
  * Connected to:
  * - `npm run dev`, `npm run build` and `npm run preview`
- * - Vercel runs `vite build` from frontend/vercel.json
+ * - Vercel runs `vite build`, but that is configured in the Vercel DASHBOARD,
+ *   not here and not in vercel.json -- which carries only rewrites and
+ *   headers. Nothing in this repository pins the root directory, the build
+ *   command or the output directory, so they can drift from local without a
+ *   diff to show for it. DEPLOYMENT.md records what they must be.
  * - Entry point is index.html, which loads src/main.jsx
  *
  * Important notes:
