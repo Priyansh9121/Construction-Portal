@@ -23,10 +23,13 @@ const args = process.argv.slice(2);
 const flag = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : d; };
 const only = flag("only", null);
 
-const TARGETS = [
-  { name: "LOCAL", url: "http://localhost:5173/login" },
-  { name: "PRODUCTION", url: "https://construction-portal-one.vercel.app/login" },
-].filter((t) => !only || t.name.toLowerCase().startsWith(only.toLowerCase()));
+const origin = flag("origin", null);
+const TARGETS = origin
+  ? [{ name: "DEPLOYMENT", url: `${origin.replace(/\/$/, "")}/login` }]
+  : [
+    { name: "LOCAL", url: "http://localhost:5173/login" },
+    { name: "PRODUCTION", url: "https://construction-portal-one.vercel.app/login" },
+  ].filter((t) => !only || t.name.toLowerCase().startsWith(only.toLowerCase()));
 
 /* Real GPU. Under SwiftShader the world takes a different path and the
  * comparison stops describing the thing being diagnosed. */
