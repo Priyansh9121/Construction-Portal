@@ -4,6 +4,78 @@
 
 ---
 
+## CHECKPOINT — STREET CORRIDOR AUTHORED, NOT PROMOTED
+
+**CURRENT COMMIT** `35d3242`
+
+**THE FINDING** The flat foreground was never a material or shader problem.
+`surface_probe.mjs` raycast the frame and returned **`earth`, not
+`spandrel`** — the camera stands at Blender y ≈ −70 and the authored street
+corridor ended at y = −46. It has been standing **24 m beyond the end of the
+world**, on the bare 900 m earth box. The street already had a kerb, gutter,
+crossfall and drainage logic. It was missing its *extent*.
+
+**COMPLETED**
+
+- Street rebuilt as a **divided arterial** — two carriageways, planted median,
+  footpath both sides, reaching y = −84. A 70 m sightline to a 22 m frontage
+  does not happen across a side street; it happens across a main road. The
+  camera distance is now explained by the world rather than imposed on it.
+- **Corrected my own first pass.** It was correct engineering the frame could
+  not see: at 70 m with a 1.7 m eye the road is ~2° off grazing, where a
+  150 mm kerb is ≈3 px. Added what reads at that angle — median planting,
+  street lighting at real pole spacing, lane markings carrying perspective to
+  the vanishing point, gullies at the gutter low points, bollards on the site
+  footpath. Level changes stay because they are right, not because they carry
+  the image.
+- **The Cycles gate now includes the production establishing camera**,
+  converted straight through the exporter mapping. Until now the gate had
+  never judged the frame the Login actually opens on.
+- City terrace added across the road — the one bearing with no city in it was
+  the one this camera looks along.
+
+**VISUAL EVIDENCE** `.screenshots/concepts/street-after.png` (Cycles, 720×450,
+establishing camera, sun 46°/az 18°).
+
+**ANTI-GTA GATE — FAILED. NOT PROMOTED.**
+Form removed, this still reads as a massing model, so per the rule it is not
+exported. **The blocker has moved: the ground is no longer the top failure.**
+
+1. **Neighbour facades are flat slabs with recessed rectangles.** No jamb, no
+   head, no sill, no glass plane behind the wall, no interior depth. Both
+   flanks. This is now the single strongest fake cue in the frame.
+2. **Every hero floor is identical** — no struck/formed distinction, no
+   back-propping, no active pour deck.
+3. **Sky is a flat gradient**, cloudless.
+4. Foreground road still a plain band in the bottom ~15%; needs kerb-line
+   tonal separation and gutter grime, not more geometry.
+
+**NOT REGRESSED** Runtime untouched this round (`git diff HEAD -- frontend/`
+empty), so station contract 8/8, world runtime 6/6, a11y 44/44, responsive
+314/314 and the 60 fps / p95 17.4 ms DPR-2 gate all stand.
+
+**KNOWN CONSEQUENCE** Production still ships the *old* street, so the live
+camera stands on bare earth. That defect is authored-and-fixed but deliberately
+unexported until the world passes.
+
+**NEXT EXACT ACTION** Task 4 then Task 2, in that order — the render says
+facades outrank floors:
+1. Give neighbour openings real depth in `city_facade()` / the neighbour
+   builder: reveal, jamb, head, sill, glass recessed ~200 mm behind the wall
+   face. A window must read as HOLE + FRAME + GLASS + DEPTH.
+2. Per-floor construction state on the hero (struck → back-propped → formwork
+   → active deck).
+3. Re-render the establishing + gate/side/rear cameras, re-judge, and only
+   then export through the proven pipeline.
+
+**STILL OPEN — needs your decision** The lifting strategy. Concept C was chosen
+*because* the plot is too tight for a tower crane. Real options: a luffing-jib
+crane (designed for constrained urban airspace, and the only plausible tower
+option here), or periodic mobile-crane operations with the mast climber
+retained for personnel and material. I will not add a hammerhead for spectacle.
+
+---
+
 ## CHECKPOINT — RUNTIME STABILITY + ESTABLISHING CAMERA
 
 **CURRENT COMMIT** `9174d88`
