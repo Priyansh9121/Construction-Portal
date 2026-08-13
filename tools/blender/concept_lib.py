@@ -522,7 +522,21 @@ def sky_world(sun_elev_deg, sun_rot_deg, strength=1.0, dusk=False):
     sky.altitude = 120
     sky.air_density = 1.5 if dusk else 0.85
     sky.dust_density = 3.0 if dusk else 0.9
-    sky.sun_intensity = 0.5 if dusk else 1.0
+    # THE SUN IS PROVIDED BY A LAMP, NOT BY THE SKY.
+    #
+    # Nishita's `sun_disc` defaults to True, so the sky texture contained a
+    # sun AND a separate sun lamp was added on top -- the sun was counted
+    # twice. Worse, the sky's disc is sampled as part of the world hemisphere,
+    # which delivers it as broad soft fill rather than as a hard key, so
+    # shadows filled in and every surface collapsed into one narrow value
+    # band. That is the flatness, and it had nothing to do with the sun's
+    # elevation: it was just as flat at any angle.
+    #
+    # The sky now supplies ATMOSPHERE AND AMBIENT ONLY. The lamp supplies the
+    # key, at the sun's real angular diameter, which is what gives a shadow an
+    # edge.
+    sky.sun_disc = False
+    sky.sun_intensity = 0.0
     nt.links.new(sky.outputs["Color"], bg.inputs["Color"])
     nt.links.new(bg.outputs["Background"], out.inputs["Surface"])
 
@@ -551,7 +565,7 @@ def sky_world(sun_elev_deg, sun_rot_deg, strength=1.0, dusk=False):
     return world
 
 
-def sun_lamp(elev_deg, rot_deg, energy, color=(1.0, 0.95, 0.88), angle=0.9):
+def sun_lamp(elev_deg, rot_deg, energy, color=(1.0, 0.95, 0.88), angle=0.545):
     d = bpy.data.lights.new("sun", "SUN")
     d.energy = energy
     d.color = color
