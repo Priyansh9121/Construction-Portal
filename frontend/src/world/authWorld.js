@@ -29,7 +29,7 @@ import CRANE from "./craneGeometry.json";
 import SCAFFOLD from "./scaffoldGeometry.json";
 import HOIST from "./hoistGeometry.json";
 import { createSky } from "./sky";
-import { buildMaterialLibrary, triplanar } from "./textures";
+import { buildMaterialLibrary } from "./textures";
 import { bevelBox, CHAMFER, bucketBySize } from "./geometry";
 import { loadAssets, placeAsset, assetCost } from "./assets";
 import { createDust } from "./dust";
@@ -800,7 +800,12 @@ function dressSurface(THREE, material, surfaces) {
   material.color.setRGB(1, 1, 1);
   material.roughness = 1;
   material.metalness = material.metalness > 0.5 ? material.metalness : 0;
-  triplanar(material, 1 / surface.scale);
+  /*
+   * NO TRIPLANAR. The GLB now carries UVs cube-projected at the material's
+   * real world tile, so this is ordinary glTF PBR -- one texture fetch per
+   * map instead of three, and the world scale is decided once at authoring
+   * time rather than being re-guessed here.
+   */
   material.needsUpdate = true;
   return material;
 }

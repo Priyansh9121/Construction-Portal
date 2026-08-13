@@ -39,6 +39,9 @@ export const SITE_LAYERS = [
   { name: "login-site-neighbours", essential: true, mobile: true },
   { name: "login-site-scaffold", essential: false, mobile: true },
   { name: "login-site-street", essential: false, mobile: true },
+  /* People carry their own materials and are small; they arrive last because
+   * the site has to read before it can be populated. */
+  { name: "login-site-people", essential: false, mobile: true },
 ];
 
 /**
@@ -51,16 +54,25 @@ export const SITE_LAYERS = [
  */
 export const SITE_JOURNEY = [
   {
-    /* STREET HERO — the winning frame. Standing on the far footpath looking
-     * up the street: the west neighbour fills the left of frame, the project
-     * is read THROUGH its scaffold, and the building crops above the top. */
+    /*
+     * STREET ESTABLISHING — the frame the page opens on.
+     *
+     * It used to stand 40 m out at 28 mm, which filled the frame with
+     * scaffold and cropped away the street, the sky and the neighbours. An
+     * opening shot has to show the WORLD before it shows the subject.
+     *
+     * Now 62 m back at 35 mm, the architectural-photography default. The
+     * camera physically MOVED rather than the lens widening: a wide angle
+     * from close up is the game-camera look, and it distorts the verticals
+     * that make architecture read.
+     */
     name: "street",
-    target: [2, 17, 6],
-    radius: 40.5,
-    azimuth: -0.595,
-    elevation: -0.389,
-    fov: 46.4,
-    mm: 28,
+    target: [0, 12, 4],
+    radius: 62,
+    azimuth: -0.50,
+    elevation: -0.162,
+    fov: 37.85,
+    mm: 35,
   },
   {
     /* HUMAN SCALE — the corrected ground frame. Opposite footpath, 26 m back,
@@ -167,19 +179,39 @@ export function checkSiteScale(THREE, scene) {
  * environment, and painting a diffuse texture onto them would flatten exactly
  * the response that makes them look metallic.
  */
+/*
+ * glTF material name -> CC0 map set.
+ *
+ * There is no `scale` any more, and that is the point: the world tile is baked
+ * into the UVs at export (tools/blender/concept_lib.py EXPORT_UV_TILE), so the
+ * runtime does not get to disagree with the authoring about how big a brick
+ * is. Metals and glass are absent deliberately -- they are defined by how they
+ * reflect the PMREM environment, and an albedo map would flatten that.
+ */
 export const SITE_SURFACES = {
-  conc: { tex: "conc", scale: 4.0 },
-  wet: { tex: "wet", scale: 4.0 },
-  earth: { tex: "earth", scale: 3.0 },
-  ply: { tex: "ply", scale: 2.2 },
-  city_warm: { tex: "city_warm", scale: 4.0 },
-  city_cool: { tex: "city_cool", scale: 4.0 },
-  /* The road. Asphalt aggregate is fine, so its tile is tighter than the
-   * building's — a 4 m asphalt tile reads as gravel. */
-  spandrel: { tex: "spandrel", scale: 2.6 },
+  conc: { tex: "concrete" },
+  wet: { tex: "concrete" },
+  earth: { tex: "ground" },
+  ply: { tex: "ply" },
+  city_warm: { tex: "brick" },
+  city_cool: { tex: "concrete" },
+  spandrel: { tex: "asphalt" },
 };
 
-const TEXTURE_BASE = "/world/textures/";
+/*
+ * PHOTOGRAPHIC CC0 MAPS, SHIPPED ONCE.
+ *
+ * These used to be baked procedural swatches projected triplanar at runtime,
+ * because the Blender materials used BOX projection on world position and
+ * glTF cannot express that. The export now cube-projects UVs at each
+ * material's real world tile, so the GLB carries proper UVs and these are
+ * ordinary glTF PBR textures.
+ *
+ * They are attached at runtime rather than embedded in the GLBs: embedding put
+ * a full copy of every map into every layer that used it and took the set from
+ * 0.5 MB to about 30 MB. One copy, cached across all layers.
+ */
+const TEXTURE_BASE = "/world/textures/cc0/";
 
 /**
  * Load the baked PBR maps.
@@ -195,7 +227,7 @@ export function loadSurfaceMaps(THREE) {
   const grab = (name, kind, srgb) => {
     const key = `${name}-${kind}`;
     if (cache.has(key)) return cache.get(key);
-    const ext = kind === "normal" ? "png" : "jpg";
+    const ext = "jpg";
     const tex = loader.load(
       `${TEXTURE_BASE}${key}.${ext}`,
       undefined,
@@ -216,10 +248,9 @@ export function loadSurfaceMaps(THREE) {
   const out = new Map();
   for (const [slot, def] of Object.entries(SITE_SURFACES)) {
     out.set(slot, {
-      map: grab(def.tex, "albedo", true),
+      map: grab(def.tex, "color", true),
       roughnessMap: grab(def.tex, "roughness", false),
       normalMap: grab(def.tex, "normal", false),
-      scale: def.scale,
     });
   }
   return out;

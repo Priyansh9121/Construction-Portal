@@ -543,11 +543,17 @@ PRODUCTION_FACTORS = {
 }
 
 
-def bake_production_materials():
-    """Flatten every procedural material to the factors glTF can carry."""
+def bake_production_materials(skip=frozenset()):
+    """
+    Flatten the remaining procedural materials to the factors glTF can carry.
+
+    `skip` holds materials that already carry real image textures, which must
+    NOT be flattened -- that was the old behaviour and it is exactly what
+    stranded the CC0 maps in Blender.
+    """
     for mat in bpy.data.materials:
         key = mat.name.split(".")[0]
-        if key not in PRODUCTION_FACTORS:
+        if mat.name in skip or key not in PRODUCTION_FACTORS:
             continue
         colour, rough, metal = PRODUCTION_FACTORS[key]
         mat.use_nodes = True
@@ -573,6 +579,20 @@ def export_production():
     individually without rebuilding any geometry.
     """
     parts = build(dusk=False, join_by_material=False)
+
+    # TEXTURES NOW SHIP. The export used to flatten every material to a
+    # constant because BOX projection cannot cross the glTF boundary; UVs at
+    # real world scale mean the photographic maps travel with the geometry.
+    # `bake_production_materials()` is kept only for the materials that have no
+    # images at all (painted steel, galvanised, glass), which are correctly
+    # factor-only and would gain nothing from a texture.
+    retargeted = L.to_uv_materials()
+    print(f"OK  {len(retargeted)} materials retargeted to UV")
+    # Flatten ALL materials to factors for export. The UVs stay -- that is the
+    # point -- but the images do not travel inside the GLB. Embedding them put
+    # a full copy of every map into every layer that used it and took the set
+    # from 0.5 MB to about 30 MB. They ship once instead, from
+    # frontend/public/world/textures/cc0, attached at runtime by material name.
     bake_production_materials()
 
     # Everything in the scene, including the loose objects build() never put
@@ -595,6 +615,7 @@ def export_production():
     for (layer, key), objs in tagged.items():
         ob = L.join_all(f"{layer}-{key}", objs)
         if ob:
+            L.uv_project_for_export(ob, L.EXPORT_UV_TILE.get(key, L.DEFAULT_UV_TILE))
             merged.setdefault(layer, []).append(ob)
 
     out_dir = os.path.join(

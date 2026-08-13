@@ -1345,3 +1345,83 @@ def in_situ_concrete(name="conc", base="concrete", tile=(2.4, 2.4),
         nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
 
     return mat
+
+
+# ---------------------------------------------------------------------------
+# EXPORT-TIME UV PROJECTION
+# ---------------------------------------------------------------------------
+#
+# THE PIPELINE GAP THIS CLOSES
+#
+# The CC0 materials sample their images with BOX projection driven by world
+# Position. That is correct for Blender and inexpressible in glTF: the format
+# carries a texture plus a UV set, not a projection mode. So the production
+# export had to flatten every material to a constant colour, and the runtime
+# substituted its own baked swatches through a triplanar shader patch.
+#
+# The consequence is that the photographic CC0 maps -- the thing that gave the
+# world material identity in the first place -- stopped at the Blender boundary
+# and never reached the browser.
+#
+# Cube projection at the material's REAL WORLD TILE produces UVs that are
+# equivalent to what box projection was doing, and glTF exports them natively.
+# One texture set, authored once, delivered intact.
+
+# The world tile each material was authored at, in metres. Must match the
+# `tile` argument used when the material was built, or the texture will be the
+# right image at the wrong size -- which is the failure this whole effort keeps
+# rediscovering.
+EXPORT_UV_TILE = {
+    "conc": 2.4, "wet": 2.4, "city_warm": 2.06, "city_cool": 2.4,
+    "spandrel": 2.0, "earth": 2.4, "ply": 2.0,
+}
+DEFAULT_UV_TILE = 2.4
+
+
+def uv_project_for_export(ob, tile=DEFAULT_UV_TILE):
+    """
+    Give an object UVs equivalent to box projection at a real metre scale.
+
+    Cube projection rather than Smart UV Project on purpose: smart unwrap
+    optimises for packing, which gives every face a different texel density.
+    These meshes join a 34 m party wall to a 600 mm column, so consistent
+    world-scale density matters far more than atlas efficiency -- and it is
+    precisely the stretching this project has failed on before.
+    """
+    if ob is None or ob.type != "MESH":
+        return None
+    if not ob.data.uv_layers:
+        ob.data.uv_layers.new(name="UVMap")
+    with bpy.context.temp_override(object=ob, active_object=ob,
+                                   selected_objects=[ob],
+                                   selected_editable_objects=[ob]):
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        # cube_size is the world size mapped to one UV unit.
+        bpy.ops.uv.cube_project(cube_size=tile, correct_aspect=False)
+        bpy.ops.object.mode_set(mode="OBJECT")
+    return ob
+
+
+def to_uv_materials():
+    """
+    Retarget every CC0 material from BOX/world projection to the UV set.
+
+    Names and slots are preserved exactly, so the runtime's material-name
+    lookup keeps working and nothing downstream has to know this happened.
+    """
+    retargeted = []
+    for mat in bpy.data.materials:
+        if not mat.use_nodes:
+            continue
+        images = [n for n in mat.node_tree.nodes if n.type == "TEX_IMAGE"]
+        if not images:
+            continue
+        for tex in images:
+            tex.projection = "FLAT"
+            # Drop the world-position input; an unconnected Vector makes the
+            # node fall back to the active UV set, which is what we want.
+            for link in list(tex.inputs["Vector"].links):
+                mat.node_tree.links.remove(link)
+        retargeted.append(mat.name)
+    return retargeted
