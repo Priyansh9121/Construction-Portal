@@ -61,16 +61,23 @@ export const SITE_JOURNEY = [
      * scaffold and cropped away the street, the sky and the neighbours. An
      * opening shot has to show the WORLD before it shows the subject.
      *
-     * Now 62 m back at 35 mm, the architectural-photography default. The
+     * Now 70 m back at 35 mm, the architectural-photography default. The
      * camera physically MOVED rather than the lens widening: a wide angle
      * from close up is the game-camera look, and it distorts the verticals
      * that make architecture read.
+     *
+     * The eye sits at 1.7 m -- a person on the far footpath, not a drone. The
+     * target is lifted to 13 m so the frame carries sky above the parapet
+     * instead of cropping the building at the top edge, which is what 62 m did:
+     * a hero cropped by the frame reads as an object too big for its picture,
+     * and the whole point of an establishing shot is that the site reads as a
+     * PLACE rather than as one large thing.
      */
     name: "street",
-    target: [0, 12, 4],
-    radius: 62,
+    target: [1, 13, 3],
+    radius: 70,
     azimuth: -0.50,
-    elevation: -0.162,
+    elevation: -0.1621,
     fov: 37.85,
     mm: 35,
   },
