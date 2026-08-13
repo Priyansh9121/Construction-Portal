@@ -738,11 +738,12 @@ def standard_materials(wear=0.5, lit=0.0):
     if cc0_available():
         return {
             # Tiles measured from the images, in metres (horizontal, vertical).
-            "conc": cc0("conc", "concrete", (2.4, 2.4)),
+            "conc": cc0("conc", "concrete", (2.4, 2.4), wear_mask=0.85),
             "wet": cc0("wet", "concrete", (2.4, 2.4), tint=0x6F757C),
             # ~12 courses over the 512 px height at ~86 mm a course.
-            "city_warm": cc0("city_warm", "brick", (2.06, 1.03)),
-            "city_cool": cc0("city_cool", "concrete", (2.4, 2.4), tint=0xAEB6BE),
+            "city_warm": cc0("city_warm", "brick", (2.06, 1.03), wear_mask=0.7),
+            "city_cool": cc0("city_cool", "concrete", (2.4, 2.4), tint=0xAEB6BE,
+                             wear_mask=0.7),
             "spandrel": cc0("spandrel", "asphalt", (2.0, 2.0)),
             "earth": cc0("earth", "ground", (2.4, 2.4)),
             "ply": cc0("ply", "ply", (2.0, 2.0)),
@@ -799,7 +800,8 @@ CC0_DIR = os.path.join(
     "tools", "textures", "cc0")
 
 
-def cc0(name, base, tile=(2.0, 2.0), rough_boost=0.0, tint=None):
+def cc0(name, base, tile=(2.0, 2.0), rough_boost=0.0, tint=None,
+        wear_mask=0.0):
     """
     A photographic PBR material, box-projected at a REAL WORLD SCALE.
 
@@ -842,6 +844,43 @@ def cc0(name, base, tile=(2.0, 2.0), rough_boost=0.0, tint=None):
     rough = image(0, f"{base}-roughness.jpg", True)
     norm = image(-1, f"{base}-normal.jpg", True)
 
+    # ---- WEAR, AS A MASK -------------------------------------------------
+    #
+    # Splashback near the ground and run-off below openings, driven by world
+    # height and a stretched noise. This is where dirt ACTUALLY collects:
+    # rain kicks grit up the first half-metre of any wall, and water runs
+    # DOWN. A uniform grunge overlay reads as a dirty texture; a height-driven
+    # one reads as weather.
+    if wear_mask:
+        sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+        sep.location = (-1050, -650)
+        nt.links.new(geo.outputs["Position"], sep.inputs["Vector"])
+        # Splash: strongest at 0 m, gone by ~0.6 m.
+        splash = nt.nodes.new("ShaderNodeMapRange")
+        splash.location = (-860, -650)
+        splash.inputs["From Min"].default_value = 0.0
+        splash.inputs["From Max"].default_value = 0.62
+        splash.inputs["To Min"].default_value = 1.0
+        splash.inputs["To Max"].default_value = 0.0
+        splash.clamp = True
+        nt.links.new(sep.outputs["Z"], splash.inputs["Value"])
+        # Break the band up so it is not a clean gradient ring.
+        grit = nt.nodes.new("ShaderNodeTexNoise")
+        grit.location = (-860, -880)
+        grit.inputs["Scale"].default_value = 5.5
+        grit.inputs["Detail"].default_value = 6.0
+        nt.links.new(mp.outputs["Vector"], grit.inputs["Vector"])
+        gmix = nt.nodes.new("ShaderNodeMath")
+        gmix.location = (-660, -760)
+        gmix.operation = "MULTIPLY"
+        nt.links.new(splash.outputs["Result"], gmix.inputs[0])
+        nt.links.new(grit.outputs["Fac"], gmix.inputs[1])
+        dirt = nt.nodes.new("ShaderNodeMath")
+        dirt.location = (-480, -760)
+        dirt.operation = "MULTIPLY"
+        dirt.inputs[1].default_value = wear_mask
+        nt.links.new(gmix.outputs["Value"], dirt.inputs[0])
+
     if color:
         if tint:
             mix = nt.nodes.new("ShaderNodeMixRGB")
@@ -853,6 +892,16 @@ def cc0(name, base, tile=(2.0, 2.0), rough_boost=0.0, tint=None):
             nt.links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
         else:
             nt.links.new(color.outputs["Color"], bsdf.inputs["Base Color"])
+
+        if wear_mask:
+            grime = nt.nodes.new("ShaderNodeMixRGB")
+            grime.location = (-300, 300)
+            grime.blend_type = "MULTIPLY"
+            grime.inputs["Color2"].default_value = srgb(0x6B6055)
+            src = bsdf.inputs["Base Color"].links[0].from_socket
+            nt.links.new(src, grime.inputs["Color1"])
+            nt.links.new(dirt.outputs["Value"], grime.inputs["Fac"])
+            nt.links.new(grime.outputs["Color"], bsdf.inputs["Base Color"])
 
     if rough:
         if rough_boost:
