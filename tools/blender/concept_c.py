@@ -42,6 +42,7 @@ import bpy
 import concept_lib as L
 import concept_mesh as M
 import site_dressing as D
+import human as H
 
 NAME = "C-infill"
 
@@ -351,19 +352,49 @@ def build(dusk=False, join_by_material=True):
     L.box("climber-deck", (3.0, 0.2, 0.12), (PX1 - 1.0, sy - 2.1, 11.9), mats["galv"])
 
     # ---- Street furniture, hoarding, people -----------------------------
+    # THE HOARDING NEEDS A GATE.
+    #
+    # It ran continuously across the frontage, including straight over the
+    # vehicle ramp -- so the ramp led to a solid fence and the entrance camera
+    # photographed a blue wall. A site boundary with no way in is the kind of
+    # error that is invisible in plan and obvious the moment a camera stands
+    # at human height in front of it.
+    GATE_X0, GATE_X1 = -6.4, 6.4
     for i in range(9):
+        x0 = PX0 - 1.2 + i * 2.6
+        x1 = PX0 + 1.2 + i * 2.6
+        if x1 > GATE_X0 and x0 < GATE_X1:
+            continue
         parts["paint"].append(
-            M.prism(f"hoard{i}", M.rect(PX0 - 1.2 + i * 2.6, PY0 - 4.6,
-                                        PX0 + 1.2 + i * 2.6, PY0 - 4.4), 0.2, 2.4,
+            M.prism(f"hoard{i}", M.rect(x0, PY0 - 4.6, x1, PY0 - 4.4), 0.2, 2.4,
                     mats["screen"]))
+    # Gate leaves, standing open against the hoarding line.
+    for sx, lx in ((-1, GATE_X0), (1, GATE_X1)):
+        leaf = M.prism(f"gate{sx}", M.rect(0, 0, 2.9, 0.12), 0.2, 2.3,
+                       mats["galv"])
+        leaf.location = (lx, PY0 - 4.5, 0)
+        leaf.rotation_euler = (0, 0, sx * 1.15)
+        parts["galv"].append(leaf)
     L.box("cabin", (6.1, 2.5, 2.6), (0, 21.5, 1.5), mats["paint"], bevel=0.05)
     L.box("skip", (2.2, 4.6, 1.5), (7.0, 21.0, 0.95), mats["crane"], bevel=0.05)
     for i in range(5):
         L.box("stack", (2.4, 1.2, rng.uniform(0.4, 0.9)), (-6 + i * 2.8, 20.0, 0.6),
               mats["ply"])
 
-    for (x, y, f) in ((-4, -22, 0.9), (5, -21, 2.6), (2, 19, -1.2)):
-        L.figure((x, y, 0.36), mats, facing=f)
+    # ---- PEOPLE ----------------------------------------------------------
+    #
+    # Real lofted anatomy, not box figures. Each has a REASON to stand where
+    # it does: one arriving through the gate, one at the material staging with
+    # the rebar, one signalling the lift, one on the footpath outside.
+    for (nm, x, y, z, face, pose) in (
+            ("wk-gate", -3.6, -20.4, 0.40, 0.7, "walk"),
+            ("wk-mat", -2.0, -8.2, 0.40, 2.5, "carry"),
+            ("wk-bank", 5.4, -4.0, 0.40, -1.1, "signal"),
+            ("wk-path", 4.6, -22.6, 0.24, 2.9, "stand")):
+        w = H.worker(nm, mats, pose=pose, facing=face,
+                     height=rng.uniform(1.68, 1.83), seed=int(x * 10))
+        w.location = (x, y, z)
+        parts.setdefault("people", []).append(w)
 
     # ---- SITE CONTENT ----------------------------------------------------
     # The single largest cause of the game-like read was an EMPTY site.
@@ -442,7 +473,7 @@ def light(dusk):
 # Order matters. "cabin" must be tested before any short architecture prefix
 # would swallow it.
 LAYER_RULES = (
-    ("street", ("ground", "street", "kerb", "path", "lane", "sitepad",
+    ("street", ("gate", "ground", "street", "kerb", "path", "lane", "sitepad",
                 "hoard", "cabin", "skip", "stack",
                 # M3 terrain
                 "road", "pad", "ramp", "haul", "drain")),
@@ -450,6 +481,7 @@ LAYER_RULES = (
                     # M3 rear elevations: openings, fire stair, plant
                     "nrw", "nrd", "nfl", "nfr", "nfp", "nac", "ndp")),
     ("scaffold", ("std", "ldg", "tr", "board", "gr", "mast", "climber")),
+    ("people", ("wk-",)),
 )
 
 
@@ -623,7 +655,11 @@ CAMERAS = {
     # ENTRANCE (gate view B): standing just inside the gate, looking into the
     # site. The street camera looks UP and never sees the ground, so this is
     # the only view that tests whether the site content actually works.
-    "entrance": ((-1.5, -18.5, 1.68), (3.0, 6.0, 7.0), 24),
+    # Standing AT the gate line looking in and slightly up. The first attempt
+    # sat at y = -18.5, which is INSIDE the ground floor -- the frame was a
+    # column half a metre from the lens and a dark soffit. The gate is at
+    # y = -21.6, so this stands just outside it and looks through.
+    "entrance": ((-2.4, -27.0, 1.68), (1.5, 4.0, 8.0), 28),
     # REAR: the laneway, the side nothing was composed for.
     # Far enough back to show the plot IN ITS TERRACE. At 36 m the building
     # filled the frame and the shot became a section through it, which proves

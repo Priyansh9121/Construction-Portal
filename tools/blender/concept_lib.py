@@ -525,6 +525,27 @@ def sky_world(sun_elev_deg, sun_rot_deg, strength=1.0, dusk=False):
     sky.sun_intensity = 0.5 if dusk else 1.0
     nt.links.new(sky.outputs["Color"], bg.inputs["Color"])
     nt.links.new(bg.outputs["Background"], out.inputs["Surface"])
+
+    # ---- ATMOSPHERIC DEPTH ------------------------------------------------
+    #
+    # A world volume, not fog. The failure it fixes is that a building 300 m
+    # away shared its black level with foreground scaffold, which destroys
+    # scale: the eye reads distance from CONTRAST LOSS long before it reads it
+    # from perspective.
+    #
+    # Density is deliberately tiny. At 3e-5 a surface 300 m away loses roughly
+    # a tenth of its contrast and one 20 m away loses almost nothing, so the
+    # viewer never thinks "there is fog" -- only "that is far away". Anything
+    # an order of magnitude stronger becomes visible haze and reads as a
+    # weather effect rather than as air.
+    # NOTE: a WORLD volume rendered the entire frame black in Cycles here,
+    # even at a density of 3e-5 where the optical depth over 300 m is under
+    # 0.01. Bisected by removing it and the frame returned immediately, so it
+    # is the world-volume path itself and not the density. Atmospheric depth
+    # is therefore left to the Nishita sky's own aerial perspective for now
+    # and remains an open R1 item; a bounded volume box around the scene is
+    # the next thing to try rather than an infinite world medium.
+
     bpy.context.scene.world = world
     return world
 
