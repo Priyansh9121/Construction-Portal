@@ -271,7 +271,47 @@ which is fine. But **performance must be measured with
 `tools/fresh_ui/perf_bisect.mjs`**, which runs at real DPR and reports frame
 distribution per interaction. Averages hid this bug completely.
 
-## R1D RESUME POINT — 5ce6f30
+## FINAL LOGIN — CHECKPOINT
+
+**CURRENT COMMIT:** 6e5b616
+
+### COMPLETED this unit
+Project concrete now reads as cast in lifts. `in_situ_concrete()` keys per-pour
+tone, a ~130 mm construction joint (darker AND rougher) and splashback to the
+real 3.3 m storey, with low-frequency variation so pours keep quiet areas.
+
+**Tuned against the render, not the code:** the first pass used a 0.88-1.06
+tone range and a 50 mm joint, both sub-pixel at the 40 m the gate cameras stand
+at — the shader was right, the numbers were chosen for a viewing distance
+nobody uses. Now 0.78-1.12 with a ~130 mm joint, tinted down from the pale
+Concrete034 set to structural grey.
+
+### VISUAL EVIDENCE
+`.screenshots/concepts/C-infill-day-rear-s46a18-cycles.png` — party wall shows
+storey-by-storey pour bands with joints. Concrete is now at least as convincing
+as the neighbour brick, which was this item's acceptance test.
+
+### PERFORMANCE
+Untouched. P0 gate stands: pointer p95 ~17 ms, zero frames over 50 ms at real
+DPR 2. No production Three.js change in this unit.
+
+### NEXT EXACT ACTION — ranked from the current rear/hero renders
+
+1. **Left neighbour (`city_cool`) is now the weakest surface** — a flat pale
+   slab with shallow square windows, using a concrete texture where it should
+   be render/painted masonry. Give it the same treatment the brick got, or a
+   proper render material.
+2. **Building interior is a black void** in the hero frame — you see through
+   the scaffold into pure darkness. Real frames show floor plates receding with
+   light falloff. Likely needs bounce/portal light or a lighter soffit.
+3. **Laneway asphalt** — reads flat, but it is genuinely in shade at azimuth 18,
+   so verify with a lit angle before changing the material.
+4. **Sky is cloudless.**
+
+Then: four-view Cycles gate + morning/midday/afternoon, and only then
+production migration.
+
+## SUPERSEDED — R1D resume notes (5ce6f30)
 
 Visual work resumes at the ranked list below. Nothing in P0 touched Blender.
 
