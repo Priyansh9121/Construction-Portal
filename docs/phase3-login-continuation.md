@@ -225,7 +225,50 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
-## R1C COMPLETE — commit d9a7817. CYCLES GATE: **FAIL**.
+## R1D PARTIAL — commit d6ea684. LIGHTING ROOT CAUSE FIXED.
+
+**The flatness was a DOUBLE SUN, not the sun's elevation.**
+
+Nishita's `sun_disc` defaults to True, so the sky carried a sun *and* a
+separate sun lamp was added on top. The sky's disc is sampled as part of the
+world hemisphere, so it arrived as broad soft fill rather than a hard key —
+shadows filled in, every surface collapsed into one value band. Equally flat at
+any elevation.
+
+Fix: `sun_disc = False`, `sun_intensity = 0` (sky = atmosphere + ambient only);
+lamp supplies the key at the sun's real 0.545° angular diameter; sun:sky
+rebalanced 3.2:0.32 → 5.0:0.16. Exposure −1.05 → −0.35.
+
+**Midday now reads at 46°** — the fix did NOT require golden hour.
+
+Second defect it exposed: azimuth 196 put the sun *behind* the building, so the
+street elevation was entirely in shade — the fake sky disc had been hiding it.
+Azimuth now 18. Sun is overridable: `--sun <elev> --az <azimuth>`.
+
+Result: sunlit brick with legible mortar, a real cast shadow in every window
+reveal (they were flat dark squares because nothing directional was catching a
+jamb), scaffold separating from the facade, dark interior.
+
+### STILL TO DO IN R1D
+
+1. **Ground is still one uniform value** — masks for haul line, damp/dry,
+   staging spill, gate transition. Untouched this session.
+2. **Deepen rear reveals** (street reveals now work; rear not re-checked).
+3. **Four-view Cycles gate** at the new lighting — only `hero` re-rendered.
+4. **Daylight robustness**: render one camera at `--sun 20`, `--sun 46`,
+   `--sun 68` and confirm all three hold. The whole point of the ratio fix is
+   that it should.
+
+### NEXT EXACT ACTION
+
+```bash
+BL=/Applications/Blender.app/Contents/MacOS/Blender
+$BL -b -P tools/blender/concept_c.py -- --frames hero --ref --sun 20
+$BL -b -P tools/blender/concept_c.py -- --frames hero --ref --sun 68
+```
+Then ground masks, then the four-view gate.
+
+## SUPERSEDED — R1C verdict
 
 All four gate views rendered (`.screenshots/concepts/C-infill-day-*-cycles.png`:
 hero / entrance / rear / ground).
