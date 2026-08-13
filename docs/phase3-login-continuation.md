@@ -225,7 +225,39 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
-## R1A COMPLETE — commit 51579cf. CYCLES GATE NOT PASSED.
+## R1B COMPLETE — commit 522cd08. CYCLES GATE NOT PASSED.
+
+**People are real.** `tools/blender/human.py` lofts anatomy from cross-sections
+(tapering silhouette, canonical proportions, PPE, hard hat with peak). Four
+workers, each with a reason to stand where it does. Box figures are gone.
+
+**Verified, not assumed:** no free rigged human is reachable here — BlenderKit
+is not bundled with Blender 4.5, Poly Haven has 521 models and none are people,
+Mixamo needs an Adobe login, Sketchfab an API token.
+
+**The hoarding had no gate.** It ran across the vehicle ramp, so the ramp led to
+a solid fence. Cut an opening, hung two leaves open.
+
+### Atmosphere: attempted, reverted, RECORDED
+
+A world `Volume Scatter` rendered the entire frame **black** at density 3e-5,
+where optical depth over 300 m is under 0.01. Bisected by removal — frame
+returned immediately, so it is the world-volume path, not the density.
+**Next thing to try: a bounded volume BOX around the scene, not an infinite
+world medium.**
+
+## R1 REMAINING — in order
+
+1. **ATMOSPHERE** (cause 5, still unsolved). Bounded volume box, or Cycles mist
+   via the compositor. Far city must lose contrast against foreground scaffold.
+2. **MAST-CLIMBER CUBE** — still a plain orange box; a hard-fail item for the
+   gate. Needs mast, cage, guard rails, drive housing, ties to the structure.
+3. **Grey cylinder artefact** near the material staging in the entrance frame —
+   identify (likely the cable reel core at wrong scale) and fix.
+4. **FOUR-VIEW CYCLES GATE**: street / entrance / side / 180°, against
+   `.screenshots/REJECTED-gamelike-baseline-1440.png`.
+
+## SUPERSEDED — R1A notes
 
 Content, wear and tolerance done. See `tools/blender/site_dressing.py`.
 
