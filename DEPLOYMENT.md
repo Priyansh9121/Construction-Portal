@@ -381,6 +381,36 @@ material photos directly from the camera.
 
 Get any one wrong and the browser blocks every call before it is sent.
 
+### `script-src` must keep `'wasm-unsafe-eval'`
+
+The Login world's GLB layers are meshopt-compressed, and meshopt decodes
+through **WebAssembly**. Under CSP, compiling a WASM module counts as script
+evaluation, so `script-src 'self'` alone blocks it.
+
+This cost a production incident on 2026-08-13. Every symptom pointed away from
+the truth: all five layers returned `200`, `model/gltf-binary`, correct
+`glTF` magic bytes and byte-identical lengths to local, so `curl` said the
+deploy was perfect. They failed *after* the fetch, at decode. The dev server
+sends no CSP and `vite preview` does not read `vercel.json`, so this is a
+header no local workflow had ever applied.
+
+`'wasm-unsafe-eval'` is deliberately **not** `'unsafe-eval'`: it permits
+WebAssembly compilation and nothing else, leaving JavaScript `eval()` and
+`new Function()` still blocked. Do not "simplify" it to `'unsafe-eval'`.
+
+`worker-src` is deliberately absent. `MeshoptDecoder.useWorkers()` is never
+called (see `frontend/src/world/assets.js`), so the decoder's blob-worker path
+never runs and the permission is not needed. If workers are ever enabled, this
+policy needs `worker-src blob:` and will fail the same silent way without it.
+
+Reproduce either arm without deploying:
+
+```
+cd frontend && npm run build
+node tools/fresh_ui/csp_repro.mjs --old   # serves dist under the broken policy
+node tools/fresh_ui/csp_repro.mjs         # serves dist under the committed one
+```
+
 ## Supabase configuration
 
 1. Create the project; copy the connection URI into `DATABASE_URL`.
