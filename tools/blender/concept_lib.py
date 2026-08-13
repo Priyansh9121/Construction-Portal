@@ -774,7 +774,8 @@ def standard_materials(wear=0.5, lit=0.0):
     if cc0_available():
         return {
             # Tiles measured from the images, in metres (horizontal, vertical).
-            "conc": cc0("conc", "concrete", (2.4, 2.4), wear_mask=0.85),
+            "conc": in_situ_concrete("conc", "concrete", (2.4, 2.4),
+                                     tint=0xB8BAB8),
             "wet": cc0("wet", "concrete", (2.4, 2.4), tint=0x6F757C),
             # ~12 courses over the 512 px height at ~86 mm a course.
             "city_warm": cc0("city_warm", "brick", (2.06, 1.03), wear_mask=0.7),
@@ -1136,6 +1137,210 @@ def site_ground(name="site_ground", base="ground", tile=(2.4, 2.4)):
         st.inputs[0].default_value = 0.85
         nt.links.new(broken.outputs["Value"], st.inputs[1])
         nt.links.new(st.outputs["Value"], nm.inputs["Strength"])
+        nt.links.new(norm.outputs["Color"], nm.inputs["Color"])
+        nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return mat
+
+
+def in_situ_concrete(name="conc", base="concrete", tile=(2.4, 2.4),
+                     lift=3.3, wear_mask=0.85, tint=None):
+    """
+    In-situ concrete that was poured in LIFTS, one storey at a time.
+
+    The photographic CC0 set gave the surface real identity, and it is still
+    the weakest material in the frame -- because a 34 m party wall carries ONE
+    continuous texture. Real concrete of that height is not one surface. It is
+    a stack of pours, each cast weeks apart against different formwork, each
+    curing to a slightly different tone, with a visible joint where one meets
+    the next.
+
+    That is the difference between "concrete texture" and "concrete building",
+    and it is a MESO-scale property -- the scale the eye reads at 40 m, which
+    is exactly the range these gate cameras sit at. Micro roughness and macro
+    silhouette were already right; this is the band between them.
+
+    Three additions, all keyed to the real 3.3 m storey:
+
+      pour tone       each lift gets a small deterministic tonal offset, so
+                      adjacent pours differ by a few percent -- never enough
+                      to read as stripes, always enough to break the monolith
+      joint line      a darkened band a few centimetres deep where two pours
+                      meet, which is where laitance and dirt actually collect
+      quiet regions   the variation is LOW frequency by construction, so most
+                      of every wall stays calm; noise everywhere is its own
+                      tell and is what "grunge" gets wrong
+    """
+    mat, nt, bsdf = _new_material(name)
+
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    geo.location = (-1900, 0)
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.location = (-1700, 0)
+    mp.inputs["Scale"].default_value = (1.0 / tile[0], 1.0 / tile[0], 1.0 / tile[1])
+    nt.links.new(geo.outputs["Position"], mp.inputs["Vector"])
+
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    sep.location = (-1700, -560)
+    nt.links.new(geo.outputs["Position"], sep.inputs["Vector"])
+
+    def image(slot, filename, non_color):
+        path = os.path.join(CC0_DIR, filename)
+        if not os.path.exists(path):
+            return None
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = bpy.data.images.load(path, check_existing=True)
+        tex.projection = "BOX"
+        tex.projection_blend = 0.35
+        if non_color:
+            tex.image.colorspace_settings.name = "Non-Color"
+        tex.location = (-1450, slot * 300)
+        nt.links.new(mp.outputs["Vector"], tex.inputs["Vector"])
+        return tex
+
+    color = image(1, f"{base}-color.jpg", False)
+    rough = image(0, f"{base}-roughness.jpg", True)
+    norm = image(-1, f"{base}-normal.jpg", True)
+
+    # ---- WHICH POUR IS THIS? --------------------------------------------
+    # Height divided by the lift, floored: an integer that changes once per
+    # storey and is constant across a whole pour.
+    div = nt.nodes.new("ShaderNodeMath")
+    div.location = (-1450, -560)
+    div.operation = "DIVIDE"
+    div.inputs[1].default_value = lift
+    nt.links.new(sep.outputs["Z"], div.inputs[0])
+
+    idx = nt.nodes.new("ShaderNodeMath")
+    idx.location = (-1280, -480)
+    idx.operation = "FLOOR"
+    nt.links.new(div.outputs["Value"], idx.inputs[0])
+
+    # A cheap deterministic hash of the pour index -> tone in 0..1.
+    hashed = nt.nodes.new("ShaderNodeMath")
+    hashed.location = (-1110, -480)
+    hashed.operation = "MULTIPLY"
+    hashed.inputs[1].default_value = 12.9898
+    nt.links.new(idx.outputs["Value"], hashed.inputs[0])
+    sine = nt.nodes.new("ShaderNodeMath")
+    sine.location = (-950, -480)
+    sine.operation = "SINE"
+    nt.links.new(hashed.outputs["Value"], sine.inputs[0])
+    frac = nt.nodes.new("ShaderNodeMath")
+    frac.location = (-800, -480)
+    frac.operation = "FRACT"
+    scale43758 = nt.nodes.new("ShaderNodeMath")
+    scale43758.location = (-880, -560)
+    scale43758.operation = "MULTIPLY"
+    scale43758.inputs[1].default_value = 43758.5453
+    nt.links.new(sine.outputs["Value"], scale43758.inputs[0])
+    nt.links.new(scale43758.outputs["Value"], frac.inputs[0])
+
+    # Map the hash to a NARROW tonal range. Adjacent pours differ by a few
+    # percent; anything wider reads as painted stripes.
+    tone = nt.nodes.new("ShaderNodeMapRange")
+    tone.location = (-640, -480)
+    # 0.88-1.06 measured as invisible at the 40 m the gate cameras stand at.
+    # Widened, still narrow enough that no two adjacent pours read as stripes.
+    tone.inputs["To Min"].default_value = 0.78
+    tone.inputs["To Max"].default_value = 1.12
+    nt.links.new(frac.outputs["Value"], tone.inputs["Value"])
+
+    # ---- THE JOINT between two pours -------------------------------------
+    # Distance from the nearest lift boundary, in metres.
+    within = nt.nodes.new("ShaderNodeMath")
+    within.location = (-1280, -700)
+    within.operation = "FRACT"
+    nt.links.new(div.outputs["Value"], within.inputs[0])
+    metres = nt.nodes.new("ShaderNodeMath")
+    metres.location = (-1110, -700)
+    metres.operation = "MULTIPLY"
+    metres.inputs[1].default_value = lift
+    nt.links.new(within.outputs["Value"], metres.inputs[0])
+    joint = nt.nodes.new("ShaderNodeMapRange")
+    joint.location = (-950, -700)
+    joint.inputs["From Min"].default_value = 0.0
+    joint.inputs["From Max"].default_value = 0.13      # ~130 mm, so it reads
+    joint.inputs["To Min"].default_value = 1.0
+    joint.inputs["To Max"].default_value = 0.0
+    joint.clamp = True
+    nt.links.new(metres.outputs["Value"], joint.inputs["Value"])
+
+    # ---- Splashback, as before -------------------------------------------
+    splash = nt.nodes.new("ShaderNodeMapRange")
+    splash.location = (-950, -860)
+    splash.inputs["From Min"].default_value = 0.0
+    splash.inputs["From Max"].default_value = 0.62
+    splash.inputs["To Min"].default_value = 1.0
+    splash.inputs["To Max"].default_value = 0.0
+    splash.clamp = True
+    nt.links.new(sep.outputs["Z"], splash.inputs["Value"])
+    grit = nt.nodes.new("ShaderNodeTexNoise")
+    grit.location = (-1110, -1000)
+    grit.inputs["Scale"].default_value = 5.5
+    grit.inputs["Detail"].default_value = 6.0
+    nt.links.new(mp.outputs["Vector"], grit.inputs["Vector"])
+    dirt = nt.nodes.new("ShaderNodeMath")
+    dirt.location = (-760, -900)
+    dirt.operation = "MULTIPLY"
+    nt.links.new(splash.outputs["Result"], dirt.inputs[0])
+    nt.links.new(grit.outputs["Fac"], dirt.inputs[1])
+    dirt_amt = nt.nodes.new("ShaderNodeMath")
+    dirt_amt.location = (-600, -900)
+    dirt_amt.operation = "MULTIPLY"
+    dirt_amt.inputs[1].default_value = wear_mask
+    nt.links.new(dirt.outputs["Value"], dirt_amt.inputs[0])
+
+    # ---- Compose ---------------------------------------------------------
+    if color:
+        pour = nt.nodes.new("ShaderNodeMixRGB")
+        pour.location = (-420, 320)
+        pour.blend_type = "MULTIPLY"
+        pour.inputs["Fac"].default_value = 1.0
+        nt.links.new(color.outputs["Color"], pour.inputs["Color1"])
+        tone_rgb = nt.nodes.new("ShaderNodeCombineColor")
+        tone_rgb.location = (-560, 180)
+        for ch in ("Red", "Green", "Blue"):
+            nt.links.new(tone.outputs["Result"], tone_rgb.inputs[ch])
+        nt.links.new(tone_rgb.outputs["Color"], pour.inputs["Color2"])
+
+        jointed = nt.nodes.new("ShaderNodeMixRGB")
+        jointed.location = (-260, 320)
+        jointed.blend_type = "MULTIPLY"
+        jointed.inputs["Color2"].default_value = srgb(0x4E4E4C)
+        nt.links.new(pour.outputs["Color"], jointed.inputs["Color1"])
+        nt.links.new(joint.outputs["Result"], jointed.inputs["Fac"])
+
+        grimed = nt.nodes.new("ShaderNodeMixRGB")
+        grimed.location = (-110, 320)
+        grimed.blend_type = "MULTIPLY"
+        grimed.inputs["Color2"].default_value = srgb(0x6B6055)
+        nt.links.new(jointed.outputs["Color"], grimed.inputs["Color1"])
+        nt.links.new(dirt_amt.outputs["Value"], grimed.inputs["Fac"])
+        out_color = grimed
+        if tint:
+            tinted = nt.nodes.new("ShaderNodeMixRGB")
+            tinted.location = (40, 320)
+            tinted.blend_type = "MULTIPLY"
+            tinted.inputs["Fac"].default_value = 1.0
+            tinted.inputs["Color2"].default_value = srgb(tint)
+            nt.links.new(grimed.outputs["Color"], tinted.inputs["Color1"])
+            out_color = tinted
+        nt.links.new(out_color.outputs["Color"], bsdf.inputs["Base Color"])
+
+    if rough:
+        # The joint is rougher: laitance and trapped dirt, not smooth concrete.
+        jr = nt.nodes.new("ShaderNodeMixRGB")
+        jr.location = (-420, 0)
+        jr.inputs["Color2"].default_value = (1.0, 1.0, 1.0, 1.0)
+        nt.links.new(rough.outputs["Color"], jr.inputs["Color1"])
+        nt.links.new(joint.outputs["Result"], jr.inputs["Fac"])
+        nt.links.new(jr.outputs["Color"], bsdf.inputs["Roughness"])
+
+    if norm:
+        nm = nt.nodes.new("ShaderNodeNormalMap")
+        nm.location = (-420, -280)
+        nm.inputs["Strength"].default_value = 0.7
         nt.links.new(norm.outputs["Color"], nm.inputs["Color"])
         nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
 
