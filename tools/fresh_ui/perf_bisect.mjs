@@ -112,7 +112,7 @@ console.log(await page.evaluate(() => {
 
 await measure(page, `A. FULL PRODUCTION (DPR ${DPR})`);
 
-for (const dpr of [1.5, 1.25, 1.0]) {
+if (process.env.PERF_FULL) for (const dpr of [1.5, 1.25, 1.0]) {
   await page.evaluate((d) => {
     const p = document.querySelector("canvas").__perf;
     p.renderer.setPixelRatio(d);
@@ -122,14 +122,13 @@ for (const dpr of [1.5, 1.25, 1.0]) {
   await measure(page, `B. DPR ${dpr}`);
 }
 
-await page.evaluate(() => {
+if (process.env.PERF_FULL) await page.evaluate(() => {
   const p = document.querySelector("canvas").__perf;
   p.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   p.renderer.setSize(window.innerWidth, window.innerHeight, false);
   p.renderer.shadowMap.enabled = false;
   p.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
 });
-await page.waitForTimeout(900);
-await measure(page, "C. NATIVE DPR, SHADOWS OFF");
+if (process.env.PERF_FULL) { await page.waitForTimeout(900); await measure(page, "C. NATIVE DPR, SHADOWS OFF"); }
 
 await browser.close();

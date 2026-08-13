@@ -984,17 +984,37 @@ export async function createAuthWorld(canvas, opts = {}) {
    * direction.
    */
   const hex = (c) => `#${c.getHexString()}`;
-  const root = document.documentElement;
+  /*
+   * CSS VARIABLES GO ON THE SCENE, NOT ON THE DOCUMENT.
+   *
+   * Every consumer of `--auth-world-*` lives in styles/system/auth/scene.css,
+   * inside `.auth-scene`. Publishing them on documentElement invalidated
+   * inherited custom properties for the WHOLE DOCUMENT, and the next
+   * style-dependent read in the pointer path then paid for a full recalc.
+   * Measured: a 184 ms long task and a 483 ms worst frame while crossing the
+   * form boundary. Scoping the write to the subtree that reads it is the fix.
+   */
+  const root = canvas.closest(".auth-scene") || document.documentElement;
+  /* Last published values, so an unchanged colour never re-invalidates style.
+   * The sun moves over minutes; most publishes write identical strings. */
+  const published = new Map();
+  const put = (name, value) => {
+    if (published.get(name) === value) return;
+    published.set(name, value);
+    root.style.setProperty(name, value);
+  };
+  /* Reused, so publishing does not allocate two Colors every time. */
+  const scratch = new THREE.Color();
   const publishLight = () => {
     const s = sky.material.uniforms;
-    root.style.setProperty("--auth-world-key", `#${new THREE.Color(preset.key).getHexString()}`);
-    root.style.setProperty("--auth-world-fill", `#${new THREE.Color(preset.fill).getHexString()}`);
-    root.style.setProperty("--auth-world-horizon", hex(s.uHorizon.value));
-    root.style.setProperty("--auth-world-zenith", hex(s.uZenith.value));
-    root.style.setProperty("--auth-world-sun", hex(s.uSunTint.value));
+    put("--auth-world-key", `#${scratch.setHex(preset.key).getHexString()}`);
+    put("--auth-world-fill", `#${scratch.setHex(preset.fill).getHexString()}`);
+    put("--auth-world-horizon", hex(s.uHorizon.value));
+    put("--auth-world-zenith", hex(s.uZenith.value));
+    put("--auth-world-sun", hex(s.uSunTint.value));
     /* Which side of the form the sun is on, as a signed number the CSS can
      * use to place the warm edge without knowing any geometry. */
-    root.style.setProperty("--auth-world-sun-x", s.uSun.value.x.toFixed(3));
+    put("--auth-world-sun-x", s.uSun.value.x.toFixed(3));
 
     /*
      * HOW BRIGHT THE WORLD CURRENTLY IS, 0..1.
@@ -1011,7 +1031,7 @@ export async function createAuthWorld(canvas, opts = {}) {
      * pixels: it is the cause, it is free, and it cannot flicker.
      */
     const luma = Math.min(1, Math.max(0, (env.sun.altitude + 6) / 26));
-    root.style.setProperty("--auth-world-luma", luma.toFixed(3));
+    put("--auth-world-luma", luma.toFixed(3));
   };
   publishLight();
   const MAT = buildMaterialLibrary(THREE);
@@ -1174,6 +1194,42 @@ export async function createAuthWorld(canvas, opts = {}) {
         }
         rigParts.stats.site = Math.round(tris);
         canvas.__siteScale = checkSiteScale(THREE, scene);
+
+        /*
+         * PRE-WARM SHADERS ONCE THE WORLD IS COMPLETE.
+         *
+         * Frustum culling means a material is only compiled when something
+         * using it first becomes visible. The camera is still at its opening
+         * station, so the moment the pointer moves and the view swings, every
+         * newly-revealed material compiles AT THAT INSTANT -- measured as a
+         * single ~100 ms frame on the first pointer interaction and never
+         * again afterwards.
+         *
+         * `compileAsync` walks the scene and compiles up front. Deliberately
+         * fire-and-forget and deliberately AFTER the site has loaded: it must
+         * never delay the form, and there is no point compiling a scene that
+         * is still missing half its geometry.
+         */
+        renderer.compileAsync?.(scene, cam)
+          ?.then(() => {
+            /* Compiling programs is not the whole cost: a TEXTURE is uploaded
+             * to the GPU the first time something using it is drawn. The
+             * camera opens on one station, so half the site's maps upload the
+             * instant the pointer first swings the view. `initTexture` forces
+             * them up front, spread across the load rather than concentrated
+             * in the user's first interaction. */
+            scene.traverse((o) => {
+              const mats = Array.isArray(o.material) ? o.material : [o.material];
+              for (const m of mats) {
+                if (!m) continue;
+                for (const slot of ["map", "roughnessMap", "normalMap",
+                                    "metalnessMap", "aoMap", "emissiveMap"]) {
+                  if (m[slot]) renderer.initTexture?.(m[slot]);
+                }
+              }
+            });
+          })
+          ?.catch((err) => console.warn("[world] pre-warm skipped", err));
       })
       .catch((err) => console.warn("[world] authored site unavailable", err));
   }
@@ -1269,6 +1325,22 @@ export async function createAuthWorld(canvas, opts = {}) {
     rigParts.hoist.position.y = storey * 4;
   }
 
+  /*
+   * Whether the pointer is over the form's controls.
+   *
+   * Maintained by enter/leave on the card, so a pointermove reads a boolean
+   * instead of walking the DOM. `pointerover`/`pointerout` bubble, which is
+   * what makes a single pair of listeners on the card sufficient even though
+   * the card contains inputs and buttons.
+   */
+  let overCard = false;
+  const onCardEnter = () => { overCard = true; };
+  const onCardLeave = (e) => {
+    /* Ignore moves BETWEEN descendants of the card. */
+    if (e.relatedTarget && card && card.contains(e.relatedTarget)) return;
+    overCard = false;
+  };
+
   const onPointer = (e) => {
     rig.setPointer(
       (e.clientX / window.innerWidth - 0.5) * 2,
@@ -1277,12 +1349,17 @@ export async function createAuthWorld(canvas, opts = {}) {
     );
     if (rig.dragging) rig.drag(e.clientX, e.clientY,
                                { width: window.innerWidth, height: window.innerHeight });
-    /* Operating a control must not swing the world under it. Over the form the
-     * pointer keeps a quarter of its authority — enough that the scene still
-     * answers to presence, little enough that a field stays still while it is
-     * being aimed at. */
-    const overForm = !!e.target?.closest?.(".auth-card, .auth-scene__content");
-    rig.setCalm(overForm ? 0.22 : 1);
+    /* Region state is maintained by pointerenter/pointerleave on the card
+     * itself (see below) and read here as a boolean. It used to run
+     * `e.target.closest(...)` on EVERY pointermove -- a DOM traversal at
+     * pointer frequency, which combined with the document-wide style
+     * invalidation above to produce a 184 ms long task.
+     *
+     * The old selector also included `.auth-scene__content`, which is a
+     * full-viewport layer -- so it matched almost everywhere and the pointer's
+     * authority was being suppressed across the whole scene rather than only
+     * over the controls. */
+    rig.setCalm(overCard ? 0.22 : 1);
   };
 
   /*
@@ -1309,6 +1386,7 @@ export async function createAuthWorld(canvas, opts = {}) {
    * element belongs to the DOM, and everything else is the world.
    */
   const surface = canvas.closest(".auth-scene") || canvas.parentElement || canvas;
+  const card = surface.querySelector?.(".auth-card") || null;
   const OWNED_BY_DOM = ".auth-card, .auth-brand-list, a, button, input, label, [role=\"button\"]";
 
   const onPointerDown = (e) => {
@@ -1500,6 +1578,10 @@ export async function createAuthWorld(canvas, opts = {}) {
      * instead of being claimed by the browser as a scroll. It is set on the
      * canvas alone, so the page still scrolls normally everywhere else.
      */
+    if (card) {
+      card.addEventListener("pointerover", onCardEnter);
+      card.addEventListener("pointerout", onCardLeave);
+    }
     surface.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
@@ -1573,6 +1655,10 @@ export async function createAuthWorld(canvas, opts = {}) {
       siteAbort.abort();
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointer);
+      if (card) {
+        card.removeEventListener("pointerover", onCardEnter);
+        card.removeEventListener("pointerout", onCardLeave);
+      }
       surface.removeEventListener("pointerdown", onPointerDown);
       surface.removeEventListener("pointermove", onTouchDrag);
       surface.removeEventListener("wheel", onWheel);
