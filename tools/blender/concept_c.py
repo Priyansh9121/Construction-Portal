@@ -41,6 +41,7 @@ import bpy
 
 import concept_lib as L
 import concept_mesh as M
+import site_dressing as D
 
 NAME = "C-infill"
 
@@ -364,6 +365,11 @@ def build(dusk=False, join_by_material=True):
     for (x, y, f) in ((-4, -22, 0.9), (5, -21, 2.6), (2, 19, -1.2)):
         L.figure((x, y, 0.36), mats, facing=f)
 
+    # ---- SITE CONTENT ----------------------------------------------------
+    # The single largest cause of the game-like read was an EMPTY site.
+    # Everything below is placed by work zone; see site_dressing.py.
+    D.dress(parts, mats, rng, PX0, PX1, PY0, PY1)
+
     # ---- The rest of the street: a continuous terrace, not islands ------
     blocks = []
     for i in range(6):
@@ -614,6 +620,10 @@ CAMERAS = {
     # the neighbours all land in one frame, and the building crops at the top
     # rather than being fitted into the picture.
     "ground": ((-7.0, -38.0, 1.68), (3.0, -12.0, 10.0), 28),
+    # ENTRANCE (gate view B): standing just inside the gate, looking into the
+    # site. The street camera looks UP and never sees the ground, so this is
+    # the only view that tests whether the site content actually works.
+    "entrance": ((-1.5, -18.5, 1.68), (3.0, 6.0, 7.0), 24),
     # REAR: the laneway, the side nothing was composed for.
     # Far enough back to show the plot IN ITS TERRACE. At 36 m the building
     # filled the frame and the shot became a section through it, which proves
