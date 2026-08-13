@@ -99,10 +99,35 @@ def build(dusk=False, join_by_material=True):
     #
     # The numbers are small on purpose. An urban site is nearly flat, and the
     # realism is in 20-150 mm level changes, not in topography.
+    #
+    # THE CORRIDOR HAS TO REACH WHERE THE CAMERA STANDS.
+    #
+    # This section used to stop at a far verge 46 m out. The establishing
+    # camera stands 70 m out, so it was standing 24 m beyond the end of the
+    # street, on the bare 900 m earth box -- which is exactly why the lower
+    # third of the frame read as a model sheet. Raycasting the foreground
+    # returned `earth`, not `spandrel`: the street was never the problem, its
+    # EXTENT was.
+    #
+    # A 70 m sightline to a 22 m frontage does not happen across a side
+    # street. It happens across a divided arterial, which is the ordinary
+    # condition for an inner-city plot on a main road in this region -- so
+    # that is what this is: two carriageways, a planted median, and a footpath
+    # on each side. The distance is now explained by the world rather than
+    # imposed on it.
     ROAD = [
-        (-46.0, 0.02),          # far verge
-        (-38.4, 0.14), (-38.0, 0.02),     # far kerb, then gutter
-        (-31.0, 0.20),          # crown of the carriageway
+        (-84.0, 0.38),          # opposite building line
+        (-79.0, 0.32),          # far footpath at the shopfronts
+        (-70.2, 0.24),          # far footpath -- THE CAMERA STANDS HERE
+        (-68.5, 0.17),          # far kerb: a 150 mm upstand
+        (-68.1, 0.03),          # far gutter, the low point
+        (-61.5, 0.22),          # crown of the far carriageway
+        (-53.9, 0.04),          # gutter against the median
+        (-53.5, 0.19),          # median kerb
+        (-49.0, 0.23),          # median top, planted
+        (-44.5, 0.19),          # median kerb
+        (-44.1, 0.04),          # gutter against the median
+        (-35.0, 0.22),          # crown of the near carriageway
         (-25.4, 0.02),          # near gutter, the low point
         (-25.0, 0.16),          # near kerb upstand
         (-21.0, 0.20),          # footpath, falling back to the kerb
@@ -131,6 +156,66 @@ def build(dusk=False, join_by_material=True):
     # The gutter drain the site falls toward.
     parts["street"].append(
         M.prism("drain", M.rect(-1.2, -25.6, 1.2, -25.0), 0.0, 0.06, mats["galv"]))
+
+    # ---- WHAT ACTUALLY READS AT 70 m AND 1.7 m EYE ---------------------
+    #
+    # The establishing camera looks along 52 m of road at a couple of degrees
+    # off grazing. At that angle a 150 mm kerb upstand is about three pixels
+    # and a crossfall is invisible -- the first version of this street was
+    # correct engineering that the frame could not see.
+    #
+    # What reads at grazing incidence is VERTICAL, or long and horizontal:
+    # median planting, poles, and the lane lines that run away to the
+    # vanishing point. So the corridor gets those, and the level changes stay
+    # because they are right, not because they carry the image.
+    MEDIAN_Y = -49.0
+    for i in range(48):
+        x = -132 + i * 5.6
+        # A continuous planted strip: the single strongest thing separating a
+        # divided arterial from a grey field.
+        parts["street"].append(
+            M.prism("street-hedge", M.rect(x - 2.6, MEDIAN_Y - 1.5, x + 2.6, MEDIAN_Y + 1.5),
+                    0.23, rng.uniform(0.62, 0.86), mats["earth"]))
+    # Street lighting down the median, on the spacing poles are actually set.
+    for i in range(11):
+        x = -120 + i * 24.0
+        parts["street"].append(
+            M.prism("street-pole", M.rect(x - 0.11, MEDIAN_Y - 0.11, x + 0.11, MEDIAN_Y + 0.11),
+                    0.23, 9.0, mats["galv"]))
+        for side in (-1, 1):
+            parts["street"].append(
+                M.prism("street-arm", M.rect(x - 0.07, MEDIAN_Y + side * 0.1,
+                                             x + 0.07, MEDIAN_Y + side * 2.1),
+                        9.0, 0.14, mats["galv"]))
+            parts["street"].append(
+                M.prism("street-lamp", M.rect(x - 0.28, MEDIAN_Y + side * 1.55,
+                                              x + 0.28, MEDIAN_Y + side * 2.35),
+                        8.78, 0.18, mats["galv"]))
+    # Lane markings. Broken lines on the running lanes, continuous at the
+    # kerb edge -- these are the lines that carry the perspective.
+    for (cy, lanes) in ((-61.5, (-4.2, 0.0, 4.2)), (-35.0, (-5.6, 0.0, 5.6))):
+        for off in lanes:
+            for i in range(64):
+                x = -140 + i * 4.4
+                parts["street"].append(
+                    M.prism("street-line", M.rect(x, cy + off - 0.06, x + 2.2, cy + off + 0.06),
+                            0.20, 0.012, mats["conc"]))
+    # Gullies at the gutter LOW POINTS the section already falls to.
+    for gx in range(-5, 6):
+        x = gx * 24.0
+        for gy, gz in ((-68.1, 0.03), (-25.4, 0.02)):
+            parts["street"].append(
+                M.prism("street-gully", M.rect(x - 0.42, gy - 0.28, x + 0.42, gy + 0.28),
+                        gz - 0.02, 0.05, mats["galv"]))
+    # Bollards on the SITE footpath, where the frame can actually see them --
+    # the far footpath is a 600 mm sliver under the lens.
+    for i in range(30):
+        x = -34 + i * 2.4
+        if -8 < x < 8:
+            continue                    # the vehicle crossover at the gate
+        parts["street"].append(
+            M.prism("street-bollard", M.rect(x - 0.06, -24.9, x + 0.06, -24.78),
+                    0.16, 0.90, mats["galv"]))
 
     # ---- NEIGHBOURS, hard against both flanks ---------------------------
     #
@@ -418,6 +503,15 @@ def build(dusk=False, join_by_material=True):
     for i in range(5):
         blocks.append((rng.uniform(-70, 70), 76 + i * 26, rng.uniform(20, 34),
                        rng.uniform(18, 28), rng.uniform(20, 46), i % 2))
+    # ACROSS THE ROAD. The one bearing that had no city in it was the one the
+    # establishing camera looks along: the flanks are at +/-x and the rear
+    # terrace at +y, so the street side simply stopped into sky. These sit
+    # behind the far footpath, which is what turns the far side of the
+    # arterial into a street frontage instead of a horizon.
+    for i in range(7):
+        blocks.append((-96 + i * 30 + rng.uniform(-4, 4), -98 + rng.uniform(-5, 5),
+                       rng.uniform(22, 32), rng.uniform(20, 30),
+                       rng.uniform(18, 38), i % 2))
     # FAR TIER. Silhouette and massing only -- these are 200-450 m away, where
     # window geometry is below a pixel and the only thing that reads is a
     # varied roofline sitting in atmosphere. Placed on a RING so that every
@@ -672,6 +766,18 @@ def export_group(objs, path):
 
 
 CAMERAS = {
+    # ESTABLISHING: THE PRODUCTION FRAME. Not an art-directed variant -- this
+    # is the runtime station converted straight through the exporter's mapping
+    # (glTF x,y,z -> Blender x,-z,y), so what Cycles judges here is the frame
+    # the Login actually opens on.
+    #
+    #   runtime: target [1, 13, 3], radius 70, azimuth -0.50, elevation
+    #   -0.1621, 35 mm -> eye [-35.9, 1.7, 69.6]
+    #
+    # The eye lands at y = -69.6, standing on the far footpath. It used to land
+    # on bare earth 24 m beyond the end of the street, which is the whole
+    # reason the lower third of the production frame read as a model sheet.
+    "establishing": ((-35.9, -69.6, 1.70), (1.0, -3.0, 13.0), 35),
     # HERO: up the street from the footpath opposite, so the neighbours frame
     # the plot and the scaffold is read THROUGH. Building runs out of frame.
     "hero": ((-19.0, -37.0, 1.65), (2.0, -6.0, 17.0), 28),
