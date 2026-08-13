@@ -359,6 +359,34 @@ Secrets are marked `sync: false` and must be set once in the dashboard:
 
 Root directory: `frontend`.
 
+### The Production Branch is `main`. Feature branches only ever build Previews.
+
+This cost a second production incident on 2026-08-13, immediately after the
+first one was fixed. The fix was committed, pushed, built and verified — on a
+**Preview**. The production alias never moved, so the live site kept serving
+the broken deployment and every check that targeted the preview said "fixed".
+
+Pushing to `redesign/ui-foundation` (or any feature branch) creates a Preview
+deployment and nothing else. Two things follow:
+
+- **A preview passing is not evidence that production is fixed.** Verify
+  against `https://construction-portal-one.vercel.app` itself — the live CSP,
+  the deployment id, and the browser state. Nowhere else counts.
+- **To ship, `main` has to move.** The feature branch is normally a strict
+  descendant of `main`, so this is a fast-forward:
+
+  ```
+  git push origin redesign/ui-foundation:main
+  ```
+
+  Never force. If Git rejects it, the branches have diverged and that needs
+  resolving deliberately, not with `--force`.
+
+A deployment can also be promoted by hand in the Vercel dashboard — which is
+how `b5ba26d` reached production, and why `main` had drifted 133 commits
+behind what production was actually serving. Prefer moving `main`: a hand
+promotion leaves no record in Git of what production runs.
+
 Declared in `frontend/vercel.json`: an SPA rewrite (`/(.*)` → `/index.html`)
 plus security headers (CSP, HSTS, X-Frame-Options, Permissions-Policy).
 `camera=(self)` is **intentional** — the site-operations screen captures
