@@ -186,7 +186,7 @@ rewrite a refresh or a pasted link would 404. Every path is served
 | Directive | Effect |
 |---|---|
 | `default-src 'self'` | Nothing loads from anywhere but this origin unless a directive below widens it. |
-| `script-src 'self'` | No inline scripts and no third-party scripts. This is the directive that actually blunts XSS. |
+| `script-src 'self' 'wasm-unsafe-eval'` | No inline scripts and no third-party scripts. This is the directive that actually blunts XSS. `'wasm-unsafe-eval'` permits WebAssembly compilation **and nothing else** — `eval()` and `new Function()` stay blocked, which is why it is not `'unsafe-eval'`. It is required because the Login world's GLB layers are meshopt-compressed and meshopt decodes through WASM; without it every layer fetches cleanly and then fails to decode. See DEPLOYMENT.md → "`script-src` must keep `'wasm-unsafe-eval'`". |
 | `style-src 'self' 'unsafe-inline'` | Inline styles are allowed because the animation library sets them on elements directly. |
 | `img-src 'self' data: blob: https:` | `data:` for inline SVG, `blob:` for the local preview of a photo before upload, `https:` for images served from Supabase Storage. |
 | `font-src 'self' data:` | Local fonts only. |
