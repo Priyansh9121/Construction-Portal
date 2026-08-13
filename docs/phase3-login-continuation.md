@@ -225,7 +225,48 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
-## R1B COMPLETE — commit 522cd08. CYCLES GATE NOT PASSED.
+## R1C COMPLETE — commit d9a7817. CYCLES GATE: **FAIL**.
+
+All four gate views rendered (`.screenshots/concepts/C-infill-day-*-cycles.png`:
+hero / entrance / rear / ground).
+
+**Solved this unit:**
+- Grey artefact = the ladder, modelled as one flat box. Rebuilt with stiles
+  and rungs.
+- Atmosphere = **bounded volume box** (1400x1400x320 m, density 2.2e-5,
+  shadow visibility off). The infinite world volume is unusable here; a finite
+  box the camera sits inside works. Verified low-sample first.
+- Orange cube = replaced by a rack-and-pinion mast climbing platform: rack,
+  drive housing, guide rollers, ties to slab, floor with kick rail and guard
+  rails at 500/1100, mesh, gate.
+
+### THE HONEST VERDICT
+
+Shown only a render, an uninformed viewer could **still** plausibly say "3D
+visualisation" rather than "photograph". So R1 fails. What now separates it is
+no longer geometry, assets or content — it is **LIGHT**.
+
+### TOP 3 REMAINING FAILURES, ranked by how fast they say "CG"
+
+1. **LIGHTING IS FLAT AND OVER-BRIGHT.** Midday sun at 46 deg with a low-
+   contrast sky gives almost no shadow drama, and every surface sits in the
+   same narrow value band. Real construction photography has deep shadow under
+   slabs and hot sun on the facade. **Try a low sun (15-25 deg) and let the
+   scene go contrasty.** This is the single highest-value remaining change.
+2. **THE GROUND IS ONE UNIFORM VALUE.** The pad reads as a flat grey field in
+   every view. It needs damp/dry patches, a darker compacted haul line, and
+   spill around the material staging — as MASKS, like the wall splashback.
+3. **REAR OPENINGS READ AS FLAT DARK SQUARES.** The cut reveals are too
+   shallow to catch a shadow; deepen them and add a sill.
+
+### NEXT EXACT ACTION — R1D
+
+1. Drop the sun to ~18 deg and re-render the four views. Judge contrast.
+2. Ground masks (damp/dry, haul line, spill).
+3. Deepen rear reveals.
+4. Re-run the four-view gate and re-decide.
+
+## SUPERSEDED — R1B notes
 
 **People are real.** `tools/blender/human.py` lofts anatomy from cross-sections
 (tapering silhouette, canonical proportions, PPE, hard hat with peak). Four
