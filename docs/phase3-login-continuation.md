@@ -225,7 +225,53 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
-## R1D PARTIAL — commit d6ea684. LIGHTING ROOT CAUSE FIXED.
+## R1D COMPLETE — commit f946b8c. GATE: **FAIL, narrowly.**
+
+### Daylight robustness — PASSES
+Hero camera at 20 / 46 / 68 degrees, no per-render exposure tuning, plus
+adverse azimuth 200 (sun behind the street facade). All four hold. Sun
+elevation and azimuth are now in the output filename.
+
+### Ground — FIXED
+`site_ground()` derives condition from activity: compacted haul route (darker,
+smoother, reduced normal strength — traffic flattens relief too), gate apron,
+quiet edges. Masks in METRES, blended with a 1.5 m noise so no boundary is a
+clean line.
+
+### Rear openings — resolved by the LIGHTING fix, not geometry
+They now cast shadows at jamb and head. They were never too shallow; there was
+no hard key to catch them. Deepening them would have fixed the wrong thing.
+
+### THE HONEST VERDICT: still FAIL
+
+Shown only a render, an uninformed viewer would now say "3D architectural
+render" rather than "game" — the category HAS moved. But they would not say
+"photograph". So the gate does not pass.
+
+### TOP 3 REMAINING, ranked by how fast they say CG
+
+1. **The project's own concrete is the weakest surface in frame.** Neighbour
+   brick is photographic and convincing; the frame, slabs and party walls are
+   noticeably flatter beside it. They use `Concrete034` at a 2.4 m tile with no
+   pour-to-pour variation, no construction joints and no formwork tie marks —
+   so a 34 m wall is one continuous surface. **Fix: per-pour tonal masks keyed
+   to storey height, plus tie-hole/joint detail.**
+2. **The laneway road reads as flat dark grey.** Asphalt is present but the
+   lane may not be getting it, or it is unlit. Verify the material is applied
+   and lit.
+3. **Sky is a clean gradient with no cloud.** Nishita with no cloud layer gives
+   a plausible but sterile sky; real skies have structure even when clear.
+
+### NOT DONE
+- The 8-bearing 360 EEVEE sweep (0/45/90/.../315) was not run.
+
+### NEXT EXACT ACTION
+1. Per-pour concrete variation on the project frame (failure #1).
+2. Verify lane asphalt material and lighting.
+3. Run the 8-bearing EEVEE sweep.
+4. Re-render the four gate views and re-decide.
+
+## SUPERSEDED — earlier R1D notes
 
 **The flatness was a DOUBLE SUN, not the sun's elevation.**
 
