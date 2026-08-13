@@ -225,6 +225,52 @@ Two defects the renders caught: the masonry field/joint were inverted, baking a
 whole neighbour near-black; and `painted()`/`city_facade()` had no bump, which
 showed up as 4 KB blank normal maps.
 
+## P0 PERFORMANCE — IN PROGRESS (R1D paused, not abandoned)
+
+`tools/fresh_ui/perf_bisect.mjs` measures the real page at REAL DPR, per
+interaction, with full frame distribution.
+
+### MY EARLIER NUMBERS WERE WRONG, AND HERE IS WHY
+
+Every previous "60 fps" was measured with Playwright `deviceScaleFactor: 1`
+while production caps the renderer at DPR 2. On Retina that is a QUARTER of the
+real pixel load. The metric was fine; the resolution was not.
+
+### MEASURED — real DPR 2, drawing buffer 2880x1808 = 5.21 Mpx
+
+| scenario | fps | p95 | p99 | max | >20ms | >100ms |
+|---|---|---|---|---|---|---|
+| idle | 60.3 | 17.4 | 17.6 | 17.6 | 0 | 0 |
+| **pointer** | **55.5** | 17.4 | **50** | **183.3** | 2 | **1** |
+| drag | 60.1 | 17.2 | 17.7 | 17.7 | 0 | 0 |
+| wheel | 60.2 | 17.1 | 17.4 | 17.5 | 0 | 0 |
+
+### RULED OUT BY BISECTION — do not re-investigate
+
+- **DPR is NOT the bottleneck.** DPR 2 / 1.5 / 1.25 / 1.0 are all identical.
+- **Shadows are NOT the bottleneck.** Native DPR with shadows off: identical.
+- **Raster/GPU is NOT the bottleneck.** 55 draw calls, 58k triangles.
+- **NOT a periodic PMREM rebake.** 34 s of pure idle produced ZERO frames over
+  30 ms. The 12 s bake is not stalling anything.
+
+### THE ACTUAL DEFECT
+
+A single ~183 ms MAIN-THREAD STALL that occurs only during `pointermove`.
+Idle/drag/wheel are clean. That one freeze is the perceived lag.
+
+### NEXT EXACT ACTION — prime suspects, in order
+
+1. `onPointer` runs `e.target.closest(".auth-card, .auth-scene__content")` on
+   EVERY pointermove — a DOM traversal at pointer frequency. Cache the hit test
+   or gate it behind a coordinate check.
+2. `publishLight()` writes ~6 CSS custom properties on `documentElement`; a
+   style write at pointer frequency forces recalc across the whole page.
+   Confirm its cadence and whether pointer activity triggers it.
+3. Instrument with `performance.mark` inside the pointer path to attribute the
+   183 ms directly rather than inferring it.
+
+Do NOT start with DPR, shadows or materials — all three are measured and clear.
+
 ## R1D COMPLETE — commit f946b8c. GATE: **FAIL, narrowly.**
 
 ### Daylight robustness — PASSES

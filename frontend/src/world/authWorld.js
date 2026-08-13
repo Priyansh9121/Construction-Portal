@@ -1421,6 +1421,10 @@ export async function createAuthWorld(canvas, opts = {}) {
       /* Camera state, so a harness can assert that a drag really produced a
        * full turn rather than trusting that it looked like one. */
       canvas.__camera = rig.probe();
+      /* A handle for the performance harness to bisect against at runtime --
+       * DPR, shadows and materials can be toggled without a rebuild, which is
+       * the only way to get a like-for-like A/B on the same loaded scene. */
+      canvas.__perf = { renderer, scene, THREE, rig, lights };
       canvas.__probe = {
         state: task.state,
         slew: +task.slew.toFixed(3),
