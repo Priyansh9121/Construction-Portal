@@ -4,6 +4,178 @@
 
 ---
 
+## CHECKPOINT — SCAFFOLD STRUCK BACK; HERO GATE STILL **NO**, FOR A MEASURED REASON
+
+**CURRENT COMMIT** this one · source-world gate still **FAIL** · nothing
+exported · no runtime/Three.js/Vercel change · crane **NOT REACHED** (gate
+said no, so the crane was not started — by the rule, not by running out of
+room).
+
+### THE PREVIOUS DIAGNOSIS WAS WRONG, AND THAT MATTERED
+
+`f23f4ca` recorded the cause as *"full-height scaffold with debris mesh across
+the entire street elevation."* **There is no debris mesh in this world and
+there never was** — `mats["screen"]` appears exactly once, on the ground-level
+hoarding. Had this session started by deleting mesh it would have deleted
+nothing and reported a fix.
+
+The real occluder was **boarding**, and the arithmetic is unambiguous:
+
+| boarded lift | z | storey it cut |
+|---|---|---|
+| 2 | 4.0 m | (below L1) |
+| 4 | 8.0 m | **L1** |
+| 6 | 12.0 m | **L2** |
+| 8 | 16.0 m | **L3** |
+| 10 | 20.0 m | **L4** |
+| 12 | 24.0 m | **L5** |
+
+`lift % 2 == 0` put one full-width plywood band across *every single storey
+from L1 to L5* — one per floor, at the exact spacing that erases the thing the
+stage system had just built. It was also the source of the "identical floors"
+read: six identical bands at a perfectly regular rhythm.
+
+### SCAFFOLD CHANGE
+
+Boards are not cladding. They are a consumable a site owns a finite number of
+and they sit under a gang's feet. This job runs **two gangs**, so the platforms
+now sit in two bands with struck scaffold between them:
+
+```
+L7  27.7   OPEN      set back — no scaffold, crown against sky
+L6  24.4   OPEN      set back — no scaffold
+L5  21.1   BOARDED   22, 24      frame gang: forming and pouring
+L4  17.8   BOARDED   20
+L3  14.5   OPEN                  struck — frame visible through the lattice
+L2  11.2   BOARDED   12, 14      blockwork gang: the active infill front
+L1   7.9   OPEN                  struck — the 66% blockwork now reads
+```
+
+Standards, ledgers and ties stay: they are structure. Three further
+corrections, all of them construction logic rather than visibility:
+
+- **Transoms carry boards.** A full set at every lift meant 156 tubes
+  screening the elevation to hold up platforms that are not there. Struck with
+  their boards, leaving the sparse set at tie lifts: **156 → 68 (56% struck)**.
+- **Toe boards added** at boarded lifts; guard rails already followed the
+  boards, so edge protection now exists only where there is an edge to fall off.
+- **The scaffold was tied to nothing for its top 4.7 m.** It stood to 29.1 m
+  against a street elevation that stops at 24.4 — levels 6 and 7 step back
+  4.5 m. Now `street_top + 1.2 = 25.6 m`. A scaffold is tied to a building;
+  where the building steps away, the scaffold stops.
+
+### STRUCTURAL CHANGE
+
+Chosen deliberately over soffit and core (the core already runs full height to
+31.1 m; a bare soffit plane adds a surface, not a read):
+
+- **Downstand beam grillage** — a 300 mm flat plate does not span a
+  7.5 × 10 m grid. This frame always needed beams, and their absence is most
+  of why each floor read as a slab edge with nothing behind it: there was
+  genuinely nothing behind it. Three longitudinal on the column lines (stopped
+  where they run into a core) plus two transverse. They are also what the
+  back-props bear on.
+- **The un-poured half of L6 is now a FORMED DECK, not a hole.** You form a
+  deck before you pour onto it, so it carries ply on soldiers, a stop-end
+  shutter standing proud of the slab it retained, and strongbacks. The L6
+  starter bars used to float above the void; they now stand on that deck.
+- **BUG: every staged pallet, block cube and rebar bundle in this world floated
+  300 mm.** `M.slab(z)` puts the slab TOP at `z`, and `build_staging` used
+  `z + 0.30`. Material now takes the surface it rests on, which for the top
+  level is the formwork deck at `z − 0.24`.
+
+### CROWN CHANGE — BUILT, VERIFIED, AND STILL NOT VISIBLE AT 70 m
+
+`build_crown` puts real temporary works above the slab line on the top deck:
+edge shutters standing proud, 16 mm starter cages, two already-boxed columns,
+and a guard rail on the open edge. Nothing is oversized — **no fake scale**.
+
+Verified physically correct in the **rear** frame (`crown-rear-verify.png`),
+which is the one production camera whose elevation has no setback.
+
+**It does not read in the establishing frame, and the reason is geometric, not
+a modelling failure.** From a 1.70 m eye at 70 m:
+
+| element | y | height | elevation angle |
+|---|---|---|---|
+| street facade head | −17.0 | 24.4 m | **23.3°** |
+| L7 crown (set back 4.5 m) | −12.0 | 27.5 m | **24.1°** |
+| scaffold top (nearest to camera) | −18.5 | 25.6 m | **25.1°** |
+
+The crown clears the facade it stands behind by only **0.8° ≈ 10 px**, and the
+scaffold — 6.5 m nearer the lens — still subtends a *higher* angle than the
+crown does. Lowering the scaffold by 3.5 m was not enough and lowering it
+further would cost the working-lift cluster that is currently doing the
+narrative work.
+
+**The blocker is now architectural: the 4.5 m setback at `SETBACK_FROM = 6`.**
+That is settled design and was explicitly out of scope to redo, so it is
+recorded rather than changed.
+
+### STACK BEFORE / AFTER
+
+`hero-stack-before.png` → `hero-stack-struck.png`. Three stack renders this
+session (the process gap the recovery audit found is closed): pass 1 after the
+stage/beam/crown work, pass 2 after the transom strike, pass 3 after the
+scaffold height correction. **Props, downstand beams and slab depth now read;
+the transom strike was near-invisible** (transoms are foreshortened at this
+angle) — correct construction and cheaper geometry, but it was not the screen.
+
+### ESTABLISHING BEFORE / AFTER
+
+`establishing-staged.png` → `establishing-struck.png`. The before/after is
+unambiguous at crop: **six evenly-spaced identical bands marching up the whole
+elevation → an irregular three-band arrangement** with a live working cluster
+at the top, an open middle where the frame and slab edges show through, and
+the blockwork front lower down. The scaffold now narrates the sequence.
+
+### HERO GATE — **NO**
+
+Judged honestly against the stated criteria:
+
+| criterion | verdict |
+|---|---|
+| LOWER: more enclosed / mature | **weak** — L1 blockwork is open now but still dark |
+| MID: open structural work | **YES** — strongest single gain |
+| UPPER: temporary support / forming | **YES** — boarded working cluster |
+| TOP: active incomplete deck | **NO** — crown built but geometrically occluded |
+
+The specific failure recorded at `f23f4ca` — *"a scaffolded stack of identical
+floors"* — **is fixed and proven**. The gate is still NO because the crown does
+not carry to the production camera. Narrower failure, measured cause.
+
+**Gate NO ⇒ the crane was not started.** No measurement pass, no candidate
+evaluation, no geometry. Task 6 deliberately untouched.
+
+### KNOWN WEAKNESS
+
+1. Per-level construction states remain illegible at 70 m; only the scaffold's
+   two-gang narrative survives that distance.
+2. Crown invisible at the establishing camera — the setback, measured above.
+3. L1 blockwork is open to view but reads dark; "enclosed/mature" is not yet
+   carried at 70 m.
+4. Levels 5, 6 and 7 still share an identical 1.8 m prop grid (carried over).
+5. L6 staged material straddles the pour front and takes the poured-side
+   surface for both halves — up to 300 mm out on the formed side.
+
+### NEXT EXACT ACTION
+
+The next move is a **decision, not an implementation**, because the blocker is
+now settled architecture:
+
+- **(a)** Reduce or remove the top-two-level 4.5 m setback so the crown can
+  silhouette — an architecture change to work that was ruled out of scope.
+- **(b)** Drop the scaffold to ~23.6 m (top platform at lift 11) so the crown
+  clears by ~1°. Small, honest gain; costs the top working-lift cluster.
+- **(c)** Accept that at 70 m the hero narrates through the **scaffold**, and
+  spend the remaining hero effort making the open bands read harder — starting
+  with weakness 3, the L1 blockwork.
+
+Recommendation: **(c)**, then re-gate. It is the only one that neither reopens
+settled design nor weakens what this session proved works.
+
+---
+
 ## CHECKPOINT — HERO STAGING IMPLEMENTED; STILL NOT SUFFICIENT AT 70 m
 
 **CURRENT COMMIT** `67f07a4` · gate still **FAIL** · nothing exported ·
