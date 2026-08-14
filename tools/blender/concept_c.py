@@ -177,32 +177,197 @@ def build_backprops(parts, mats, rng, lvl, stage, z):
         x += sp
 
 
-def build_staging(parts, mats, rng, lvl, stage, z):
+def build_staging(parts, mats, rng, lvl, stage, z, surf=None):
     """
     Material where the work actually is -- not a pallet on every floor.
 
     Blocks land where blockwork is being built; ply and rebar land where the
     next pour is being formed. That is the whole rule.
+
+    `surf` is the level the material actually RESTS on. It has to be passed,
+    because M.slab(z) puts the slab TOP at z while the top level's formwork
+    deck sits at z - 0.24 -- and the original z + 0.30 floated every pallet,
+    block cube and rebar bundle in this world 300 mm clear of the floor.
     """
+    sz = z if surf is None else surf
     if stage in (STAGE_INFILL_ON, STAGE_INFILL_EARLY):
         for i in range(2 if stage == STAGE_INFILL_ON else 1):
             bx = 3.0 + i * 3.2
             parts["conc"].append(
                 M.prism(f"blk{lvl}{i}", M.rect(bx, 2.0, bx + 1.15, 3.1),
-                        z + 0.30, 0.95, mats["conc"]))
+                        sz, 0.95, mats["conc"]))
     if stage in (STAGE_FORMWORK, STAGE_ACTIVE_DECK):
         for i in range(3):
             px = -8.0 + i * 3.4
             parts["ply"].append(
                 M.prism(f"plystk{lvl}{i}", M.rect(px, 6.0, px + 2.5, 7.3),
-                        z + 0.30, rng.uniform(0.26, 0.44), mats["ply"]))
+                        sz, rng.uniform(0.26, 0.44), mats["ply"]))
         for i in range(4):
             bx = -6.0 + i * 2.6
             for j in range(3):
                 parts["galv"].append(
                     L.cyl(f"reb{lvl}{i}{j}", 0.016, 5.6,
-                          (bx + j * 0.05, 11.0, z + 0.34 + j * 0.04),
+                          (bx + j * 0.05, 11.0, sz + 0.04 + j * 0.04),
                           mats["galv"], verts=5, axis="X"))
+
+
+def build_beams(parts, mats, lvl, z, y0):
+    """
+    The downstand grillage under a poured plate.
+
+    A 300 mm flat slab does not span a 7.5 x 10 m grid. This frame always
+    needed beams, and their absence is most of why every floor read as a slab
+    edge with nothing behind it: there was genuinely nothing behind it. They
+    are also what the back-props bear on, and at 65 mm they are the horizontal
+    that tells the eye there is STRUCTURE in the dark rather than a gap
+    between two plates.
+    """
+    d, w = 0.55, 0.40
+    zb = z - 0.30 - d
+    # Longitudinal, on the column lines, stopped where they run into a core.
+    for i, (x, y_end) in enumerate(((-7.5, STAIR[1]), (0.0, PY1 - 0.4), (7.5, CORE[1]))):
+        if y_end <= y0 + 1.0:
+            continue
+        parts["conc"].append(
+            M.prism(f"beam{lvl}L{i}", M.rect(x - w / 2, y0, x + w / 2, y_end),
+                    zb, d, mats["conc"]))
+    # Transverse, on the two column rows that clear both cores.
+    for i, y in enumerate((-4.0, 6.0)):
+        if y <= y0:
+            continue
+        parts["conc"].append(
+            M.prism(f"beam{lvl}T{i}", M.rect(PX0, y - w / 2, PX1, y + w / 2),
+                    zb, d, mats["conc"]))
+
+
+def build_pour_front(parts, mats, lvl, z, y0):
+    """
+    The half of a formwork level that has NOT been poured yet.
+
+    The pour front cut the slab away and left a hole in the building. A hole
+    is not what is physically there: you form a deck BEFORE you pour onto it,
+    so the un-poured half carries plywood on soldiers, and the pour stops
+    against a shuttered stop-end with strongbacks behind it. Filling the void
+    with the reason for the void is the whole point -- it is the same fix as
+    the props, one level up.
+    """
+    fx0, fx1 = -2.0, PX1 - 0.4
+    soffit = z - 0.30                      # the deck forms to the slab soffit
+    parts["ply"].append(
+        M.prism(f"fdeck{lvl}", M.rect(fx0, y0 + 0.4, fx1, PY1 - 0.4),
+                soffit - 0.06, 0.06, mats["ply"]))
+    for i in range(11):
+        yy = y0 + 1.0 + i * 1.05
+        if yy > PY1 - 0.6:
+            break
+        parts["ply"].append(
+            M.prism(f"fsol{lvl}{i}", M.rect(fx0, yy - 0.08, fx1, yy + 0.08),
+                    soffit - 0.32, 0.26, mats["ply"]))
+    # Stop-end shutter: what the concrete was stopped against, standing proud
+    # of the slab it retained.
+    parts["ply"].append(
+        M.prism(f"stope{lvl}", M.rect(fx0 - 0.09, y0 + 0.4, fx0, PY1 - 0.4),
+                soffit, 0.64, mats["ply"]))
+    for i in range(7):
+        yy = y0 + 1.4 + i * 2.3
+        if yy > PY1 - 0.8:
+            break
+        parts["galv"].append(
+            L.cyl(f"sback{lvl}{i}", 0.030, 1.15, (fx0 - 0.34, yy, z + 0.28),
+                  mats["galv"], verts=6))
+
+
+def build_crown(parts, mats, lvl, y0, deck_top):
+    """
+    What the top deck has to put ABOVE the slab line, and why.
+
+    Interior props are 48 mm tubes standing in shadow: at 70 m they are gone,
+    and no amount of adding more of them brings them back. The only part of
+    the construction story an establishing frame can still read is the part
+    that crosses the SKYLINE. So the forming deck carries its real temporary
+    works up where the sky is behind them -- edge shutters standing proud,
+    column cages and boxed columns waiting for the next lift, and a guard rail
+    on the open edge.
+
+    Nothing here is oversized to make it show. Every dimension is the real
+    one. It reads because it is grouped, repeated and broken against sky,
+    which is how a construction skyline reads from a street in any case.
+    """
+    x0, x1 = PX0 + 0.4, PX1 - 0.4
+    ye = y0 + 0.5
+
+    # Edge shutter -- the side form for the next pour, on three free edges.
+    for i, r in enumerate((M.rect(x0, ye, x1, ye + 0.07),
+                           M.rect(x0, ye, x0 + 0.07, PY1 - 0.4),
+                           M.rect(x1 - 0.07, ye, x1, PY1 - 0.4))):
+        parts["ply"].append(M.prism(f"shut{lvl}{i}", r, deck_top, 0.32, mats["ply"]))
+
+    # Column starter cages, and the two that have already been boxed ready to
+    # pour. Real 16 mm bar, real 600 mm column -- grouped, not enlarged.
+    for xi, x in enumerate((-7.5, 0.0, 7.5)):
+        for yi, y in enumerate((-4.0, 6.0, 15.0)):
+            if y < ye + 1.0:
+                continue
+            if CORE[0] < x < CORE[2] and CORE[1] < y < CORE[3]:
+                continue
+            if (xi + yi) % 3 == 0:
+                parts["ply"].append(
+                    M.prism(f"cbox{lvl}{xi}{yi}",
+                            M.rect(x - 0.32, y - 0.32, x + 0.32, y + 0.32),
+                            deck_top, 1.35, mats["ply"]))
+                continue
+            for dx, dy in ((-0.18, -0.18), (0.18, -0.18), (0.18, 0.18), (-0.18, 0.18)):
+                parts["galv"].append(
+                    L.cyl(f"cage{lvl}{xi}{yi}", 0.016, 1.50,
+                          (x + dx, y + dy, deck_top + 0.75), mats["galv"], verts=5))
+            for lz in (0.42, 1.16):
+                for ax, (ox, oy) in (("X", (0.0, -0.18)), ("X", (0.0, 0.18)),
+                                     ("Y", (-0.18, 0.0)), ("Y", (0.18, 0.0))):
+                    parts["galv"].append(
+                        L.cyl(f"cage{lvl}{xi}{yi}l", 0.010, 0.36,
+                              (x + ox, y + oy, deck_top + lz), mats["galv"],
+                              axis=ax, verts=4))
+
+    # Guard rail on the open deck edge: the strongest single horizontal the
+    # crown has against the sky, and the one piece of edge protection on this
+    # building that a viewer at street level is actually looking up at.
+    span = (x1 - x0 - 1.2) / 8.0
+    for i in range(9):
+        parts["galv"].append(
+            L.cyl(f"drp{lvl}{i}", 0.024, 1.18, (x0 + 0.6 + i * span, ye - 0.13,
+                                                deck_top + 0.59), mats["galv"], verts=6))
+    for h in (0.56, 1.12):
+        parts["galv"].append(
+            M.prism(f"drail{lvl}{h}", M.rect(x0, ye - 0.16, x1, ye - 0.10),
+                    deck_top + h, 0.042, mats["galv"]))
+
+
+def boarded_lifts(lifts, lift_h=2.0):
+    """
+    Which scaffold lifts still carry a working platform.
+
+    The 70 m frame failed because the scaffold hid the storeys the stage
+    system had just differentiated. The earlier checkpoint blamed debris mesh.
+    There is no debris mesh in this world and there never was -- the occluder
+    is BOARDING, and the arithmetic is unambiguous: boards on every second
+    lift land at 4, 8, 12, 16, 20 and 24 m, which is one full-width plywood
+    band across every single storey from level 1 to level 5.
+
+    Boards are not cladding. They are a consumable the site owns a finite
+    number of, and they sit under a gang's feet. This job runs two gangs --
+    a blockwork gang following the envelope upward, and a frame gang forming
+    and pouring at the top -- so the platforms sit in TWO bands with struck
+    scaffold between them. The standards, ledgers, transoms and ties stay:
+    they are the structure and they hold the scaffold to the building. Only
+    the platforms move, because on a real site that is the thing that moves.
+    """
+    frame = {lifts, lifts - 1, lifts - 2}
+    # The blockwork front is the HIGHEST level still being infilled; below it
+    # the wall is up and the gang has carried its boards with it.
+    front = max(l for l, s in STAGE_OF.items() if s in INFILL_FRACTION)
+    zc = GROUND_H + front * STOREY_H
+    block = {int(round(zc / lift_h)), int(round((zc + STOREY_H * 0.6) / lift_h))}
+    return frame | block
 
 
 def build(dusk=False, join_by_material=True):
@@ -495,6 +660,8 @@ def build(dusk=False, join_by_material=True):
         outline = plate(lvl)
         voids = [CORE, STAIR]
         stage = STAGE_OF[lvl]
+        y0 = PY0 + (4.5 if lvl >= SETBACK_FROM else 0.0)
+        surf = z                       # what material on this level rests on
 
         if lvl == LEVELS:
             # Top level: formwork deck over falsework, no slab yet.
@@ -506,6 +673,9 @@ def build(dusk=False, join_by_material=True):
                 parts["ply"].append(
                     M.prism(f"sol{i}", M.rect(PX0 + 0.4, yy - 0.08, PX1 - 0.4, yy + 0.08),
                             z - 0.56, 0.24, mats["ply"]))
+            # The deck is the working surface, 240 mm below the nominal level.
+            surf = z - 0.24
+            build_crown(parts, mats, lvl, y0, surf)
         elif lvl == LEVELS - 1:
             # The pour front runs across the plate.
             slab = M.slab(f"slab{lvl}", outline, z, 0.3, mats["wet"],
@@ -514,7 +684,10 @@ def build(dusk=False, join_by_material=True):
                              z - 2.0, 4.0)
             M.cut(slab, cutter)
             parts["conc"].append(slab)
-            # Starter bars beyond the pour front.
+            # The un-poured half is a FORMED DECK, not a hole in the building.
+            build_pour_front(parts, mats, lvl, z, y0)
+            # Starter bars beyond the pour front, standing on that deck --
+            # reinforcement is fixed before the concrete arrives, not after.
             for x in (-7.5, 0.0, 7.5):
                 if x < -2.0:
                     continue
@@ -522,15 +695,16 @@ def build(dusk=False, join_by_material=True):
                     for dx, dy in ((-0.18, -0.18), (0.18, -0.18), (0.18, 0.18), (-0.18, 0.18)):
                         h = rng.uniform(0.8, 1.2)
                         parts["galv"].append(
-                            L.cyl("bar", 0.014, h, (x + dx, y + dy, z + h / 2),
+                            L.cyl("bar", 0.014, h, (x + dx, y + dy, z - 0.30 + h / 2),
                                   mats["galv"], verts=5))
         else:
             parts["conc"].append(
                 M.slab(f"slab{lvl}", outline, z, 0.3, mats["conc"],
                        voids=voids, edge_band=0.3))
+            # A 300 mm plate does not span this grid on its own.
+            build_beams(parts, mats, lvl, z, y0)
 
         # Street edge beam, so the facade line has depth.
-        y0 = PY0 + (4.5 if lvl >= SETBACK_FROM else 0.0)
         eb = M.wall(f"eb{lvl}", (PX0, y0), (PX1, y0), 0.7, 0.36, mats["conc"],
                     z=z - 0.3 - 0.7)
         if eb:
@@ -552,7 +726,7 @@ def build(dusk=False, join_by_material=True):
         # the envelope follows the frame. Neither is decoration.
         build_backprops(parts, mats, rng, lvl, stage, z)
         build_infill(parts, mats, lvl, stage, z, y0)
-        build_staging(parts, mats, rng, lvl, stage, z)
+        build_staging(parts, mats, rng, lvl, stage, z, surf)
 
         # Edge protection only where the slab edge is still open. Once the
         # blockwork is up the guard rail comes down, so the enclosed floors
@@ -574,14 +748,24 @@ def build(dusk=False, join_by_material=True):
     # a mast climber. This is the concept's signature: the building is seen
     # THROUGH steelwork from the street, which is exactly the foreground
     # occlusion the production camera needs.
+    # A scaffold is TIED TO A BUILDING, and this one was not. It stood to
+    # 29.1 m against a street elevation that stops at 24.4 -- levels 6 and 7
+    # step back 4.5 m -- so its top 4.7 m was tube tied to nothing. That
+    # overrun is what capped the crown: the set-back forming deck was being
+    # rendered behind a boarded lift serving a facade that is not there.
+    # Where the building steps away, the scaffold stops, and the temporary
+    # works at the top finally have sky behind them instead of steel.
+    street_top = GROUND_H + SETBACK_FROM * STOREY_H      # head of the top
+    scaf_h = street_top + 1.2                            # street-line storey
     sy = PY0 - 1.5
-    lifts = int(top / 2.0)
+    lifts = int(street_top / 2.0)
+    boarded = boarded_lifts(lifts)
     for i in range(12):
         sx = PX0 - 0.4 + i * 2.0
         parts["galv"].append(
-            L.cyl(f"std{i}", 0.024, top + 1.4, (sx, sy, (top + 1.4) / 2), mats["galv"], verts=6))
+            L.cyl(f"std{i}", 0.024, scaf_h, (sx, sy, scaf_h / 2), mats["galv"], verts=6))
         parts["galv"].append(
-            L.cyl(f"std2{i}", 0.024, top + 1.4, (sx, sy - 1.3, (top + 1.4) / 2),
+            L.cyl(f"std2{i}", 0.024, scaf_h, (sx, sy - 1.3, scaf_h / 2),
                   mats["galv"], verts=6))
     for lift in range(1, lifts + 1):
         zz = lift * 2.0
@@ -591,15 +775,29 @@ def build(dusk=False, join_by_material=True):
         parts["galv"].append(
             M.prism(f"ldg2{lift}", M.rect(PX0 - 0.45, sy - 1.33, PX1 + 0.45, sy - 1.27),
                     zz, 0.048, mats["galv"]))
+        # Transoms CARRY THE BOARDS. A full set at every lift was the second
+        # half of the occlusion problem -- 156 tubes screening the elevation
+        # to hold up platforms that are not there. Where the boards were
+        # struck the board-bearing transoms went up with them; what stays is
+        # the sparse set at the tie lifts, which is structure, not decking.
+        full = lift in boarded
         for i in range(12):
+            if not full and (lift % 4 or i % 3):
+                continue
             sx = PX0 - 0.4 + i * 2.0
             parts["galv"].append(
                 L.cyl(f"tr{lift}{i}", 0.022, 1.35, (sx, sy - 0.65, zz), mats["galv"],
                       axis="Y", verts=5))
-        if lift % 2 == 0:
+        # Platforms only where a gang is standing -- see boarded_lifts(). The
+        # edge protection and toe board go with them, because you guard an
+        # edge someone can fall off, not an empty lift.
+        if lift in boarded:
             parts["ply"].append(
                 M.prism(f"board{lift}", M.rect(PX0 - 0.4, sy - 1.28, PX1 + 0.4, sy + 0.02),
                         zz + 0.05, 0.04, mats["ply"]))
+            parts["ply"].append(
+                M.prism(f"board{lift}t", M.rect(PX0 - 0.42, sy - 1.34, PX1 + 0.42, sy - 1.28),
+                        zz + 0.09, 0.15, mats["ply"]))
             for h in (0.5, 1.0):
                 parts["galv"].append(
                     M.prism(f"gr{lift}{h}", M.rect(PX0 - 0.45, sy - 1.36, PX1 + 0.45, sy - 1.30),
