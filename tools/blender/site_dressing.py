@@ -583,3 +583,89 @@ def mobile_crane(name, x, y, ground_z, hook, boom_deg, mats, rng,
     ram.rotation_euler = (math.radians(52) - math.pi / 2, 0, 0)
     out.append(ram)
     return out, head
+
+
+def site_lighting(name, mats, rng, soffit_z, festoon, task):
+    """
+    Temporary site lighting, and why it is not a cheat.
+
+    The ground floor is 34 m deep, 7.2 m to the soffit and has no facade. The
+    sun at 46 degrees penetrates 4.4 m of it, and that lit strip sits BELOW
+    the sightline over a 2.4 m hoarding from a 1.7 m eye at 70 m -- so every
+    part of the ground floor the production camera can see is in shadow. It
+    measured 0.064 against a hoarding at 0.27: a lit band with a black hole
+    over it, which is exactly why it read as sealed.
+
+    No amount of staged material fixes that, because at 70 m contents do not
+    resolve. A real site does not work an unlit basement-dark floor either --
+    it hangs festoon and stands task lights, and that equipment is visible,
+    directional and limited. Every luminaire here has a FIXTURE. There is no
+    invisible fill light in this world, and adding one would have been the
+    dishonest version of this fix.
+    """
+    out = []
+    galv, paint = mats["galv"], mats["crane"]
+    lamp_mat = bpy.data.materials.get("lamp")
+    if lamp_mat is None:
+        lamp_mat = bpy.data.materials.new("lamp")
+        lamp_mat.use_nodes = True
+        nt = lamp_mat.node_tree
+        for n in list(nt.nodes):
+            if n.type != "OUTPUT_MATERIAL":
+                nt.nodes.remove(n)
+        em = nt.nodes.new("ShaderNodeEmission")
+        em.inputs["Color"].default_value = (1.0, 0.94, 0.82, 1.0)
+        em.inputs["Strength"].default_value = 42.0
+        nt.links.new(em.outputs["Emission"],
+                     nt.nodes["Material Output"].inputs["Surface"])
+
+    # FESTOON: a catenary of caged lamps down the haul route. The receding
+    # line of points is the depth cue -- it is the one thing at this distance
+    # that says "this space goes back", which a pallet cannot say.
+    x0, y0, y1, n = festoon
+    for i in range(n):
+        t = i / (n - 1.0)
+        yy = y0 + (y1 - y0) * t
+        sag = 0.42 * math.sin(math.pi * t)
+        zz = soffit_z - 0.55 - sag
+        out.append(L.cyl(f"{name}fl{i}", 0.055, 0.16, (x0, yy, zz), lamp_mat, verts=8))
+        out.append(L.box(f"{name}fc{i}", (0.16, 0.16, 0.05), (x0, yy, zz + 0.13), galv))
+        lt = bpy.data.lights.new(f"{name}fL{i}", "POINT")
+        lt.energy, lt.shadow_soft_size = 220.0, 0.09
+        lt.color = (1.0, 0.93, 0.80)
+        ob = bpy.data.objects.new(f"{name}fL{i}", lt)
+        ob.location = (x0, yy, zz)
+        bpy.context.collection.objects.link(ob)
+    # The cable the lamps hang from, because a floating string of bulbs is a
+    # game asset.
+    for i in range(n - 1):
+        t0, t1 = i / (n - 1.0), (i + 1) / (n - 1.0)
+        ya, yb = y0 + (y1 - y0) * t0, y0 + (y1 - y0) * t1
+        za = soffit_z - 0.40 - 0.42 * math.sin(math.pi * t0)
+        zb = soffit_z - 0.40 - 0.42 * math.sin(math.pi * t1)
+        seg = L.cyl(f"{name}fw{i}", 0.012, math.hypot(yb - ya, zb - za),
+                    (x0, (ya + yb) / 2, (za + zb) / 2), galv, axis="Y", verts=4)
+        seg.rotation_euler = (math.atan2(zb - za, yb - ya), 0, 0)
+        out.append(seg)
+
+    # TASK LIGHTS: tripod floods where a specific job happens, aimed at it.
+    for j, (tx, ty, tz, aim) in enumerate(task):
+        for k in range(3):
+            a = k * math.tau / 3.0
+            leg = L.cyl(f"{name}tg{j}{k}", 0.028, tz,
+                        (tx + math.cos(a) * 0.30, ty + math.sin(a) * 0.30, tz / 2),
+                        galv, verts=6)
+            leg.rotation_euler = (math.sin(a) * 0.22, -math.cos(a) * 0.22, 0)
+            out.append(leg)
+        out.append(L.box(f"{name}th{j}", (0.44, 0.24, 0.30), (tx, ty, tz + 0.14),
+                         paint, bevel=0.03))
+        out.append(L.box(f"{name}tl{j}", (0.38, 0.05, 0.24),
+                         (tx, ty - 0.13, tz + 0.14), lamp_mat))
+        lt = bpy.data.lights.new(f"{name}tL{j}", "SPOT")
+        lt.energy, lt.spot_size, lt.spot_blend = 2600.0, math.radians(96), 0.5
+        lt.shadow_soft_size, lt.color = 0.16, (1.0, 0.95, 0.86)
+        ob = bpy.data.objects.new(f"{name}tL{j}", lt)
+        ob.location = (tx, ty - 0.14, tz + 0.14)
+        ob.rotation_euler = (math.radians(aim), 0, 0)
+        bpy.context.collection.objects.link(ob)
+    return out
