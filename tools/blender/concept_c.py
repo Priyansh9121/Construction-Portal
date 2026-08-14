@@ -75,6 +75,136 @@ def plate(level):
     return M.chamfered(PX0, y0, PX1, PY1, 3.5)
 
 
+# ---- CONSTRUCTION STAGE PER LEVEL ------------------------------------------
+#
+# The hero used to be one plate repeated seven times. A 65 mm frame through the
+# scaffold showed the cost: every level was a slab edge, a black void and a
+# boarded lift, and the void was EMPTY -- no columns reading, no props, no
+# formwork, no material. A dark hole with nothing in it reads as a hole in a
+# slab, not as a floor of a building.
+#
+# So each level now carries a NAMED STATE, and the two causal rules that make a
+# building read as one being built rather than one extruded:
+#
+#   props thin out DOWNWARD    concrete ages downward, so support is released
+#                              from the bottom up
+#   infill climbs UPWARD       the envelope follows the frame, so the lowest
+#                              floors are the most enclosed
+#
+# Nothing here is randomised. A floor that differs for no reason is still
+# procedural CG -- it just costs more triangles.
+STAGE_ACTIVE_DECK = "active-deck"     # today's pour is being prepared
+STAGE_FORMWORK = "formwork"           # deck formed, starters up, next pour
+STAGE_FALSEWORK = "falsework"         # struck days ago, falsework still under
+STAGE_STRUCK_NEW = "struck-new"       # young concrete, dense back-props
+STAGE_BACKPROPPED = "backpropped"     # selective back-props on load paths
+STAGE_INFILL_EARLY = "infill-early"   # frame dominates, envelope starting
+STAGE_INFILL_ON = "infill-underway"   # oldest floor, envelope well advanced
+
+STAGE_OF = {
+    7: STAGE_ACTIVE_DECK,
+    6: STAGE_FORMWORK,
+    5: STAGE_FALSEWORK,
+    4: STAGE_STRUCK_NEW,
+    3: STAGE_BACKPROPPED,
+    2: STAGE_INFILL_EARLY,
+    1: STAGE_INFILL_ON,
+}
+
+# Prop grid spacing in metres. Absent = props already struck and removed.
+# The widening spacing IS the age gradient: 1.8 m under a green slab, 4.2 m
+# where only the load paths still need carrying.
+PROP_SPACING = {
+    STAGE_ACTIVE_DECK: 1.8,
+    STAGE_FORMWORK: 1.8,
+    STAGE_FALSEWORK: 1.8,
+    STAGE_STRUCK_NEW: 2.6,
+    STAGE_BACKPROPPED: 4.2,
+}
+
+# Fraction of the street frontage that has blockwork infill built.
+INFILL_FRACTION = {STAGE_INFILL_ON: 0.66, STAGE_INFILL_EARLY: 0.33}
+
+
+def build_infill(parts, mats, lvl, stage, z, y0):
+    """
+    Blockwork infill on the street elevation, built bay by bay from one end.
+
+    Real infill goes up as a spandrel to sill height and a head panel under the
+    slab, leaving the window band open until frames arrive -- so this is what
+    makes a floor read as ENCLOSED without pretending the windows are glazed.
+    """
+    frac = INFILL_FRACTION.get(stage, 0.0)
+    if frac <= 0:
+        return
+    bays = 6
+    bw = (PX1 - PX0) / bays
+    built = int(round(bays * frac))
+    for b in range(built):
+        bx0 = PX0 + b * bw + 0.14
+        bx1 = PX0 + (b + 1) * bw - 0.14
+        # Spandrel: slab to sill.
+        parts["conc"].append(
+            M.prism(f"inf{lvl}s{b}", M.rect(bx0, y0 + 0.06, bx1, y0 + 0.30),
+                    z + 0.02, 1.02, mats["conc"]))
+        # Head panel: under the slab over, leaving the opening between.
+        parts["conc"].append(
+            M.prism(f"inf{lvl}h{b}", M.rect(bx0, y0 + 0.06, bx1, y0 + 0.30),
+                    z + STOREY_H - 0.85, 0.52, mats["conc"]))
+        # The pier between bays, full height -- what the blockwork butts into.
+        parts["conc"].append(
+            M.prism(f"inf{lvl}p{b}", M.rect(bx1, y0 + 0.06, bx1 + 0.26, y0 + 0.30),
+                    z + 0.02, STOREY_H - 0.33, mats["conc"]))
+
+
+def build_backprops(parts, mats, rng, lvl, stage, z):
+    """Back-propping under a plate, at the spacing its age warrants."""
+    sp = PROP_SPACING.get(stage)
+    if not sp:
+        return
+    x = PX0 + 1.6
+    while x < PX1 - 1.0:
+        y = PY0 + 6.0
+        while y < PY1 - 1.0:
+            if CORE[0] < x < CORE[2] and CORE[1] < y < CORE[3]:
+                y += sp
+                continue
+            parts["galv"].append(
+                L.cyl(f"prop{lvl}", 0.045, STOREY_H - 0.35,
+                      (x, y, z - STOREY_H + (STOREY_H - 0.35) / 2),
+                      mats["galv"], verts=6))
+            y += sp
+        x += sp
+
+
+def build_staging(parts, mats, rng, lvl, stage, z):
+    """
+    Material where the work actually is -- not a pallet on every floor.
+
+    Blocks land where blockwork is being built; ply and rebar land where the
+    next pour is being formed. That is the whole rule.
+    """
+    if stage in (STAGE_INFILL_ON, STAGE_INFILL_EARLY):
+        for i in range(2 if stage == STAGE_INFILL_ON else 1):
+            bx = 3.0 + i * 3.2
+            parts["conc"].append(
+                M.prism(f"blk{lvl}{i}", M.rect(bx, 2.0, bx + 1.15, 3.1),
+                        z + 0.30, 0.95, mats["conc"]))
+    if stage in (STAGE_FORMWORK, STAGE_ACTIVE_DECK):
+        for i in range(3):
+            px = -8.0 + i * 3.4
+            parts["ply"].append(
+                M.prism(f"plystk{lvl}{i}", M.rect(px, 6.0, px + 2.5, 7.3),
+                        z + 0.30, rng.uniform(0.26, 0.44), mats["ply"]))
+        for i in range(4):
+            bx = -6.0 + i * 2.6
+            for j in range(3):
+                parts["galv"].append(
+                    L.cyl(f"reb{lvl}{i}{j}", 0.016, 5.6,
+                          (bx + j * 0.05, 11.0, z + 0.34 + j * 0.04),
+                          mats["galv"], verts=5, axis="X"))
+
+
 def build(dusk=False, join_by_material=True):
     L.reset()
     rng = random.Random(41)
@@ -364,6 +494,7 @@ def build(dusk=False, join_by_material=True):
         z = GROUND_H + lvl * STOREY_H
         outline = plate(lvl)
         voids = [CORE, STAIR]
+        stage = STAGE_OF[lvl]
 
         if lvl == LEVELS:
             # Top level: formwork deck over falsework, no slab yet.
@@ -416,20 +547,18 @@ def build(dusk=False, join_by_material=True):
                     parts["conc"].append(
                         M.column(f"c{lvl}{x}{y}", x, y, z, STOREY_H, 0.5, mats["conc"]))
 
-        # Falsework under the two newest plates.
-        if lvl >= LEVELS - 1:
-            x = PX0 + 1.6
-            while x < PX1 - 1.0:
-                y = PY0 + 6.0
-                while y < PY1 - 1.0:
-                    parts["galv"].append(
-                        L.cyl("prop", 0.045, STOREY_H - 0.35,
-                              (x, y, z - STOREY_H + (STOREY_H - 0.35) / 2),
-                              mats["galv"], verts=6))
-                    y += 1.8
-                x += 1.8
+        # Temporary works and secondary works, by the level's OWN state.
+        # Props thin downward as the concrete ages; infill climbs upward as
+        # the envelope follows the frame. Neither is decoration.
+        build_backprops(parts, mats, rng, lvl, stage, z)
+        build_infill(parts, mats, lvl, stage, z, y0)
+        build_staging(parts, mats, rng, lvl, stage, z)
 
-        if lvl < LEVELS - 1:
+        # Edge protection only where the slab edge is still open. Once the
+        # blockwork is up the guard rail comes down, so the enclosed floors
+        # must NOT carry one -- identical rails on every level was part of
+        # what made the stack read as repeated.
+        if stage not in (STAGE_INFILL_ON, STAGE_ACTIVE_DECK):
             for h in (0.5, 1.05):
                 parts["galv"].append(
                     M.prism(f"rail{lvl}{h}", M.rect(PX0 + 0.3, y0, PX1 - 0.3, y0 + 0.09),
