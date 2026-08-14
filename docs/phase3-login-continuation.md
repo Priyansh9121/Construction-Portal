@@ -4,6 +4,106 @@
 
 ---
 
+## CHECKPOINT — CONTEXT CLOSED; SKY AUDITED AND HALF OF IT ALREADY EXISTED
+
+**CURRENT COMMIT** this one · source gate **not run** · nothing exported · no
+runtime change. Delivered: **Part C**, and **Part D1–D3 by audit**.
+
+### C1 — THE WORST CONTEXT OBJECT, AND ITS ACTUAL CAUSE
+
+**OBJECT** the `context_city` street-terrace blocks — the mid-tier mass at
+`x = -52` filling the left edge, and its mirror at the right.
+**SCREEN** cols 0–95 and 690–720, rows ~150–345. **TIER** mid (52–72 m).
+**WHY IT LOOKED FAKE** a flat evenly-lit ochre plane: no openings, no
+parapet shadow, no material break. At 70 m the eye reads a building by its
+opening rhythm; with none, a mass has neither scale nor function.
+
+**ROOT CAUSE — not "needs more detail".** `context_city`'s docstring promises
+*"its facade carries a WINDOW RHYTHM from the brick shader"*, and
+`city_facade()` does build exactly that — but it was only ever called in the
+**procedural fallback branch** of `standard_materials()`. The moment the CC0
+sets landed, `city_warm` / `city_cool` became plain brick and concrete
+photographs. **The city silently lost its windows the day CC0 was switched
+on**, and no amount of photographic grain supplies rhythm.
+
+Two further defects surfaced while fixing it, both real:
+
+1. **The brick node was fed raw world position.** It samples the `x,y` of its
+   vector, so on a facade perpendicular to X, `x` is constant across the whole
+   face and **height never enters the pattern**. The output was vertical
+   stripes with no floor lines — a barcode, not a facade. It now receives
+   `(x + y, z)`: along-face whichever way the block is turned, and storey
+   height as the second axis.
+2. **Cell/mortar polarity disagreed with the roughness map.** The roughness
+   ramp has always assumed cell = glazing (smooth) and joint = wall (rough);
+   only the colours said the opposite. An earlier attempt to invert this
+   turned a neighbour black, but the cause was **proportion, not polarity**.
+   Blender shrinks a brick by the mortar on *both* sides, so mortar over half
+   the cell degenerates to solid mortar — which is what a 1.15 mortar against
+   a 2.0 cell produced: a flat pale wall. Sized as a real facade — a
+   **3.4 × 3.2 m bay less 2 × 0.9 m of pier and spandrel, leaving a
+   1.6 × 1.4 m opening, ~21% dark** — it reads as punched windows.
+
+Implemented as new `ctx_warm` / `ctx_cool` keys so the **near neighbours are
+untouched** and keep their photographic sets and modelled openings.
+
+| zone | before mean/std | after mean/std |
+|---|---|---|
+| far-right context block | 0.1247 / **0.0148** | 0.1524 / **0.0647** |
+| far-left context block | 0.3152 / 0.1712 | 0.3409 / **0.2033** |
+| brick neighbour (control) | 0.3784 / 0.1741 | 0.3803 / **0.1733** |
+
+Far-right variation **×4.4**; the control is unchanged, which is the proof the
+near tier was not touched.
+
+**C2 — not performed.** One targeted intervention was budgeted and spent; the
+second is a judgement to make against a fresh establishing frame.
+
+### D1 — LIGHTING AUDIT: THE BRIEF'S PREMISE WAS HALF WRONG
+
+The brief states "NO NISHITA, NO CLOUDS". Measured from the built scene:
+
+| | measured |
+|---|---|
+| SUN lamps | **1** — energy 5.0, angle 0.545°, rot (44.0, 0.0, 18.0) |
+| World | `TEX_SKY` **sky_type = NISHITA** |
+| Nishita sun_disc | **False** |
+| Nishita sun_intensity | **0.0** |
+| Nishita elevation / rotation | 46.0° / 18.0° |
+| Background strength | 0.16 |
+| HDRI | **none** |
+| Other lights | 9 POINT + 2 SPOT (festoon / task) — not solar |
+| View transform | AgX, exposure 0.0 (−0.35 at render) |
+
+**Nishita is already the sky basis.** The Sun lamp's `rot.x = 44°` is exactly
+elevation 46°, and `rot.z = 18°` matches Nishita's rotation — they agree — and
+with `sun_disc = False` and `sun_intensity = 0` Nishita contributes **no direct
+sun at all**. There is exactly **one solar shadow source** and no possibility
+of a double sun.
+
+**So D2 and D3 are already satisfied. D4 (clouds) is the only genuinely
+missing part of Part D.** Anyone starting the sky work should not "add
+Nishita" — it is there, correctly wired, and adding a second sun is the
+specific mistake this audit exists to prevent.
+
+### NOT DONE
+
+**D4 clouds · E road material · F matrix, top-three, anti-GTA, source gate.**
+Untouched, not half-built. Anti-GTA and source-world gates **NOT RUN**.
+
+### NEXT EXACT ACTION
+
+1. **D4 only** — clouds. Do not touch the sun or re-add Nishita. Add a
+   volumetric layer driven off the existing world, author `CLOUD_LIGHT` and
+   `CLOUD_MODERATE`, verify architecture holds under both.
+2. **E** — road material inventory, then asphalt/kerb/gutter/footpath/haul
+   identity with contact wear only where process causes it.
+3. **F** — midday full matrix, morning/afternoon critical five, festoon audit
+   at all three (still only ever judged at 46°), cloud matrix, top-three, then
+   the anti-GTA call.
+
+---
+
 ## CHECKPOINT — GROUND AND MOBILE-LIFT GATES CLOSED; C–F NOT REACHED
 
 **CURRENT COMMIT** this one · source-world gate **not run** · nothing exported ·
