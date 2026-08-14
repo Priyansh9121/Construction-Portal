@@ -4,6 +4,50 @@
 
 ---
 
+## CHECKPOINT — HERO STAGING IMPLEMENTED; STILL NOT SUFFICIENT AT 70 m
+
+**CURRENT COMMIT** `67f07a4` · gate still **FAIL** · nothing exported ·
+runtime untouched since `ab3e471`.
+
+**IMPLEMENTED** The stage map is now code, not a plan: `STAGE_OF` names each
+level's state and `build_infill` / `build_backprops` / `build_staging` realise
+it. Prop spacing widens 1.8 → 2.6 → 4.2 m downward and then stops — the
+spacing *is* the age gradient. Infill runs 66% / 33% / none upward. Material
+lands only where its work is. Edge protection comes down once blockwork is up,
+so enclosed floors carry no guard rail.
+
+**VERIFIED** `hero-stack-staged.png` (65 mm) — infill panels, piers and
+differentiated edge protection all read at close range.
+
+**THE PROBLEM, HONESTLY** `establishing-staged.png` (70 m) — the staging does
+**not** carry the production frame. The hero still reads as a dark scaffolded
+lattice. Two causes, and neither is "more detail":
+
+1. **The scaffold occludes the storey it is meant to reveal.** Full-height
+   scaffold with debris mesh across the whole street elevation hides exactly
+   the floors the staging differentiates. A real site at this stage would have
+   the scaffold *struck back* below the working lifts, or the mesh only where
+   work is live.
+2. **The interiors are unlit voids at this distance.** Close up the columns
+   and props read; at 70 m they collapse to black. The fix is not interior
+   lights (forbidden, and fake) — it is that the *silhouette* must carry the
+   story: falsework and formwork projecting at the top, a visibly open pour
+   edge, material stacks breaking the slab lines.
+
+**NEXT EXACT ACTION**
+1. Strike the debris mesh / scaffold boarding back to the top three lifts so
+   the differentiated floors are actually visible from the street. This is
+   both correct construction practice and the thing blocking the read.
+2. Push the top two levels' temporary works ABOVE the slab line so the
+   silhouette shows falsework and a pour edge against the sky.
+3. Re-render `stack` + `establishing`, then the luffing-jib validation
+   (measure the generated world first — scaffold envelope, hoist position,
+   footprint, road edge — before any crane geometry exists).
+4. Then far-left context, sky, road material, multi-angle gate at
+   morning/midday/afternoon.
+
+---
+
 ## HERO STAGE MAP — authored next, implementation ready
 
 **CURRENT COMMIT** `2ec81a7` (source) · gate still FAIL · nothing exported.
