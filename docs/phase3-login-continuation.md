@@ -4,6 +4,135 @@
 
 ---
 
+## CHECKPOINT — GROUND AND MOBILE-LIFT GATES CLOSED; C–F NOT REACHED
+
+**CURRENT COMMIT** this one · source-world gate **not run** · nothing exported ·
+no runtime/Three.js/Vercel change.
+
+Scope delivered: **Parts A and B only.** Context ran out before context/sky/
+road/pre-final gate. Those are untouched, not half-done — see NEXT ACTION.
+
+### A1 — GROUND APERTURE DIAGNOSIS
+
+Measured through the production camera, not guessed:
+
+| zone | mean |
+|---|---|
+| hoarding band | **0.257 – 0.282** |
+| **ground floor above hoarding** | **0.064** |
+| gate reveal | 0.157 |
+
+**Nothing was blocking the aperture.** The gate is already 12.8 m — **124 px**
+of frame width — and the opening above the hoarding is clear. The cause is
+light: the sun at 46° penetrates **4.4 m** of a 34 m deep floor, and from a
+1.70 m eye at 70 m the sightline over a 2.4 m hoarding sits at **z 2.68 m at
+the facade, 3.00 m at mid-plot**. The sunlit strip is *below* that line. So
+every part of the ground floor the camera can see is unlit depth, and a lit
+band with a hole 4× darker above it reads as sealed.
+
+Contents could never have fixed this. At 70 m they do not resolve.
+
+### A2 — GATE REVEAL: TESTED AND REJECTED
+
+12.8 m already exceeds what the authored flows need (one vehicle, material,
+pedestrians, hoist). Widening it would cut the hoarding run and the gate is
+not the constraint — the *light* is. **Rejected on its own stated condition.**
+
+### A STRUCTURAL DEFECT FOUND WHILE MEASURING
+
+**Ground-floor columns stopped at z 5.00 against a level 1 soffit at 7.60 —
+2.60 m short, floating.** `GROUND_H` is the storey's clear height, but the
+level loop puts level 1 at `GROUND_H + STOREY_H`, so the ground storey is
+actually 7.9 m floor to floor. Column height now derives from the slab.
+Fixing it also puts 7.2 m of sunlit concrete in the visible zone.
+
+### A3 — TEMPORARY SITE LIGHTING (a real luminaire WAS required)
+
+A 34 m deep floor with a 7.2 m head and no facade cannot be worked on
+daylight, and real sites hang festoon and stand task lights. Implemented as
+**equipment, not fill**: a catenary of 9 caged lamps on a visible cable down
+the haul route — the receding line of points is the depth cue — plus 2 tripod
+floods at the unloading bay and hoist base. **Every luminaire has a visible
+fixture. There is no invisible fill light in this world.**
+
+### A4 — GROUND BAND BEFORE / AFTER
+
+| zone | before | after | delta |
+|---|---|---|---|
+| **GF above hoarding** | 0.0638 | **0.1535** | **+141%** |
+| GF whole (rows 260–344) | 0.1354 | **0.2009** | +48% |
+| gate reveal | 0.1565 | 0.1955 | +25% |
+| GF ÷ hoarding contrast | 0.25× | **0.59×** | — |
+| **sky** | 0.6744 | **0.6744** | **+0.0001** |
+| L1 | 0.2005 | 0.2100 | +0.009 |
+
+Sky unchanged to four decimals and L1 essentially flat: the change is local to
+the ground floor, which is the proof it is not a global brightening.
+
+**GROUND GATE — PASS.** Sealed black stripe **NO**. Active entry/logistics
+space legible **YES**.
+
+### B — DECK RECEIVING, AND WHAT IT ACTUALLY WAS
+
+Re-aimed off the boom axis, then closer, to a three-quarter view at deck
+height. But re-aiming alone never closed it, and two real defects were behind
+that:
+
+1. **The bundle was 0.16 m BELOW the deck it was landing on.** A hook at
+   30.5 m left only 3.0 m above a 27.46 m deck for rope, hook block, slings
+   *and* load. Hook raised to 31.6 m; the chain is now built downward so each
+   link lands where the one above ends — rope 30.55→31.60, hook block
+   29.90→30.55, slings 29.10→29.90, bundle 28.40→29.10, **clearing the deck
+   by 0.94 m**.
+2. **The load was plywood on a plywood deck.** The same collapse as blockwork
+   on concrete: one material, no separation, unreadable at any distance. It is
+   now a **banded rebar bundle** — equally correct for a deck being formed,
+   because bars are fixed before the pour, and dark steel against pale
+   sheeting.
+
+Rear lane → boom → hook → bundle → deck now reads without decoding, with the
+receiver in hi-viz beside the landing point.
+
+**MOBILE-CRANE GATE — PASS.** Stand there YES · outriggers YES · boom clears
+YES · radius plausible YES · hook height plausible YES · load relevant YES ·
+**landing relationship visually clear YES**.
+
+### CYCLES EVIDENCE
+
+`logistics2-establishing`, `-entrance`, `-hoist`, `-lift`, `-deck`. Ordinary
+daylight, no bloom/DOF/fog/LUT/grain.
+
+### NOT REACHED THIS MILESTONE
+
+**C context massing · D sky/Nishita/clouds · E road material · F pre-final
+Cycles gate and the morning/midday/afternoon matrix.** No work started on any
+of them, so there is nothing half-finished to unpick. The anti-GTA and
+source-world daylight gates were **not run** — running them without C–E would
+have produced a verdict about a world that is not finished, which is worse
+than no verdict.
+
+### KNOWN WEAKNESS
+
+1. Festoon is the first artificial light in the world; it has not been checked
+   at morning or afternoon sun, only midday-ish 46°.
+2. Boom remains a large near-field object in `deck`; the relationship reads
+   but the frame is boom-dominant.
+3. Crane carrier detail is coarse — fine at 35 m, would not hold at 10 m.
+4. Context massing, flat sky and road material all still outstanding.
+
+### NEXT EXACT ACTION
+
+1. **Part C** — render `establishing`, name the single worst massing block,
+   fix that one, re-render. Do not rebuild the city.
+2. **Part D** — Nishita with the existing single sun, then restrained cloud;
+   two covers (broken / moderate).
+3. **Part E** — asphalt/kerb/gutter/footpath/haul identity with contact wear
+   only where process causes it.
+4. **Part F** — then the 10-frame gate at morning/midday/afternoon, top-three
+   fixes, and only then the anti-GTA call.
+
+---
+
 ## CHECKPOINT — SITE LOGISTICS: HOIST REBUILT, GROUND AUTHORED, LIFT FROM THE REAR
 
 **CURRENT COMMIT** this one · source-world gate still FAIL · nothing exported ·

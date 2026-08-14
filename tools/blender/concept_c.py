@@ -96,8 +96,11 @@ HOIST_CAR_Z = 2 * STOREY_H - 0.2                 # car standing at level 2
 # y = 26.4, not 27.0: at 27.0 the outrigger MATS reached 30.93 and overhung
 # the far kerb at 30.40. Measured, then moved.
 CRANE_X, CRANE_Y = 0.0, 26.4
-CRANE_HOOK = (0.0, 16.0, 30.5)                   # radius 10.4 m, boom 29.8 m
-CRANE_BOOM_DEG = 69.6
+# Hook raised 30.5 -> 31.6: at 30.5 there were only 3.0 m between boom head
+# and a deck at 27.46 for rope, hook block, slings AND the bundle, so the
+# bundle ended up 0.16 m BELOW the deck it was landing on.
+CRANE_HOOK = (0.0, 16.0, 31.6)                   # radius 10.4 m, boom 31.0 m
+CRANE_BOOM_DEG = 70.4
 
 
 def plate(level):
@@ -473,6 +476,16 @@ def build_ground_logistics(parts, mats, rng):
     # down. The rear-yard skip serves the rear yard and is a different flow.
     parts["paint"] += D.bin_skip("gskip", 5.6, -12.6, 0.40, mats, rng)
 
+    # LIGHT: the ground floor is 34 m deep with no facade, and the sun reaches
+    # 4.4 m of it. Measured through the production camera it sat at 0.064
+    # against a hoarding at 0.27 -- a lit band with a black hole above it.
+    # A real site hangs festoon and stands task lights, so this world does
+    # too. Every luminaire has a visible fixture; there is no fill light.
+    parts["galv"] += D.site_lighting(
+        "lit", mats, rng, soffit_z=GROUND_H + STOREY_H - 0.3,
+        festoon=(0.0, -18.0, 6.0, 9),
+        task=((-1.0, -13.6, 2.70, 78.0), (6.5, -18.2, 2.70, 78.0)))
+
 
 def boarded_lifts(lifts, lift_h=2.0):
     """
@@ -784,8 +797,14 @@ def build(dusk=False, join_by_material=True):
         for y in (-14.0, -4.0, 6.0, 15.0):
             if CORE[0] < x < CORE[2] and CORE[1] < y < CORE[3]:
                 continue
+            # A column carries the slab above it. These stopped at 5.00 m
+            # against a level 1 soffit at 7.60 -- 2.60 m short, floating.
+            # GROUND_H is the storey's clear height, not the structural rise:
+            # the ground storey is 7.9 m floor to floor because the loop puts
+            # level 1 at GROUND_H + STOREY_H. Height comes from the slab now.
             parts["conc"].append(
-                M.column(f"gc{x}{y}", x, y, 0.4, GROUND_H, 0.55, mats["conc"]))
+                M.column(f"gc{x}{y}", x, y, 0.4,
+                         GROUND_H + STOREY_H - 0.3 - 0.4, 0.55, mats["conc"]))
 
     for lvl in range(1, LEVELS + 1):
         z = GROUND_H + lvl * STOREY_H
@@ -995,19 +1014,42 @@ def build(dusk=False, join_by_material=True):
     parts["paint"] += crane
     # The lift: a banded bundle of formwork ply for the deck being formed at
     # level 6, hanging a metre clear and about to land. A relevant load.
+    # The rigging chain, built downward from the head so each link lands where
+    # the one above it ends: rope -> hook block -> slings -> bundle, with the
+    # bundle hanging 0.94 m clear of the deck at 27.46.
     hx, hy, hz = CRANE_HOOK
+    LOAD_Z, LOAD_H = 28.40, 0.70
+    HOOK_TOP, HOOK_H = 30.55, 0.65
     parts["galv"].append(
-        L.cyl("mcrrope", 0.022, hz - 29.05, (hx, hy, (hz + 29.05) / 2),
+        L.cyl("mcrrope", 0.022, hz - HOOK_TOP, (hx, hy, (hz + HOOK_TOP) / 2),
               mats["galv"], verts=6))
     parts["galv"].append(
-        L.box("mcrhook", (0.34, 0.34, 0.62), (hx, hy, 28.74), mats["galv"], bevel=0.04))
+        L.box("mcrhook", (0.36, 0.36, HOOK_H), (hx, hy, HOOK_TOP - HOOK_H / 2),
+              mats["galv"], bevel=0.04))
+    sling_h = (HOOK_TOP - HOOK_H) - (LOAD_Z + LOAD_H)
     for s in (-1, 1):
+        sl = L.cyl(f"mcrsling{s}", 0.016, sling_h * 1.07,
+                   (hx + s * 0.85, hy, LOAD_Z + LOAD_H + sling_h / 2),
+                   mats["galv"], verts=5)
+        sl.rotation_euler = (0, s * 0.33, 0)
+        parts["galv"].append(sl)
+    # THE LOAD IS A REBAR BUNDLE, not formwork ply -- and that is a material
+    # decision, not a dressing one. A ply bundle landing on a ply deck is the
+    # blockwork-on-concrete collapse again: same surface, no separation, so
+    # the landing could not be read at any camera distance. Reinforcement is
+    # just as relevant to a deck being formed (bars are fixed before the pour)
+    # and it is dark banded steel against pale sheeting.
+    for i in range(11):
+        row, col = divmod(i, 6)
         parts["galv"].append(
-            L.cyl(f"mcrsling{s}", 0.014, 1.30, (hx + s * 0.62, hy, 27.95),
-                  mats["galv"], verts=5))
-    parts["ply"].append(
-        M.prism("mcrload", M.rect(hx - 1.5, hy - 0.62, hx + 1.5, hy + 0.62),
-                27.30, 0.58, mats["ply"]))
+            L.cyl(f"mcrbar{i}", 0.016, 3.6,
+                  (hx, hy - 0.42 + col * 0.17 + row * 0.085,
+                   LOAD_Z + 0.05 + row * 0.034), mats["galv"], axis="X", verts=6))
+    for s in (-1, 1):                      # the bands that make it a BUNDLE
+        parts["galv"].append(
+            M.prism(f"mcrband{s}", M.rect(hx + s * 1.15 - 0.03, hy - 0.82,
+                                          hx + s * 1.15 + 0.03, hy + 0.82),
+                    LOAD_Z - 0.02, LOAD_H + 0.04, mats["galv"]))
 
 
     # ---- Street furniture, hoarding, people -----------------------------
@@ -1401,7 +1443,13 @@ CAMERAS = {
     "lift": ((-19.0, 40.0, 1.70), (0.0, 24.0, 9.0), 35),
     # DECK RECEIVING: up at the load coming in over the level 6 slab edge
     # onto the forming deck, from the laneway side.
-    "deck": ((-15.0, 30.0, 15.0), (1.0, 15.5, 27.6), 40),
+    # DECK RECEIVING: a three-quarter view from WEST of the boom plane. Aimed
+    # down the boom axis the boom sat between lens and load and the landing
+    # could not be read; the crane was correct and the camera was not. From
+    # off-axis the boom crosses the frame instead of hiding the thing it is
+    # delivering, and rear lane -> boom -> hook -> bundle -> deck reads in one
+    # image without decoding.
+    "deck": ((-9.5, 23.0, 26.2), (0.6, 15.2, 28.3), 38),
 }
 
 
