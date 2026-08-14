@@ -4,6 +4,58 @@
 
 ---
 
+## HERO STAGE MAP — authored next, implementation ready
+
+**CURRENT COMMIT** `2ec81a7` (source) · gate still FAIL · nothing exported.
+
+**EVIDENCE** `.screenshots/concepts/hero-stack-before.png` — a 65 mm frame
+through the scaffold showing several floors at once. The 70 m establishing
+camera is too far away to show this fault.
+
+**WHAT THE CLOSE FRAME PROVES**
+
+Every level is the same three things: a slab edge, a black void, a boarded
+scaffold lift. And the void is the key finding — **it is empty**. No columns,
+no soffit, no props, no formwork, no staged material. It is the neighbour
+window failure again one scale up: a dark hole with nothing in it reads as a
+hole in a slab, not as a floor of a building. The only differentiation in the
+whole stack is one patch of blockwork at the lower left.
+
+So the fix is two things, not one: **give the floors different states**, and
+**put something inside them**.
+
+### Per-level stage map (LEVELS = 7, GROUND_H 4.6, STOREY_H 3.3)
+
+| Level | Current | Target state | Visible change | Construction reason |
+|---|---|---|---|---|
+| G | empty void | logistics + hoist base | gate opening, temp fence, loading interface, service risers | ground is the delivery and access floor |
+| 1 | empty void | fully struck, infill underway | blockwork to ~60% of bays, defined openings, no props | oldest concrete; props long removed |
+| 2 | empty void | struck, infill starting | blockwork ~25%, columns visible, some staged pallets | envelope follows the frame upward |
+| 3 | empty void | frame complete, selective back-props | a partial row of back-props at slab centre, bare columns | back-propping stays several floors below the pour |
+| 4 | empty void | recently struck | denser back-props, temporary edge protection, no infill | concrete young; props not yet released |
+| 5 | empty void | falsework standing | full prop grid, soffit formwork panels still up | slab struck within days, not yet stripped |
+| 6 | empty void | formwork deck | ply soffit, edge forms, column starter cages, rebar bundles | next pour being prepared |
+| 7 / top | empty void | ACTIVE DECK | partial slab, rebar mats, pour edge, edge protection, staged ply, workers, crane landing zone | the pour actually happening today |
+
+**Rules for implementation** — every difference answers "why is this floor
+different?". No random variation. Props thin out downward because concrete
+ages downward; infill climbs upward because the envelope follows the frame;
+the hoist landing repeats at every level because it must. A floor that differs
+for no reason is still procedural CG.
+
+**NEXT EXACT ACTION** Implement the table above in `concept_c.py` as a
+per-level state function (not a repeated `plate()`), then re-render `stack`
+and `establishing`, then the luffing-jib validation (measure before modelling:
+plot 22 × 34 m, scaffold envelope, hoist position, neighbour walls at x = ±11,
+road edge at y = −25.4), then far-left context block, sky, road material, and
+finally the multi-angle gate at morning/midday/afternoon.
+
+**LIFTING DECISION RECEIVED** Luffing-jib tower crane, *only if the geometry
+proves it fits*. Mast climber/hoist retained — crane lifts structure and
+material, hoist carries personnel and selected material. No hammerhead.
+
+---
+
 ## CHECKPOINT — NEIGHBOUR FACADES PASS; HERO STAGING IS NEXT
 
 **CURRENT COMMIT** `2ec81a7`

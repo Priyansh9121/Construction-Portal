@@ -819,6 +819,11 @@ CAMERAS = {
     # on bare earth 24 m beyond the end of the street, which is the whole
     # reason the lower third of the production frame read as a model sheet.
     "establishing": ((-35.9, -69.6, 1.70), (1.0, -3.0, 13.0), 35),
+    # HERO STACK: close on the street elevation through the scaffold, framed
+    # so several floors are visible at once. This is the frame that has to
+    # prove the building is being BUILT rather than extruded -- a fault the
+    # 70 m establishing camera is too far away to show.
+    "stack": ((-14.0, -46.0, 12.0), (0.0, -17.0, 16.0), 65),
     # NEIGHBOUR BAY: close on the east neighbour's street elevation, at the
     # distance the openings have to survive. A failure at 70 m is invisible;
     # this is where a window either reads as an assembly or as a pressed
