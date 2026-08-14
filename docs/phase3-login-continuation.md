@@ -4,6 +4,57 @@
 
 ---
 
+## CHECKPOINT — NEIGHBOUR FACADES PASS; HERO STAGING IS NEXT
+
+**CURRENT COMMIT** `2ec81a7`
+
+**THE FINDING** The neighbour openings were a 250 mm boolean cut and nothing
+else — no glass, no frame, no interior. The back face of the cut was the
+**same wall material lit by the same sun**, which is exactly why every opening
+read as a rectangle pressed into a slab. No material or lighting change could
+have fixed that; it was geometry.
+
+**COMPLETED** Each opening is now built the way one is built:
+opening → 420 mm reveal → frame (head, jambs, sill) → glazing set 300 mm
+behind the face → **unlit interior volume**. The interior does the work: a
+room is darker than any sunlit facade, so the dark box behind the glass is
+what tells the eye there is a building in there. Without it you see masonry
+through the window. The projecting sill throws a shadow line under every
+opening — the detail that reads as BUILT rather than CUT.
+
+Verified at both distances before propagating: a 50 mm lens on one bay
+(`bay-after.png`) proves the assembly, and the production establishing camera
+(`establishing-facades.png`) proves it survives 70 m. Both neighbours now read
+as architecture.
+
+**ANTI-GTA GATE — STILL FAILS. NOT EXPORTED.** Ranked, from the new render:
+
+1. **Hero floors are still identical** — now the dominant CG cue by a clear
+   margin. A stack of matching slabs behind scaffold. Needs the vertical
+   construction-stage gradient: struck → back-propped → formwork → active
+   deck with rebar and a pour edge.
+2. **Sky is still a flat gradient**, cloudless.
+3. Far-left context block is still blank massing (mid-tier, cheap to fix by
+   giving it the same opening system at lower density).
+4. Road still needs the material/contact pass — kerb tonal separation, gutter
+   grime, tracked dirt at the gate. **Geometry is done; do not add more.**
+
+**NOT REGRESSED** Runtime untouched since `ab3e471`. Station contract 8/8,
+world runtime 6/6, a11y 44/44, responsive 314/314, 60 fps / p95 17.4 ms at
+DPR 2 all stand. Production still ships the pre-street GLBs deliberately.
+
+**NEXT EXACT ACTION** Hero construction staging in `concept_c.py` — per-level
+state rather than a repeated plate, every difference with a construction
+reason. Then sky. Then the road material pass. Then the multi-angle Cycles
+gate at morning/midday/afternoon, and export only on a YES.
+
+**STILL OPEN — needs your decision** Lifting strategy: luffing-jib tower crane
+(the only plausible tower option on a plot this tight) versus periodic
+mobile-crane operations with the mast climber retained. I will not add a
+hammerhead for spectacle.
+
+---
+
 ## CHECKPOINT — STREET CORRIDOR AUTHORED, NOT PROMOTED
 
 **CURRENT COMMIT** `35d3242`
