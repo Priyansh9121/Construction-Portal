@@ -367,24 +367,60 @@ def city_facade(name="city", tint=0x6E7684, lit=0.0):
     """
     mat, nt, bsdf = _new_material(name)
     mp = _coord(nt, 1.0)
+
+    # THE BRICK NODE NEEDS (ALONG-FACE, HEIGHT), NOT (X, Y).
+    #
+    # Fed raw world position it samples the x,y of the vector -- so on a
+    # facade perpendicular to X, x is CONSTANT across the whole face and
+    # height never enters the pattern at all. The result is vertical stripes
+    # with no floor lines: not a window rhythm, a barcode. That is what the
+    # context terrace was actually showing.
+    #
+    # (x + y) varies along the face whichever way the block is turned, and z
+    # is the storey axis, so rows land on floors and columns land on bays.
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    sep.location = (-1120, 60)
+    nt.links.new(mp.outputs["Vector"], sep.inputs["Vector"])
+    run = nt.nodes.new("ShaderNodeMath")
+    run.location = (-980, 120)
+    run.operation = "ADD"
+    nt.links.new(sep.outputs["X"], run.inputs[0])
+    nt.links.new(sep.outputs["Y"], run.inputs[1])
+    face = nt.nodes.new("ShaderNodeCombineXYZ")
+    face.location = (-980, -60)
+    nt.links.new(run.outputs["Value"], face.inputs["X"])
+    nt.links.new(sep.outputs["Z"], face.inputs["Y"])
+
     brick = nt.nodes.new("ShaderNodeTexBrick")
     brick.location = (-900, 60)
-    brick.inputs["Scale"].default_value = 0.34
-    brick.inputs["Mortar Size"].default_value = 0.055
-    brick.inputs["Mortar Smooth"].default_value = 0.1
+    # Metres, so every number below is a real building dimension.
+    brick.inputs["Scale"].default_value = 1.0
+    # Blender shrinks the cell by the mortar on BOTH sides, so mortar must
+    # stay under half the cell or the pattern degenerates to solid mortar --
+    # which is exactly what 1.15 against a 2.0 cell did: a flat pale wall.
+    # 3.4 x 3.2 m bay less 2 x 0.9 m of pier and spandrel leaves a 1.6 x 1.4 m
+    # opening, about 21% dark. That is a punched-window facade.
+    brick.inputs["Mortar Size"].default_value = 0.9       # pier / spandrel
+    brick.inputs["Mortar Smooth"].default_value = 0.15
     brick.inputs["Bias"].default_value = 0.0
-    brick.inputs["Brick Width"].default_value = 1.5
-    brick.inputs["Row Height"].default_value = 0.62
-    # THE FIELD IS THE MASONRY; THE JOINT IS THE DARK LINE.
+    brick.inputs["Brick Width"].default_value = 3.4       # structural bay
+    brick.inputs["Row Height"].default_value = 3.2        # floor to floor
+    # THE CELL IS THE WINDOW; THE JOINT IS THE WALL BETWEEN THEM.
     #
-    # This was inverted: the brick field carried a near-black and the MORTAR
-    # carried the light tint, so a whole neighbouring building baked out almost
-    # black and read as a hole in the street. Real masonry is mid-tone with a
-    # recessed joint reading darker.
-    brick.inputs["Color1"].default_value = srgb(tint)
-    brick.inputs["Color2"].default_value = srgb(_shift(tint, 0.88))
-    brick.inputs["Mortar"].default_value = srgb(_shift(tint, 0.62))
-    nt.links.new(mp.outputs["Vector"], brick.inputs["Vector"])
+    # An earlier attempt at this inverted it and a whole neighbour baked out
+    # almost black -- but the cause was PROPORTION, not polarity: large dark
+    # cells separated by a thin light joint is a black building. Sized as a
+    # real facade instead -- a 2.0 x 1.4 m opening in a 1.15 m grid of pier
+    # and spandrel -- the dark area lands near 35%, which is what a punched
+    # window facade actually is.
+    #
+    # The roughness map below has always assumed cell = glazing (smooth) and
+    # joint = wall (rough). Only the COLOURS disagreed with it. They no
+    # longer do.
+    brick.inputs["Color1"].default_value = srgb(_shift(tint, 0.24))
+    brick.inputs["Color2"].default_value = srgb(_shift(tint, 0.31))
+    brick.inputs["Mortar"].default_value = srgb(tint)
+    nt.links.new(face.outputs["Vector"], brick.inputs["Vector"])
     nt.links.new(brick.outputs["Color"], bsdf.inputs["Base Color"])
 
     r = nt.nodes.new("ShaderNodeMapRange")
@@ -408,13 +444,14 @@ def city_facade(name="city", tint=0x6E7684, lit=0.0):
         # windows do not all come on together.
         pick = nt.nodes.new("ShaderNodeTexBrick")
         pick.location = (-900, -380)
-        pick.inputs["Scale"].default_value = 0.34
-        pick.inputs["Brick Width"].default_value = 1.5
-        pick.inputs["Row Height"].default_value = 0.62
+        # Matches the window grid above, so a "lit room" lands ON a window.
+        pick.inputs["Scale"].default_value = 1.0
+        pick.inputs["Brick Width"].default_value = 3.4
+        pick.inputs["Row Height"].default_value = 3.2
         pick.inputs["Color1"].default_value = (0, 0, 0, 1)
         pick.inputs["Color2"].default_value = (1, 1, 1, 1)
         pick.inputs["Squash"].default_value = 0.72
-        nt.links.new(mp.outputs["Vector"], pick.inputs["Vector"])
+        nt.links.new(face.outputs["Vector"], pick.inputs["Vector"])
         gate = nt.nodes.new("ShaderNodeMath")
         gate.location = (-660, -380)
         gate.operation = "MULTIPLY"
@@ -729,7 +766,11 @@ def context_city(rng, blocks, mats, lit=0.0):
     """
     parts = []
     for (cx, cy, w, d, h, era) in blocks:
-        mat = mats["city_warm"] if era else mats["city_cool"]
+        # Prefer the rhythm-carrying context shader; fall back to the plain
+        # masonry keys so other concepts keep working unchanged.
+        warm = mats.get("ctx_warm", mats["city_warm"])
+        cool = mats.get("ctx_cool", mats["city_cool"])
+        mat = warm if era else cool
         ph = rng.uniform(4.0, 7.5)
         parts.append(box("podium", (w * 1.12, d * 1.12, ph), (cx, cy, ph / 2), mat))
         sh = h * rng.uniform(0.66, 0.86)
@@ -778,6 +819,22 @@ def standard_materials(wear=0.5, lit=0.0):
                                      tint=0xB8BAB8),
             "wet": cc0("wet", "concrete", (2.4, 2.4), tint=0x6F757C),
             # ~12 courses over the 512 px height at ~86 mm a course.
+            # CONTEXT FACADES KEEP THE PROCEDURAL SHADER, DELIBERATELY.
+            #
+            # context_city's docstring promises "its facade carries a WINDOW
+            # RHYTHM from the brick shader" -- and city_facade() does build
+            # exactly that. But it was only ever called in the procedural
+            # FALLBACK branch. The moment the CC0 sets landed, city_warm and
+            # city_cool became plain brick and concrete photographs, and every
+            # context block in the world silently lost its windows. That is
+            # the whole reason the terrace reads as massing: a mid-distance
+            # building with no opening rhythm has no scale and no function,
+            # and no amount of photographic grain supplies either.
+            #
+            # The near neighbours are unaffected -- they carry modelled
+            # openings and keep the photographic sets below.
+            "ctx_warm": city_facade("ctx_warm", 0xA89684, lit=lit),
+            "ctx_cool": city_facade("ctx_cool", 0x93A0AD, lit=lit),
             "city_warm": cc0("city_warm", "brick", (2.06, 1.03), wear_mask=0.7),
             "city_cool": cc0("city_cool", "concrete", (2.4, 2.4), tint=0xAEB6BE,
                              wear_mask=0.7),
@@ -832,6 +889,8 @@ def standard_materials(wear=0.5, lit=0.0):
         "interior": painted("interior", 0x14171B, rough=0.94, wear=0.0),
         "city_warm": city_facade("city_warm", 0xA89684, lit=lit),
         "city_cool": city_facade("city_cool", 0x93A0AD, lit=lit),
+        "ctx_warm": city_facade("ctx_warm", 0xA89684, lit=lit),
+        "ctx_cool": city_facade("ctx_cool", 0x93A0AD, lit=lit),
         "earth": earth("earth"),
         "hiviz": painted("hiviz", 0xCBE034, rough=0.62, wear=0.1),
         "workwear": painted("workwear", 0x2C3540, rough=0.85, wear=0.1),
