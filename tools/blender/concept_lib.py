@@ -781,6 +781,21 @@ def standard_materials(wear=0.5, lit=0.0):
             "city_warm": cc0("city_warm", "brick", (2.06, 1.03), wear_mask=0.7),
             "city_cool": cc0("city_cool", "concrete", (2.4, 2.4), tint=0xAEB6BE,
                              wear_mask=0.7),
+            # CONCRETE BLOCKWORK. Infill was being built out of the in-situ
+            # concrete material, so the envelope and the frame carrying it
+            # were physically the same surface and the wall mass could not be
+            # separated from the structure at any distance.
+            #
+            # It gets the concrete set, NOT the brick set: `tint` here is a
+            # MULTIPLY, so tinting the brick photo grey produced blockwork
+            # DARKER than the frame -- measured, -0.019 mean over level 1.
+            # The separation that matters at 70 m is value, not coursing: a
+            # 225 mm course subtends 0.6 px at the establishing camera. Dry
+            # laid, clean and unweathered against a frame that has stood
+            # through months of rain is a real ~1.5x albedo difference, and
+            # it is flatter because a block face is not a formed face.
+            "block": cc0("block", "concrete", (1.35, 0.68), rough_boost=0.20,
+                         tint=0xDCDAD2),
             "spandrel": cc0("spandrel", "asphalt", (2.0, 2.0)),
             "earth": site_ground("earth"),
             "ply": cc0("ply", "ply", (2.0, 2.0)),
@@ -803,6 +818,8 @@ def standard_materials(wear=0.5, lit=0.0):
         # Fresh concrete: darker, bluer, and much smoother because it is wet.
         "wet": concrete("wet", 0x6F757C, wear=0.15, wet=0.85),
         "ply": plywood("ply"),
+        # Blockwork: laid clean, so lighter and flatter than the cast frame.
+        "block": concrete("block", 0xCFCCC3, pour_step=0.0, wear=0.12),
         "galv": galvanised("galv"),
         "paint": painted("paint", 0x8A9096, rough=0.5),
         "crane": painted("crane", 0xC8611A, rough=0.44, wear=0.4),

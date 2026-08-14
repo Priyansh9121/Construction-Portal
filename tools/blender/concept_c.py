@@ -144,17 +144,31 @@ def build_infill(parts, mats, lvl, stage, z, y0):
         bx0 = PX0 + b * bw + 0.14
         bx1 = PX0 + (b + 1) * bw - 0.14
         # Spandrel: slab to sill.
-        parts["conc"].append(
+        parts["block"].append(
             M.prism(f"inf{lvl}s{b}", M.rect(bx0, y0 + 0.06, bx1, y0 + 0.30),
-                    z + 0.02, 1.02, mats["conc"]))
+                    z + 0.02, 1.02, mats["block"]))
         # Head panel: under the slab over, leaving the opening between.
-        parts["conc"].append(
+        parts["block"].append(
             M.prism(f"inf{lvl}h{b}", M.rect(bx0, y0 + 0.06, bx1, y0 + 0.30),
-                    z + STOREY_H - 0.85, 0.52, mats["conc"]))
+                    z + STOREY_H - 0.85, 0.52, mats["block"]))
         # The pier between bays, full height -- what the blockwork butts into.
-        parts["conc"].append(
+        parts["block"].append(
             M.prism(f"inf{lvl}p{b}", M.rect(bx1, y0 + 0.06, bx1 + 0.26, y0 + 0.30),
-                    z + 0.02, STOREY_H - 0.33, mats["conc"]))
+                    z + 0.02, STOREY_H - 0.33, mats["block"]))
+
+    # THE LEADING BAY IS RACKED BACK. A gang leaves the end of a run stepped so
+    # the next section toothes in, and a wall that stops in one clean vertical
+    # line is a wall that was drawn rather than built. This is also the only
+    # cue that survives to 70 m saying WHICH level the envelope gang is on:
+    # a stepped edge beside a finished one reads as work in progress.
+    if built < bays:
+        rx0 = PX0 + built * bw + 0.14
+        rw = bw - 0.28
+        for s in range(3):
+            parts["block"].append(
+                M.prism(f"rak{lvl}{s}",
+                        M.rect(rx0, y0 + 0.06, rx0 + rw * (1.0 - s / 3.0), y0 + 0.30),
+                        z + 0.02 + s * 0.34, 0.34, mats["block"]))
 
 
 def build_backprops(parts, mats, rng, lvl, stage, z):
@@ -209,6 +223,31 @@ def build_staging(parts, mats, rng, lvl, stage, z, surf=None):
                     L.cyl(f"reb{lvl}{i}{j}", 0.016, 5.6,
                           (bx + j * 0.05, 11.0, sz + 0.04 + j * 0.04),
                           mats["galv"], verts=5, axis="X"))
+
+
+def build_soffit_forms(parts, mats, lvl, stage, z, y0):
+    """
+    A falsework level still has its SOFFIT FORMWORK up. That is what
+    "falsework standing" means: the props are not holding air, they are
+    holding the deck the slab was cast on, and it has not been struck yet.
+
+    Without it, level 5 was a prop grid identical to levels 6 and 7 -- three
+    storeys in a row reading the same, which was a recorded weakness. It also
+    happens to be the one light-toned surface in the upper working band, so
+    the distinction it makes is a VALUE distinction as well as a construction
+    one, and the props already terminate at exactly this height.
+    """
+    if stage != STAGE_FALSEWORK:
+        return
+    zp = z - 0.35                            # formwork face against the soffit
+    xb = ((PX0 + 0.3, -7.7), (-7.3, -0.2), (0.2, 7.3), (7.7, PX1 - 0.3))
+    yb = ((y0 + 0.4, -4.2), (-3.8, 5.8), (6.2, PY1 - 0.6))
+    for i, (a, b) in enumerate(xb):
+        for j, (c, d) in enumerate(yb):
+            if d <= c or b <= a:
+                continue
+            parts["ply"].append(
+                M.prism(f"sfm{lvl}{i}{j}", M.rect(a, c, b, d), zp, 0.05, mats["ply"]))
 
 
 def build_beams(parts, mats, lvl, z, y0):
@@ -374,8 +413,8 @@ def build(dusk=False, join_by_material=True):
     L.reset()
     rng = random.Random(41)
     mats = L.standard_materials(wear=0.72, lit=0.5 if dusk else 0.0)
-    parts = {"conc": [], "galv": [], "ply": [], "paint": [], "glass": [],
-             "street": []}
+    parts = {"conc": [], "block": [], "galv": [], "ply": [], "paint": [],
+             "glass": [], "street": []}
 
     top = GROUND_H + LEVELS * STOREY_H
 
@@ -725,6 +764,7 @@ def build(dusk=False, join_by_material=True):
         # Props thin downward as the concrete ages; infill climbs upward as
         # the envelope follows the frame. Neither is decoration.
         build_backprops(parts, mats, rng, lvl, stage, z)
+        build_soffit_forms(parts, mats, lvl, stage, z, y0)
         build_infill(parts, mats, lvl, stage, z, y0)
         build_staging(parts, mats, rng, lvl, stage, z, surf)
 
@@ -987,6 +1027,7 @@ def layer_of(name):
 PRODUCTION_FACTORS = {
     #                     base colour  rough  metal
     "conc":              (0x9AA0A6,    0.86,  0.0),
+    "block":             (0xC4C1B8,    0.94,  0.0),
     "wet":               (0x6E747C,    0.42,  0.0),
     "ply":               (0xB8823F,    0.78,  0.0),
     "galv":              (0x8C949B,    0.38,  1.0),
