@@ -1473,7 +1473,24 @@ def main():
 
     build(dusk=dusk)
     light(dusk)
+    # CLOUD STATE IS AN EXPLICIT ARGUMENT, NOT A DEFAULT.
+    #
+    # The architecture has to hold under clear sky as well as cover, so the
+    # clear render stays the baseline and the cover conditions are named in
+    # the filename. A cloud state that quietly became the default would let
+    # cover hide geometry, which is the one thing clouds must not do here.
+    cloud = args[args.index("--clouds") + 1] if "--clouds" in args else "none"
+    if cloud != "none":
+        L.clouds("clouds", L.CLOUD_MODERATE if cloud == "moderate" else L.CLOUD_LIGHT)
+        sc = bpy.context.scene
+        # A 5.2 km domain of thin cloud does not need fine stepping, and the
+        # default rate turns a 4 minute frame into a very long one.
+        sc.cycles.volume_step_rate = 8.0
+        sc.cycles.volume_preview_step_rate = 8.0
+        sc.cycles.volume_max_steps = 256
     suffix = "dusk" if dusk else "day"
+    if cloud != "none":
+        suffix = f"{suffix}-{cloud}"
     for key in which.split(","):
         loc, tgt, mm = CAMERAS[key.strip()]
         cam = L.camera(f"cam-{key}", loc, tgt, mm=mm)
