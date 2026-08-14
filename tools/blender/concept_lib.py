@@ -789,6 +789,10 @@ def standard_materials(wear=0.5, lit=0.0):
             "crane": painted("crane", 0xC8611A, rough=0.44, wear=0.4),
             "screen": painted("screen", 0x2F6F8C, rough=0.62, wear=0.25),
             "glass": glass("glass"),
+        # An unlit room seen through glazing. Not decoration: without a dark
+        # volume behind an opening the eye sees the masonry BEHIND the window
+        # and the whole facade collapses back into a slab.
+        "interior": painted("interior", 0x14171B, rough=0.94, wear=0.0),
             "hiviz": painted("hiviz", 0xCBE034, rough=0.62, wear=0.1),
             "workwear": painted("workwear", 0x2C3540, rough=0.85, wear=0.1),
             "hat": painted("hat", 0xE8E4DC, rough=0.42, wear=0.1),
@@ -805,6 +809,10 @@ def standard_materials(wear=0.5, lit=0.0):
         "screen": painted("screen", 0x2F6F8C, rough=0.62, wear=0.25),
         "spandrel": painted("spandrel", 0x3A4149, rough=0.4, wear=0.15),
         "glass": glass("glass"),
+        # An unlit room seen through glazing. Not decoration: without a dark
+        # volume behind an opening the eye sees the masonry BEHIND the window
+        # and the whole facade collapses back into a slab.
+        "interior": painted("interior", 0x14171B, rough=0.94, wear=0.0),
         "city_warm": city_facade("city_warm", 0xA89684, lit=lit),
         "city_cool": city_facade("city_cool", 0x93A0AD, lit=lit),
         "earth": earth("earth"),
