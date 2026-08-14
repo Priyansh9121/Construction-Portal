@@ -233,15 +233,56 @@ def build(dusk=False, join_by_material=True):
         parts["conc"].append(
             M.parapet(f"np{side}", M.rect(nx - 9.3, PY0 - 3.3, nx + 9.3, PY1 + 3.3),
                       nh + 0.2, 1.1, 0.45, mats["conc"]))
-        # Window reveals down the street elevation: real recesses, so the sun
-        # puts a shadow in every one.
+        # ---- WINDOWS AS ASSEMBLIES, NOT AS CUTS -----------------------
+        #
+        # These were a 250 mm boolean recess and nothing else -- no glass, no
+        # frame, no interior. The back face of the cut was the SAME wall
+        # material lit by the SAME sun, so every opening read as a rectangle
+        # pressed into a slab. That single fact is what made both neighbours
+        # look like massing.
+        #
+        # A window is not a hole. It is: opening -> reveal -> frame ->
+        # recessed glazing -> INTERIOR DEPTH. The interior is the part that
+        # was missing and the part that does the work: a room is darker than
+        # any sunlit facade, so the dark box behind the glass is what tells
+        # the eye there is a building in there rather than solid stone.
+        FACE = PY0 - 3.0                     # the street face of the neighbour
         for lv in range(1, int(nh / 3.4)):
+            z0 = 0.2 + lv * 3.4
             for i in range(4):
                 wx = nx - 6.6 + i * 4.4
+                # 1. The opening, cut 420 mm deep so the reveal has real depth.
                 rec = M.prism(f"nw{side}{lv}{i}",
-                              M.rect(wx - 1.05, PY0 - 3.35, wx + 1.05, PY0 - 2.75),
-                              0.2 + lv * 3.4, 1.7)
+                              M.rect(wx - 1.05, FACE - 0.35, wx + 1.05, FACE + 0.42),
+                              z0, 1.7)
                 M.cut(body, rec)
+                # 2. INTERIOR. An unlit room behind the opening. Without this
+                #    the eye sees masonry through the glass.
+                parts["conc"].append(
+                    M.prism(f"nw{side}{lv}{i}-room",
+                            M.rect(wx - 1.0, FACE + 0.40, wx + 1.0, FACE + 2.6),
+                            z0 + 0.02, 1.66, mats["interior"]))
+                # 3. GLAZING, set 300 mm behind the wall face -- the setback
+                #    is what casts the reveal shadow across the glass.
+                parts["glass"].append(
+                    M.prism(f"nw{side}{lv}{i}-glass",
+                            M.rect(wx - 0.98, FACE + 0.29, wx + 0.98, FACE + 0.31),
+                            z0 + 0.06, 1.58, mats["glass"]))
+                # 4. FRAME: head, sill and two jambs, in the reveal.
+                for (fx0, fy0, fx1, fy1, fz, fh) in (
+                        (wx - 1.0, FACE + 0.26, wx + 1.0, FACE + 0.34, z0 + 1.64, 0.06),
+                        (wx - 1.0, FACE + 0.26, wx + 1.0, FACE + 0.34, z0 + 0.02, 0.06),
+                        (wx - 1.0, FACE + 0.26, wx - 0.94, FACE + 0.34, z0 + 0.02, 1.68),
+                        (wx + 0.94, FACE + 0.26, wx + 1.0, FACE + 0.34, z0 + 0.02, 1.68)):
+                    parts["conc"].append(
+                        M.prism(f"nw{side}{lv}{i}-frame", M.rect(fx0, fy0, fx1, fy1),
+                                fz, fh, mats["paint"]))
+                # 5. A SILL that projects past the face and throws a shadow
+                #    line -- the detail that says "built" rather than "cut".
+                parts["conc"].append(
+                    M.prism(f"nw{side}{lv}{i}-sill",
+                            M.rect(wx - 1.16, FACE - 0.08, wx + 1.16, FACE + 0.36),
+                            z0 - 0.06, 0.08, mats["conc"]))
         # ---- THE BACK OF THE BUILDING ---------------------------------
         #
         # A 360 camera reaches the laneway, and until now it found two blank
@@ -778,6 +819,11 @@ CAMERAS = {
     # on bare earth 24 m beyond the end of the street, which is the whole
     # reason the lower third of the production frame read as a model sheet.
     "establishing": ((-35.9, -69.6, 1.70), (1.0, -3.0, 13.0), 35),
+    # NEIGHBOUR BAY: close on the east neighbour's street elevation, at the
+    # distance the openings have to survive. A failure at 70 m is invisible;
+    # this is where a window either reads as an assembly or as a pressed
+    # rectangle.
+    "bay": ((14.0, -34.0, 7.0), (20.0, -20.0, 9.0), 50),
     # HERO: up the street from the footpath opposite, so the neighbours frame
     # the plot and the scaffold is read THROUGH. Building runs out of frame.
     "hero": ((-19.0, -37.0, 1.65), (2.0, -6.0, 17.0), 28),
