@@ -4,6 +4,210 @@
 
 ---
 
+## CHECKPOINT — HERO GATE **YES**; LUFFING JIB **REJECTED BY SITE GEOMETRY**
+
+**CURRENT COMMIT** this one · source-world gate still FAIL (that is the later
+multi-angle/anti-GTA gate, not the hero gate) · nothing exported · no
+runtime/Three.js/Vercel change.
+
+Option C as directed: the setback was not touched, the scaffold was not
+lowered further, and the construction story was carried by the real cues.
+
+### EVERY NUMBER BELOW IS MEASURED, NOT ESTIMATED
+
+Level bands were derived by projecting the street facade through the actual
+production camera (`-35.9, -69.6, 1.70` → `1.0, -3.0, 13.0`, 35 mm, 720×450),
+so "L1" means rows 224–260 and nothing is being eyeballed:
+
+| level | z | screen rows |
+|---|---|---|
+| L7 | 27.7 | 20–52 |
+| L6 | 24.4 | 52–86 |
+| L5 | 21.1 | 86–120 |
+| L4 | 17.8 | 120–154 |
+| L3 | 14.5 | 154–189 |
+| L2 | 11.2 | 189–224 |
+| L1 | 7.9 | 224–260 |
+| GF | 4.6 | 260–296 |
+
+That projection also settles the crown argument exactly: **L7 deck lands at row
+71.5, scaffold top at row 68.4 — 3 px of occlusion.** Not a judgement call.
+
+### L1 — THE ROOT CAUSE WAS MATERIAL IDENTITY
+
+`build_infill` was building blockwork out of `mats["conc"]`. **The envelope and
+the frame carrying it were physically the same surface**, so no distance or
+lighting could ever separate wall mass from structure. It was never a
+brightness problem.
+
+A `block` material now exists. First attempt used the **brick** CC0 set tinted
+grey and made L1 *darker* — `tint` in `cc0()` is a MULTIPLY, so tinting a dark
+red brick photo grey yields something darker than concrete. **Measured at
+−0.019 mean, and reverted.** It now uses the concrete set at a genuinely
+lighter albedo (`0xDCDAD2`, +0.20 roughness): dry-laid clean blockwork against
+a frame that has stood through months of rain is a real ~1.5× albedo
+difference. Coursing was not pursued — a 225 mm course subtends **0.6 px** at
+this camera.
+
+| band | before | after | delta |
+|---|---|---|---|
+| **L1** mean | 0.1530 | **0.1820** | **+19%** |
+| **L1** p90 | 0.4381 | **0.5252** | **+20%** |
+| L2 mean | 0.2152 | 0.2226 | +3.4% |
+| GF mean | 0.1241 | 0.1305 | +5% |
+| hero overall | 0.3168 | 0.3227 | +1.9% |
+
+### L2 — RACKED LEADING BAY
+
+A gang leaves the end of a run **racked back** so the next section toothes in.
+Three stepped courses at the leading bay. A wall that stops in one clean
+vertical line is a wall that was drawn, not built — and the rake is the only
+cue at 70 m that says *which* level the envelope gang is standing on.
+
+### L3 — UNCHANGED, DELIBERATELY
+
+Reviewed and left alone. It already carries slab edges, the downstand
+grillage, columns and the 4.2 m prop grid, and the boards are struck there.
+Task 3 said not to add objects unless they improve the read; nothing did.
+
+### L4 / L5 — FALSEWORK NOW MEANS SOMETHING
+
+`build_soffit_forms`: **a falsework level still has its soffit formwork up.**
+That is what "falsework standing" means — the props are holding the deck the
+slab was cast on, not holding air. This closes the recorded weakness that L5,
+L6 and L7 shared an identical 1.8 m prop grid: L5 now has ply against the
+soffit and L4 does not. The props already terminate at exactly `z − 0.35`, so
+they bear on it correctly with no adjustment.
+
+Honest limit: at the establishing camera the forms sit behind the 0.7 m
+edge beam and register **+0.0001**. They read in the stack and rear frames.
+Kept because it is structurally correct and fixes a real weakness, not
+because it moved the 70 m needle.
+
+### L6 / L7 — GEOMETRY UNCHANGED
+
+Not enlarged, not moved, not re-tuned. Per direction, the crown was not made
+to carry work it cannot carry from one distant low camera.
+
+### HERO GATE — **YES**
+
+| criterion | verdict |
+|---|---|
+| LOWER: more enclosed / mature | **PASS** — was the weak one; blockwork now separates from frame |
+| MID: open structural work | **PASS** |
+| UPPER: temporary support / forming | **PASS** |
+| TOP: active incomplete deck | **FAIL** — 3 px, explicitly deprioritised |
+
+Whole image: it reads as a real structure at different stages of an active
+process. Three of four criteria pass and the fourth is the 3-pixel crown the
+brief said not to hold the hero hostage to. **Marginal pass, recorded as
+marginal.**
+
+### STRONGEST REMAINING HERO WEAKNESS
+
+**The hero is still value-dark against its neighbours** — 0.32 against 0.35,
+and L1–L4 sit in a flat 0.18–0.22 band. The ground floor at **0.13** is the
+darkest thing in the frame and is the one band never authored: ground-floor
+logistics remains the oldest outstanding item.
+
+---
+
+## LUFFING-JIB VALIDATION — **REJECTED BY SITE GEOMETRY**
+
+No crane geometry was built. Measured from the generated world, not from notes.
+
+### MEASURED WORLD
+
+| element | x | y | z |
+|---|---|---|---|
+| party walls | −10.85 … 10.85 | −17.00 … 17.00 | 0.20 … 27.90 |
+| slabs L1–L6 | −11.00 … 11.00 | −17.00 … 17.00 | 7.60 … 24.40 |
+| set-back deck L7 | −10.60 … 10.60 | **−12.00** … 16.60 | 27.14 … 27.46 |
+| street scaffold | −11.42 … 10.62 | −19.82 … −18.48 | 0.00 … **25.60** |
+| mast climber | 7.87 … **12.13** | **−22.93** … −18.89 | 0.19 … 27.77 |
+| hoarding (site boundary) | −12.20 … 11.00 | −21.60 … −21.40 | 0.20 … 2.60 |
+| core | 3.88 … 10.12 | 7.88 … 16.12 | 0.20 … **31.30** |
+| stair | −10.11 … −4.89 | 8.89 … 16.11 | 0.20 … 29.10 |
+| road ribbon | −320 … 320 | −84.00 … −17.60 | −0.60 … 0.38 |
+| cabin / skip (rear compound) | −3.05 … 8.10 | 18.36 … 23.30 | 0.20 … 2.80 |
+
+Derived: **front strip 4.40 m** (1.34 m of it scaffold), **rear yard 6.30 m**,
+plot width 21.70 m with slabs spanning the **full** width at every level.
+
+### CANDIDATE A — REAR / REAR-CORNER MAST · **REJECTED**
+
+The only real ground. Fails on reach, not on footprint. From a rear base the
+crane must reach the far street corner of a 22 × 34 m plot:
+
+| base | far plot corner | L7 deck centre |
+|---|---|---|
+| (−7, 20) rear corner | **41.1 m** | 32.8 m |
+| (0, 20) rear centre | **38.6 m** | 32.0 m |
+
+That demands a ~45–50 m luffing jib for a 22 m frontage — and a luffing jib's
+minimum radius (~10–14 m, CONCEPTUAL/REPRESENTATIVE, no manufacturer figure
+claimed) would blank out the rear third of the site *it is standing in*.
+It would also sterilise the entire logistics compound: cabin, skip and
+material stacks all measured inside that 6.30 m yard.
+
+### CANDIDATE B — SIDE / RECESS MAST · **REJECTED — NO SUCH ZONE EXISTS**
+
+Slabs span x −11.00 … 11.00 at every level and party walls sit at ±10.85, hard
+against both boundaries. There is no side yard, no recess and no setback on
+either flank. Not "tight" — **absent**.
+
+### CANDIDATE C — INTERNAL / CORE-ADJACENT MAST · **REJECTED**
+
+Requires a void through L1–L6 plus the L7 deck. The only two voids are CORE and
+STAIR, and both are **already occupied by concrete walls built ahead of the
+frame** to 31.30 m and 29.10 m. Creating a new void is a structural/
+architectural change, explicitly out of scope.
+
+### DECISION
+
+**LUFFING-JIB REJECTED BY SITE GEOMETRY.** Retain **mast climber / hoist +
+periodic mobile-crane operations**.
+
+This does not overturn the concept — it *validates* it. `concept_c.py` has said
+since line 19 that there is "no room for a crane pad." That was an assertion.
+It is now measured.
+
+**Mobile-crane setup** (recorded, not modelled): street side, on the ramp/gate
+opening at x −6.4 … 6.4, y −19 … −23, lifting over the hoarding. Reach to the
+L7 deck centre from a street stand at y ≈ −26 is ~14 m horizontal at 27.5 m
+lift — within a city crane's chart for formwork tables and rebar bundles.
+Road ribbon confirmed available from y −17.60 outward.
+
+### MAST-CLIMBER AUDIT — THREE DEFECTS FOUND
+
+Measured, not rebuilt, per instruction:
+
+1. **Oversails the party line by 1.28 m** — extends to x 12.13 against a
+   boundary at 10.85. It is over the neighbour's land.
+2. **Oversails the site boundary by 1.53 m** — reaches y −22.93 against
+   hoarding at −21.40. It stands on the public footpath.
+3. **Bounding-box clash with the scaffold: 2.75 m (x) × 0.93 m (y) × 25.41 m
+   (z).** Bounding boxes, so a mesh-level check is still owed before calling it
+   a hard intersection — but an overlap over 25 m of height is not incidental.
+
+Also: standoff to the nearest facade is **1.89 m**, where a mast climber is
+normally tight to the wall it serves. It cannot be, because the scaffold
+already owns that face. **No tie geometry and no landing gates exist at any
+level.** Landings were listed as verified work in an earlier prompt; they were
+never built.
+
+### NEXT EXACT ACTION
+
+1. Resolve the mast climber: pull it inside both boundaries, close the scaffold
+   clash, and author ties + landing gates. It is the one piece of site
+   machinery the hero depends on and it currently trespasses twice.
+2. Author **ground-floor logistics** — the 0.13 band, the darkest thing in the
+   production frame and the oldest outstanding item.
+3. Then the mobile-crane setup zone as real geometry.
+4. Only then far-left context → sky → road material → multi-angle Cycles gate.
+
+---
+
 ## CHECKPOINT — SCAFFOLD STRUCK BACK; HERO GATE STILL **NO**, FOR A MEASURED REASON
 
 **CURRENT COMMIT** this one · source-world gate still **FAIL** · nothing
