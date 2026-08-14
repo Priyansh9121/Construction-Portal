@@ -4,6 +4,160 @@
 
 ---
 
+## CHECKPOINT — SITE LOGISTICS: HOIST REBUILT, GROUND AUTHORED, LIFT FROM THE REAR
+
+**CURRENT COMMIT** this one · source-world gate still FAIL · nothing exported ·
+no runtime/Three.js/Vercel change.
+
+### MAST SYSTEM TYPE — IT WAS THE WRONG MACHINE
+
+**SYSTEM TYPE** rack-and-pinion **construction hoist** (was: mast-climbing
+work platform). **PRIMARY FUNCTION** vertical transport. **CARRIES** people and
+material to seven floors. **FLOOR INTERFACE** landing platform, gate and edge
+protection at each served level.
+
+Those are different machines. An MCWP runs a long deck along a facade so
+trades work *on* that facade, and needs no landings because nobody gets off.
+This site cannot use one — the street elevation is already fully scaffolded,
+which is the exact face an MCWP would need. With no tower crane, what the site
+needs is vertical transport. A hoist.
+
+### ORIGINAL DEFECTS, AND ONE CORRECTION TO THE PREVIOUS AUDIT
+
+| defect | measured |
+|---|---|
+| party-line oversail | **1.28 m** over the neighbour |
+| site-boundary oversail | **1.53 m** onto the public footpath |
+| scaffold overlap | 2.75 × 0.93 m over 25.41 m of height |
+| wall standoff | 1.89 m, where a machine should be tight |
+| landings | **none** — a car stopping in mid-air beside a slab edge |
+| platform orientation | faced **away** from the building |
+
+**Correction:** the previous checkpoint recorded "no ties". That was wrong.
+Ties existed at z = 6, 12 and 18 m — but `run = 1.9 m` against a 3.09 m gap,
+so they **stopped 1.89 m short of the facade and held nothing**. A tie that
+reaches nothing is arguably worse than an absent one, because it looks solved.
+
+### NEW POSITION AND CLEARANCES — ALL MEASURED FROM THE BUILT OBJECTS
+
+Mast centreline **(7.6, −20.4)**, east of the gate so material lands beside
+the machine that lifts it.
+
+| check | result |
+|---|---|
+| party line 10.85 | **+1.35 m inside** |
+| hoarding −21.40 | **+0.10 m inside** |
+| bay standards 6.6 / 8.6 | 0.25 m each side |
+| car travel clash, all systems | **0 — TOTALCLASH 0** |
+
+Cleared: scaffold, ties, slabs, beams, columns, infill/blockwork, hoarding,
+edge beam, base fence, staging. **This settles the bounding-box question the
+audit left open** — it is now a swept-envelope test over the car's full
+0.20 → 27.70 m travel, and it is clean.
+
+**TIE LEVELS** slabs 1, 3, 5 and a head tie at 6 (≈6.6 m apart), landing on
+slab edges with a bracket. The frame splays to **±0.95 m** against a 1.50 m
+car: inboard, the ties sat *in the travel path*, which was the original defect
+reproduced. **LANDING LEVELS** 1, 2, 4, 6 — following the work, not the floor
+count. Gates stand open only at 2 (blockwork front) and 6 (forming deck);
+3 and 5 are reached from the stair core. A gate that is always open is not a
+gate.
+
+**SCAFFOLD INTERFACE** one full bay between the standards at 6.6 and 8.6 is
+left open. The standards stay because they frame the opening; ledgers, boards
+and guard rails stop at the bay and return; both bay edges are guarded,
+because an opening in a working platform is an edge. Blockwork also stops
+clear of the bay — you cannot build the envelope across the opening the hoist
+lands in.
+
+### GROUND LOGISTICS — FOUR FLOWS, NOT A PROP CATALOGUE
+
+**VEHICLE** ramp → gate → unloading bay on the existing haul strip.
+**PEDESTRIAN** a barriered corridor held against the west party wall, which
+never crosses the vehicle route. **MATERIAL** unloading bay → staging → hoist
+base, west to east on one line — which is *why* the hoist sits east of the
+gate. **WASTE** floors → hoist → skip beside the hoist → out the gate; the
+rear-yard skip is a separate flow.
+
+### MOBILE CRANE — THE STREET SETUP WAS NOT VIABLE
+
+The previous checkpoint recorded a conceptual street-side setup at ~14 m
+radius. **Re-measured, it is impossible.** The scaffold stands 25.6 m directly
+between any street position and a deck set back 4.5 m:
+
+| crane stands at | boom height at the scaffold line | verdict |
+|---|---|---|
+| y −22 | 8.6 m | through scaffold |
+| y −30 | 18.1 m | through scaffold |
+| y −60 | 25.5 m | through scaffold |
+| **required** | — | **y −75, i.e. 75 m back** |
+
+So it works from the **rear laneway**, which carries no scaffold.
+
+**REFERENCE** proportioned on the **Liebherr LTM 1055-3.2** family: 3 axles,
+55 t class, telescopic boom 10.2 → 40 m, 12 t ballast — those four from
+published listings. The outrigger base (6.3 × 6.4 m) and transport envelope
+are **CONCEPTUAL/REPRESENTATIVE**, not manufacturer figures.
+
+**SETUP** (0.0, 26.4) — moved from 27.0 because at 27.0 the outrigger *mats*
+reached 30.93 and overhung the far kerb at 30.40. **OUTRIGGER ENVELOPE**
+footprint y 22.48…30.33, inside the carriageway 22.00…30.40. **RADIUS** 10.4 m.
+**BOOM** 29.7 m at 70.7°. **HOOK** 30.5 m. **LOAD** a banded bundle of formwork
+ply for the deck being formed at level 6, hanging ~1 m clear. **LANDING**
+the L7 forming deck. Clearances: L6 slab edge **+3.4 m**, deck edge **+1.4 m**.
+
+Two bugs found and fixed by render evidence, not by reading:
+- **Boom sections were rotated `boom_deg − 90°`**, putting every section 20°
+  *below* horizontal — three orange bars sticking sideways out of the
+  building. Correct value is `atan2(dz, dy) = 109.3°`.
+- **Open landing gates were flung 18 m east.** `M.prism` returns geometry
+  already in world space, so setting `.location` translated it a second time.
+  Gates are now built at the origin and hung.
+
+### CYCLES EVIDENCE
+
+`logistics-hoist`, `-entrance`, `-lift`, `-deck`, `-establishing`, `-ground`.
+Ordinary daylight, no bloom/DOF/fog/LUT.
+
+### GATE RESULTS
+
+**MAST GATE — PASS.** Boundary trespass NO · neighbour oversail NO · footpath
+oversail NO · scaffold collision NO · building ties YES · landing gates YES ·
+clear travel path YES (0 clashes) · ground access YES · floor alignment YES.
+
+**GROUND GATE — PASS on four, FAIL on the fifth.** How people enter YES · how
+material enters YES · where material goes YES · how the hoist is served YES ·
+how waste leaves YES. **Does it still look like a dark empty void at 70 m —
+YES, it does.** GF moved only 0.1305 → **0.1335 (+2.3%)**. It reads as an
+operating site at the gate camera and remains the darkest band in the
+production frame. Recorded, not dressed up.
+
+**MOBILE-CRANE GATE — PASS on six, one qualified.** Can it stand there YES
+(footprint inside the carriageway) · outrigger space YES · boom clears
+building/scaffold YES (+3.4 / +1.4 m) · pick radius plausible YES (10.4 m,
+55 t class) · landing point plausible YES · load relevant YES. **Does it look
+like a real urban lift — QUALIFIED:** the crane and boom read as machinery,
+but the `deck` receiving frame puts the boom between lens and load, so the
+landing itself is not legible in that view.
+
+### KNOWN WEAKNESS
+
+1. Ground floor still 0.13 at 70 m — authored, legible up close, invisible far.
+2. `deck` camera framing: boom occludes the load it is landing.
+3. Hoist landings exist at 1/2/4/6 but no access stair links 3 and 5 to them.
+4. Crane carrier detail is coarse — reads at 35 m, would not at 10 m.
+
+### NEXT EXACT ACTION
+
+1. Re-aim `deck` so the load, the receiver and the deck edge read without the
+   boom across them.
+2. Ground floor at distance: the openings, not the contents, are what 70 m can
+   see — test a taller/wider gate reveal and a lit unloading bay mouth before
+   adding any more objects.
+3. Then far-left context → sky → road material → multi-angle Cycles gate.
+
+---
+
 ## CHECKPOINT — HERO GATE **YES**; LUFFING JIB **REJECTED BY SITE GEOMETRY**
 
 **CURRENT COMMIT** this one · source-world gate still FAIL (that is the later

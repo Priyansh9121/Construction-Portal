@@ -370,3 +370,216 @@ def mast_climber(name, x, y, z, top, mats, rng, car_z=12.0):
                              (px + sx * 0.34, y - mw / 2 + 0.04, pz + dz), galv,
                              bevel=0.03))
     return out
+
+
+def construction_hoist(name, x, y, z0, top, facade_y, landings, ties,
+                       mats, rng, car_z):
+    """
+    A rack-and-pinion CONSTRUCTION HOIST, and why it is not a mast climber.
+
+    The world previously carried `mast_climber` here, and the audit showed it
+    was doing a hoist's job with a work platform's body: its 4.2 x 1.5 m open
+    platform faced AWAY from the building, its ties stopped 1.89 m short of
+    the facade and attached to nothing, and it had no landings at all -- a car
+    stopping in mid-air beside a slab edge.
+
+    Those are different machines. A mast-climbing work platform runs a long
+    deck along a facade so trades can work ON that facade, and it needs no
+    landings because nobody gets off. This site cannot use one: the street
+    elevation is already fully scaffolded, which is exactly the face an MCWP
+    would need. What the site actually needs, with no tower crane, is vertical
+    TRANSPORT of people and material to seven floors -- a hoist.
+
+    So this is a hoist, and it answers a hoist's questions:
+
+        mast        modular sections, braced, rack up the cage face
+        ties        real members from mast to SLAB EDGE, at slab levels
+        cage        enclosed car with a gate, not an open platform
+        landings    a platform, a gate and edge protection at every stop
+        base        fenced enclosure with a loading threshold
+    """
+    out = []
+    galv, paint, mesh, ply = (mats["galv"], mats["crane"], mats["screen"],
+                              mats["ply"])
+    mw = 0.65
+    cw, cd, ch = 1.50, 2.60, 2.30              # cage width, depth, height
+    cy0 = y + mw / 2                            # cage sits on the BUILDING side
+    cy1 = cy0 + cd
+
+    # ---- MAST -------------------------------------------------------------
+    for i in range(int((top - z0) / 1.5)):
+        zz = z0 + i * 1.5
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                out.append(L.box(f"{name}c{i}{sx}{sy}", (0.08, 0.08, 1.5),
+                                 (x + sx * mw / 2, y + sy * mw / 2, zz + 0.75), galv))
+        for sy in (-1, 1):
+            out.append(L.box(f"{name}h{i}{sy}", (mw, 0.05, 0.05),
+                             (x, y + sy * mw / 2, zz + 1.5), galv))
+        d = L.box(f"{name}d{i}", (0.045, 0.045, 1.62), (x, y - mw / 2, zz + 0.75), galv)
+        d.rotation_euler = (0, math.radians(22 if i % 2 else -22), 0)
+        out.append(d)
+    # The rack faces the cage, because that is the face the pinion drives on.
+    for i in range(int((top - z0) / 0.12)):
+        out.append(L.box(f"{name}rk{i}", (0.09, 0.05, 0.06),
+                         (x, cy0 + 0.05, z0 + 0.06 + i * 0.12), galv))
+
+    # ---- TIES: mast to SLAB EDGE. The old ones stopped in mid-air. --------
+    # The tie frame splays OUTSIDE the car, at +/- 0.95 against a 1.50 m car,
+    # because the car runs on the building face of the mast and the ties run
+    # to the same building. Inboard of the car they would occupy the travel
+    # path -- which is exactly the defect this hoist replaced.
+    for j, tz in enumerate(ties):
+        run = facade_y - cy0
+        for sx in (-1, 1):
+            out.append(L.box(f"{name}ty{j}{sx}", (0.07, run, 0.07),
+                             (x + sx * 0.95, cy0 + run / 2, tz + 1.1), galv))
+            out.append(L.box(f"{name}tk{j}{sx}", (0.06, 0.06, 0.62),
+                             (x + sx * 0.95, cy0 + 0.30, tz + 0.80), galv))
+        out.append(L.box(f"{name}tx{j}", (0.62, 0.07, 0.07),
+                         (x, facade_y - 0.10, tz + 1.1), galv))
+        # The bracket that actually lands on the concrete.
+        out.append(L.box(f"{name}tb{j}", (0.44, 0.22, 0.30),
+                         (x, facade_y - 0.11, tz + 0.55), galv, bevel=0.02))
+
+    # ---- LANDINGS: a platform, a gate and edge protection at every stop ---
+    for j, (lz, is_open) in enumerate(landings):
+        bridge = facade_y - cy1
+        out.append(M.prism(f"{name}ld{j}", M.rect(x - 0.80, cy1, x + 0.80, facade_y),
+                           lz - 0.05, 0.05, ply))
+        for sx in (-1, 1):                      # bridge side rails + toe board
+            out.append(M.prism(f"{name}lr{j}{sx}",
+                               M.rect(x + sx * 0.78, cy1, x + sx * 0.80, facade_y),
+                               lz, 1.10, galv))
+        out.append(M.prism(f"{name}lt{j}", M.rect(x - 0.80, cy1, x + 0.80, cy1 + 0.04),
+                           lz, 0.15, ply))
+        # The landing gate: shut where nothing is being received, swung clear
+        # where it is. A gate that is always open is not a gate.
+        # Built at the ORIGIN and then hung, because M.prism returns geometry
+        # already in world space: setting .location on a world-space prism
+        # translates it a second time, which threw the open leaves 18 m east.
+        g = M.prism(f"{name}lg{j}", M.rect(0.0, -0.03, 1.44, 0.03),
+                    lz + 0.10, 1.05, mesh)
+        g.location = (x - 0.72, cy1, 0.0)
+        if is_open:
+            g.rotation_euler = (0, 0, math.radians(78))
+        out.append(g)
+
+    # ---- CAGE -------------------------------------------------------------
+    pz = z0 + car_z
+    out.append(M.prism(f"{name}cf", M.rect(x - cw / 2, cy0, x + cw / 2, cy1),
+                       pz, 0.07, paint))
+    out.append(M.prism(f"{name}cr", M.rect(x - cw / 2, cy0, x + cw / 2, cy1),
+                       pz + ch, 0.06, paint))
+    for sx in (-1, 1):                          # solid lower, mesh upper sides
+        out.append(M.prism(f"{name}cs{sx}",
+                           M.rect(x + sx * cw / 2 - 0.04, cy0, x + sx * cw / 2, cy1),
+                           pz, 1.10, paint))
+        for k in range(7):
+            yy = cy0 + 0.12 + k * (cd - 0.24) / 6.0
+            out.append(L.box(f"{name}cm{sx}{k}", (0.03, 0.03, 1.10),
+                             (x + sx * cw / 2 - 0.02, yy, pz + 1.68), mesh))
+    out.append(M.prism(f"{name}cb", M.rect(x - cw / 2, cy0, x + cw / 2, cy0 + 0.05),
+                       pz, ch, paint))          # back panel against the mast
+    out.append(M.prism(f"{name}cg", M.rect(x - cw / 2, cy1 - 0.05, x + cw / 2, cy1),
+                       pz, 1.15, paint))        # cage gate, lower leaf
+    for dz in (0.22, 1.90):                     # guide rollers on the mast
+        for sx in (-1, 1):
+            out.append(L.box(f"{name}rl{sx}{dz}", (0.14, 0.20, 0.17),
+                             (x + sx * 0.36, cy0 - 0.10, pz + dz), galv, bevel=0.03))
+    out.append(L.box(f"{name}drv", (0.66, 0.58, 0.70), (x, cy0 + 0.34, pz + ch + 0.35),
+                     paint, bevel=0.02))
+
+    # ---- BASE ENCLOSURE: where material is loaded, and who may stand -----
+    # by0 is 0.90 not 1.10: at 1.10 the back panel landed 0.10 m outside the
+    # hoarding line. A machine enclosure on the public side of the boundary is
+    # exactly the defect this hoist was rebuilt to remove.
+    bx0, bx1 = x - 1.9, x + 1.9
+    by0, by1 = y - 0.90, facade_y - 0.2
+    for sx, (px0, px1) in ((-1, (bx0, bx0 + 0.06)), (1, (bx1 - 0.06, bx1))):
+        out.append(M.prism(f"{name}bf{sx}", M.rect(px0, by0, px1, by1), z0, 2.05, mesh))
+    out.append(M.prism(f"{name}bb", M.rect(bx0, by0, bx1, by0 + 0.06), z0, 2.05, mesh))
+    # Loading threshold: a ramped ply lip so a pallet truck can run in.
+    out.append(M.prism(f"{name}bt", M.rect(x - 1.1, by1 - 1.5, x + 1.1, by1),
+                       z0, 0.06, ply))
+    return out
+
+
+def mobile_crane(name, x, y, ground_z, hook, boom_deg, mats, rng,
+                 base=6.3, span=6.4):
+    """
+    A CONCEPTUAL/REPRESENTATIVE 3-axle all-terrain mobile crane.
+
+    Proportioned on the Liebherr LTM 1055-3.2 family -- 3 axles, 55 t class,
+    telescopic boom 10.2 m retracted to 40 m extended, 12 t ballast. Those
+    four figures are from published listings. Everything else here, including
+    the outrigger base, is REPRESENTATIVE and is not a manufacturer figure.
+
+    It is a periodic visitor, not a resident: the tower crane was rejected by
+    site geometry, so heavy and awkward lifts arrive with the crane and leave
+    with it. The hoist does the routine work.
+    """
+    out = []
+    galv, paint, blk, ply = (mats["galv"], mats["crane"], mats["workwear"],
+                             mats["ply"])
+    cz = ground_z + 1.15                        # chassis deck height
+
+    # ---- CARRIER: 3 axles, along the lane --------------------------------
+    out.append(L.box(f"{name}ch", (11.90, 2.70, 0.95), (x, y, cz), paint, bevel=0.06))
+    out.append(L.box(f"{name}cab", (2.30, 2.45, 1.45), (x - 4.55, y, cz + 1.16),
+                     paint, bevel=0.10))
+    for i, ax in enumerate((-4.30, 2.05, 3.75)):
+        for sy in (-1, 1):
+            out.append(L.cyl(f"{name}w{i}{sy}", 0.62, 0.42,
+                             (x + ax, y + sy * 1.24, ground_z + 0.62), blk,
+                             axis="Y", verts=16))
+    # ---- OUTRIGGERS: beams out to the support base, with pads ------------
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            ox, oy = x + sx * base / 2, y + sy * span / 2
+            out.append(L.box(f"{name}ob{sx}{sy}", (base / 2, 0.34, 0.30),
+                             (x + sx * base / 4, y + sy * span / 2, cz - 0.30), paint))
+            out.append(L.cyl(f"{name}oj{sx}{sy}", 0.16, 1.10, (ox, oy, cz - 0.75),
+                             galv, verts=10))
+            out.append(L.box(f"{name}op{sx}{sy}", (1.05, 1.05, 0.16),
+                             (ox, oy, ground_z + 0.10), blk, bevel=0.02))
+            out.append(L.box(f"{name}om{sx}{sy}", (1.45, 1.45, 0.09),
+                             (ox, oy, ground_z + 0.03), ply))
+    # ---- SUPERSTRUCTURE: slews to face the building ----------------------
+    sz = cz + 0.70
+    out.append(L.cyl(f"{name}slew", 1.05, 0.34, (x, y, sz - 0.10), galv, verts=20))
+    out.append(L.box(f"{name}house", (3.10, 2.55, 1.75), (x, y + 0.55, sz + 0.90),
+                     paint, bevel=0.06))
+    out.append(L.box(f"{name}ocab", (1.35, 1.10, 1.55), (x - 1.55, y - 1.35, sz + 0.85),
+                     paint, bevel=0.10))
+    # Counterweight: a stack of slabs, on the opposite side to the load.
+    for i in range(3):
+        out.append(L.box(f"{name}cw{i}", (2.55, 0.62, 0.42),
+                         (x, y + 2.05, sz + 0.34 + i * 0.44), blk, bevel=0.02))
+
+    # ---- TELESCOPIC BOOM: base plus two extended sections ----------------
+    pivot = (x, y - 0.55, sz + 0.55)
+    hx, hy, hz = hook
+    length = math.hypot(hy - pivot[1], hz - pivot[2])
+    dirn = ((hy - pivot[1]) / length, (hz - pivot[2]) / length)
+    # A box built long in +Y is swung onto the boom line by rotating about X
+    # through atan2(dz, dy). Using (boom_deg - 90) instead put every section
+    # 20 degrees BELOW horizontal -- three orange bars sticking sideways out
+    # of the building, which is what the first lift render showed.
+    a = math.atan2(dirn[1], dirn[0])
+    for i, (f0, f1, w) in enumerate(((0.00, 0.42, 0.80), (0.40, 0.74, 0.66),
+                                     (0.72, 1.00, 0.54))):
+        mid = (f0 + f1) / 2
+        seg = L.box(f"{name}bm{i}", (w, length * (f1 - f0), w * 1.10),
+                    (x, pivot[1] + dirn[0] * length * mid,
+                     pivot[2] + dirn[1] * length * mid), paint, bevel=0.03)
+        seg.rotation_euler = (a, 0, 0)
+        out.append(seg)
+    head = (x, hy, hz)
+    out.append(L.cyl(f"{name}sheave", 0.34, 0.50, head, galv, axis="X", verts=16))
+    # Luffing ram, so the boom angle is held by something.
+    ram = L.box(f"{name}ram", (0.34, 3.30, 0.34), (x, pivot[1] + 1.15, pivot[2] + 1.55),
+                galv)
+    ram.rotation_euler = (math.radians(52) - math.pi / 2, 0, 0)
+    out.append(ram)
+    return out, head

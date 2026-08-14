@@ -67,6 +67,38 @@ SETBACK_FROM = 6                # upper levels step back from the street
 CORE = (4.0, 8.0, 10.0, 16.0)   # hard against the north party wall
 STAIR = (-10.0, 9.0, -5.0, 16.0)
 
+# ---- SITE LOGISTICS --------------------------------------------------------
+#
+# The tower crane was rejected by measured site geometry, so everything
+# vertical happens through ONE hoist and everything heavy arrives with a
+# mobile crane that leaves again. These numbers are the contract between them.
+#
+# The hoist sits in its own scaffold bay between the standards at 6.6 and 8.6,
+# east of the gate so material lands beside the machine that lifts it.
+# Measured clearances: 0.68 m inside the hoarding, 2.50 m off the party line,
+# 0.25 m each side to the bay standards.
+HOIST_X, HOIST_Y = 7.6, -20.4
+HOIST_BAY = (6.6, 8.6)
+# Ties land on SLAB EDGES, not in mid-air: levels 1, 3, 5 and the head tie at
+# 6, roughly 6.6 m apart, which is what a mast of this height wants.
+HOIST_TIES = [GROUND_H + l * STOREY_H for l in (1, 3, 5, 6)]
+# Landings follow the WORK, not the floor count. Blockwork gangs at 1 and 2,
+# the striking gang at 4, the forming gang at 6. The gate stands open only
+# where something is actually being received -- level 2's blockwork front and
+# level 6's forming deck. Levels 3 and 5 are reached from the stair core.
+HOIST_LANDINGS = [(GROUND_H + l * STOREY_H, l in (2, 6)) for l in (1, 2, 4, 6)]
+HOIST_CAR_Z = 2 * STOREY_H - 0.2                 # car standing at level 2
+
+# The mobile crane works from the REAR LANEWAY, not the street. Measured: a
+# street-side boom would have to stand 75 m back to clear the 25.6 m scaffold,
+# because the scaffold stands directly between any street position and a deck
+# set back 4.5 m. The rear elevation carries no scaffold at all.
+# y = 26.4, not 27.0: at 27.0 the outrigger MATS reached 30.93 and overhung
+# the far kerb at 30.40. Measured, then moved.
+CRANE_X, CRANE_Y = 0.0, 26.4
+CRANE_HOOK = (0.0, 16.0, 30.5)                   # radius 10.4 m, boom 29.8 m
+CRANE_BOOM_DEG = 69.6
+
 
 def plate(level):
     """The plan steps back from the street on the top two levels, and the
@@ -165,9 +197,14 @@ def build_infill(parts, mats, lvl, stage, z, y0):
         rx0 = PX0 + built * bw + 0.14
         rw = bw - 0.28
         for s in range(3):
+            # Blockwork stops clear of the hoist bay: you cannot build the
+            # envelope across the opening the hoist lands in. That gap gets
+            # closed after the hoist comes down.
+            rx1 = min(rx0 + rw * (1.0 - s / 3.0), HOIST_BAY[0] - 0.10)
+            if rx1 <= rx0:
+                continue
             parts["block"].append(
-                M.prism(f"rak{lvl}{s}",
-                        M.rect(rx0, y0 + 0.06, rx0 + rw * (1.0 - s / 3.0), y0 + 0.30),
+                M.prism(f"rak{lvl}{s}", M.rect(rx0, y0 + 0.06, rx1, y0 + 0.30),
                         z + 0.02 + s * 0.34, 0.34, mats["block"]))
 
 
@@ -379,6 +416,62 @@ def build_crown(parts, mats, lvl, y0, deck_top):
         parts["galv"].append(
             M.prism(f"drail{lvl}{h}", M.rect(x0, ye - 0.16, x1, ye - 0.10),
                     deck_top + h, 0.042, mats["galv"]))
+
+
+def build_ground_logistics(parts, mats, rng):
+    """
+    The ground floor is where the site OPERATES FROM, and it was a black void.
+
+    Measured at 0.13 luminance in the production frame -- the darkest band in
+    the hero and the one level never authored. The fix is not exposure. It is
+    that four flows have to be legible, and each needs the thing that makes it
+    real:
+
+        VEHICLE     ramp, gate, unloading bay on the existing haul strip
+        PEDESTRIAN  a barriered corridor that never crosses the vehicle route
+        MATERIAL    unloading bay -> staging -> hoist base, in that order and
+                    on one line, which is WHY the hoist sits east of the gate
+        WASTE       floors -> hoist -> skip beside the hoist -> out the gate
+
+    Restraint matters more than inventory: every object below belongs to one
+    of those four flows, and nothing is here because a site "usually has one".
+    """
+    galv, mesh, ply = mats["galv"], mats["screen"], mats["ply"]
+
+    # PEDESTRIAN: one barrier line holding the walking route against the west
+    # party wall. A route that crosses the vehicle route is not a route.
+    for i in range(14):
+        yy = -18.6 + i * 1.95
+        parts["paint"].append(
+            M.prism(f"pbar{i}", M.rect(-8.10, yy, -8.04, yy + 1.80), 0.42, 1.05, mesh))
+        parts["galv"].append(
+            L.cyl(f"pbf{i}", 0.05, 0.62, (-8.07, yy + 0.9, 0.44), galv, axis="Y", verts=6))
+    for i, sy in enumerate((-18.2, -16.0)):      # signs only where the route starts
+        parts["paint"].append(
+            M.prism(f"psgn{i}", M.rect(-8.16, sy, -8.10, sy + 0.90), 1.05, 0.62, ply))
+
+    # VEHICLE: bollards holding the unloading bay off the pedestrian line.
+    for i in range(5):
+        parts["paint"].append(
+            L.cyl(f"boll{i}", 0.09, 1.05, (-7.2, -18.4 + i * 1.9, 0.92),
+                  mats["crane"], verts=8))
+
+    # MATERIAL: unloading bay -> staging -> hoist, west to east on one line.
+    parts["ply"] += D.plank_stack("gply1", 2.1, -15.2, 0.40, mats, rng, layers=8)
+    parts["ply"] += D.plank_stack("gply2", 3.6, -15.4, 0.40, mats, rng, layers=6)
+    parts["galv"] += D.rebar_bundle("greb1", 1.2, -12.4, 0.44, mats, rng, count=11)
+    parts["galv"] += D.tube_pile("gtub", 5.0, -12.0, 0.40, mats, rng, count=12)
+    for i in range(3):
+        # Block pallets staged CLEAR of the car's travel envelope -- material
+        # waiting for a hoist must not stand in the hoist.
+        parts["block"].append(
+            M.prism(f"gblk{i}", M.rect(2.8 + i * 1.30, -17.6, 3.95 + i * 1.30, -16.5),
+                    0.40, 0.92, mats["block"]))
+    parts["paint"] += D.wrapped_pallet("gwp", 6.4, -14.6, 0.40, mats, rng)
+
+    # WASTE: the skip stands beside the hoist, because that is what brings it
+    # down. The rear-yard skip serves the rear yard and is a different flow.
+    parts["paint"] += D.bin_skip("gskip", 5.6, -12.6, 0.40, mats, rng)
 
 
 def boarded_lifts(lifts, lift_h=2.0):
@@ -807,14 +900,35 @@ def build(dusk=False, join_by_material=True):
         parts["galv"].append(
             L.cyl(f"std2{i}", 0.024, scaf_h, (sx, sy - 1.3, scaf_h / 2),
                   mats["galv"], verts=6))
+    # ---- THE HOIST BAY ---------------------------------------------------
+    #
+    # The hoist car travels through the plane the scaffold occupies, so the
+    # scaffold has to make room for it -- properly, not by deleting whatever
+    # tubes happen to intersect. One full bay between the standards at 6.6 and
+    # 8.6 is left OPEN: the standards stay because they frame the opening, the
+    # ledgers, boards and guard rails STOP at the bay and return, and the bay
+    # edges are guarded, because an opening in a working platform is an edge.
+    def bay_split(a, b):
+        """Segments of a run from a to b that avoid the hoist bay."""
+        lo, hi = HOIST_BAY
+        if b <= lo or a >= hi:
+            return [(a, b)]
+        out = []
+        if a < lo:
+            out.append((a, lo))
+        if b > hi:
+            out.append((hi, b))
+        return out
+
     for lift in range(1, lifts + 1):
         zz = lift * 2.0
-        parts["galv"].append(
-            M.prism(f"ldg{lift}", M.rect(PX0 - 0.45, sy - 0.03, PX1 + 0.45, sy + 0.03),
-                    zz, 0.048, mats["galv"]))
-        parts["galv"].append(
-            M.prism(f"ldg2{lift}", M.rect(PX0 - 0.45, sy - 1.33, PX1 + 0.45, sy - 1.27),
-                    zz, 0.048, mats["galv"]))
+        for k, (a, b) in enumerate(bay_split(PX0 - 0.45, PX1 + 0.45)):
+            parts["galv"].append(
+                M.prism(f"ldg{lift}_{k}", M.rect(a, sy - 0.03, b, sy + 0.03),
+                        zz, 0.048, mats["galv"]))
+            parts["galv"].append(
+                M.prism(f"ldg2{lift}_{k}", M.rect(a, sy - 1.33, b, sy - 1.27),
+                        zz, 0.048, mats["galv"]))
         # Transoms CARRY THE BOARDS. A full set at every lift was the second
         # half of the occlusion problem -- 156 tubes screening the elevation
         # to hold up platforms that are not there. Where the boards were
@@ -832,23 +946,68 @@ def build(dusk=False, join_by_material=True):
         # edge protection and toe board go with them, because you guard an
         # edge someone can fall off, not an empty lift.
         if lift in boarded:
-            parts["ply"].append(
-                M.prism(f"board{lift}", M.rect(PX0 - 0.4, sy - 1.28, PX1 + 0.4, sy + 0.02),
-                        zz + 0.05, 0.04, mats["ply"]))
-            parts["ply"].append(
-                M.prism(f"board{lift}t", M.rect(PX0 - 0.42, sy - 1.34, PX1 + 0.42, sy - 1.28),
-                        zz + 0.09, 0.15, mats["ply"]))
-            for h in (0.5, 1.0):
-                parts["galv"].append(
-                    M.prism(f"gr{lift}{h}", M.rect(PX0 - 0.45, sy - 1.36, PX1 + 0.45, sy - 1.30),
-                            zz + h, 0.04, mats["galv"]))
+            for k, (a, b) in enumerate(bay_split(PX0 - 0.4, PX1 + 0.4)):
+                parts["ply"].append(
+                    M.prism(f"board{lift}_{k}", M.rect(a, sy - 1.28, b, sy + 0.02),
+                            zz + 0.05, 0.04, mats["ply"]))
+                parts["ply"].append(
+                    M.prism(f"board{lift}t{k}", M.rect(a, sy - 1.34, b, sy - 1.28),
+                            zz + 0.09, 0.15, mats["ply"]))
+                for h in (0.5, 1.0):
+                    parts["galv"].append(
+                        M.prism(f"gr{lift}{h}_{k}", M.rect(a, sy - 1.36, b, sy - 1.30),
+                                zz + h, 0.04, mats["galv"]))
+            # An opening in a boarded lift is an EDGE. Guard both bay sides.
+            for e, ex in enumerate(HOIST_BAY):
+                for h in (0.5, 1.0):
+                    parts["galv"].append(
+                        M.prism(f"gr{lift}b{e}{h}", M.rect(ex - 0.03, sy - 1.34,
+                                                           ex + 0.03, sy + 0.02),
+                                zz + h, 0.04, mats["galv"]))
 
-    # ---- MAST CLIMBER ----------------------------------------------------
-    # A real rack-and-pinion machine, not a cube on a stack of blocks. See
-    # site_dressing.mast_climber for what each part is answering.
+    # ---- CONSTRUCTION HOIST ----------------------------------------------
+    #
+    # This was a mast climber standing in the wrong place doing a hoist's job.
+    # Measured, it oversailed the party line by 1.28 m and the site boundary
+    # by 1.53 m, its ties stopped 1.89 m short of the facade and held nothing,
+    # its work platform faced AWAY from the building, and it had no landings
+    # at all -- a car stopping in mid-air beside a slab edge.
+    #
+    # It is now a construction hoist, inside both boundaries, in its own
+    # scaffold bay, tied to slab edges and landing on real platforms. See
+    # site_dressing.construction_hoist for why it is not an MCWP.
     parts["galv"].extend(
-        D.mast_climber("mc", PX1 - 1.0, sy - 2.6, 0.2, top, mats, rng,
-                       car_z=12.0))
+        D.construction_hoist("hst", HOIST_X, HOIST_Y, 0.2, top, PY0,
+                             HOIST_LANDINGS, HOIST_TIES, mats, rng,
+                             car_z=HOIST_CAR_Z))
+
+    # ---- PERIODIC MOBILE-CRANE OPERATION ---------------------------------
+    #
+    # It works from the REAR LANEWAY, and that is a measured decision. From
+    # the street the boom would have to stand 75 m back to clear a 25.6 m
+    # scaffold standing directly between it and a deck set back 4.5 m. The
+    # rear elevation carries no scaffold, so an 11.0 m radius from the lane
+    # clears the level 6 slab edge by 3.6 m and the deck edge by 1.5 m.
+    # It is a visitor: the hoist does the routine work.
+    build_ground_logistics(parts, mats, rng)
+    crane, _head = D.mobile_crane("mcr", CRANE_X, CRANE_Y, 0.05, CRANE_HOOK,
+                                  CRANE_BOOM_DEG, mats, rng)
+    parts["paint"] += crane
+    # The lift: a banded bundle of formwork ply for the deck being formed at
+    # level 6, hanging a metre clear and about to land. A relevant load.
+    hx, hy, hz = CRANE_HOOK
+    parts["galv"].append(
+        L.cyl("mcrrope", 0.022, hz - 29.05, (hx, hy, (hz + 29.05) / 2),
+              mats["galv"], verts=6))
+    parts["galv"].append(
+        L.box("mcrhook", (0.34, 0.34, 0.62), (hx, hy, 28.74), mats["galv"], bevel=0.04))
+    for s in (-1, 1):
+        parts["galv"].append(
+            L.cyl(f"mcrsling{s}", 0.014, 1.30, (hx + s * 0.62, hy, 27.95),
+                  mats["galv"], verts=5))
+    parts["ply"].append(
+        M.prism("mcrload", M.rect(hx - 1.5, hy - 0.62, hx + 1.5, hy + 0.62),
+                27.30, 0.58, mats["ply"]))
 
 
     # ---- Street furniture, hoarding, people -----------------------------
@@ -886,11 +1045,17 @@ def build(dusk=False, join_by_material=True):
     # Real lofted anatomy, not box figures. Each has a REASON to stand where
     # it does: one arriving through the gate, one at the material staging with
     # the rebar, one signalling the lift, one on the footpath outside.
+    # The three added here belong to the LIFT and the HOIST. A dogman who
+    # cannot see the load, or a receiver who is not on the deck it lands on,
+    # is set dressing -- so each position was taken from the operation.
     for (nm, x, y, z, face, pose) in (
             ("wk-gate", -3.6, -20.4, 0.40, 0.7, "walk"),
             ("wk-mat", -2.0, -8.2, 0.40, 2.5, "carry"),
             ("wk-bank", 5.4, -4.0, 0.40, -1.1, "signal"),
-            ("wk-path", 4.6, -22.6, 0.24, 2.9, "stand")):
+            ("wk-path", 4.6, -22.6, 0.24, 2.9, "stand"),
+            ("wk-hoist", 6.3, -18.6, 0.40, 1.4, "stand"),
+            ("wk-dog", 3.2, 23.6, 0.24, 2.0, "signal"),
+            ("wk-deck", 1.6, 14.2, 27.46, 3.3, "signal")):
         w = H.worker(nm, mats, pose=pose, facing=face,
                      height=rng.uniform(1.68, 1.83), seed=int(x * 10))
         w.location = (x, y, z)
@@ -994,7 +1159,10 @@ LAYER_RULES = (
     ("neighbours", ("nb", "np", "nw", "nplant", "city",
                     # M3 rear elevations: openings, fire stair, plant
                     "nrw", "nrd", "nfl", "nfr", "nfp", "nac", "ndp")),
-    ("scaffold", ("std", "ldg", "tr", "board", "gr", "mast", "climber", "mc")),
+    ("street", ("mcr", "pbar", "pbf", "psgn", "boll", "gply", "greb", "gtub",
+                "gblk", "gwp", "gskip")),
+    ("scaffold", ("std", "ldg", "tr", "board", "gr", "mast", "climber", "mc",
+                  "hst")),
     ("people", ("wk-",)),
 )
 
@@ -1223,6 +1391,17 @@ CAMERAS = {
     # filled the frame and the shot became a section through it, which proves
     # nothing about whether the rear of the SITE survives inspection.
     "rear": ((16.0, 44.0, 3.2), (-2.0, 6.0, 11.0), 24),
+    # HOIST: close on the machine in its scaffold bay, from inside the site,
+    # so the bay, the ties, the landings and the base land in one frame. This
+    # is the view that has to prove the thing is attached to a building.
+    "hoist": ((-1.6, -26.5, 3.4), (7.6, -18.6, 13.0), 50),
+    # LIFT: the rear laneway, standing back from the outriggers at about the
+    # distance a banksman actually stands. Tests whether the crane can
+    # physically BE there, not whether it looks good.
+    "lift": ((-19.0, 40.0, 1.70), (0.0, 24.0, 9.0), 35),
+    # DECK RECEIVING: up at the load coming in over the level 6 slab edge
+    # onto the forming deck, from the laneway side.
+    "deck": ((-15.0, 30.0, 15.0), (1.0, 15.5, 27.6), 40),
 }
 
 
