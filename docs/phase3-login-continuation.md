@@ -4,6 +4,60 @@
 
 ---
 
+## ADDENDUM — CAMERA FAR-CLIP BUG FIXED; CLOUDS BUILT BUT **NOT CONVERGED**
+
+### A REAL BUG, FOUND BY THE CLOUD WORK
+
+**`L.camera()` never set `clip_end`, so every camera in this project has been
+running Blender's default 1000 m far clip.** The far context ring tops out
+near 430 m so it survived, and nothing in any previous render was affected —
+verified: an establishing render before and after the fix is identical to four
+decimal places on all three measured zones. But a cloud layer at 680–1240 m
+altitude lies 1400–2600 m out along the sightline, i.e. **entirely beyond the
+plane**. It was being built correctly and then clipped away, which renders as
+a perfectly clean empty sky and looks exactly like "clouds don't work".
+
+Now `clip_start 0.05 / clip_end 40000`.
+
+### CLOUDS — BUILT, WIRED, REACHING THE CAMERA, NOT YET CONVINCING
+
+`L.clouds()` exists with `CLOUD_LIGHT` / `CLOUD_MODERATE`, opt-in behind
+`--clouds light|moderate` and **defaulting to none**, so no existing render is
+affected and the clear sky remains the baseline.
+
+Verified working: object, material, `Volume` link, density chain, and the
+layer is inside the clip range. Density and threshold demonstrably control it
+— at `cover 0.34 / density 0.25` it produces a solid overcast slab.
+
+**What it does NOT yet do is produce discrete cloud forms with open sky
+between them.** Across nine test renders spanning three brackets:
+
+| bracket | result |
+|---|---|
+| density 0.15 → 0.25 | solid opaque sheet / black slab from beneath |
+| density 0.08 | uniform grey veil |
+| scale 9 / 14 / 22 | still uniform veil — feature size did not change the read |
+| density 0.002 / 0.005 / 0.010 at scale 14 | still a smooth veil |
+
+The symptom is invariant to both density and feature scale, which is the
+useful clue: if it were a tuning problem, scale would have changed the
+structure and it did not. **The prime suspect is the texture coordinate**
+— `Texture Coordinate > Generated` through a Mapping node may not be varying
+per-sample inside the volume, leaving the noise near-constant over the sampled
+region. Next attempt should drive the noise from **`Geometry > Position`
+(world space, metres) instead of Generated**, which removes the object-space
+assumption entirely and makes the noise scale directly readable in metres.
+
+**D4 is NOT closed. Do not report clouds as done.**
+
+### STATE
+
+C closed · D1–D3 satisfied (audited, already existed) · **D4 open** ·
+**E untouched** · **F untouched** · anti-GTA **NOT RUN** · source gate
+**NOT RUN** · nothing exported · runtime untouched.
+
+---
+
 ## CHECKPOINT — CONTEXT CLOSED; SKY AUDITED AND HALF OF IT ALREADY EXISTED
 
 **CURRENT COMMIT** this one · source gate **not run** · nothing exported · no

@@ -619,6 +619,14 @@ def camera(name, loc, target, mm=35, sensor=36):
     d = bpy.data.cameras.new(name)
     d.lens = mm
     d.sensor_width = sensor
+    # Blender's default far clip is 1000 m and this was never set. The far
+    # context ring tops out around 430 m so it survived, but a cloud layer at
+    # 680-1240 m altitude sits 1400-2600 m out along the sightline -- entirely
+    # beyond the plane. The clouds were being built correctly and then clipped
+    # away, which renders as a perfectly clean empty sky and looks exactly
+    # like "the clouds did not work".
+    d.clip_start = 0.05
+    d.clip_end = 40000.0
     ob = bpy.data.objects.new(name, d)
     bpy.context.collection.objects.link(ob)
     ob.location = loc
@@ -1509,3 +1517,120 @@ def to_uv_materials():
                 mat.node_tree.links.remove(link)
         retargeted.append(mat.name)
     return retargeted
+
+
+# Two reproducible source conditions. Not art direction -- the architecture
+# has to hold under both, and a cover that improves the render by hiding
+# geometry is a failure, not a feature.
+# `cover` is a threshold on Noise Fac, whose distribution is centred near 0.5
+# and rarely passes 0.75 -- a 0.62 floor with a 0.92 ceiling, which is what
+# this started with, is zero density almost everywhere. These are set against
+# the actual distribution, not against intuition.
+CLOUD_LIGHT = dict(cover=0.52, span=0.10, density=0.030, detail=5.0, scale=3.1)
+CLOUD_MODERATE = dict(cover=0.44, span=0.12, density=0.055, detail=6.0, scale=2.6)
+
+
+def clouds(name="clouds", preset=None, base=680.0, top=1240.0, extent=5200.0):
+    """
+    A real volumetric cloud layer, at real altitude, in real metres.
+
+    The sky was Nishita with a correct single sun and NOTHING IN IT, which is
+    a cloudless gradient -- and a cloudless gradient is one of the strongest
+    remaining CG cues in the frame, because the eye has no way to read the
+    scale or the distance of the air.
+
+    So this is a volume, not a card and not a skybox. It is a flattened domain
+    from `base` to `top` -- 680 to 1240 m, which is ordinary cumulus base over
+    a temperate city -- and its density comes from layered noise thresholded
+    hard enough to leave OPEN SKY between forms. What that buys, and what a
+    sprite cannot buy at any resolution:
+
+        depth           the layer has thickness, so its underside shades and
+                        its top catches the sun
+        perspective     a 5.2 km domain seen from 1.7 m converges toward the
+                        horizon on its own, without a painted gradient
+        irregular edge  a thresholded fractal has no silhouette a human would
+                        draw, which is exactly why it reads as weather
+        light response  the existing sun lamp lights it; nothing new is added,
+                        and there is still exactly one solar source
+
+    The vertical profile is a bell, so the layer fades in at its base and out
+    at its top instead of ending on the flat lid of its own bounding box.
+    """
+    cfg = dict(CLOUD_LIGHT if preset is None else preset)
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 0.0, (base + top) / 2))
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.scale = (extent, extent, top - base)
+    ob.display_type = "WIRE"
+    ob.visible_shadow = True
+
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    for n in list(nt.nodes):
+        if n.type != "OUTPUT_MATERIAL":
+            nt.nodes.remove(n)
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+
+    vol = nt.nodes.new("ShaderNodeVolumePrincipled")
+    vol.location = (200, 0)
+    vol.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    vol.inputs["Anisotropy"].default_value = 0.32     # forward scatter
+    nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
+
+    # Generated coordinates run 0..1 across the domain, so noise scale is in
+    # domain widths and stays stable if the extent changes.
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    tc.location = (-1200, 0)
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.location = (-1020, 0)
+    mp.inputs["Scale"].default_value = (1.0, 1.0, 3.4)   # squash: clouds are
+    nt.links.new(tc.outputs["Generated"], mp.inputs["Vector"])  # wider than tall
+
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.location = (-840, 60)
+    noise.inputs["Scale"].default_value = cfg["scale"]
+    noise.inputs["Detail"].default_value = cfg["detail"]
+    noise.inputs["Roughness"].default_value = 0.55
+    nt.links.new(mp.outputs["Vector"], noise.inputs["Vector"])
+
+    # The threshold is what makes weather rather than fog: below `cover` there
+    # is simply no cloud, so the sky stays open between forms.
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.location = (-620, 60)
+    ramp.color_ramp.elements[0].position = cfg["cover"]
+    ramp.color_ramp.elements[1].position = cfg["cover"] + cfg["span"]
+    nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+
+    # Vertical bell, so the layer does not end on the lid of its own box.
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    sep.location = (-840, -280)
+    nt.links.new(tc.outputs["Generated"], sep.inputs["Vector"])
+    prof = nt.nodes.new("ShaderNodeValToRGB")
+    prof.location = (-620, -280)
+    prof.color_ramp.interpolation = "B_SPLINE"
+    e = prof.color_ramp.elements
+    e[0].position, e[0].color = 0.02, (0, 0, 0, 1)
+    e[1].position, e[1].color = 0.34, (1, 1, 1, 1)
+    m1 = prof.color_ramp.elements.new(0.66)
+    m1.color = (1, 1, 1, 1)
+    m2 = prof.color_ramp.elements.new(0.97)
+    m2.color = (0, 0, 0, 1)
+    nt.links.new(sep.outputs["Z"], prof.inputs["Fac"])
+
+    mul = nt.nodes.new("ShaderNodeMath")
+    mul.location = (-380, -60)
+    mul.operation = "MULTIPLY"
+    nt.links.new(ramp.outputs["Color"], mul.inputs[0])
+    nt.links.new(prof.outputs["Color"], mul.inputs[1])
+
+    dens = nt.nodes.new("ShaderNodeMath")
+    dens.location = (-200, -60)
+    dens.operation = "MULTIPLY"
+    dens.inputs[1].default_value = cfg["density"]
+    nt.links.new(mul.outputs["Value"], dens.inputs[0])
+    nt.links.new(dens.outputs["Value"], vol.inputs["Density"])
+
+    ob.data.materials.append(mat)
+    return ob
