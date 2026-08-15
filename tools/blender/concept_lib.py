@@ -777,6 +777,21 @@ def tower_crane(base, mast_h, jib_len, mats, slew=0.6, back=None):
 CTX_NEAR = 125.0
 CTX_MID = 175.0
 
+# A LARGE building far away is not a far building.
+#
+# Distance alone turned out to be insufficient for one case. Back-projecting
+# the block that kept failing the deck view put it at bearing 138-147 deg with
+# its VISIBLE BASE at z 37-75 m -- the upper part of something tall whose
+# footing is hidden behind the hero. Only a ~96 m block at ~190 m fits that;
+# the across-the-road row tops out near 38 m and cannot reach it.
+#
+# So the exception is angular, not positional: a block whose height subtends
+# enough of the view still resolves its openings no matter how far away it is.
+# h/r >= 0.35 means a 66 m building at 190 m qualifies and a 40 m one does
+# not, which selects the handful of genuinely large ring members and leaves
+# the ordinary skyline alone. No coordinates appear in the rule.
+LARGE_FAR_RATIO = 0.35
+
 
 def context_city(rng, blocks, mats, lit=0.0):
     """
@@ -807,6 +822,7 @@ def context_city(rng, blocks, mats, lit=0.0):
 
     for bi, (cx, cy, w, d, h, era) in enumerate(blocks):
         r = math.hypot(cx, cy)
+        large_far = r > CTX_MID and (h / r) >= LARGE_FAR_RATIO
         # NEAR WALLS MUST NOT CARRY THE SHADER RHYTHM.
         #
         # ctx_warm/ctx_cool paint a window grid into the surface. On a NEAR
@@ -828,7 +844,7 @@ def context_city(rng, blocks, mats, lit=0.0):
         # MATERIAL BREAK: a podium in the other material. Every street has a
         # different thing happening at ground level, and one material from
         # footing to parapet is the surest sign nothing is.
-        pod_mat = other if r <= CTX_MID else mat
+        pod_mat = other if (r <= CTX_MID or large_far) else mat
         parts.append(box(f"podium{bi}", (w * 1.12, d * 1.12, ph), (cx, cy, ph / 2),
                          pod_mat))
         parts.append(box(f"shaft{bi}", (w, d, sh), (cx, cy, ph + sh / 2), mat))
@@ -844,7 +860,7 @@ def context_city(rng, blocks, mats, lit=0.0):
         parts.append(box(f"parapet{bi}", (w * 1.02, d * 1.02, 0.7),
                          (cx, cy, ph + h + 0.35), cool))
 
-        if r > CTX_MID:
+        if r > CTX_MID and not large_far:
             continue                       # FAR: silhouette only, untouched
 
         # ROOFLINE: a stair overrun. One idea per building, not a checklist --
