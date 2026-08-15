@@ -856,7 +856,42 @@ def context_city(rng, blocks, mats, lit=0.0):
                           cy - d * 0.22, ph + h + 1.3), pod_mat))
 
         if r > CTX_NEAR:
-            continue                       # MID: rhythm + roof + break only
+            # ---- MID: A SERVICE CORE THROUGH THE FACADE ------------------
+            #
+            # MID had a podium break and a roof overrun and NOTHING that
+            # interrupts the facade itself, so at ~170 px the shader grid
+            # still read as procedural. NEAR gets its interruption by
+            # OMITTING openings for a stair bay; MID has no openings to omit.
+            #
+            # So it gets the thing that causes the interruption in the first
+            # place: a vertical circulation / wet stack, standing 180 mm proud
+            # of the wall and finished in PLAIN masonry. Plain matters -- the
+            # shaft carries the rhythm in its material, so a coplanar band in
+            # another rhythm-bearing material would just continue the grid.
+            # Standing it proud in a material that has no windows makes it
+            # OWN that strip of wall and casts a real shadow down the facade.
+            #
+            # It runs past the parapet because that is what a stair core does,
+            # which also strengthens the roofline for free.
+            wide = w >= d
+            front = w if wide else d
+            sw = max(2.0, min(4.0, front * 0.16))
+            # Three deterministic placements -- a third point, the far third,
+            # and offset from a corner. Architectural positions, not random
+            # ones, and varied so MID does not acquire a new uniform rhythm
+            # of its own.
+            frac = (0.30, 0.68, 0.19)[bi % 3]
+            u = -front / 2 + front * frac
+            core_mat = mats["city_cool"] if era else mats["city_warm"]
+            sx = sw if wide else d + 0.36
+            sy = w + 0.36 if wide else sw
+            parts.append(box(f"ctxcore{bi}",
+                             (sx if wide else sy, sy if wide else sx,
+                              sh + 1.5),
+                             (cx + (u if wide else 0.0),
+                              cy + (0.0 if wide else u),
+                              ph + (sh + 1.5) / 2), core_mat))
+            continue                       # MID: rhythm + roof + break + core
 
         # ---- NEAR: OPENINGS WITH REAL DEPTH ------------------------------
         #
