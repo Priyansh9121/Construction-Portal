@@ -1778,7 +1778,102 @@ def in_situ_concrete(name="conc", base="concrete", tile=(2.4, 2.4),
             tinted.inputs["Color2"].default_value = srgb(tint)
             nt.links.new(grimed.outputs["Color"], tinted.inputs["Color1"])
             out_color = tinted
-        nt.links.new(out_color.outputs["Color"], bsdf.inputs["Base Color"])
+        # ---- FORMWORK PANEL SEAMS, ONE FIELD PER SURFACE PLANE -----------
+        #
+        # Per-sheet TONE alone was too quiet: the first intervention changed
+        # soffit std by 0.002, which is nothing. A formwork assembly is not
+        # defined by panels being slightly different colours -- it is defined
+        # by the JOINTS BETWEEN THEM, and a joint survives where a tone shift
+        # does not because it is a hard local discontinuity rather than a
+        # broad wash.
+        #
+        # Three fields, because a seam lies IN the surface: XY for soffits,
+        # YZ for X-facing walls, XZ for Y-facing walls. Projecting one grid
+        # onto everything is the orientation bug this milestone already fixed
+        # once, and it is not being reintroduced in a new form.
+        # 30 mm, not 12. At the entrance camera's 48.5 px/m a 12 mm seam is
+        # 0.58 px -- sub-pixel, and a 0.89 multiply over half a pixel
+        # integrates to nothing. Measured, then widened.
+        #
+        # 30 mm is still physical: what you actually see at a formwork joint
+        # is not the 2 mm gap but the band of grout loss and tonal change
+        # either side of it, and that band is centimetres. 1.5 px at entrance,
+        # and it still collapses correctly at 70 m.
+        SEAM_W = 0.030                    # conceptual, not a sourced figure
+        MOD_U, MOD_V = 1.2, 2.4           # representative sheet module
+
+        def seam_axis(src, period, yy):
+            """1 at a sheet boundary, 0 away from it, in real metres."""
+            dv = nt.nodes.new("ShaderNodeMath")
+            dv.location = (-1500, yy); dv.operation = "DIVIDE"
+            dv.inputs[1].default_value = period
+            nt.links.new(src, dv.inputs[0])
+            fr = nt.nodes.new("ShaderNodeMath")
+            fr.location = (-1380, yy); fr.operation = "FRACT"
+            nt.links.new(dv.outputs["Value"], fr.inputs[0])
+            iv = nt.nodes.new("ShaderNodeMath")
+            iv.location = (-1260, yy); iv.operation = "SUBTRACT"
+            iv.inputs[0].default_value = 1.0
+            nt.links.new(fr.outputs["Value"], iv.inputs[1])
+            mn = nt.nodes.new("ShaderNodeMath")
+            mn.location = (-1140, yy); mn.operation = "MINIMUM"
+            nt.links.new(fr.outputs["Value"], mn.inputs[0])
+            nt.links.new(iv.outputs["Value"], mn.inputs[1])
+            me = nt.nodes.new("ShaderNodeMath")
+            me.location = (-1020, yy); me.operation = "MULTIPLY"
+            me.inputs[1].default_value = period
+            nt.links.new(mn.outputs["Value"], me.inputs[0])
+            rg = nt.nodes.new("ShaderNodeMapRange")
+            rg.location = (-900, yy); rg.clamp = True
+            rg.inputs["From Min"].default_value = 0.0
+            rg.inputs["From Max"].default_value = SEAM_W
+            rg.inputs["To Min"].default_value = 1.0
+            rg.inputs["To Max"].default_value = 0.0
+            nt.links.new(me.outputs["Value"], rg.inputs["Value"])
+            return rg.outputs["Result"]
+
+        def seam_plane(a, b, yy):
+            mx = nt.nodes.new("ShaderNodeMath")
+            mx.location = (-760, yy); mx.operation = "MAXIMUM"
+            nt.links.new(seam_axis(a, MOD_U, yy), mx.inputs[0])
+            nt.links.new(seam_axis(b, MOD_V, yy - 60), mx.inputs[1])
+            return mx.outputs["Value"]
+
+        s_xy = seam_plane(sep.outputs["X"], sep.outputs["Y"], -700)
+        s_yz = seam_plane(sep.outputs["Y"], sep.outputs["Z"], -880)
+        s_xz = seam_plane(sep.outputs["X"], sep.outputs["Z"], -1060)
+
+        # Which plane owns this face, from the geometry normal only.
+        nax = nt.nodes.new("ShaderNodeMath")
+        nax.location = (-1040, -1240); nax.operation = "ABSOLUTE"
+        nt.links.new(nsep.outputs["X"], nax.inputs[0])
+        nay = nt.nodes.new("ShaderNodeMath")
+        nay.location = (-1040, -1320); nay.operation = "ABSOLUTE"
+        nt.links.new(nsep.outputs["Y"], nay.inputs[0])
+        # X-facing vs Y-facing first, then vertical vs horizontal.
+        vsel = nt.nodes.new("ShaderNodeMath")
+        vsel.location = (-900, -1280); vsel.operation = "GREATER_THAN"
+        nt.links.new(nax.outputs["Value"], vsel.inputs[0])
+        nt.links.new(nay.outputs["Value"], vsel.inputs[1])
+        s_v = nt.nodes.new("ShaderNodeMix")
+        s_v.location = (-620, -980); s_v.data_type = "FLOAT"
+        nt.links.new(vsel.outputs["Value"], s_v.inputs["Factor"])
+        nt.links.new(s_xz, s_v.inputs[2])       # Y-facing wall -> XZ
+        nt.links.new(s_yz, s_v.inputs[3])       # X-facing wall -> YZ
+        s_all = nt.nodes.new("ShaderNodeMix")
+        s_all.location = (-460, -980); s_all.data_type = "FLOAT"
+        nt.links.new(nfac.outputs["Result"], s_all.inputs["Factor"])
+        nt.links.new(s_v.outputs[0], s_all.inputs[2])   # vertical
+        nt.links.new(s_xy, s_all.inputs[3])             # horizontal
+
+        # Restrained: the joint darkens, it does not draw a line.
+        seam_col = nt.nodes.new("ShaderNodeMixRGB")
+        seam_col.location = (60, 320); seam_col.blend_type = "MULTIPLY"
+        seam_col.inputs["Color2"].default_value = srgb(0xD2CFC9)
+        nt.links.new(s_all.outputs[0], seam_col.inputs["Fac"])
+        nt.links.new(out_color.outputs["Color"], seam_col.inputs["Color1"])
+        nt.links.new(seam_col.outputs["Color"], bsdf.inputs["Base Color"])
+        seam_out = s_all
 
     if rough:
         # The joint is rougher: laitance and trapped dirt, not smooth concrete.
@@ -1787,7 +1882,12 @@ def in_situ_concrete(name="conc", base="concrete", tile=(2.4, 2.4),
         jr.inputs["Color2"].default_value = (1.0, 1.0, 1.0, 1.0)
         nt.links.new(rough.outputs["Color"], jr.inputs["Color1"])
         nt.links.new(joint.outputs["Result"], jr.inputs["Fac"])
-        nt.links.new(jr.outputs["Color"], bsdf.inputs["Roughness"])
+        seam_r = nt.nodes.new("ShaderNodeMixRGB")
+        seam_r.location = (60, -220); seam_r.blend_type = "MIX"
+        seam_r.inputs["Color2"].default_value = (0.86, 0.86, 0.86, 1.0)
+        nt.links.new(seam_out.outputs[0], seam_r.inputs["Fac"])
+        nt.links.new(jr.outputs["Color"], seam_r.inputs["Color1"])
+        nt.links.new(seam_r.outputs["Color"], bsdf.inputs["Roughness"])
 
     if norm:
         nm = nt.nodes.new("ShaderNodeNormalMap")

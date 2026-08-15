@@ -4,6 +4,100 @@
 
 ---
 
+## CHECKPOINT — FORMWORK SEAMS ADDED; ENTRANCE ONLY, GATE NOT RUN
+
+**START HEAD** `08944ae` · **END HEAD** this commit. Daylight 46 / 18 manual,
+sun 1, clouds off. Context, neighbours, crane, blockwork all untouched.
+
+### PROVENANCE — TWO SEPARATE THINGS, NOT CONFLATED
+
+| claim | status |
+|---|---|
+| texture pixel aspect **1024 × 512 (2:1)** | **VERIFIED** — read from the JPEG header |
+| tile set to **2.4 × 1.2 m** | **IMAGE-ASPECT CORRECTION ONLY** — stops a 2:1 stretch |
+| that the photo depicts exactly 2.4 × 1.2 m of real concrete | **UNKNOWN** — no source metadata |
+| sheet module **1.2 × 2.4 m** | **REPRESENTATIVE / CONCEPTUAL** — not a sourced or standard figure |
+| seam width **30 mm** | **CONCEPTUAL** |
+
+### SEAMS — THREE FIELDS, ONE PER SURFACE PLANE
+
+Per-sheet *tone* alone was too quiet (soffit std moved 0.002 — nothing). A
+formwork assembly is not defined by panels being slightly different colours;
+it is defined by the **joints between them**, which survive because a joint is
+a hard local discontinuity rather than a broad wash.
+
+- **XY** field → soffits and slab tops
+- **YZ** field → X-facing walls
+- **XZ** field → Y-facing walls
+- selection from the **geometry normal only** (`|Nx|` vs `|Ny|`, then `|Nz|`
+  blend 0.45→0.85). No camera, no object names.
+
+Projecting one grid onto everything is the orientation bug this milestone
+already fixed once, and it was not reintroduced in a new form. Columns and
+slab edges/beam webs correctly take the **vertical** field; beam soffits take
+the horizontal one.
+
+Effect: base colour multiply **0xD2CFC9** at the seam only, plus a small
+**roughness** lift. **No bump, no displacement, no dirt, no cracks, no noise
+overlay, no new texture downloaded.**
+
+### WIDTH — MEASURED, THEN CORRECTED
+
+12 mm produced **no visible change**: at the entrance camera's 48.5 px/m that
+is **0.58 px**, and a 0.89 multiply over half a pixel integrates to nothing.
+
+Widened to **30 mm**, which is still physical — what you see at a formwork
+joint is not the 2 mm gap but the band of grout loss and tonal change either
+side, and that band is centimetres.
+
+| camera | 30 mm seam |
+|---|---|
+| entrance | 1.46 px |
+| stack | 1.25 px |
+| deck | 2.03 px |
+| ground | 0.68 px |
+| establishing | 0.18 px — collapses, correctly |
+
+### ENTRANCE — THREE STATES
+
+`mx-entrance.png` (original) → `conc1-entrance.png` (orientation + tone) →
+`conc3-entrance.png` (+ seams). `conc2-entrance.png` is the 12 mm attempt,
+kept as the negative result.
+
+**Verdict: improved, still subtle.** Faint panel divisions now read on the
+near columns and the soffit, and the concrete has formwork history rather than
+a flat field. It is quiet, not loud — which is the right direction, but it is
+not yet emphatic.
+
+### CONCRETE GATE — **NOT RUN**
+
+`ground`, `stack`, `deck` **not rendered**. No establishing regression.
+**Concrete is NOT closed and remains #1.** Entrance proof only.
+
+Tie marks **NO** · pour joints **NO** · age variation **NO** — all correctly
+left as fallbacks, none needed yet.
+
+### STRONGEST REMAINING CONCRETE WEAKNESS
+
+The seams read on surfaces facing the light and disappear on surfaces in
+shadow, which is most of this interior. Whether that is acceptable or needs a
+roughness-led rather than colour-led cue is the open question, and it can only
+be answered on `stack` and `deck` where the concrete is lit.
+
+### SOURCE RENDER COST
+
+Still **>10 min/frame**, and it is now the binding constraint on this work: a
+four-view gate plus one iteration is roughly an hour of pure rendering. Still
+logged as a **browser delivery / export optimisation risk**.
+
+### NEXT EXACT ACTION
+
+Render **`stack`** — the concrete there is lit and side-on, so it is the frame
+that will actually answer whether seams carry. Then `ground` and `deck`, then
+the gate.
+
+---
+
 ## CHECKPOINT — CONCRETE ROOT CAUSE FOUND; FIRST FIX MODEST, GATE NOT RUN
 
 **START HEAD** `01df24b` · **END HEAD** this commit. Daylight 46 / 18 manual,
