@@ -1522,40 +1522,46 @@ def to_uv_materials():
 # Two reproducible source conditions. Not art direction -- the architecture
 # has to hold under both, and a cover that improves the render by hiding
 # geometry is a failure, not a feature.
-# `cover` is a threshold on Noise Fac, whose distribution is centred near 0.5
-# and rarely passes 0.75 -- a 0.62 floor with a 0.92 ceiling, which is what
-# this started with, is zero density almost everywhere. These are set against
-# the actual distribution, not against intuition.
-CLOUD_LIGHT = dict(cover=0.52, span=0.10, density=0.030, detail=5.0, scale=3.1)
-CLOUD_MODERATE = dict(cover=0.44, span=0.12, density=0.055, detail=6.0, scale=2.6)
+#
+# Every length below is METRES. "body 900" means a cloud mass about 900 m
+# across, which is an ordinary fair-weather cumulus. The previous version
+# expressed this as "Noise scale = 14" against a normalised domain, which is
+# a number with no physical meaning and could not be reasoned about or
+# checked against the sky.
+# cover 0.52 put so little cloud in the sky that the production sightline
+# came back indistinguishable from CLEAR -- correct as weather, useless as a
+# test condition. 0.455 keeps the forms separate and the sky mostly open
+# while actually putting cloud in the frame.
+CLOUD_LIGHT = dict(body=780.0, brk=240.0, erode=0.34, cover=0.455, span=0.09,
+                   density=0.0060)
+CLOUD_MODERATE = dict(body=1150.0, brk=300.0, erode=0.26, cover=0.40, span=0.13,
+                      density=0.0085)
 
 
-def clouds(name="clouds", preset=None, base=680.0, top=1240.0, extent=5200.0):
+def clouds(name="clouds", preset=None, base=680.0, top=1240.0, extent=14000.0,
+           debug_emit=False):
     """
     A real volumetric cloud layer, at real altitude, in real metres.
 
-    The sky was Nishita with a correct single sun and NOTHING IN IT, which is
-    a cloudless gradient -- and a cloudless gradient is one of the strongest
-    remaining CG cues in the frame, because the eye has no way to read the
-    scale or the distance of the air.
+    WHY THE FIRST VERSION MADE FOG INSTEAD OF WEATHER
+    -------------------------------------------------
+    It drove the noise from `Texture Coordinate > Generated` through a Mapping
+    node. Generated is the object's bounding box normalised 0..1, so every
+    feature size was expressed as a fraction of a domain that was itself
+    arbitrary -- and a camera looking up through the layer crosses only a few
+    percent of that box. The field was varying, but the visible slice sampled
+    barely a fraction of one cycle of it, so it resolved to a single smooth
+    value: a veil. Changing the noise scale moved the cycle count a little and
+    never changed that, which is exactly the invariance the bracket tests kept
+    reporting.
 
-    So this is a volume, not a card and not a skybox. It is a flattened domain
-    from `base` to `top` -- 680 to 1240 m, which is ordinary cumulus base over
-    a temperate city -- and its density comes from layered noise thresholded
-    hard enough to leave OPEN SKY between forms. What that buys, and what a
-    sprite cannot buy at any resolution:
+    The field now comes from `Geometry > Position` in WORLD METRES, divided by
+    an explicit feature size. `body=780` means a mass about 780 m across. That
+    is checkable against a photograph of the sky; "scale 14" was not.
 
-        depth           the layer has thickness, so its underside shades and
-                        its top catches the sun
-        perspective     a 5.2 km domain seen from 1.7 m converges toward the
-                        horizon on its own, without a painted gradient
-        irregular edge  a thresholded fractal has no silhouette a human would
-                        draw, which is exactly why it reads as weather
-        light response  the existing sun lamp lights it; nothing new is added,
-                        and there is still exactly one solar source
-
-    The vertical profile is a bell, so the layer fades in at its base and out
-    at its top instead of ending on the flat lid of its own bounding box.
+    Structure is deliberately only two fields -- one body, one breakup that
+    ERODES it -- because a subtractive breakup is what opens holes in a cover.
+    Density multiplied by a mask only ever makes thin fog.
     """
     cfg = dict(CLOUD_LIGHT if preset is None else preset)
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 0.0, (base + top) / 2))
@@ -1563,7 +1569,6 @@ def clouds(name="clouds", preset=None, base=680.0, top=1240.0, extent=5200.0):
     ob.name = name
     ob.scale = (extent, extent, top - base)
     ob.display_type = "WIRE"
-    ob.visible_shadow = True
 
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -1573,64 +1578,95 @@ def clouds(name="clouds", preset=None, base=680.0, top=1240.0, extent=5200.0):
             nt.nodes.remove(n)
     out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
 
-    vol = nt.nodes.new("ShaderNodeVolumePrincipled")
-    vol.location = (200, 0)
-    vol.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
-    vol.inputs["Anisotropy"].default_value = 0.32     # forward scatter
-    nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
+    def M(op, x=-600, y=0, b=None):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = op
+        n.location = (x, y)
+        if b is not None:
+            n.inputs[1].default_value = b
+        return n
 
-    # Generated coordinates run 0..1 across the domain, so noise scale is in
-    # domain widths and stays stable if the extent changes.
-    tc = nt.nodes.new("ShaderNodeTexCoord")
-    tc.location = (-1200, 0)
-    mp = nt.nodes.new("ShaderNodeMapping")
-    mp.location = (-1020, 0)
-    mp.inputs["Scale"].default_value = (1.0, 1.0, 3.4)   # squash: clouds are
-    nt.links.new(tc.outputs["Generated"], mp.inputs["Vector"])  # wider than tall
+    # ---- WORLD-METRE COORDINATES -----------------------------------------
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    geo.location = (-1700, 0)
 
-    noise = nt.nodes.new("ShaderNodeTexNoise")
-    noise.location = (-840, 60)
-    noise.inputs["Scale"].default_value = cfg["scale"]
-    noise.inputs["Detail"].default_value = cfg["detail"]
-    noise.inputs["Roughness"].default_value = 0.55
-    nt.links.new(mp.outputs["Vector"], noise.inputs["Vector"])
+    def field(metres, detail, squash, ypos):
+        """One noise field whose feature size is `metres` across."""
+        d = nt.nodes.new("ShaderNodeVectorMath")
+        d.operation = "DIVIDE"
+        d.location = (-1480, ypos)
+        d.inputs[1].default_value = (metres, metres, metres * squash)
+        nt.links.new(geo.outputs["Position"], d.inputs[0])
+        n = nt.nodes.new("ShaderNodeTexNoise")
+        n.location = (-1280, ypos)
+        n.inputs["Scale"].default_value = 1.0
+        n.inputs["Detail"].default_value = detail
+        n.inputs["Roughness"].default_value = 0.52
+        nt.links.new(d.outputs["Vector"], n.inputs["Vector"])
+        return n
 
-    # The threshold is what makes weather rather than fog: below `cover` there
-    # is simply no cloud, so the sky stays open between forms.
-    ramp = nt.nodes.new("ShaderNodeValToRGB")
-    ramp.location = (-620, 60)
-    ramp.color_ramp.elements[0].position = cfg["cover"]
-    ramp.color_ramp.elements[1].position = cfg["cover"] + cfg["span"]
-    nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    body = field(cfg["body"], 2.5, 0.55, 160)
+    brk = field(cfg["brk"], 3.5, 0.75, -160)
 
-    # Vertical bell, so the layer does not end on the lid of its own box.
+    # Breakup SUBTRACTS. Multiplying a mask only thins a sheet; subtracting a
+    # second field cuts holes right through it, which is what makes sky.
+    bs = M("MULTIPLY", -1060, -160, cfg["erode"])
+    nt.links.new(brk.outputs["Fac"], bs.inputs[0])
+    cut = M("SUBTRACT", -880, 60)
+    nt.links.new(body.outputs["Fac"], cut.inputs[0])
+    nt.links.new(bs.outputs["Value"], cut.inputs[1])
+
+    # Occupancy: hard threshold, clamped. Below `cover` there is simply no
+    # cloud, which is what leaves open sky between forms.
+    occ = nt.nodes.new("ShaderNodeMapRange")
+    occ.location = (-680, 60)
+    occ.clamp = True
+    occ.inputs["From Min"].default_value = cfg["cover"]
+    occ.inputs["From Max"].default_value = cfg["cover"] + cfg["span"]
+    nt.links.new(cut.outputs["Value"], occ.inputs["Value"])
+
+    # ---- VERTICAL PROFILE, in metres of altitude -------------------------
     sep = nt.nodes.new("ShaderNodeSeparateXYZ")
-    sep.location = (-840, -280)
-    nt.links.new(tc.outputs["Generated"], sep.inputs["Vector"])
-    prof = nt.nodes.new("ShaderNodeValToRGB")
-    prof.location = (-620, -280)
-    prof.color_ramp.interpolation = "B_SPLINE"
-    e = prof.color_ramp.elements
-    e[0].position, e[0].color = 0.02, (0, 0, 0, 1)
-    e[1].position, e[1].color = 0.34, (1, 1, 1, 1)
-    m1 = prof.color_ramp.elements.new(0.66)
-    m1.color = (1, 1, 1, 1)
-    m2 = prof.color_ramp.elements.new(0.97)
-    m2.color = (0, 0, 0, 1)
-    nt.links.new(sep.outputs["Z"], prof.inputs["Fac"])
+    sep.location = (-1480, -420)
+    nt.links.new(geo.outputs["Position"], sep.inputs["Vector"])
+    rise = nt.nodes.new("ShaderNodeMapRange")
+    rise.location = (-1180, -420)
+    rise.clamp = True
+    rise.inputs["From Min"].default_value = base
+    rise.inputs["From Max"].default_value = base + (top - base) * 0.30
+    nt.links.new(sep.outputs["Z"], rise.inputs["Value"])
+    fall = nt.nodes.new("ShaderNodeMapRange")
+    fall.location = (-1180, -620)
+    fall.clamp = True
+    fall.inputs["From Min"].default_value = top - (top - base) * 0.45
+    fall.inputs["From Max"].default_value = top
+    fall.inputs["To Min"].default_value = 1.0
+    fall.inputs["To Max"].default_value = 0.0
+    nt.links.new(sep.outputs["Z"], fall.inputs["Value"])
+    prof = M("MULTIPLY", -940, -520)
+    nt.links.new(rise.outputs["Result"], prof.inputs[0])
+    nt.links.new(fall.outputs["Result"], prof.inputs[1])
 
-    mul = nt.nodes.new("ShaderNodeMath")
-    mul.location = (-380, -60)
-    mul.operation = "MULTIPLY"
-    nt.links.new(ramp.outputs["Color"], mul.inputs[0])
-    nt.links.new(prof.outputs["Color"], mul.inputs[1])
+    shaped = M("MULTIPLY", -440, -60)
+    nt.links.new(occ.outputs["Result"], shaped.inputs[0])
+    nt.links.new(prof.outputs["Value"], shaped.inputs[1])
+    dens = M("MULTIPLY", -260, -60, cfg["density"])
+    nt.links.new(shaped.outputs["Value"], dens.inputs[0])
 
-    dens = nt.nodes.new("ShaderNodeMath")
-    dens.location = (-200, -60)
-    dens.operation = "MULTIPLY"
-    dens.inputs[1].default_value = cfg["density"]
-    nt.links.new(mul.outputs["Value"], dens.inputs[0])
-    nt.links.new(dens.outputs["Value"], vol.inputs["Density"])
+    if debug_emit:
+        # DEBUG ONLY: show the occupancy field as flat emission so the field
+        # can be seen directly rather than inferred from a beauty render.
+        em = nt.nodes.new("ShaderNodeEmission")
+        em.location = (0, 200)
+        nt.links.new(shaped.outputs["Value"], em.inputs["Strength"])
+        nt.links.new(em.outputs["Emission"], out.inputs["Volume"])
+    else:
+        vol = nt.nodes.new("ShaderNodeVolumePrincipled")
+        vol.location = (0, 0)
+        vol.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+        vol.inputs["Anisotropy"].default_value = 0.30
+        nt.links.new(dens.outputs["Value"], vol.inputs["Density"])
+        nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
 
     ob.data.materials.append(mat)
     return ob

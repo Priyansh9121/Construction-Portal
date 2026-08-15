@@ -4,6 +4,87 @@
 
 ---
 
+## CHECKPOINT — D4 CLOUDS CONVERGED; E AND F NOT STARTED
+
+**CURRENT COMMIT** this one · source gate **not run** · nothing exported · no
+runtime change.
+
+### THE CAUSE WAS THE COORDINATE, AND THE HYPOTHESIS WAS RIGHT
+
+The field was driven by `Texture Coordinate > Generated` through a Mapping
+node. Generated is the object's bounding box normalised 0..1, so every feature
+size was a fraction of an arbitrary domain — and a camera looking up through
+the layer crosses only a few percent of that box. **The field was varying; the
+visible slice sampled a fraction of one cycle of it and resolved to a single
+smooth value.** That is why nine bracket renders were invariant to both
+density and scale: changing the cycle count over a slice narrower than one
+cycle changes nothing.
+
+Now driven by `Geometry > Position` in **world metres**, divided by an explicit
+feature size. `body = 780` means a mass about 780 m across — checkable against
+a photograph of the sky. `scale = 14` was not.
+
+Second change that mattered as much: the breakup field now **SUBTRACTS** from
+the body rather than multiplying it. A multiplicative mask only ever thins a
+sheet into fog; a subtractive field cuts holes right through it, and the holes
+are what make sky.
+
+### PROOF, NOT INFERENCE
+
+Rendered the whole 14 km domain from outside, where nothing can hide in a
+small sampled patch:
+
+- `cloud-field-light.png` — discrete scattered masses with open sky between
+- `cloud-field-moderate.png` — connected broken cover, irregular edges,
+  readable depth
+
+The two presets differ in **spatial occupancy**, not opacity: different
+`body`, `brk`, `erode` and `cover`. LIGHT is scattered puffs; MODERATE is a
+broken field. That satisfies the preset rule explicitly.
+
+### CLOUD GATE
+
+| criterion | verdict |
+|---|---|
+| CLEAR — architecture works | **YES** (`cloud-est-clear.png`) |
+| LIGHT — architecture works | **YES** (`cloud-est-light.png`) |
+| MODERATE — architecture works | **YES** (`cloud-est-moderate.png`) |
+| open sky between structures | **YES** |
+| world-scale perspective / depth | **YES** |
+| irregular edges | **YES** |
+| one apparent sun | **YES** — sun untouched, still 1 lamp |
+| game / fantasy cloud read | **NO** |
+| LIGHT vs MODERATE distinct | **partial — see below** |
+
+**The one honest shortfall:** at the *establishing* camera, LIGHT reads as
+near-clear. The visible sky there is a narrow 15–26° band in the gaps between
+buildings, and scattered cloud simply misses that sightline. Raising `cover`
+from 0.52 to 0.455 did not change it. The distinction is fully proven in the
+domain overview and at MODERATE in the production frame, but **LIGHT vs CLEAR
+is not separable from this one camera**. That is a property of the camera, not
+a defect in the field — recorded rather than tuned away, because forcing cloud
+into that band would stop LIGHT being light.
+
+Cost: establishing with volume is **~5.5 min** vs ~4 min clear. Acceptable for
+three gate frames; it would be expensive across a full 20-frame matrix.
+
+### STATE
+
+C closed · D1–D3 already correct (audited) · **D4 converged** ·
+**E untouched** · **F untouched** · anti-GTA **NOT RUN** · source gate
+**NOT RUN** · nothing exported · runtime untouched.
+
+### NEXT EXACT ACTION
+
+1. **E** — road material. Inventory first (surface / material / texture source
+   / scale / CC0 status) for road, gutter, kerb, footpath, median, ramp, haul
+   route, soil, markings. Existing CC0 sets are asphalt, brick, concrete,
+   ground, ply — state plainly if something is genuinely missing.
+2. **F** — the matrix. Note the festoon has still only ever been judged at 46°.
+3. Keep cloud renders to the three gate frames; do not put volume on all 20.
+
+---
+
 ## ADDENDUM — CAMERA FAR-CLIP BUG FIXED; CLOUDS BUILT BUT **NOT CONVERGED**
 
 ### A REAL BUG, FOUND BY THE CLOUD WORK
