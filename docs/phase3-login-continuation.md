@@ -4,6 +4,104 @@
 
 ---
 
+## CHECKPOINT — CONTEXT DETAIL TIERS BUILT; GATE PROVEN ON 3 OF 4 FRAMES
+
+**START HEAD** `2346d37` · **END HEAD** this commit. Reference daylight
+unchanged **46 / 18 manual**. Sun count 1. Nothing exported, runtime untouched.
+
+### OWNERSHIP AUDIT (before editing)
+
+- **context_city** → `podium / shaft / cap / plant / parapet`, joined as `city`,
+  materials `ctx_warm` / `ctx_cool`. **58 blocks.**
+- **Neighbours** → `nb / np / nw`, authored separately in `concept_c.py` with
+  real modelled window assemblies (recess, room, glass, frame).
+
+They are cleanly separate. **No neighbour object was touched.**
+
+### TIERS — BY DISTANCE FROM THE SITE ORIGIN, NOT FROM A CAMERA
+
+This is source truth: a building has depth because it is near the site, not
+because a Cycles camera asked. Runtime LOD stays a separate problem.
+
+| tier | range | treatment |
+|---|---|---|
+| NEAR | ≤ 125 m | real recessed openings, service bay, ground condition, material break, roof overrun |
+| MID | 125–175 m | shader rhythm + material break + roof overrun |
+| FAR | > 175 m | **untouched** — silhouette, roofline, height variation |
+
+**The threshold was wrong first time.** 85 m was chosen as a round number and
+the frames did not change at all, because the blocks that actually fail in
+`road_truth` and `lift` are the across-the-road terrace and first rear row at
+**r = 97–120 m** — they sat in MID and kept the shader grid. The audit had
+already measured this; I had not used it. 125 m comes from where the offending
+buildings are.
+
+### STRONGEST OFFENDERS (measured, screen width at 720 px)
+
+| block | nearest cam | dist | screen width |
+|---|---|---|---|
+| (−34.2, −93.2) | road_truth | 87 m | **277 px** |
+| (−9.4, −98.6) | road_truth | 80 m | 269 px |
+| (23.4, −100.9) | establishing | 67 m | 262 px |
+
+Over a third of the frame each.
+
+### IMPLEMENTATION
+
+- **Opening depth 150 mm** — a dark plane set *behind* the facade, so the
+  wall's own thickness casts the reveal shadow. Not a decal, and no booleans.
+- **Service bay** — one full-height bay with no windows per face. Stair and
+  wet stacks are why real facades are not uniform. **No windows were randomly
+  deleted**; absence is architectural.
+- **Ground condition** — a taller, wider street-level opening.
+- **Material break** — podium in the other material.
+- **Roof overrun** — a stair overrun so blocks stop terminating as rectangles.
+
+**A defect I introduced and then fixed:** NEAR blocks initially kept
+`ctx_warm`/`ctx_cool`, which paint a window grid *into the surface* — so they
+carried **two window systems at once**, at different spacings that cannot
+align. NEAR now uses the plain photographic masonry and lets geometry do the
+windows. MID and FAR keep the shader.
+
+### GATE
+
+| frame | before | after | verdict |
+|---|---|---|---|
+| road_truth | `mx-road_truth.png` | `ctx4-road_truth.png` | **IMPROVED** — recessed openings, reveal shadow, service bay, stepped roofline |
+| lift | `mx-lift.png` | `ctx4-lift.png` | **IMPROVED strongly** — pale punched-grid boxes gone |
+| establishing | `ctx-before.png` | `ctx4-establishing.png` | **NO REGRESSION** |
+| deck | — | — | **NOT RE-RENDERED** |
+| rear | — | — | **NOT RE-RENDERED** |
+
+**First intervention gate: PASS.**
+**DISTANCE-TIER GATE: NOT FORMALLY CLOSED** — closure requires `deck` and the
+`rear` context verdict, and those were not re-rendered. Render times roughly
+doubled with the NEAR geometry, and I would rather leave this honestly open
+than claim four frames from three.
+
+### STRONGEST REMAINING CONTEXT WEAKNESS
+
+A **tall FAR-ring block** still shows the uniform shader grid in `road_truth`
+at centre-right. FAR was left untouched by instruction and it is working for
+most of the ring, but a 96 m block at 190 m subtends enough frame to matter.
+That is a candidate for a FAR height-aware sub-rule, not a blanket change.
+
+**Neighbour rear elevations remain OPEN as a separate item.** Not touched.
+
+### NOT RUN / NOT TOUCHED
+
+Crane **NOT modified**. Concrete **NOT modified**. Neighbours **NOT modified**.
+Morning NO · afternoon NO · festoon NO · anti-GTA NO · source gate NO ·
+GLBs NO · runtime NO.
+
+### NEXT EXACT ACTION
+
+1. Render **`deck` and `rear`** to finish the distance-tier gate.
+2. Then the tall FAR-ring block, if it still reads.
+3. Then **#2 close-range concrete**, in its own session.
+
+---
+
 ## CHECKPOINT — CRANE CLOSED (#1); CONTEXT BECOMES THE NEW #1
 
 **START HEAD** `6cc506b` · **END HEAD** this commit · nothing exported · no
