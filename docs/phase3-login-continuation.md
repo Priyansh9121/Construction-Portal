@@ -4,6 +4,114 @@
 
 ---
 
+## CHECKPOINT — E ROAD MATERIAL DONE; F NOT STARTED (deliberately)
+
+**CURRENT COMMIT** this one · source gate **not run** · nothing exported · no
+runtime change.
+
+### E1 — INVENTORY, AND THE ANSWER WAS IN IT
+
+| surface | object | material | source | CC0 |
+|---|---|---|---|---|
+| road asphalt | `road` ribbon | `spandrel` | asphalt | ✓ |
+| **gutter** | *same mesh* | **`spandrel`** | asphalt | *same* |
+| **kerb** | *same mesh* | **`spandrel`** | asphalt | *same* |
+| **footpath** | *same mesh* | **`spandrel`** | asphalt | *same* |
+| **median** | *same mesh* | **`spandrel`** | asphalt | *same* |
+| rear lane | `lane` ribbon | `spandrel` | asphalt | ✓ |
+| site pad / ramp | `pad`, `ramp` | `conc` | concrete | ✓ |
+| haul route | `haul` prism | `earth` | site_ground | ✓ |
+| site ground | `ground` box | `earth` | site_ground | ✓ |
+| drain | `drain` prism | `galv` | procedural | n/a |
+| **lane markings** | — | — | **MISSING** | — |
+
+**CC0 families verified present on disk:** asphalt, brick, concrete, ground,
+ply. Nothing was substituted and nothing new was downloaded.
+
+**Root cause:** the entire street cross-section was ONE mesh with ONE
+material. The profile described a kerb upstand, a gutter invert, a planted
+median and two footpaths — correctly — and then rendered all of them as the
+same asphalt. The foreground read as one grey plane because it *was* one
+material.
+
+### THE FIX — NO VERTEX MOVED
+
+`M.ribbon()` now takes `segment_mats`, one material per cross-section segment.
+Faces are emitted in section order, so segment *i* is face *i*: only the
+material index changes. Road geometry is untouched, as required.
+
+Five identities where there was one: **asphalt · kerb · footpath ·
+median_top · haul**. Tiles measured against real surfaces — 1.6 m asphalt,
+1.1 m kerb, 2.9 m footpath.
+
+### CAUSAL CONTACT, NOT PAINTED DIRT
+
+- **Gutter grime is keyed to the profile's own low point.** Z 0.02 (invert) →
+  0.22 (crown). Fines collect at the low point *because it is the low point*,
+  so the darkening lands in the gutter line by itself, follows the crossfall,
+  and fades toward the crown. It cannot become a cartoon stripe — it is a
+  gradient over 200 mm of real fall, not a band of chosen width.
+- **Gate contact LIGHTENS the asphalt.** Site dirt always wants to be painted
+  dark, but what comes out of a gate on tyres is dry pale fines off a
+  compacted haul route. Darkening would read as oil, which no process here
+  produces. Keyed to real distance from the gate mouth at (0, −24), peaking
+  at the crossing and decaying over 17 m.
+- **Haul route is the same ground, trafficked** — tighter tile (broken down by
+  wheels), flatter roughness (rolled), drier tint. Unused soil keeps its own
+  coarser identity.
+
+### MEASURED
+
+| band | before | after |
+|---|---|---|
+| near footpath + kerb | 0.2939 | **0.3345** |
+| far kerb / footpath | 0.1666 | **0.2083** |
+| near carriageway | 0.0674 | 0.0702 |
+| far carriageway | 0.0782 | 0.0991 |
+| **band-to-band spread** | 0.2669 | **0.3064** |
+
+Carriageways barely moved — correct, they were already asphalt. The
+separation came from the surfaces that had been wrongly wearing it.
+
+### ROAD GATE — **NOT FAIRLY JUDGEABLE FROM THE EXISTING CAMERAS**
+
+Projecting the cross-section through the production camera: **the whole 52 m
+of street compresses into 49 pixels**, and the near footpath, kerb and gutter
+together occupy about **5 px**. Every other camera in the set —
+`entrance`, `ground`, `hero` — looks *up* at the building; the road is at or
+below the bottom of frame.
+
+So the honest verdict is not PASS or FAIL: **no camera in this project sees
+the street surface at an angle that could resolve it.** The materials are
+verifiably different (measured above), and that difference cannot be judged
+by eye from any frame that currently exists. Recorded rather than claimed.
+
+### NOT DONE IN E
+
+**Lane markings — MISSING.** Identified in the inventory, not authored.
+
+### F — NOT STARTED, DELIBERATELY
+
+The matrix is 10 midday + 5 morning + 5 afternoon + 3 cloud ≈ **23 renders at
+4–5.5 min each**, plus per-frame assessment and three root-cause fixes.
+Starting it here would have produced a half-run gate, which the brief
+explicitly rates as worse than a completed E.
+
+Anti-GTA **NOT RUN** · source-world daylight gate **NOT RUN**.
+
+### NEXT EXACT ACTION
+
+1. **Add a street-surface camera** before judging the road — something at
+   ~1.6 m eye looking *along* the kerb line, not up at the building. Without
+   it the road gate cannot be answered at all.
+2. **Lane markings** — the one inventory item still missing.
+3. **F0 solar audit** — find how `SUN_ELEV` / `SUN_AZ` are authored before
+   inventing morning/afternoon angles.
+4. **F** — full matrix. The festoon audit is still overdue at all three sun
+   states; it has only ever been seen at 46°.
+
+---
+
 ## CHECKPOINT — D4 CLOUDS CONVERGED; E AND F NOT STARTED
 
 **CURRENT COMMIT** this one · source gate **not run** · nothing exported · no

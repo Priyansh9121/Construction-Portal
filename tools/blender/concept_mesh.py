@@ -288,7 +288,7 @@ def facade_bay(name, a, b, z, storey_h, mat_glass, mat_frame, mullions=3):
     return parts
 
 
-def ribbon(name, x0, x1, section, mat=None):
+def ribbon(name, x0, x1, section, mat=None, segment_mats=None):
     """
     A long surface extruded along X from a CROSS-SECTION.
 
@@ -300,6 +300,14 @@ def ribbon(name, x0, x1, section, mat=None):
 
     The whole street corridor is one mesh, so there are no seams between road,
     gutter, kerb and pavement where a camera at eye height would find them.
+
+    `segment_mats` gives ONE MATERIAL PER CROSS-SECTION SEGMENT, which is the
+    whole point: the profile already describes a kerb upstand, a gutter low
+    point, a median and two footpaths, but they were all being handed the same
+    asphalt. Geometrically the street was right and physically it was one
+    surface, which is exactly why the foreground read as a single grey plane.
+    Faces are emitted in section order, so segment i is face i -- no vertex
+    moves, nothing is re-cut, only the material index changes.
     """
     verts, faces = [], []
     n = len(section)
@@ -333,6 +341,19 @@ def ribbon(name, x0, x1, section, mat=None):
     me.validate()
     ob = bpy.data.objects.new(name, me)
     bpy.context.collection.objects.link(ob)
+    if segment_mats:
+        slots, index = [], []
+        for m in segment_mats:
+            m = m or mat
+            if m not in slots:
+                slots.append(m)
+            index.append(slots.index(m))
+        for m in slots:
+            me.materials.append(m)
+        for i, poly in enumerate(me.polygons):
+            if i < len(index):                     # the TOP faces, in order
+                poly.material_index = index[i]
+        return ob
     if mat:
         ob.data.materials.append(mat)
     return ob
