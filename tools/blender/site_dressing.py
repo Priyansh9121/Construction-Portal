@@ -522,49 +522,146 @@ def mobile_crane(name, x, y, ground_z, hook, boom_deg, mats, rng,
     out = []
     galv, paint, blk, ply = (mats["galv"], mats["crane"], mats["workwear"],
                              mats["ply"])
+    from mathutils import Vector
+
+    def strut(nm, p0, p1, r, mat, verts=12):
+        """A cylinder that actually spans two points, so nothing floats."""
+        d = Vector(p1) - Vector(p0)
+        ob = L.cyl(nm, r, d.length, tuple((Vector(p0) + Vector(p1)) / 2), mat,
+                   verts=verts)
+        ob.rotation_euler = Vector((0, 0, 1)).rotation_difference(d).to_euler()
+        return ob
+
     cz = ground_z + 1.15                        # chassis deck height
 
-    # ---- CARRIER: 3 axles, along the lane --------------------------------
-    out.append(L.box(f"{name}ch", (11.90, 2.70, 0.95), (x, y, cz), paint, bevel=0.06))
-    out.append(L.box(f"{name}cab", (2.30, 2.45, 1.45), (x - 4.55, y, cz + 1.16),
+    # ---- CHASSIS: TWO RAILS AND A BELLY, NOT ONE SLAB --------------------
+    #
+    # The carrier was a single 11.9 x 2.7 x 0.95 box. At 25-45 m that is the
+    # strongest toy cue the machine had: a real carrier is a pair of deep
+    # longitudinal rails with the running gear hung between them, and it has
+    # UNDERSIDE DEPTH. One smooth slab has no structure to read.
+    for sy in (-1, 1):
+        out.append(L.box(f"{name}rail{sy}", (11.90, 0.34, 0.72),
+                         (x, y + sy * 0.98, cz - 0.10), paint, bevel=0.03))
+    out.append(L.box(f"{name}belly", (10.60, 1.70, 0.34), (x, y, cz - 0.34),
+                     blk, bevel=0.03))
+    out.append(L.box(f"{name}deck", (11.90, 2.62, 0.26), (x, y, cz + 0.36),
+                     paint, bevel=0.03))
+    # Engine / equipment body behind the road cab, stepped in from the deck
+    # edge so the deck line survives as a shadow.
+    out.append(L.box(f"{name}eng", (3.40, 2.30, 0.86), (x - 1.30, y, cz + 0.92),
+                     paint, bevel=0.05))
+    out.append(L.box(f"{name}grille", (0.10, 1.90, 0.54), (x - 3.02, y, cz + 0.92),
+                     galv))
+
+    # ---- ROAD CAB: a nose, a screen and a roof, not a cube ---------------
+    out.append(L.box(f"{name}cab", (2.30, 2.42, 1.20), (x - 4.55, y, cz + 1.10),
                      paint, bevel=0.10))
-    for i, ax in enumerate((-4.30, 2.05, 3.75)):
+    out.append(L.box(f"{name}cabr", (2.16, 2.28, 0.16), (x - 4.55, y, cz + 1.78),
+                     paint, bevel=0.06))
+    ws = L.box(f"{name}cabg", (0.10, 2.10, 0.96), (x - 5.62, y, cz + 1.20),
+               mats["glass"])
+    ws.rotation_euler = (0, math.radians(14), 0)      # raked windscreen
+    out.append(ws)
+    for sy in (-1, 1):
+        out.append(L.box(f"{name}cabs{sy}", (1.50, 0.08, 0.66),
+                         (x - 4.35, y + sy * 1.21, cz + 1.26), mats["glass"]))
+        out.append(L.box(f"{name}mir{sy}", (0.10, 0.34, 0.42),
+                         (x - 5.70, y + sy * 1.34, cz + 1.62), blk))
+
+    # ---- RUNNING GEAR: tyre, rim, hub, and a gap to the body -------------
+    #
+    # Six plain cylinders was the other half of the toy read. A wheel at this
+    # distance needs three things and only three: a rubber sidewall, a
+    # recessed metal rim, and a hub. Tread blocks would not survive 25 m and
+    # are deliberately not modelled.
+    AXLES = (-4.30, 2.05, 3.75)                  # 1 steer + tandem rear
+    for i, ax in enumerate(AXLES):
         for sy in (-1, 1):
-            out.append(L.cyl(f"{name}w{i}{sy}", 0.62, 0.42,
-                             (x + ax, y + sy * 1.24, ground_z + 0.62), blk,
-                             axis="Y", verts=16))
-    # ---- OUTRIGGERS: beams out to the support base, with pads ------------
+            wy = y + sy * 1.24
+            out.append(L.cyl(f"{name}tyre{i}{sy}", 0.62, 0.42,
+                             (x + ax, wy, ground_z + 0.62), blk, axis="Y",
+                             verts=24))
+            out.append(L.cyl(f"{name}rim{i}{sy}", 0.40, 0.30,
+                             (x + ax, wy - sy * 0.07, ground_z + 0.62), galv,
+                             axis="Y", verts=20))
+            out.append(L.cyl(f"{name}hub{i}{sy}", 0.15, 0.40,
+                             (x + ax, wy - sy * 0.04, ground_z + 0.62), galv,
+                             axis="Y", verts=14))
+        # FENDER over each wheel, so the wheels belong to the carrier rather
+        # than being parked under an orange box.
+        out.append(L.box(f"{name}fen{i}", (1.70, 2.86, 0.16),
+                         (x + ax, y, ground_z + 1.34), paint, bevel=0.05))
+        for sy in (-1, 1):
+            out.append(L.box(f"{name}fes{i}{sy}", (1.70, 0.10, 0.34),
+                             (x + ax, y + sy * 1.43, ground_z + 1.18), paint))
+    # Access steps, the one human-scale element that survives this distance.
+    for k in range(3):
+        out.append(L.box(f"{name}step{k}", (0.52, 0.10, 0.05),
+                         (x - 3.60, y - 1.44, ground_z + 0.55 + k * 0.32), galv))
+
+    # ---- OUTRIGGERS: a load path you can follow to the road --------------
+    #
+    # The machine is standing on these, not on its wheels, and the render has
+    # to say so: housing -> telescoping beam -> jack barrel -> rod -> foot ->
+    # pad -> mat -> road, with every joint actually touching the next.
+    PAD_T, MAT_T = 0.16, 0.09
+    mat_top = ground_z + MAT_T
+    pad_top = mat_top + PAD_T
     for sx in (-1, 1):
         for sy in (-1, 1):
             ox, oy = x + sx * base / 2, y + sy * span / 2
-            out.append(L.box(f"{name}ob{sx}{sy}", (base / 2, 0.34, 0.30),
-                             (x + sx * base / 4, y + sy * span / 2, cz - 0.30), paint))
-            out.append(L.cyl(f"{name}oj{sx}{sy}", 0.16, 1.10, (ox, oy, cz - 0.75),
-                             galv, verts=10))
-            out.append(L.box(f"{name}op{sx}{sy}", (1.05, 1.05, 0.16),
-                             (ox, oy, ground_z + 0.10), blk, bevel=0.02))
-            out.append(L.box(f"{name}om{sx}{sy}", (1.45, 1.45, 0.09),
-                             (ox, oy, ground_z + 0.03), ply))
-    # ---- SUPERSTRUCTURE: slews to face the building ----------------------
+            beam_z = cz - 0.26
+            out.append(L.box(f"{name}obh{sx}{sy}", (1.30, 1.05, 0.62),
+                             (x + sx * 1.10, y + sy * 0.80, beam_z), paint,
+                             bevel=0.03))
+            out.append(L.box(f"{name}obs{sx}{sy}", (base * 0.34, 0.46, 0.44),
+                             (x + sx * base * 0.20, y + sy * span * 0.28, beam_z),
+                             paint, bevel=0.02))
+            out.append(L.box(f"{name}obb{sx}{sy}", (base * 0.40, 0.34, 0.32),
+                             (ox - sx * base * 0.12, oy - sy * span * 0.10, beam_z),
+                             galv, bevel=0.02))
+            out.append(L.cyl(f"{name}ojb{sx}{sy}", 0.20, 0.62,
+                             (ox, oy, beam_z - 0.28), paint, verts=14))
+            out.append(strut(f"{name}ojr{sx}{sy}", (ox, oy, beam_z - 0.52),
+                             (ox, oy, pad_top + 0.06), 0.11, galv, verts=12))
+            out.append(L.cyl(f"{name}ofoot{sx}{sy}", 0.30, 0.16,
+                             (ox, oy, pad_top + 0.02), galv, verts=14))
+            out.append(L.box(f"{name}op{sx}{sy}", (1.05, 1.05, PAD_T),
+                             (ox, oy, mat_top + PAD_T / 2), blk, bevel=0.02))
+            out.append(L.box(f"{name}om{sx}{sy}", (1.45, 1.45, MAT_T),
+                             (ox, oy, ground_z + MAT_T / 2), ply))
+
+    # ---- SLEW AND UPPER: a real rotational interface ---------------------
     sz = cz + 0.70
-    out.append(L.cyl(f"{name}slew", 1.05, 0.34, (x, y, sz - 0.10), galv, verts=20))
-    out.append(L.box(f"{name}house", (3.10, 2.55, 1.75), (x, y + 0.55, sz + 0.90),
+    out.append(L.cyl(f"{name}slewb", 1.28, 0.22, (x, y, sz - 0.30), paint, verts=24))
+    out.append(L.cyl(f"{name}slew", 1.06, 0.26, (x, y, sz - 0.08), galv, verts=24))
+    out.append(L.cyl(f"{name}turn", 1.34, 0.20, (x, y, sz + 0.14), paint, verts=24))
+    # Upper body, stepped: machinery house plus a lower rear cowl, so the
+    # silhouette has a shoulder instead of one flat lid.
+    out.append(L.box(f"{name}house", (2.90, 2.30, 1.34), (x, y + 0.70, sz + 0.94),
                      paint, bevel=0.06))
-    out.append(L.box(f"{name}ocab", (1.35, 1.10, 1.55), (x - 1.55, y - 1.35, sz + 0.85),
-                     paint, bevel=0.10))
-    # An operator cab with no glass is a box. The front and side lights are
-    # what make it a place a person sits.
-    out.append(L.box(f"{name}ocg", (1.16, 0.06, 1.05),
-                     (x - 1.55, y - 1.90, sz + 0.98), mats["glass"]))
-    out.append(L.box(f"{name}ocs", (0.06, 0.94, 1.05),
-                     (x - 2.21, y - 1.35, sz + 0.98), mats["glass"]))
-    # Carrier cab glazing, for the same reason.
-    out.append(L.box(f"{name}cabg", (2.05, 0.07, 0.80),
-                     (x - 4.55, y - 1.24, sz + 0.36), mats["glass"]))
-    # Counterweight: a stack of slabs, on the opposite side to the load.
-    # Counterweight is a STACK OF SLABS with air between them, not a striped
-    # block: the gap is what shows they are separate castings that were
-    # craned on one at a time.
+    out.append(L.box(f"{name}cowl", (2.40, 1.55, 0.72), (x, y + 1.62, sz + 0.62),
+                     paint, bevel=0.05))
+    out.append(L.box(f"{name}hgr", (0.08, 1.30, 0.50), (x + 1.47, y + 0.70, sz + 0.94),
+                     galv))
+
+    # ---- OPERATOR CAB ----------------------------------------------------
+    out.append(L.box(f"{name}ocab", (1.30, 1.06, 1.46), (x - 1.62, y - 1.30, sz + 0.88),
+                     paint, bevel=0.08))
+    og = L.box(f"{name}ocg", (0.09, 0.92, 1.10), (x - 2.24, y - 1.30, sz + 0.92),
+               mats["glass"])
+    og.rotation_euler = (0, math.radians(-11), 0)
+    out.append(og)
+    out.append(L.box(f"{name}ocf", (1.14, 0.08, 1.06), (x - 1.62, y - 1.81, sz + 0.92),
+                     mats["glass"]))
+    out.append(L.box(f"{name}ocr", (1.20, 0.98, 0.10), (x - 1.62, y - 1.30, sz + 1.62),
+                     paint, bevel=0.04))
+
+    # ---- COUNTERWEIGHT: slabs, on a bracket that carries them ------------
+    for sy in (-1, 1):
+        out.append(L.box(f"{name}cwb{sy}", (0.22, 1.10, 0.90),
+                         (x + sy * 1.10, y + 1.95, sz + 0.74), paint))
     for i in range(3):
         out.append(L.box(f"{name}cw{i}", (2.55, 0.60, 0.38),
                          (x, y + 2.05, sz + 0.32 + i * 0.46), blk, bevel=0.03))
@@ -621,11 +718,34 @@ def mobile_crane(name, x, y, ground_z, hook, boom_deg, mats, rng,
     for k, off in enumerate((-0.16, 0.0, 0.16)):
         out.append(L.cyl(f"{name}sh{k}", 0.26, 0.13, (x + off, hy, hz), galv,
                          axis="X", verts=16))
-    # Luffing ram, so the boom angle is held by something.
-    ram = L.box(f"{name}ram", (0.34, 3.30, 0.34), (x, pivot[1] + 1.15, pivot[2] + 1.55),
-                galv)
-    ram.rotation_euler = (math.radians(52) - math.pi / 2, 0, 0)
-    out.append(ram)
+    # ---- BOOM HEEL AND PIVOT --------------------------------------------
+    #
+    # The boom was growing straight out of the machinery house. A real
+    # telescopic boom lands on a HEEL carried between two pivot cheeks with a
+    # pin through them, and that junction is one of the strongest silhouette
+    # cues the machine has -- it is where the load path turns the corner.
+    for sx in (-1, 1):
+        out.append(L.box(f"{name}pc{sx}", (0.16, 1.30, 1.55),
+                         (x + sx * 0.62, pivot[1] + 0.18, pivot[2] - 0.24),
+                         paint, bevel=0.03))
+    out.append(L.cyl(f"{name}pin", 0.20, 1.70, pivot, galv, axis="X", verts=16))
+    heel = L.box(f"{name}heel", (1.02, 1.20, 1.02), at(0.045), paint, bevel=0.03)
+    heel.rotation_euler = (a, 0, 0)
+    out.append(heel)
+
+    # ---- LUFFING CYLINDER: barrel and rod, both ends anchored ------------
+    #
+    # The old one was a box floating beside the boom at a hard-coded 52
+    # degrees that agreed with nothing. This spans from a real anchor on the
+    # turntable to a real attachment under the boom, so the angle is a
+    # CONSEQUENCE of the boom position rather than a number typed next to it.
+    lo = (x, y + 0.34, sz + 0.30)
+    up = (at(0.27)[0], at(0.27)[1] - 0.30, at(0.27)[2] - 0.46)
+    mid = tuple(lo[i] + (up[i] - lo[i]) * 0.56 for i in range(3))
+    out.append(strut(f"{name}lcb", lo, mid, 0.23, paint, verts=16))
+    out.append(strut(f"{name}lcr", mid, up, 0.13, galv, verts=14))
+    for nm2, pt in ((f"{name}lce0", lo), (f"{name}lce1", up)):
+        out.append(L.cyl(nm2, 0.15, 0.52, pt, galv, axis="X", verts=12))
     return out, head
 
 

@@ -4,6 +4,94 @@
 
 ---
 
+## CHECKPOINT — CRANE CLOSED (#1); CONTEXT BECOMES THE NEW #1
+
+**START HEAD** `6cc506b` · **END HEAD** this commit · nothing exported · no
+runtime change. Reference daylight unchanged at **46 / 18, manual,
+non-astronomical**. Sun count 1, Nishita aligned, clouds off.
+
+**Reference role unchanged:** CONCEPTUAL / REPRESENTATIVE, proportioned on the
+Liebherr LTM 1055-3.2 family. No invented figure is claimed as a manufacturer
+value. **Telescopic — no lattice was added.**
+
+### WHAT CHANGED
+
+| part | before | after |
+|---|---|---|
+| chassis | one 11.90 × 2.70 × 0.95 box | two deep rails, belly plate, deck plate, engine body, grille |
+| wheels | 6 plain cylinders | tyre + recessed rim + hub, 24-seg tyre |
+| wheel/body | none | fender over each axle + side skirts + access steps |
+| axles | −4.30 / 2.05 / 3.75 | unchanged — 1 steer + tandem rear |
+| outrigger | beam + 1 jack cyl | housing → sleeve → beam → barrel → rod → foot → pad → mat |
+| slew | one cylinder | base ring → slew ring → turntable deck (3 steps) |
+| upper | one box | machinery house + rear cowl + grille (stepped shoulder) |
+| boom pivot | **none** | two pivot cheeks + pin + boom heel |
+| luff cylinder | floating box at a hard-coded 52° | barrel + rod anchored turntable → boom underside |
+| cabs | glass patched on | raked windscreen, side lights, roof cap, mirrors |
+| counterweight | slabs | slabs + carrying brackets |
+
+Wheels: diameter **1.24 m**, width **0.42 m** (rim 0.80 m, hub 0.30 m).
+
+### LOCAL GEOMETRY CHECK — 134 crane objects
+
+**Nothing below ground.** Load path continuous, every joint overlapping:
+
+`mat 0.05–0.14 → pad 0.14–0.30 → foot 0.24–0.40 → rod 0.36–0.42 →
+barrel 0.35–0.97 → beam 0.63–1.25 → rails 0.74–1.46`
+
+Slew stack continuous 1.49 → 3.51. Luff cylinder anchored at both ends
+(2.05 turntable → 10.01 boom underside) — its angle is now a **consequence**
+of boom position rather than a typed number.
+
+### CRANE GATE
+
+| frame | before | after |
+|---|---|---|
+| **lift** | FAIL — low-poly vehicle | **PASS** — componentised upper, glazed cab, turntable, boom step and ribs |
+| **rear** | FAIL — toy truck | **PASS** — carrier anatomy, axle rhythm, outriggers visibly carrying the machine |
+| **deck** | reservation — boom intruded a low-poly cue | **PASS WITH RESERVATION** — no longer a low-poly cue; head cheeks clunky at close range |
+
+**ANTI-TOY TEST:** stripped of colour, material and lighting the silhouette
+alone shows carrier, fenders, stepped upper, cab, counterweight, boom collar
+and outriggers to pads, with a followable load path. **It does not work only
+because it is orange.**
+
+**CRANE GATE = YES. TOP FAILURE #1 = CLOSED.**
+
+**Strongest remaining crane weakness:** the boom's broad faces still read soft
+rather than sharply fabricated box-section, and the head cheeks are clunky at
+`deck` range. Not enough to hold the gate — and the crane is no longer among
+the top three failures in any of these three frames.
+
+Evidence: BEFORE `mx-rear.png`, `mx-lift-after.png`, `mx-deck.png` (preserved);
+AFTER `crane2-rear.png`, `crane2-lift.png`, `crane2-deck.png`.
+
+### TOP THREE AFTER THE CRANE
+
+- **NEW #1 — context city distance-tier failure** (was #2). Now the weakest
+  element in `lift`, `deck` and `road_truth`.
+- **NEW #2 — flat close-range concrete** (was #3).
+- **NEW #3 — neighbour REAR elevations are blank slabs with boolean holes**,
+  no frames, no reveals, visible in `rear`. Related to but distinct from the
+  context ring: these are the neighbours' own rear faces.
+
+**Neither was touched. Context: NOT MODIFIED. Concrete: NOT MODIFIED.**
+
+### NOT RUN
+
+Morning NO · afternoon NO · festoon three-state NO · cloud revalidation NO ·
+anti-GTA NO · source gate NO · GLBs NO · runtime NO.
+
+### NEXT EXACT ACTION
+
+**#2 as a distance tier**, in its own session: audit the context generator,
+establish near/mid/far ownership, give blocks inside ~60 m real recessed
+openings (150 mm is enough), parapet variation and a material break, and leave
+the far ring untouched. Prove with `road_truth` + `lift` improving while
+`establishing` does not regress.
+
+---
+
 ## CHECKPOINT — FIRST TEN-VIEW REFERENCE MATRIX; TOP THREE DERIVED FROM IMAGES
 
 **START HEAD** `37ddb46` · **END HEAD** this commit · nothing exported · no
