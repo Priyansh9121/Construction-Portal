@@ -811,6 +811,82 @@ def figure(loc, mats, facing=0.0):
     return ob
 
 
+
+def road_surface(name="asphalt", tile=(1.6, 1.6)):
+    """
+    Asphalt, with the grime where the water actually goes.
+
+    The gutter is not painted on as a stripe. The cross-section already puts
+    the gutter at the LOW POINT of the profile -- 0.02 m against a 0.22 m
+    crown -- so grime is keyed to world Z across exactly that range. Fines and
+    run-off collect at the low point because it is the low point, so the
+    darkening lands in the gutter line on its own, follows the crossfall, and
+    fades out toward the crown. Nothing has to know where the gutter is.
+
+    That is also why it cannot become a cartoon stripe: it is a gradient over
+    200 mm of real fall, not a band of a chosen width.
+    """
+    mat = cc0(name, "asphalt", tile, rough_boost=0.05)
+    nt = mat.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    base_link = bsdf.inputs["Base Color"].links[0]
+    src, sock = base_link.from_node, base_link.from_socket
+
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    geo.location = (-1500, -900)
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    sep.location = (-1320, -900)
+    nt.links.new(geo.outputs["Position"], sep.inputs["Vector"])
+    low = nt.nodes.new("ShaderNodeMapRange")
+    low.location = (-1120, -900)
+    low.clamp = True
+    low.inputs["From Min"].default_value = 0.02      # gutter invert
+    low.inputs["From Max"].default_value = 0.22      # carriageway crown
+    low.inputs["To Min"].default_value = 1.0
+    low.inputs["To Max"].default_value = 0.0
+    nt.links.new(sep.outputs["Z"], low.inputs["Value"])
+
+    grime = nt.nodes.new("ShaderNodeMixRGB")
+    grime.location = (-360, 260)
+    grime.blend_type = "MULTIPLY"
+    grime.inputs["Color2"].default_value = srgb(0x6E6A62)
+    nt.links.new(low.outputs["Result"], grime.inputs["Fac"])
+    nt.links.new(sock, grime.inputs["Color1"])
+
+    # ---- GATE CONTACT ----------------------------------------------------
+    #
+    # Tracked material LIGHTENS asphalt. Everything about site dirt wants to
+    # be painted dark, but what actually comes out of a gate on tyres is dry
+    # fines off a compacted haul route -- pale, dusty, and lighter than the
+    # bitumen it lands on. Darkening here would read as oil, which no process
+    # in this world produces.
+    #
+    # Keyed to real distance from the gate mouth at (0, -24) so it PEAKS at
+    # the crossing and decays over 17 m, which is roughly as far as a wheel
+    # carries it before it is worn off.
+    gx = nt.nodes.new("ShaderNodeVectorMath")
+    gx.location = (-1120, -1120)
+    gx.operation = "DISTANCE"
+    gx.inputs[1].default_value = (0.0, -24.0, 0.10)
+    nt.links.new(geo.outputs["Position"], gx.inputs[0])
+    gfall = nt.nodes.new("ShaderNodeMapRange")
+    gfall.location = (-900, -1120)
+    gfall.clamp = True
+    gfall.inputs["From Min"].default_value = 3.0
+    gfall.inputs["From Max"].default_value = 17.0
+    gfall.inputs["To Min"].default_value = 0.55
+    gfall.inputs["To Max"].default_value = 0.0
+    nt.links.new(gx.outputs["Value"], gfall.inputs["Value"])
+    tracked = nt.nodes.new("ShaderNodeMixRGB")
+    tracked.location = (-180, 260)
+    tracked.blend_type = "MIX"
+    tracked.inputs["Color2"].default_value = srgb(0x9A8E78)
+    nt.links.new(gfall.outputs["Result"], tracked.inputs["Fac"])
+    nt.links.new(grime.outputs["Color"], tracked.inputs["Color1"])
+    nt.links.new(tracked.outputs["Color"], bsdf.inputs["Base Color"])
+    return mat
+
+
 def standard_materials(wear=0.5, lit=0.0):
     """
     The full material set every concept shares, so a difference between two
@@ -861,6 +937,32 @@ def standard_materials(wear=0.5, lit=0.0):
             # it is flatter because a block face is not a formed face.
             "block": cc0("block", "concrete", (1.35, 0.68), rough_boost=0.20,
                          tint=0xDCDAD2),
+            # ---- THE STREET IS FIVE MATERIALS, NOT ONE ------------------
+            #
+            # road, gutter, kerb, footpath and median were all handed
+            # mats["spandrel"] -- one asphalt across the entire cross-section.
+            # The profile described a kerb upstand and a gutter low point
+            # correctly and then rendered them as the same substance, which is
+            # the actual reason the foreground read as a single grey plane.
+            #
+            # Tile sizes are measured against real surfaces: 1.6 m of asphalt
+            # spans about a lane width of aggregate; a 2.9 m footpath tile
+            # lands the CC0 concrete near real bay size without repeating
+            # visibly at eye level.
+            "asphalt": road_surface("asphalt", tile=(1.6, 1.6)),
+            "kerb": cc0("kerb", "concrete", (1.10, 1.10), tint=0xC6C3BA,
+                        rough_boost=0.06),
+            "footpath": cc0("footpath", "concrete", (2.90, 2.90),
+                            tint=0xB4B2AA, rough_boost=0.14, wear_mask=0.5),
+            "median_top": site_ground("median_top", base="ground",
+                                      tile=(1.8, 1.8)),
+            # The haul route is the SAME GROUND, trafficked. Compaction is
+            # what makes it different: a tighter tile because the surface has
+            # been broken down by wheels, a flatter roughness because it has
+            # been rolled, and a paler drier tint because the fines have been
+            # worked up and the moisture driven out of the top. Unused soil
+            # keeps its own coarser identity.
+            "haul": site_ground("haul", base="ground", tile=(1.15, 1.15)),
             "spandrel": cc0("spandrel", "asphalt", (2.0, 2.0)),
             "earth": site_ground("earth"),
             "ply": cc0("ply", "ply", (2.0, 2.0)),
@@ -889,6 +991,11 @@ def standard_materials(wear=0.5, lit=0.0):
         "paint": painted("paint", 0x8A9096, rough=0.5),
         "crane": painted("crane", 0xC8611A, rough=0.44, wear=0.4),
         "screen": painted("screen", 0x2F6F8C, rough=0.62, wear=0.25),
+        "asphalt": painted("asphalt", 0x33383D, rough=0.62, wear=0.2),
+        "kerb": concrete("kerb", 0xC6C3BA, wear=0.3),
+        "footpath": concrete("footpath", 0xB4B2AA, wear=0.45),
+        "median_top": earth("median_top"),
+        "haul": earth("haul", damp=0.05),
         "spandrel": painted("spandrel", 0x3A4149, rough=0.4, wear=0.15),
         "glass": glass("glass"),
         # An unlit room seen through glazing. Not decoration: without a dark

@@ -574,14 +574,31 @@ def build(dusk=False, join_by_material=True):
         (-17.6, 0.24),          # footpath at the building line
     ]
     L.box("ground", (900, 900, 0.4), (0, 0, -0.22), mats["earth"])
-    parts["street"].append(M.ribbon("road", -320, 320, ROAD, mats["spandrel"]))
+    # ONE MATERIAL PER CROSS-SECTION SEGMENT. The profile already knew where
+    # the kerbs, gutters, median and footpaths were; it just rendered them all
+    # as asphalt. Read left to right across the section above.
+    ROAD_MATS = [mats[k] for k in (
+        "footpath", "footpath", "footpath",   # opposite building line -> kerb
+        "kerb",                               # far kerb upstand
+        "asphalt", "asphalt",                 # far carriageway, crown, gutter
+        "kerb",                               # median kerb, near side
+        "median_top", "median_top",           # planted median
+        "kerb",                               # median kerb, far side
+        "asphalt", "asphalt",                 # near carriageway
+        "kerb",                               # near kerb upstand
+        "footpath", "footpath")]              # footpath to the building line
+    parts["street"].append(
+        M.ribbon("road", -320, 320, ROAD, mats["asphalt"], segment_mats=ROAD_MATS))
 
     # The rear laneway: narrower, no footpath, a single fall to one gutter.
     LANE = [
         (17.6, 0.22), (21.0, 0.06), (22.0, 0.16),
         (26.0, 0.12), (30.0, 0.05), (30.4, 0.16), (38.0, 0.04),
     ]
-    parts["street"].append(M.ribbon("lane", -220, 220, LANE, mats["spandrel"]))
+    LANE_MATS = [mats[k] for k in (
+        "footpath", "kerb", "asphalt", "asphalt", "kerb", "footpath")]
+    parts["street"].append(
+        M.ribbon("lane", -220, 220, LANE, mats["asphalt"], segment_mats=LANE_MATS))
 
     # The site pad, sitting slightly PROUD of the footpath so the site reads as
     # a thing built into the ground rather than a plate laid on it, with a
@@ -592,7 +609,7 @@ def build(dusk=False, join_by_material=True):
     parts["street"].append(M.ribbon("ramp", -6.0, 6.0, RAMP, mats["conc"]))
     # A compacted access strip worn across the pad from the gate to the core.
     parts["street"].append(
-        M.prism("haul", M.rect(-5.4, -19, 5.4, 12), 0.395, 0.03, mats["earth"]))
+        M.prism("haul", M.rect(-5.4, -19, 5.4, 12), 0.395, 0.03, mats["haul"]))
     # The gutter drain the site falls toward.
     parts["street"].append(
         M.prism("drain", M.rect(-1.2, -25.6, 1.2, -25.0), 0.0, 0.06, mats["galv"]))
