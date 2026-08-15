@@ -1060,7 +1060,9 @@ def standard_materials(wear=0.5, lit=0.0):
     if cc0_available():
         return {
             # Tiles measured from the images, in metres (horizontal, vertical).
-            "conc": in_situ_concrete("conc", "concrete", (2.4, 2.4),
+            # (2.4, 1.2) not (2.4, 2.4): concrete-color.jpg is 1024x512, a
+            # 2:1 image. A square tile stretched it two to one vertically.
+            "conc": in_situ_concrete("conc", "concrete", (2.4, 1.2),
                                      tint=0xB8BAB8),
             "wet": cc0("wet", "concrete", (2.4, 2.4), tint=0x6F757C),
             # ~12 courses over the 512 px height at ~86 mm a course.
@@ -1664,10 +1666,94 @@ def in_situ_concrete(name="conc", base="concrete", tile=(2.4, 2.4),
         pour.blend_type = "MULTIPLY"
         pour.inputs["Fac"].default_value = 1.0
         nt.links.new(color.outputs["Color"], pour.inputs["Color1"])
+        # ---- A SOFFIT IS NOT A WALL --------------------------------------
+        #
+        # The pour tone above is keyed to world Z, floored by the storey lift.
+        # On a column that is right. On a SOFFIT or a slab edge -- which sits
+        # at constant Z -- the lift index never changes, so the entire surface
+        # gets ONE tone. And the photographic micro detail cannot rescue it:
+        # at 2.4 m per 1024 px a texel is 2.34 mm, which is 0.11 px at the
+        # entrance camera and 0.05 px at ground. Measured, not assumed.
+        #
+        # That is the broad even grey field, and it is an ORIENTATION bug, not
+        # a scale one: one global Z pattern was being asked to describe every
+        # cast surface in the building.
+        #
+        # A soffit is formed on PLYWOOD SHEETS. Real sheets are 1.2 x 2.4 m,
+        # and their joints are the meso structure the eye actually reads on a
+        # ceiling. So horizontal faces get a sheet grid in the HORIZONTAL
+        # plane, vertical faces keep their lifts, and the surface normal
+        # decides which -- blended, so a beam soffit turning up into a web
+        # transitions rather than snapping.
+        pnx = nt.nodes.new("ShaderNodeMath")
+        pnx.location = (-1180, -60); pnx.operation = "FLOOR"
+        pdx = nt.nodes.new("ShaderNodeMath")
+        pdx.location = (-1320, -60); pdx.operation = "DIVIDE"
+        pdx.inputs[1].default_value = 1.2                 # sheet width
+        nt.links.new(sep.outputs["X"], pdx.inputs[0])
+        nt.links.new(pdx.outputs["Value"], pnx.inputs[0])
+        pny = nt.nodes.new("ShaderNodeMath")
+        pny.location = (-1180, -180); pny.operation = "FLOOR"
+        pdy = nt.nodes.new("ShaderNodeMath")
+        pdy.location = (-1320, -180); pdy.operation = "DIVIDE"
+        pdy.inputs[1].default_value = 2.4                 # sheet length
+        nt.links.new(sep.outputs["Y"], pdy.inputs[0])
+        nt.links.new(pdy.outputs["Value"], pny.inputs[0])
+        # Deterministic per-sheet hash: sheets are struck and reused, so no
+        # two carry quite the same tone.
+        ph1 = nt.nodes.new("ShaderNodeMath")
+        ph1.location = (-1040, -60); ph1.operation = "MULTIPLY"
+        ph1.inputs[1].default_value = 12.9898
+        nt.links.new(pnx.outputs["Value"], ph1.inputs[0])
+        ph2 = nt.nodes.new("ShaderNodeMath")
+        ph2.location = (-1040, -180); ph2.operation = "MULTIPLY"
+        ph2.inputs[1].default_value = 78.233
+        nt.links.new(pny.outputs["Value"], ph2.inputs[0])
+        psum = nt.nodes.new("ShaderNodeMath")
+        psum.location = (-900, -120); psum.operation = "ADD"
+        nt.links.new(ph1.outputs["Value"], psum.inputs[0])
+        nt.links.new(ph2.outputs["Value"], psum.inputs[1])
+        psin = nt.nodes.new("ShaderNodeMath")
+        psin.location = (-760, -120); psin.operation = "SINE"
+        nt.links.new(psum.outputs["Value"], psin.inputs[0])
+        pmul = nt.nodes.new("ShaderNodeMath")
+        pmul.location = (-620, -120); pmul.operation = "MULTIPLY"
+        pmul.inputs[1].default_value = 43758.5453
+        nt.links.new(psin.outputs["Value"], pmul.inputs[0])
+        pfr = nt.nodes.new("ShaderNodeMath")
+        pfr.location = (-480, -120); pfr.operation = "FRACT"
+        nt.links.new(pmul.outputs["Value"], pfr.inputs[0])
+        ptone = nt.nodes.new("ShaderNodeMapRange")
+        ptone.location = (-340, -120); ptone.clamp = True
+        ptone.inputs["To Min"].default_value = 0.93       # restrained: this is
+        ptone.inputs["To Max"].default_value = 1.05       # ply, not paint
+        nt.links.new(pfr.outputs["Value"], ptone.inputs["Value"])
+
+        # |normal.z| picks the pattern: 1 on a soffit or slab top, 0 on a wall.
+        gnrm = nt.nodes.new("ShaderNodeNewGeometry")
+        gnrm.location = (-1320, -320)
+        nsep = nt.nodes.new("ShaderNodeSeparateXYZ")
+        nsep.location = (-1180, -320)
+        nt.links.new(gnrm.outputs["Normal"], nsep.inputs["Vector"])
+        nabs = nt.nodes.new("ShaderNodeMath")
+        nabs.location = (-1040, -320); nabs.operation = "ABSOLUTE"
+        nt.links.new(nsep.outputs["Z"], nabs.inputs[0])
+        nfac = nt.nodes.new("ShaderNodeMapRange")
+        nfac.location = (-900, -320); nfac.clamp = True
+        nfac.inputs["From Min"].default_value = 0.45
+        nfac.inputs["From Max"].default_value = 0.85
+        nt.links.new(nabs.outputs["Value"], nfac.inputs["Value"])
+
+        blend = nt.nodes.new("ShaderNodeMix")
+        blend.location = (-200, -120); blend.data_type = "FLOAT"
+        nt.links.new(nfac.outputs["Result"], blend.inputs["Factor"])
+        nt.links.new(tone.outputs["Result"], blend.inputs[2])     # vertical
+        nt.links.new(ptone.outputs["Result"], blend.inputs[3])    # horizontal
+
         tone_rgb = nt.nodes.new("ShaderNodeCombineColor")
         tone_rgb.location = (-560, 180)
         for ch in ("Red", "Green", "Blue"):
-            nt.links.new(tone.outputs["Result"], tone_rgb.inputs[ch])
+            nt.links.new(blend.outputs[0], tone_rgb.inputs[ch])
         nt.links.new(tone_rgb.outputs["Color"], pour.inputs["Color2"])
 
         jointed = nt.nodes.new("ShaderNodeMixRGB")
