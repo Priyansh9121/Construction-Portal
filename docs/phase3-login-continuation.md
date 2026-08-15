@@ -4,6 +4,141 @@
 
 ---
 
+## CHECKPOINT — ROAD PROVEN AND MARKED; SOLAR AUDITED; MIDDAY MATRIX NOT RUN
+
+**START HEAD** `ddca9f6` · **END HEAD** this commit · source gate not run ·
+nothing exported · no runtime change.
+
+### A — ROAD_TRUTH CAMERA (source verification only)
+
+`"road_truth": ((18.0, -23.4, 1.60), (-16.0, -31.0, 0.35), 42)`
+
+Position **(18.0, −23.4, 1.60)** · target **(−16.0, −31.0, 0.35)** · **42 mm**.
+Eye height 1.60 m, standing on the near footpath just east of the gate looking
+WSW **along** the kerb line. Not a runtime station, not a Login camera, not a
+replacement for establishing.
+
+First attempt stood on the median aiming across the street; the road came back
+as a narrow band with the building taking the frame. Along the kerb the
+footpath, upstand, gutter and carriageway each get real depth and the markings
+recede on the crossfall instead of sitting side-on.
+
+### B — LANE MARKINGS (were MISSING)
+
+Derived from the authored profile, not placed by eye. Carriageways measured
+between gutter inverts: **far 14.2 m** (crown −61.5), **near 18.7 m**
+(crown −35.0). Three **3.50 m** lanes centred on each crown, leaving the outer
+margin unmarked as the parking/shoulder it is.
+
+| property | value |
+|---|---|
+| type | dashed lane separators only |
+| width | **0.10 m** |
+| dash | **3.00 m** |
+| gap | **6.00 m** (period 9.00 m) |
+| proud of surface | **0.004 m** (base 0.003 m *below*, 0.007 m tall) |
+| material | `roadline` — `0xC9C3B6`, rough 0.74, wear 0.55, **non-emissive** |
+| separators at y | −63.25, −59.75, −36.75, −33.25 |
+
+No crosswalks, arrows, bus lanes or box junctions — those would invent a
+traffic scheme this street does not describe.
+
+Each dash sits on the **crossfall**: z is interpolated from the section at that
+y, so paint follows the camber. First version based the dash 6 mm *proud*,
+leaving an air gap under every line — corrected to embedded.
+
+**A correction to my own reading:** I first blamed floating markings for the
+raised bars in the foreground of the initial `road_truth` frame. Wrong — the
+edit had applied. Those bars are the **median kerb upstand 1.5 m from the
+lens**, which is correct, and is positive evidence that the kerb reads.
+
+### C — ROAD VISUAL GATE (`road-truth.png`)
+
+| check | verdict |
+|---|---|
+| asphalt reads as asphalt | **YES** |
+| kerb reads as concrete upstand | **YES** — strongest single gain |
+| footpath distinct pedestrian concrete | **YES** |
+| gutter reads as drainage edge | **YES**, weaker |
+| lane markings plausible and scaled | **YES** |
+| public road ordinary / maintained | **YES** |
+| game road | **NO** |
+| flat grey plane | **NO** |
+| median / haul / gate fines | **NOT PROVABLE FROM THIS FRAME** |
+
+**ROAD GATE = YES for the near-side hierarchy.** Median, haul transition and
+gate fines are outside this frame; they are authored and measured but remain
+unproven by eye.
+
+**Production regression** (`road-est-regression.png`): street hierarchy still
+plausible, markings small and correctly scaled, no over-bright paint, no
+material discontinuity, no new game cue.
+
+### D — SOLAR AUDIT: SOURCE AND RUNTIME DO NOT SHARE A SUN
+
+**SOURCE (Blender) is MANUAL CONSTANTS.** `SUN_ELEV = 46.0`, `SUN_AZ = 18.0`
+in `concept_c.py`, overridable by `--sun` / `--az`. There is **no astronomy in
+the source pipeline at all**. These are plausible for latitude 23 and they are
+not computed — they must not be described as astronomical.
+
+**RUNTIME already has real astronomy**, in `frontend/src/world/environment.js`:
+`suncalc` 2.x, and:
+
+| input | value |
+|---|---|
+| timezone | **Asia/Kolkata** (backend `DEFAULT_TIMEZONE`) |
+| latitude | **23.0** |
+| longitude | **82.5** |
+| `coordinatesConfigured` | **false** |
+| date/time | real current IST |
+
+The coordinates are an explicit **PLACEHOLDER** — the IST standard meridian at
+a mid-country latitude. The `sites` table has latitude/longitude columns and
+**every row is NULL**. The file itself says `coordinatesConfigured: false` is
+load-bearing and anything reporting on it must call the state approximate.
+
+**TARGET CONTRACT** (lat/lon/date/local time/Asia-Kolkata) therefore exists in
+the runtime and **does not exist in the source**. They are not connected.
+
+**MORNING / MIDDAY / AFTERNOON: NOT DERIVED.** Deriving true azimuths for the
+source would move the sun off the deliberately chosen `SUN_AZ = 18`, picked so
+the south-facing street elevation is lit at all (Blender +Y is north, so the
+street face looks south). That is a change to sun direction, which this brief
+lists as closed — **it needs an explicit decision, not a silent edit.**
+
+Invariants confirmed unchanged: **Sun lamp count 1**, Nishita aligned at
+elevation 46 / rotation 18, `sun_disc` False, `sun_intensity` 0, no HDRI.
+
+### NEW FINDING FROM THE NEW RENDER
+
+`road-truth.png` is the first street-level frame this project has had, and it
+exposes something the establishing camera never showed: **the context city
+reads as pale boxes with a uniform punched-window grid — a LEGO/BIM cue at
+street level.** The a942922 rhythm fix is correct at 70 m and does not survive
+25 m. This is a genuine top-three candidate and it came from a new image, not
+from old documentation.
+
+### NOT RUN
+
+**MIDDAY MATRIX: NOT RUN** (10 frames). **MORNING: NOT RUN.**
+**AFTERNOON: NOT RUN.** **FESTOON THREE-STATE: NOT RUN.**
+**MIDDAY TOP THREE: NOT DERIVED.** **ANTI-GTA: NOT RUN.**
+**SOURCE GATE: NOT RUN.** **GLBs: NO. RUNTIME: NO.**
+
+Ten frames plus per-image review and three root-cause fixes did not fit the
+remaining budget, and the brief rates a completed road above a half-run gate.
+
+### NEXT EXACT ACTION
+
+1. **Decide the solar question** — either accept `46/18` as a documented
+   deterministic source state, or connect the source to the runtime's
+   suncalc/lat/lon and accept that the sun direction moves.
+2. **Midday ten-frame matrix**, CLEAR sky, 480–720 px. Look at every image.
+3. Derive the **midday top three**. The context-city street-level read above is
+   a standing candidate.
+
+---
+
 ## CHECKPOINT — E ROAD MATERIAL DONE; F NOT STARTED (deliberately)
 
 **CURRENT COMMIT** this one · source gate **not run** · nothing exported · no
