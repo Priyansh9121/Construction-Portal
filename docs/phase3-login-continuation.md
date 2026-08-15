@@ -4,6 +4,90 @@
 
 ---
 
+## CHECKPOINT — CONTEXT CLOSED 5/5 (deck with reservation)
+
+**START HEAD** `035502d` · **END HEAD** this commit. Daylight 46 / 18 manual,
+sun 1, clouds off. `CTX_NEAR 125` / `CTX_MID 175` **unchanged**.
+
+> The prompt for this milestone targeted `834e729` and attributed the deck
+> failure to MID uniformity. That work was already committed at `035502d`,
+> and the render had **falsified** the premise: the MID service core was
+> added, deck was re-rendered, and it did not change. Re-running the prompt
+> would have rebuilt existing work to re-test a dead hypothesis.
+
+### THE BLOCK, IDENTIFIED BY MEASUREMENT NOT INFERENCE
+
+I had already mis-attributed this failure twice, so I back-projected the
+offending image region through the deck camera before touching anything:
+
+| | |
+|---|---|
+| bearing | 138–147° |
+| elevation | +6.5° to +18.8° |
+| **visible base** | **z 37–75 m** |
+
+The base being that high means we see only the upper part of something tall
+whose footing is hidden behind the hero. Only a **~96 m block at ~190 m** fits;
+the across-the-road row tops out near 38 m and cannot reach it. It is the
+**tall FAR block already logged from `road_truth`** — the same building from a
+second camera. **Cause E, confirmed.**
+
+### LARGE_FAR — AN ANGULAR RULE, NOT A COORDINATE HACK
+
+```
+LARGE_FAR_RATIO = 0.35
+large_far = r > CTX_MID and (h / r) >= LARGE_FAR_RATIO
+```
+
+A large building far away is not a far building. A 66 m block at 190 m
+qualifies; a 40 m one at the same distance does not. **~2.5 of 34 ring blocks
+(7%)** — selective by construction, so no skyline noise. Qualifying blocks take
+the MID path: podium material break, roof overrun, service core. **No NEAR
+reveals. `CTX_NEAR` not widened. FAR not loosened globally. No coordinates in
+the rule.**
+
+### GATE
+
+| frame | verdict |
+|---|---|
+| road_truth | PASS |
+| lift | PASS |
+| **deck** | **PASS with reservation** — `ctx6` → `ctx7`, service core now breaks the grid |
+| rear (context) | PASS by absence |
+| establishing | PASS — `ctx7-establishing.png`, no regression, no skyline noise |
+
+**DISTANCE-TIER GATE: YES — 5/5.**
+
+**The reservation, stated plainly:** the core interrupts the uniform grid and
+ends the procedural read, but a residual window grid remains either side of it
+on that block. Context is no longer the dominant cue in any frame and is
+subordinate to the lift operation — enough to close, not enough to call
+perfect.
+
+### SOURCE RENDER COST
+
+A single frame still exceeds **10 minutes**. LARGE_FAR adds ~2–3 boxes to ~2.5
+blocks; negligible. Still flagged as a **browser delivery / export
+optimisation risk** for the GLB stage.
+
+### TOP THREE AFTER CONTEXT — from the current images
+
+1. **Flat close-range concrete, 8–20 m.** The hero's core and stair masses in
+   `ctx7-deck` are broad even grey fields. Unchanged and now the loudest cue.
+2. **Immediate neighbour rear elevations.** Blank slabs with boolean holes,
+   dominating `rear`. Untouched by instruction.
+3. **Residual mid/far window grid** where no service core interrupts it —
+   the LARGE_FAR fix breaks uniformity on qualifying blocks but the grid
+   itself is still a painted rhythm.
+
+### NEXT EXACT ACTION
+
+**In-situ concrete source identity at 8–20 m**, its own milestone: check the
+2.4 m tile against `entrance` / `ground` / `stack`, and express pour lifts and
+form-tie marks at real spacing.
+
+---
+
 ## CHECKPOINT — MID SERVICE CORE ADDED; DECK **STILL FAILS**, CAUSE = FAR
 
 **START HEAD** `834e729` · **END HEAD** this commit. Daylight 46 / 18 manual,
