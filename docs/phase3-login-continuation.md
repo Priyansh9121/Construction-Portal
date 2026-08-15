@@ -4,6 +4,101 @@
 
 ---
 
+## CHECKPOINT — CONCRETE ROOT CAUSE FOUND; FIRST FIX MODEST, GATE NOT RUN
+
+**START HEAD** `01df24b` · **END HEAD** this commit. Daylight 46 / 18 manual,
+sun 1, clouds off. Context, neighbours and crane all untouched.
+
+### INVENTORY
+
+| | |
+|---|---|
+| material | `conc` → `in_situ_concrete("conc", "concrete", tile)` |
+| object families | columns, slabs, downstand beams, edge beams, party walls, cores, stair, infill piers |
+| base / normal / roughness | `concrete-color/normal/roughness.jpg`, verified CC0, already present |
+| resolution | **1024 × 512** (2:1) |
+| coordinate source | `Geometry > Position`, **BOX projection**, world-space metres |
+| declared tile (before) | **2.4 × 2.4 m** |
+| declared tile (after) | **2.4 × 1.2 m** |
+
+### MEASURED: MICRO DETAIL CANNOT WORK AT THESE CAMERAS
+
+At 2.4 m across 1024 px a texel is **2.34 mm**:
+
+| camera | px/m | 2.4 m tile | one texel |
+|---|---|---|---|
+| entrance | 48.5 | 116 px | **0.11 px** |
+| ground | 22.5 | 54 px | **0.05 px** |
+| stack | 41.6 | 100 px | **0.10 px** |
+| deck | 67.8 | 163 px | **0.16 px** |
+
+So the photographic micro detail is physically invisible in every gate view.
+Only meso structure can carry them — and meso was broken.
+
+### ROOT CAUSE — ORIENTATION, NOT SCALE
+
+`in_situ_concrete` keys its pour-lift tone to **world Z**, floored by the
+3.3 m storey. On a column that is correct. On a **soffit or slab edge, which
+sits at constant Z, the lift index never changes** — so the whole surface
+receives ONE tone, and with micro detail at 0.11 px nothing else remains.
+
+That is the broad even grey field: **one global Z pattern was describing every
+cast surface in the building.**
+
+Second, independent defect: the map is 1024 × 512 but the tile was square, so
+the texture was **stretched 2:1 vertically**. Corrected to (2.4, 1.2).
+
+### FIRST INTERVENTION
+
+Horizontal faces now get **plywood formwork sheets — real 1.2 × 2.4 m** — as a
+deterministic per-sheet tone in the horizontal plane, because a soffit is
+formed on ply and its sheet joints are what the eye reads on a ceiling.
+Vertical faces keep their lifts. **`|normal.z|` blends between them** (0.45 →
+0.85), so a beam soffit turning up into a web transitions rather than snapping.
+
+Tone range 0.93–1.05 — restrained; this is ply, not paint. **No dirt, no
+cracks, no noise overlay, no new texture downloaded.**
+
+### RESULT — HONEST
+
+`mx-entrance.png` → `conc1-entrance.png`. Columns now differ in tone and the
+soffit shows panel-scale variation rather than one flat field. **The change is
+modest.**
+
+Supporting numbers do **not** confirm a strong gain — soffit band std
+0.1747 → 0.1723, column zone 0.1675 → 0.1666. Those regions are dominated by
+scaffold tubes and festoon lighting rather than the concrete, so std is a poor
+metric here; recorded rather than spun.
+
+### CONCRETE GATE — **NOT RUN**
+
+Only `entrance` was rendered. `ground`, `stack` and `deck` were **not**, and no
+establishing regression was run. **Concrete is NOT closed and remains #1.**
+A frame exceeds 10 minutes; the brief's own rule is that a completed first
+intervention beats a half-run four-view gate.
+
+### STRONGEST REMAINING CONCRETE WEAKNESS
+
+The meso cues are still too quiet at 8–20 m. Formwork **panel seams**, **tie
+marks** and **pour joints** are all still absent — only per-sheet *tone* was
+added, and tone alone is weak when the surface is in shadow. Seams are
+probably worth more than tone.
+
+### NOT DONE
+
+Tie marks NO · pour joints NO · age/level variation NO · blockwork dot issue
+NO (not this milestone) · context NO · neighbours NO · crane NO · morning NO ·
+afternoon NO · festoon NO · anti-GTA NO · source gate NO · GLBs NO ·
+runtime NO.
+
+### NEXT EXACT ACTION
+
+1. Add **formwork panel seams** — a thin darker line at sheet boundaries on
+   both orientations. A seam reads where a tone shift does not.
+2. Re-render `entrance`, then run the four-view gate.
+
+---
+
 ## CHECKPOINT — CONTEXT CLOSED 5/5 (deck with reservation)
 
 **START HEAD** `035502d` · **END HEAD** this commit. Daylight 46 / 18 manual,
