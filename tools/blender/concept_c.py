@@ -610,6 +610,45 @@ def build(dusk=False, join_by_material=True):
     # A compacted access strip worn across the pad from the gate to the core.
     parts["street"].append(
         M.prism("haul", M.rect(-5.4, -19, 5.4, 12), 0.395, 0.03, mats["haul"]))
+    # ---- LANE MARKINGS ---------------------------------------------------
+    #
+    # The inventory found these MISSING outright. They are derived from the
+    # road profile rather than placed by eye: three 3.5 m lanes centred on
+    # each carriageway crown, which leaves the outer margin unmarked as the
+    # parking/shoulder it is. Only lane separators are authored -- crosswalks,
+    # arrows, bus lanes and box junctions would all be inventing a traffic
+    # scheme this street does not describe.
+    #
+    # Every dash sits on the CROSSFALL, not on a flat plane: z comes from
+    # interpolating the section at that y, so paint follows the camber the way
+    # paint does.
+    #
+    # The dash is EMBEDDED, not stood on top. Basing it 6 mm proud left a 6 mm
+    # air gap under every line, and at 11 m that is enough to show side faces
+    # and cast its own shadow -- the markings read as raised concrete bars
+    # lying on the road rather than as paint. Base 3 mm below the surface,
+    # 7 mm tall, so 4 mm of real thermoplastic stands proud and there is no
+    # gap and no z-fighting.
+    def section_z(section, y):
+        for i in range(len(section) - 1):
+            (ya, za), (yb, zb) = section[i], section[i + 1]
+            if ya <= y <= yb:
+                return za + (y - ya) / (yb - ya) * (zb - za)
+        return section[-1][1]
+
+    MARK_W, MARK_DASH, MARK_GAP, MARK_SINK = 0.10, 3.0, 6.0, 0.003
+    for ci, crown in enumerate((-61.5, -35.0)):
+        for si in (-1, 1):
+            my = crown + si * 1.75
+            mz = section_z(ROAD, my) - MARK_SINK
+            n = int(280.0 / (MARK_DASH + MARK_GAP))
+            for k in range(n):
+                mx = -140.0 + k * (MARK_DASH + MARK_GAP)
+                parts["street"].append(
+                    M.prism(f"mark{ci}{si}{k}",
+                            M.rect(mx, my - MARK_W / 2, mx + MARK_DASH, my + MARK_W / 2),
+                            mz, 0.007, mats["roadline"]))
+
     # The gutter drain the site falls toward.
     parts["street"].append(
         M.prism("drain", M.rect(-1.2, -25.6, 1.2, -25.0), 0.0, 0.06, mats["galv"]))
@@ -1214,7 +1253,7 @@ LAYER_RULES = (
     ("street", ("gate", "ground", "street", "kerb", "path", "lane", "sitepad",
                 "hoard", "cabin", "skip", "stack",
                 # M3 terrain
-                "road", "pad", "ramp", "haul", "drain")),
+                "road", "pad", "ramp", "haul", "drain", "mark")),
     ("neighbours", ("nb", "np", "nw", "nplant", "city",
                     # M3 rear elevations: openings, fire stair, plant
                     "nrw", "nrd", "nfl", "nfr", "nfp", "nac", "ndp")),
@@ -1450,6 +1489,19 @@ CAMERAS = {
     # filled the frame and the shot became a section through it, which proves
     # nothing about whether the rear of the SITE survives inspection.
     "rear": ((16.0, 44.0, 3.2), (-2.0, 6.0, 11.0), 24),
+    # ROAD TRUTH: a SOURCE-VERIFICATION camera, not a runtime station and not
+    # a replacement for establishing. The production frame compresses 52 m of
+    # street into 49 px with the near kerb and gutter sharing about five of
+    # them, so it cannot prove the street materials either way. This stands a
+    # person on the median at eye height looking back across the near
+    # carriageway at the site, which puts median underfoot, then gutter, kerb,
+    # footpath, the gate mouth and the haul route beyond it in one frame.
+    # Standing on the near footpath just east of the gate, looking WSW ALONG
+    # the kerb line. Aiming across the street from the median put the road in
+    # a narrow band with the building taking the frame; along the kerb the
+    # footpath, kerb upstand, gutter and carriageway each get real depth, and
+    # the markings recede on the crossfall instead of sitting side-on.
+    "road_truth": ((18.0, -23.4, 1.60), (-16.0, -31.0, 0.35), 42),
     # HOIST: close on the machine in its scaffold bay, from inside the site,
     # so the bay, the ties, the landings and the base land in one frame. This
     # is the view that has to prove the thing is attached to a building.

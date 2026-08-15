@@ -963,6 +963,11 @@ def standard_materials(wear=0.5, lit=0.0):
             # worked up and the moisture driven out of the top. Unused soil
             # keeps its own coarser identity.
             "haul": site_ground("haul", base="ground", tile=(1.15, 1.15)),
+            # Road paint: thermoplastic, laid years ago and driven over.
+            # Off-white rather than white, matte rather than glossy, and NOT
+            # emissive -- glowing lane lines are the single clearest game cue
+            # a street can have.
+            "roadline": painted("roadline", 0xC9C3B6, rough=0.74, wear=0.55),
             "spandrel": cc0("spandrel", "asphalt", (2.0, 2.0)),
             "earth": site_ground("earth"),
             "ply": cc0("ply", "ply", (2.0, 2.0)),
@@ -996,6 +1001,7 @@ def standard_materials(wear=0.5, lit=0.0):
         "footpath": concrete("footpath", 0xB4B2AA, wear=0.45),
         "median_top": earth("median_top"),
         "haul": earth("haul", damp=0.05),
+        "roadline": painted("roadline", 0xC9C3B6, rough=0.74, wear=0.55),
         "spandrel": painted("spandrel", 0x3A4149, rough=0.4, wear=0.15),
         "glass": glass("glass"),
         # An unlit room seen through glazing. Not decoration: without a dark
