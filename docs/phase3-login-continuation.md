@@ -4,6 +4,80 @@
 
 ---
 
+## CHECKPOINT — MID SERVICE CORE ADDED; DECK **STILL FAILS**, CAUSE = FAR
+
+**START HEAD** `834e729` · **END HEAD** this commit. Daylight 46 / 18 manual,
+sun 1, clouds off. Thresholds unchanged: `CTX_NEAR 125`, `CTX_MID 175`.
+
+### MID SERVICE CORE — IMPLEMENTED
+
+| property | value |
+|---|---|
+| geometry | one box per MID block, full shaft height + 1.5 m past the parapet |
+| width | `clamp(frontage × 0.16, 2.0, 4.0)` m — derived from frontage, not fixed |
+| placement | three deterministic variants by block index — 0.30 / 0.68 / 0.19 of frontage (third point, far third, offset from corner) |
+| orientation | across the block's **long** axis, proud on the two long faces |
+| material | **plain** `city_cool` / `city_warm` (alternating by era) — no shader rhythm |
+| depth | **0.18 m proud** |
+
+Plain material is the load-bearing choice: the shaft carries its window rhythm
+**in its material**, so a coplanar band in another rhythm-bearing material
+would simply continue the grid. Standing it proud in a material that has no
+windows makes it **own** that strip of wall and cast a real shadow. It runs
+past the parapet because that is what a stair core does, which strengthens the
+roofline for free.
+
+### DECK — STILL FAILS, AND THE RENDER IDENTIFIED THE CAUSE
+
+`ctx5-deck.png` → `ctx6-deck.png`: **essentially unchanged.**
+
+That null result is the diagnosis. The service core is applied to every MID
+block, and the offending block did not change — **so it was never MID.** This
+is cause **E** from the failure list: *the remaining visible block is actually
+FAR* (r > 175 m).
+
+**The MID fix is not wasted and is not wrong** — MID genuinely lacked an
+in-facade interruption and now has one. It simply was not the thing failing in
+this frame, and the previous session's attribution of the deck failure to MID
+uniformity was incorrect. The render corrected it.
+
+### DISTANCE-TIER GATE: STILL **NO** — 4 / 5
+
+road_truth PASS · lift PASS · establishing PASS · rear PASS · **deck FAIL**.
+
+### TALL / LARGE FAR
+
+**Not re-examined and no rule added** — but the deck result now points
+directly at it. The exception must be physical, not a coordinate hack:
+
+> `if r > CTX_MID and the block's height/frontage is large enough that its
+> openings still resolve from site viewpoints → give it MID-LITE hierarchy`
+> (service core + material break + roof interruption; **no NEAR reveals**).
+
+`CTX_NEAR` was **not** widened and `FAR` was **not** loosened globally.
+
+### SOURCE RENDER COST
+
+Unchanged from the previous note and still significant: a single `deck` frame
+exceeds **10 minutes**. The MID core adds one box per block and is negligible
+against that. Still flagged as a **browser delivery / export optimisation
+risk**, not addressed here.
+
+### TOP THREE — UNCHANGED
+
+1. **Context distance tier** — one frame short, cause now precisely located.
+2. Flat close-range concrete.
+3. Immediate neighbour rear elevations.
+
+### NEXT EXACT ACTION
+
+1. Add the **LARGE_FAR / MID-LITE** rule above.
+2. Re-render **`deck` only**. If it passes, context closes 5/5.
+3. Confirm `establishing` skyline does not gain noise.
+4. Then concrete, in its own session.
+
+---
+
 ## CHECKPOINT — CONTEXT GATE 4/5; **DECK STILL FAILS**, NOT CLOSED
 
 **START HEAD** `ad87f92` · **END HEAD** this commit. Daylight unchanged
