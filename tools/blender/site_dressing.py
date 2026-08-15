@@ -552,10 +552,24 @@ def mobile_crane(name, x, y, ground_z, hook, boom_deg, mats, rng,
                      paint, bevel=0.06))
     out.append(L.box(f"{name}ocab", (1.35, 1.10, 1.55), (x - 1.55, y - 1.35, sz + 0.85),
                      paint, bevel=0.10))
+    # An operator cab with no glass is a box. The front and side lights are
+    # what make it a place a person sits.
+    out.append(L.box(f"{name}ocg", (1.16, 0.06, 1.05),
+                     (x - 1.55, y - 1.90, sz + 0.98), mats["glass"]))
+    out.append(L.box(f"{name}ocs", (0.06, 0.94, 1.05),
+                     (x - 2.21, y - 1.35, sz + 0.98), mats["glass"]))
+    # Carrier cab glazing, for the same reason.
+    out.append(L.box(f"{name}cabg", (2.05, 0.07, 0.80),
+                     (x - 4.55, y - 1.24, sz + 0.36), mats["glass"]))
     # Counterweight: a stack of slabs, on the opposite side to the load.
+    # Counterweight is a STACK OF SLABS with air between them, not a striped
+    # block: the gap is what shows they are separate castings that were
+    # craned on one at a time.
     for i in range(3):
-        out.append(L.box(f"{name}cw{i}", (2.55, 0.62, 0.42),
-                         (x, y + 2.05, sz + 0.34 + i * 0.44), blk, bevel=0.02))
+        out.append(L.box(f"{name}cw{i}", (2.55, 0.60, 0.38),
+                         (x, y + 2.05, sz + 0.32 + i * 0.46), blk, bevel=0.03))
+        out.append(L.box(f"{name}cwl{i}", (2.62, 0.10, 0.09),
+                         (x, y + 2.05, sz + 0.32 + i * 0.46), galv))
 
     # ---- TELESCOPIC BOOM: base plus two extended sections ----------------
     pivot = (x, y - 0.55, sz + 0.55)
@@ -567,16 +581,46 @@ def mobile_crane(name, x, y, ground_z, hook, boom_deg, mats, rng,
     # 20 degrees BELOW horizontal -- three orange bars sticking sideways out
     # of the building, which is what the first lift render showed.
     a = math.atan2(dirn[1], dirn[0])
-    for i, (f0, f1, w) in enumerate(((0.00, 0.42, 0.80), (0.40, 0.74, 0.66),
-                                     (0.72, 1.00, 0.54))):
+    def at(t):
+        """A point a fraction t along the boom axis."""
+        return (x, pivot[1] + dirn[0] * length * t, pivot[2] + dirn[1] * length * t)
+
+    # A TELESCOPIC BOOM IS A NESTED STACK OF BOXES, AND IT HAS TO SHOW IT.
+    #
+    # Three overlapping tapered boxes rendered as one smooth orange cone --
+    # the thing read as a toy because a manufactured boom has a visible STEP
+    # at every section mouth, and this had none. Each section now ends in a
+    # collar at the mouth of the one it slides out of, which is the single
+    # detail that says "this extends" rather than "this was lathed".
+    for i, (f0, f1, w) in enumerate(((0.00, 0.42, 0.86), (0.40, 0.74, 0.70),
+                                     (0.72, 1.00, 0.56))):
         mid = (f0 + f1) / 2
-        seg = L.box(f"{name}bm{i}", (w, length * (f1 - f0), w * 1.10),
-                    (x, pivot[1] + dirn[0] * length * mid,
-                     pivot[2] + dirn[1] * length * mid), paint, bevel=0.03)
+        seg = L.box(f"{name}bm{i}", (w, length * (f1 - f0), w * 1.06),
+                    at(mid), paint, bevel=0.02)
         seg.rotation_euler = (a, 0, 0)
         out.append(seg)
+        if i:                                   # the section mouth it exits
+            col = L.box(f"{name}bc{i}", (w * 1.20, 0.26, w * 1.24), at(f0),
+                        galv, bevel=0.02)
+            col.rotation_euler = (a, 0, 0)
+            out.append(col)
+        # Longitudinal rib down each flank: a fabricated box section has a
+        # weld line, and it is what stops a flat face reading as plastic.
+        for sx in (-1, 1):
+            rib = L.box(f"{name}br{i}{sx}", (0.05, length * (f1 - f0) * 0.92,
+                                             w * 0.30),
+                        (x + sx * w / 2, at(mid)[1], at(mid)[2]), galv)
+            rib.rotation_euler = (a, 0, 0)
+            out.append(rib)
+
+    # ---- BOOM HEAD: cheeks, sheaves, and a rope that leaves from them ----
     head = (x, hy, hz)
-    out.append(L.cyl(f"{name}sheave", 0.34, 0.50, head, galv, axis="X", verts=16))
+    for sx in (-1, 1):
+        out.append(L.box(f"{name}hc{sx}", (0.06, 1.05, 0.62),
+                         (x + sx * 0.30, hy - 0.10, hz - 0.05), galv, bevel=0.02))
+    for k, off in enumerate((-0.16, 0.0, 0.16)):
+        out.append(L.cyl(f"{name}sh{k}", 0.26, 0.13, (x + off, hy, hz), galv,
+                         axis="X", verts=16))
     # Luffing ram, so the boom angle is held by something.
     ram = L.box(f"{name}ram", (0.34, 3.30, 0.34), (x, pivot[1] + 1.15, pivot[2] + 1.55),
                 galv)

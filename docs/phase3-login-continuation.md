@@ -4,6 +4,109 @@
 
 ---
 
+## CHECKPOINT — FIRST TEN-VIEW REFERENCE MATRIX; TOP THREE DERIVED FROM IMAGES
+
+**START HEAD** `37ddb46` · **END HEAD** this commit · nothing exported · no
+runtime change.
+
+### REFERENCE DAYLIGHT — **MANUAL, NON-ASTRONOMICAL**
+
+Elevation **46°**, azimuth **18°**. These are **manual constants** in
+`concept_c.py`. There is no astronomical calculation in the Blender source.
+They must not be called "solar noon", "astronomically correct", "site sun" or
+"midday for the site". The correct name is **REFERENCE DAYLIGHT**.
+
+The runtime has SunCalc 2.x, timezone `Asia/Kolkata`, latitude **23.0**,
+longitude **82.5** — with **`coordinatesConfigured: false`**. Those are an
+explicit placeholder, not the site. Blender was **deliberately not connected**
+to them: a technically astronomical result for a location that is not the site
+is worse than an honestly labelled deterministic reference.
+
+**FINAL ASTRONOMICAL GATE PENDING REAL SITE LATITUDE, LONGITUDE AND DATE.**
+
+Invariants held: **Sun lamp count 1**, Nishita aligned 46/18, `sun_disc` False,
+`sun_intensity` 0, no HDRI, clouds off (`--clouds none`).
+
+### THE TEN FRAMES (`mx-*.png`)
+
+`side` does not exist and was not invented: the plot is hemmed by party walls
+at x ±10.85 with neighbours on both flanks, so a true side elevation stands on
+someone else's land. `hero` (street oblique) was used in its place.
+`opposite` → `ground`, `crane` → `lift`.
+
+| frame | verdict |
+|---|---|
+| establishing | **PASS** — hierarchy holds; street reads; ground floor legible |
+| entrance | **PASS with reservation** — content strong; large flat grey concrete at 10 m; blockwork reads as a regular dot grid |
+| road_truth | **PASS** — footpath, kerb, gutter, asphalt, markings all separate |
+| hero (for side) | **PASS** — best architecture in the project; brick reveals and sills read |
+| rear | **FAIL** — crane reads as a toy; neighbour rear elevations are blank slabs with boolean holes |
+| ground (opposite) | **PASS** — festoon reads as site lighting, not fairy lights |
+| stack | **PASS** — beams, props, OSB decking read; concrete is a broad even field |
+| hoist | **PASS** — mast, rack and boarded lifts convincing |
+| lift (crane) | **FAIL** — crane dominates and reads as a low-poly vehicle |
+| deck | **PASS with reservation** — bundle and receiver read; boom and context grid intrude |
+
+### TOP THREE — DERIVED FROM THESE IMAGES
+
+**#1 — THE MOBILE CRANE READS AS A TOY.**
+*Symptom:* smooth tapered orange tube for a boom, two rounded boxes for the
+superstructure, plain cylinder wheels, a striped counterweight block, no cab
+glazing. *Frames:* `rear`, `lift`, `deck` — largest object in two of them.
+*Distance:* 25–45 m. *Why game:* a manufactured machine carries section
+changes, joints, ribs and glazing; this had none. It was the only object in the
+world with **zero surface hierarchy at its own scale**, and it is big,
+saturated and central. *Minimum fix:* manufactured hierarchy — telescopic
+section steps, ribs, a real boom head, glazing.
+
+**#2 — CONTEXT CITY IS ONE DETAIL TIER SERVING 25 m AND 400 m.**
+*Symptom:* pale boxes with a perfectly uniform punched-window grid, identical
+floor spacing, no reveal depth, no parapet or plant variation, no material
+break. *Frames:* `deck`, `lift`, `road_truth`, `rear`. *Distance:* 25–120 m —
+the **near/mid ring fails, the far ring is fine**. *Why LEGO/BIM:* `a942922`'s
+shader rhythm is correct at 70 m where a window is under a pixel, and at 25 m
+the eye wants reveal depth and bay variation and gets a flat decal grid.
+**This is a DISTANCE-TIER failure, not "the context fix failed."**
+*Minimum fix:* a MID tier inside ~60 m with real recessed openings (150 mm is
+enough), parapet variation, one service element, a material break. Leave the
+FAR ring exactly as it is.
+
+**#3 — LARGE FLAT UNTEXTURED CONCRETE AT CLOSE RANGE.**
+*Symptom:* columns, soffits, core and stair walls and slab edges are broad even
+grey fields with almost no variation. *Frames:* `entrance`, `ground`, `stack`,
+`deck`. *Distance:* 8–20 m. *Why CG:* in-situ concrete at that range shows pour
+lifts, form-tie marks, board marks, edge chipping and differential staining.
+The material exists but its 2.4 m tile is not landing at this scale.
+*Minimum fix:* re-scale `in_situ_concrete` against these cameras and express
+tie/lift lines at real spacing.
+
+### #1 FIX — PERFORMED, **PARTIAL**
+
+Telescopic section **collars** at each mouth, longitudinal flank **ribs**, a
+real **boom head** with cheeks and three sheaves, **glazed** operator and
+carrier cabs, and the counterweight rebuilt as **separated slabs** with gaps.
+
+**BEFORE** `mx-lift.png` · **AFTER** `mx-lift-after.png`.
+
+**Verdict: improved, not closed.** The section step and the counterweight stack
+now read. The boom flanks are still broad flat orange and the machine still
+lacks the density of a real all-terrain crane. **#1 stays on the list.**
+
+### NOT RUN
+
+**MORNING: NO. AFTERNOON: NO. FESTOON THREE-STATE: NO. CLOUD VALIDATION: NO.
+ANTI-GTA: NO. SOURCE-WORLD FINAL GATE: NO. GLBs: NO. RUNTIME: NO.**
+
+### NEXT EXACT ACTION
+
+1. Finish **#1** — the crane still reads under-built at 25 m.
+2. Then **#2**, as a distance tier, not as more detail everywhere.
+3. Then **#3**, as a texture-scale question.
+4. Temporal matrix (morning/afternoon + the overdue festoon three-state) only
+   after the top three are closed.
+
+---
+
 ## CHECKPOINT — ROAD PROVEN AND MARKED; SOLAR AUDITED; MIDDAY MATRIX NOT RUN
 
 **START HEAD** `ddca9f6` · **END HEAD** this commit · source gate not run ·
