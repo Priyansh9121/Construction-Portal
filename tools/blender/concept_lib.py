@@ -763,36 +763,146 @@ def tower_crane(base, mast_h, jib_len, mats, slew=0.6, back=None):
     return join_all("crane", parts)
 
 
+# Tier boundaries in METRES FROM THE SITE ORIGIN -- not from a camera.
+#
+# This is source truth, so a building has architectural depth because it is
+# near the site, not because a particular Cycles camera asked for it. Runtime
+# LOD is a separate problem and comes later.
+# 125 m, not 85. The first attempt used 85 and the frames did not change,
+# because the blocks that actually fail in road_truth and lift are the
+# across-the-road terrace and the first rear row at r = 97-120 m -- they sat
+# in MID and kept the shader grid. The threshold has to come from where the
+# offending buildings ARE, which the audit measured, not from a round number.
+# The far ring starts at 190 m and stays untouched either way.
+CTX_NEAR = 125.0
+CTX_MID = 175.0
+
+
 def context_city(rng, blocks, mats, lit=0.0):
     """
-    Neighbouring urban fabric.
+    Neighbouring urban fabric, at THREE DETAIL TIERS.
 
-    Every block is a podium, a shaft, a setback cap and rooftop plant, and its
-    facade carries a WINDOW RHYTHM from the brick shader. Distant architecture
-    does not need modelled windows; it needs the rhythm of them, which is what
-    separates a city from a row of extruded cuboids.
+    Every block used to be a podium, a shaft, a cap and rooftop plant carrying
+    a window rhythm in the shader. That is correct at 150 m+, where an opening
+    is under a pixel and only silhouette survives -- and the ten-view matrix
+    showed it failing badly nearer than that. The across-the-road terrace
+    reads 260-280 px wide, over a third of the frame, and at that size a
+    painted-on grid with no reveal shadow reads as LEGO.
+
+    The cause was never the shader. It was ONE DETAIL TIER SERVING EVERY
+    DISTANCE. So:
+
+        NEAR  <= 85 m    real recessed openings, a service bay, a material
+                         break between podium and shaft, roof overrun
+        MID   85-150 m   the shader rhythm, plus parapet and plant variation
+                         and the podium material break -- no frames, no sills
+        FAR   > 150 m    untouched. Silhouette, roofline, height variation.
+                         It works, and adding reveals there would cost
+                         polygons to render sub-pixel detail.
     """
     parts = []
-    for (cx, cy, w, d, h, era) in blocks:
-        # Prefer the rhythm-carrying context shader; fall back to the plain
-        # masonry keys so other concepts keep working unchanged.
-        warm = mats.get("ctx_warm", mats["city_warm"])
-        cool = mats.get("ctx_cool", mats["city_cool"])
-        mat = warm if era else cool
+    warm = mats.get("ctx_warm", mats["city_warm"])
+    cool = mats.get("ctx_cool", mats["city_cool"])
+    dark = mats.get("interior", mats["city_cool"])
+
+    for bi, (cx, cy, w, d, h, era) in enumerate(blocks):
+        r = math.hypot(cx, cy)
+        # NEAR WALLS MUST NOT CARRY THE SHADER RHYTHM.
+        #
+        # ctx_warm/ctx_cool paint a window grid into the surface. On a NEAR
+        # block that now has REAL recessed openings that is two window
+        # systems on one wall, at different spacings, that cannot align --
+        # which is worse than either alone. Near blocks get the plain
+        # photographic masonry and let the geometry do the windows; mid and
+        # far keep the shader, because at that size it is all they need.
+        if math.hypot(cx, cy) <= CTX_NEAR:
+            mat = mats["city_warm"] if era else mats["city_cool"]
+            other = mats["city_cool"] if era else mats["city_warm"]
+        else:
+            mat = warm if era else cool
+            other = cool if era else warm
         ph = rng.uniform(4.0, 7.5)
-        parts.append(box("podium", (w * 1.12, d * 1.12, ph), (cx, cy, ph / 2), mat))
         sh = h * rng.uniform(0.66, 0.86)
-        parts.append(box("shaft", (w, d, sh), (cx, cy, ph + sh / 2), mat))
         ch = h - sh
+
+        # MATERIAL BREAK: a podium in the other material. Every street has a
+        # different thing happening at ground level, and one material from
+        # footing to parapet is the surest sign nothing is.
+        pod_mat = other if r <= CTX_MID else mat
+        parts.append(box(f"podium{bi}", (w * 1.12, d * 1.12, ph), (cx, cy, ph / 2),
+                         pod_mat))
+        parts.append(box(f"shaft{bi}", (w, d, sh), (cx, cy, ph + sh / 2), mat))
         if ch > 2:
-            parts.append(box("cap", (w * rng.uniform(0.6, 0.82), d * rng.uniform(0.6, 0.82),
-                                     ch), (cx, cy, ph + sh + ch / 2), mat))
-        parts.append(box("plant", (rng.uniform(3, 6), rng.uniform(3, 6), rng.uniform(1.4, 2.8)),
+            parts.append(box(f"cap{bi}", (w * rng.uniform(0.6, 0.82),
+                                          d * rng.uniform(0.6, 0.82), ch),
+                             (cx, cy, ph + sh + ch / 2), mat))
+        parts.append(box(f"plant{bi}", (rng.uniform(3, 6), rng.uniform(3, 6),
+                                        rng.uniform(1.4, 2.8)),
                          (cx + rng.uniform(-w * 0.2, w * 0.2),
                           cy + rng.uniform(-d * 0.2, d * 0.2),
-                          ph + h + 1.0), mats["city_cool"]))
-        parts.append(box("parapet", (w * 1.02, d * 1.02, 0.7),
-                         (cx, cy, ph + h + 0.35), mats["city_cool"]))
+                          ph + h + 1.0), cool))
+        parts.append(box(f"parapet{bi}", (w * 1.02, d * 1.02, 0.7),
+                         (cx, cy, ph + h + 0.35), cool))
+
+        if r > CTX_MID:
+            continue                       # FAR: silhouette only, untouched
+
+        # ROOFLINE: a stair overrun. One idea per building, not a checklist --
+        # it is the element that stops a block terminating as a rectangle and
+        # it is the one every real building actually has.
+        ov_w = min(w * 0.30, 5.0)
+        parts.append(box(f"parapetov{bi}", (ov_w, min(d * 0.28, 4.6), 2.6),
+                         (cx + w * 0.26 * (1 if era else -1),
+                          cy - d * 0.22, ph + h + 1.3), pod_mat))
+
+        if r > CTX_NEAR:
+            continue                       # MID: rhythm + roof + break only
+
+        # ---- NEAR: OPENINGS WITH REAL DEPTH ------------------------------
+        #
+        # A dark plane set 150 mm BEHIND the facade, not a decal on it. The
+        # wall's own thickness then casts the reveal shadow at every opening
+        # edge, which is the single strongest architectural cue at 25-60 m
+        # and the thing a shader grid can never produce.
+        REVEAL, BAY, FLOOR = 0.15, 3.4, 3.2
+        OW, OH = 1.70, 1.45
+        # Face the site: whichever axis the site lies along dominates.
+        faces = [(0, -1 if cy > 0 else 1)] if abs(cy) >= abs(cx) else [(-1 if cx > 0 else 1, 0)]
+        faces.append((0, 0))               # placeholder, replaced below
+        faces = [faces[0], (faces[0][1], faces[0][0])]   # plus the perpendicular
+        for fi, (nx, ny) in enumerate(faces):
+            span = d if nx else w
+            half = (w if nx else d) / 2.0
+            bays = max(2, int(span / BAY))
+            floors = max(2, int(sh / FLOOR))
+            # SERVICE BAY: one full-height bay with no windows. Stair and wet
+            # stacks are why real facades are not uniform -- this is
+            # architecture, not a randomly deleted window.
+            svc = 1 if fi == 0 else bays - 2
+            for b in range(bays):
+                if b == svc:
+                    continue
+                for f in range(floors):
+                    u = -span / 2 + (b + 0.5) * span / bays
+                    oz = ph + 0.9 + f * FLOOR
+                    if oz + OH > ph + sh - 0.5:
+                        continue
+                    ox = cx + (nx * (half - REVEAL) if nx else u)
+                    oy = cy + (ny * (half - REVEAL) if ny else u)
+                    sx = 0.06 if nx else OW
+                    sy = OW if nx else 0.06
+                    parts.append(box(f"ctxop{bi}{fi}{b}{f}", (sx, sy, OH),
+                                     (ox, oy, oz + OH / 2), dark))
+        # GROUND CONDITION: a taller, wider opening at street level, because
+        # the ground floor of a real building does something different.
+        gu = -(d if faces[0][0] else w) / 2 + (d if faces[0][0] else w) * 0.5
+        gnx, gny = faces[0]
+        ghalf = (w if gnx else d) / 2.0
+        parts.append(box(f"ctxgf{bi}",
+                         (0.06 if gnx else 5.2, 5.2 if gnx else 0.06, 2.9),
+                         (cx + (gnx * (ghalf - REVEAL) if gnx else gu),
+                          cy + (gny * (ghalf - REVEAL) if gny else gu),
+                          ph * 0.5 + 0.4), dark))
     return join_all("city", parts)
 
 
