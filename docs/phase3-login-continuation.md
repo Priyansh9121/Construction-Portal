@@ -4,6 +4,76 @@
 
 ---
 
+## CHECKPOINT — STACK PROVES THE CONCRETE SYSTEM WORKS WHEN LIT
+
+**START HEAD** `1f62192` · **END HEAD** this commit. **No source change** —
+documentation only, justified because `stack` establishes a new gate fact the
+continuation depends on. Daylight 46 / 18, sun 1, clouds off.
+
+### WHY THIS FRAME MATTERED
+
+`entrance` is a dark interior, which is close to the worst possible test of a
+lighting-dependent cue. It could not distinguish *"the material is too weak"*
+from *"the surface is in shadow"*. `stack` has lit, side-on concrete, so it
+separates the two.
+
+### STACK — `conc4-stack.png`
+
+| surface | expected system | verdict |
+|---|---|---|
+| slab edge | vertical face | **PASS** — subtle vertical divisions along its length, where it was uniform before |
+| beam web | vertical face | **PASS** — no horizontal sheet pattern misprojected onto it |
+| beam soffit | horizontal XY | **NOT PROVABLE HERE** — in shadow at this angle |
+| column | vertical lift | **PASS** — vertical tonal banding, no 1.2 × 2.4 m checkerboard |
+| large soffit / slab | — | **PASS** — no longer one even grey plane |
+
+Orientation system **correct** · seams **visible but subtle** · grid-like
+**NO** · concrete reads **cast** · still distinct from OSB, ply, props, steel
+and blockwork · construction sequence still legible.
+
+**STACK = PASS.**
+
+### THE CONSEQUENCE — AND WHAT NOT TO DO
+
+Per the branch rule: the entrance quietness is **shadow, not material
+failure**. **The material was NOT strengthened.** No seam-width change, no
+roughness change, no bump, no tie marks, no pour joints, no age variation, no
+dirt. Nothing was added on the strength of a dark frame.
+
+### CONCRETE GATE — STILL NOT RUN
+
+| view | state |
+|---|---|
+| entrance | improved, subtle — proof exists |
+| **stack** | **PASS** |
+| deck | **NOT RENDERED** |
+| ground | **NOT RENDERED** |
+| establishing | **NOT RENDERED** |
+
+**Concrete is NOT closed and remains #1.** Two of four views.
+
+### STRONGEST REMAINING CONCRETE WEAKNESS
+
+The **beam soffit** — the one surface the horizontal XY field exists for — has
+still never been seen lit. `entrance` had it in shadow and `stack` has it in
+shadow at this angle. `deck` is the frame that will finally show broad lit
+concrete on the core and stair masses, which is where flat grey was first
+called #1.
+
+### RENDER COST — NOW THE BINDING CONSTRAINT
+
+Still **>10 min/frame**. This session spent essentially its whole budget on one
+render. Deliberately **not** optimised mid-gate: dropping resolution now would
+make the before/after evidence incomparable. Worth a dedicated checkpoint after
+concrete closes, and still logged as a **browser/export optimisation risk**.
+
+### NEXT EXACT ACTION
+
+Render **`deck`** — broad lit core and stair concrete, the frame that made flat
+grey #1. Then `ground`. Then judge the gate.
+
+---
+
 ## CHECKPOINT — FORMWORK SEAMS ADDED; ENTRANCE ONLY, GATE NOT RUN
 
 **START HEAD** `08944ae` · **END HEAD** this commit. Daylight 46 / 18 manual,
