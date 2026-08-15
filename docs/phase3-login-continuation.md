@@ -4,6 +4,86 @@
 
 ---
 
+## CHECKPOINT — CONTEXT GATE 4/5; **DECK STILL FAILS**, NOT CLOSED
+
+**START HEAD** `ad87f92` · **END HEAD** this commit. Daylight unchanged
+46 / 18 manual, sun count 1, clouds off. Concrete, crane and neighbours all
+verified untouched by diff before rendering.
+
+### THE TWO MISSING FRAMES
+
+| frame | before | after | verdict |
+|---|---|---|---|
+| **deck** | `mx-deck.png` | `ctx5-deck.png` | **FAIL** — background blocks still read as a uniform punched grid |
+| **rear** | `mx-rear.png` | `ctx5-rear.png` | **PASS (by absence)** — no `context_city` object contributes a grid cue |
+
+**`rear` is a pass on a technicality worth stating plainly:** the frame is
+filled by the two immediate NEIGHBOUR rear elevations (`nb`/`nw`) and the
+hero. Those blank slabs with boolean-hole windows are the separate known #3
+and were correctly **not** judged as a context failure — and **not fixed**.
+
+### THE FIVE-FRAME GATE
+
+| frame | verdict |
+|---|---|
+| road_truth | PASS |
+| lift | PASS |
+| establishing | PASS — no regression |
+| rear (context only) | PASS |
+| **deck** | **FAIL** |
+
+**DISTANCE-TIER GATE: NO. Context is NOT closed.**
+
+### THE SINGLE REMAINING CONTEXT CAUSE
+
+The blocks visible behind the site from `deck` sit at **r > 125 m**, so they
+are MID tier and keep the shader rhythm. From that camera they subtend roughly
+**170 px wide**, and at that size a painted-on grid still reads as procedural.
+
+MID currently receives a podium material break and a roof overrun but **no
+anti-uniformity cue within the facade itself** — the NEAR tier gets that from
+its blank service bay, which is created by *omitting* geometry openings, and
+MID has no geometry openings to omit.
+
+**This is not an argument for widening `CTX_NEAR`.** The 125 m threshold was
+derived from where the offending near/mid blocks actually are and should
+stay. The missing piece is a cheap in-facade interruption for MID.
+
+**Proposed minimum fix (NOT implemented):** give MID a full-height service
+strip in the podium material — a stair/wet stack expressed as a material
+band rather than as openings. It costs one box per block, reads at 170 px,
+and is architecture rather than randomness.
+
+### TALL FAR BLOCK
+
+Not re-examined this session — `road_truth` was not re-rendered because no
+FAR rule was added. **Still recorded as open.** No `TALL_FAR` rule was
+created; `CTX_NEAR` and `CTX_MID` are unchanged at 125 / 175.
+
+### SOURCE RENDER COST
+
+The NEAR tier roughly **doubled** Blender build+render time: a single frame
+now exceeds 10 minutes at 720×450 / matrix samples, against roughly 4–5
+minutes before. Not optimised — this is source truth.
+
+**Flagged as a BROWSER DELIVERY / EXPORT OPTIMISATION RISK** for the GLB
+stage: instancing, shared geometry, mesh merging, LOD and visibility
+management are all candidates *then*, not now.
+
+### TOP THREE — UNCHANGED, BECAUSE CONTEXT DID NOT CLOSE
+
+1. **Context distance tier** — still #1, one frame short.
+2. Flat close-range concrete.
+3. Immediate neighbour rear elevations.
+
+### NEXT EXACT ACTION
+
+1. Add the MID service strip described above.
+2. Re-render **`deck` only**. If it passes, context closes at 5/5.
+3. Then re-check the tall FAR block, then concrete in its own session.
+
+---
+
 ## CHECKPOINT — CONTEXT DETAIL TIERS BUILT; GATE PROVEN ON 3 OF 4 FRAMES
 
 **START HEAD** `2346d37` · **END HEAD** this commit. Reference daylight
