@@ -1,4 +1,4 @@
- """
+"""
 The construction site as a real 3D scene description.
 
 This emits WORLD GEOMETRY IN METRES, not screen coordinates. Nothing here
