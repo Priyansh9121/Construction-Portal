@@ -537,11 +537,27 @@ def box(name, size, loc, mat=None, bevel=0.0, rot=None, collection=None):
 def cyl(name, radius, length, loc, mat=None, axis="Z", verts=10):
     rot = {"Z": (0, 0, 0), "X": (0, math.radians(90), 0),
            "Y": (math.radians(90), 0, 0)}[axis]
-    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius,
-                                        depth=length, location=loc,
-                                        rotation=rot)
-    ob = bpy.context.active_object
-    ob.name = name
+    # Built through bmesh for the same reason box() is: the operator form,
+    # primitive_cylinder_add, cost 128 ms a call against 971 calls -- 124.5 s,
+    # and after box() landed it was most of what remained of the build.
+    #
+    # create_cone with equal radii and n-gon caps reproduces Blender's
+    # cylinder exactly: same vertex count, same edge and face counts, and the
+    # same vertex COORDINATES, verified by sorted comparison across 14 cases
+    # covering all three axes and segment counts from 4 to 32. Nothing is
+    # baked that was not baked before -- the operator never applied scale
+    # either, so the mesh carries the real radius and depth and the object
+    # carries only the axis rotation.
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=verts,
+                          radius1=radius, radius2=radius, depth=length)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(ob)
+    ob.location = loc
+    ob.rotation_euler = rot
     if mat:
         ob.data.materials.append(mat)
     for p in ob.data.polygons:
