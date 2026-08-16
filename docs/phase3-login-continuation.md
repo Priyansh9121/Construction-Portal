@@ -4,6 +4,130 @@
 
 ---
 
+## BUILD PROFILE — **97.7% OF THE BUILD IS TWO FUNCTIONS**
+
+**START HEAD** `64366ce` · **END HEAD** this commit. Documentation only —
+**no source changed, nothing optimised.** This milestone chooses the next
+optimisation; it does not perform it.
+
+### BUILD LIFECYCLE — PROVEN FROM SOURCE
+
+`build(dusk=dusk)` is called **once**, before the frame loop. The
+`for key in which.split(",")` loop only creates a camera and calls
+`L.render`. **One Blender process builds once regardless of frame count.**
+
+**This corrects my own claim last session** that "a 10-frame matrix pays the
+12-minute build ten times". It does not. Real cost:
+
+- 10 frames, one process: 728 s build + 10 × 8.7 s ≈ **13.6 min**
+- 10 frames, ten processes: ≈ **123 min**
+
+The waste is entirely in **iterative single-frame sessions** — which is
+exactly how these milestones have been run.
+
+### PROFILE — one run, `cProfile` around `build()` only
+
+**Total 713.5 s.** Render excluded (already known: 8.7 s).
+
+| function | calls | inclusive | per call |
+|---|---|---|---|
+| **`L.box`** | **2145** | **572.8 s** | **267.0 ms** |
+| **`L.cyl`** | **971** | **124.5 s** | **128.2 ms** |
+| `L.join_all` | 19 | 10.5 s | 555.0 ms |
+| `M.cut` (boolean) | 82 | 5.1 s | 61.7 ms |
+| `M.slab` | 6 | 0.95 s | 158 ms |
+| **`M.prism`** | **1443** | **0.19 s** | **0.134 ms** |
+
+`{built-in _bpy.ops.call}`: **3218 calls, 11.7 s self time**.
+
+**`L.box` + `L.cyl` = 697.3 s of 713.5 s = 97.7% of the entire build.**
+
+### ROOT CAUSE — TWO MESH PATHS, ONE OF THEM 2000× SLOWER
+
+```
+L.box  -> bpy.ops.mesh.primitive_cube_add(...)      267 ms
+L.cyl  -> bpy.ops.mesh.primitive_cylinder_add(...)  128 ms
+M.prism-> bmesh.new() ... bm.to_mesh(mesh)          0.134 ms
+```
+
+Blender **operators** carry full context and depsgraph overhead per call;
+`bmesh` writes mesh data directly. **`M.prism` is 1997× cheaper per object**,
+and its own docstring already says *"This is the primitive that replaces
+box()"*. The fast path exists, was written for exactly this reason, and 2145
+calls still take the slow one.
+
+### PHASE OWNERSHIP
+
+| phase | inclusive | share |
+|---|---|---|
+| `context_city` | **431.9 s** | **60.5%** |
+| `construction_hoist` | 66.5 s | 9.3% |
+| `build_backprops` (×7) | 56.3 s | 7.9% |
+| `D.dress` | 46.3 s | 6.5% |
+| `build_ground_logistics` | 35.7 s | 5.0% |
+| `mobile_crane` | 25.5 s | 3.6% |
+| `join_all` | 10.5 s | 1.5% |
+| `build_crown` | 7.9 s | 1.1% |
+| `site_lighting` | 7.1 s | 1.0% |
+| `M.cut` | 5.1 s | 0.7% |
+
+`context_city` dominates **because it is almost entirely `L.box` calls** —
+podium, shaft, cap, plant, parapet, overrun, service core, plus the NEAR
+opening boxes.
+
+### HYPOTHESIS VERDICTS
+
+| prior suspect | verdict |
+|---|---|
+| NEAR context geometry | **CONFIRMED — largest phase**, but by call *mechanism*, not object count |
+| `join_all` / material joins | **MINOR** — 1.5% |
+| per-object `bmesh` prism/slab | **NOT SIGNIFICANT** — 0.03% |
+| boolean `cut()` | **MINOR** — 0.7% |
+| crane | **MINOR** — 3.6% |
+| hoist | **MODERATE** — 9.3% |
+
+The actual hotspot — `L.box`/`L.cyl` using operators — **was on nobody's
+list**, including mine.
+
+### CACHE VALUE
+
+- **Multi-frame, one process:** builds once already. A cache adds **nothing**.
+- **Iterative single-frame sessions:** saves the full ~728 s per session.
+  **High value for how this project is actually worked.**
+
+Invalidation would need to key on `concept_c.py`, `concept_lib.py`,
+`concept_mesh.py`, `site_dressing.py`, `human.py`, the CC0 texture inputs, the
+Blender version, and any geometry-affecting argument (`--dusk`, `--clouds`,
+`--sun`, `--az`). Analysis only — **not implemented.**
+
+### OPTIMISATION RANKING
+
+**#1 — Reroute `L.box` / `L.cyl` onto `bmesh`.**
+Evidence: 97.7% of build time; `M.prism` proves the same job costs 0.134 ms.
+Estimated gain: build plausibly **minutes → seconds**. Risk: moderate — bevel
+and rotation semantics must be preserved exactly, it is used by every system,
+and it must be gated by re-rendering a known frame and diffing against
+existing final evidence.
+
+**#2 — Built-scene `.blend` cache.**
+Evidence: multi-frame already builds once, so the win is purely iterative —
+but that is the dominant working pattern. Lower ceiling than #1 and higher
+correctness risk (invalidation).
+
+**#3 — Reduce `context_city` object counts.**
+Evidence: largest phase at 60.5%. **Deliberately ranked last:** if #1 lands,
+this 431.9 s collapses proportionally and the case for touching working
+geometry may disappear entirely. Re-measure after #1 before considering it.
+
+### NEXT EXACT ACTION
+
+Implement **#1 only**: reroute `L.box` and `L.cyl` to `bmesh`, preserving
+bevel/rotation semantics. Verify by rebuilding and re-rendering **one** known
+frame (`deck`) and comparing against `conc5-deck.png` — the build must get
+faster and the image must not change.
+
+---
+
 ## RENDER-COST CHECKPOINT — **THE BOTTLENECK IS NOT THE RENDER**
 
 **START HEAD** `c17dd45` · cleanup `15b5a0d` · **END HEAD** this commit.
