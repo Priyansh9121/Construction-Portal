@@ -4,6 +4,99 @@
 
 ---
 
+## RENDER-COST CHECKPOINT — **THE BOTTLENECK IS NOT THE RENDER**
+
+**START HEAD** `c17dd45` · cleanup `15b5a0d` · **END HEAD** this commit.
+**No diagnostic preset was built.** The measurement said not to.
+
+### CLEANUP FIRST
+
+`c17dd45` had swept a stray leading space before the module docstring in
+`tools/scene/generate_site3d.py` into the concrete closure via `git add -A`.
+Verified as the only change to that file, reverted from the parent, and
+committed alone as `15b5a0d`. History not rewritten — the mistake and its
+correction both stay visible. **`git add -A` is not used again in this repo's
+bounded milestones; paths are staged explicitly.**
+
+### MEASURED — deck frame, one representative run
+
+| phase | time | share |
+|---|---|---|
+| module import | 0.0 s | — |
+| **Python world build** | **728.5 s** | **98.8%** |
+| scene prep | 0.0 s | — |
+| **Cycles render** | **8.7 s** | **1.2%** |
+| **total** | **737.2 s** | |
+
+### CURRENT FINAL-TRUTH SETTINGS (unchanged, and cheap already)
+
+720 × 450 · **24 samples** · Cycles · denoising on · adaptive on
+(threshold 0.01) · bounces 12 total / 4 diffuse / 4 glossy / 12 transmission /
+0 volume / 8 transparent · **device CPU** · persistent data off · simplify off
+· AgX, exposure −0.35 · 19 joined mesh objects.
+
+### WHY NO DIAGNOSTIC PRESET WAS BUILT
+
+Every lever this milestone proposed — lower resolution, fewer samples, a
+looser adaptive threshold, reduced bounces — acts on the **8.7 second** part.
+Halving all of them saves about four seconds out of twelve and a half minutes.
+
+**Best case speedup ≈ 1.01×.**
+
+Building `--diag` would have added a permanent second code path, a second
+evidence class and a standing risk of closing a gate on the wrong preset, in
+exchange for nothing measurable. The brief's own rule covers this exactly:
+*if build dominates, stop and document*. So the preset does not exist, and
+`--ref` is untouched.
+
+**This also corrects four sessions of my own reporting.** I repeatedly wrote
+"render cost >10 min/frame" and recommended a render-cost checkpoint. The cost
+was never the render. It was the build, and it was never measured until now.
+
+### WHERE THE 728 SECONDS ACTUALLY GO — NOT YET DIAGNOSED
+
+Not investigated, because scene optimisation is explicitly out of scope here.
+Known contributors by construction, in rough order of suspicion:
+
+1. **NEAR context tier** — ~20 blocks × two faces × a grid of opening boxes,
+   each a separate `bmesh` prism, and this is the change that first doubled
+   build time.
+2. **`join_all` / material joins** — 19 final objects from many thousands of
+   source parts.
+3. **Per-object `bmesh` construction** in `M.prism` / `M.slab`, plus boolean
+   `cut()` for slab voids and the pour front.
+4. **Crane and hoist** — a few hundred small boxes each.
+
+### FINAL-TRUTH INVARIANT
+
+Nothing was changed: resolution, samples, denoiser, adaptive, bounces, engine,
+device, cameras, Sun 46 / 18, cloud semantics, geometry, materials all as
+before. **`concept_c.py` and `concept_lib.py` were not modified this session.**
+Verified by inspection, so no final re-render was spent proving it.
+
+### COMMAND CONTRACT (unchanged)
+
+```
+Blender -b -P tools/blender/concept_c.py -- --frames deck --ref
+```
+
+`--ref` remains the only Cycles path and the only source of gate evidence.
+All existing `mx-*`, `ctx*`, `conc*` evidence remains authoritative.
+
+### NEXT EXACT ACTION
+
+**A build-cost milestone, and it should start by profiling rather than
+guessing** — `cProfile` around `build()` for one frame will name the actual
+hot path in a single run. Only then decide between caching the built scene to
+a `.blend` and reusing it across frames (likely the largest single win, since
+a 10-frame matrix currently pays the 12-minute build ten times), reducing
+NEAR-tier object counts, or batching mesh creation.
+
+Until that lands, every visual milestone continues to cost ~12 minutes per
+frame regardless of what is rendered.
+
+---
+
 ## CONCRETE GATE — **CLOSED 4/4**
 
 **START HEAD** `87f2ddd` · **END HEAD** this commit. **No source change** —
