@@ -894,7 +894,12 @@ def context_city(rng, blocks, mats, lit=0.0):
         # MATERIAL BREAK: a podium in the other material. Every street has a
         # different thing happening at ground level, and one material from
         # footing to parapet is the surest sign nothing is.
-        pod_mat = other if (r <= CTX_MID or large_far) else mat
+        # EVERY tier gets the podium material break, FAR included. It costs
+        # nothing -- the podium box already exists -- and a change of material
+        # at street level is the cheapest thing that stops a far block reading
+        # as one shader grid painted over a box. It was the only tier still
+        # rendering as a single uninterrupted field.
+        pod_mat = other
         parts.append(box(f"podium{bi}", (w * 1.12, d * 1.12, ph), (cx, cy, ph / 2),
                          pod_mat))
         parts.append(box(f"shaft{bi}", (w, d, sh), (cx, cy, ph + sh / 2), mat))
@@ -1023,6 +1028,118 @@ def figure(loc, mats, facing=0.0):
 
 
 
+
+def blockwork(name="block", tint=0xDCDAD2, unit=(0.44, 0.215), joint=0.010):
+    """
+    Concrete blockwork, with the coursing it never had.
+
+    The infill was a concrete photograph tiled at 1.35 x 0.68 m, and at 8-20 m
+    that tiling turned the photo's blotches into a regular field of dots -- it
+    read as a perforated panel, not as masonry. Value alone was the right call
+    at 70 m, where a course is under a pixel; it was never going to survive
+    close range, because what says MASONRY at close range is the JOINT.
+
+    So the units are laid rather than tiled: a `unit` of 440 x 215 mm plus a
+    10 mm joint, bed joints every course, perp joints every unit, and every
+    other course offset half a block -- stretcher bond, which is what stops a
+    wall reading as a grid. The joint darkens and roughens; it is not drawn as
+    a line.
+
+    Dimensions are REPRESENTATIVE/CONCEPTUAL, in the same sense as the
+    formwork module: a common dense-block size, not a sourced standard.
+    """
+    mat = cc0(name, "concrete", (1.80, 0.90), rough_boost=0.18, tint=tint)
+    nt = mat.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    link = bsdf.inputs["Base Color"].links[0]
+    src = link.from_socket
+
+    geo = nt.nodes.new("ShaderNodeNewGeometry"); geo.location = (-1900, -700)
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ"); sep.location = (-1760, -700)
+    nt.links.new(geo.outputs["Position"], sep.inputs["Vector"])
+    nsep = nt.nodes.new("ShaderNodeSeparateXYZ"); nsep.location = (-1760, -980)
+    nt.links.new(geo.outputs["Normal"], nsep.inputs["Vector"])
+
+    def M(op, x, y, b=None):
+        n = nt.nodes.new("ShaderNodeMath"); n.operation = op; n.location = (x, y)
+        if b is not None:
+            n.inputs[1].default_value = b
+        return n
+
+    uw, uh = unit
+    # COURSE INDEX -> bed joints, and the half-lap offset that makes bond.
+    cdiv = M("DIVIDE", -1600, -700, uh); nt.links.new(sep.outputs["Z"], cdiv.inputs[0])
+    crow = M("FLOOR", -1460, -700); nt.links.new(cdiv.outputs["Value"], crow.inputs[0])
+    cfr = M("FRACT", -1460, -820); nt.links.new(cdiv.outputs["Value"], cfr.inputs[0])
+    cinv = M("SUBTRACT", -1320, -820); cinv.inputs[0].default_value = 1.0
+    nt.links.new(cfr.outputs["Value"], cinv.inputs[1])
+    cmin = M("MINIMUM", -1180, -820)
+    nt.links.new(cfr.outputs["Value"], cmin.inputs[0])
+    nt.links.new(cinv.outputs["Value"], cmin.inputs[1])
+    cm = M("MULTIPLY", -1040, -820, uh); nt.links.new(cmin.outputs["Value"], cm.inputs[0])
+    bed = nt.nodes.new("ShaderNodeMapRange"); bed.location = (-900, -820); bed.clamp = True
+    bed.inputs["From Max"].default_value = joint
+    bed.inputs["To Min"].default_value = 1.0
+    bed.inputs["To Max"].default_value = 0.0
+    nt.links.new(cm.outputs["Value"], bed.inputs["Value"])
+
+    # ALONG-FACE coordinate: x + y, so a panel reads the same whichever way
+    # its wall faces -- the same trick the context facades use.
+    run = M("ADD", -1600, -520)
+    nt.links.new(sep.outputs["X"], run.inputs[0])
+    nt.links.new(sep.outputs["Y"], run.inputs[1])
+    lap = M("MULTIPLY", -1600, -400, uw * 0.5)          # half-block stagger
+    hodd = M("MODULO", -1740, -400, 2.0); nt.links.new(crow.outputs["Value"], hodd.inputs[0])
+    nt.links.new(hodd.outputs["Value"], lap.inputs[0])
+    shifted = M("ADD", -1460, -460)
+    nt.links.new(run.outputs["Value"], shifted.inputs[0])
+    nt.links.new(lap.outputs["Value"], shifted.inputs[1])
+    pdiv = M("DIVIDE", -1320, -460, uw); nt.links.new(shifted.outputs["Value"], pdiv.inputs[0])
+    pfr = M("FRACT", -1180, -460); nt.links.new(pdiv.outputs["Value"], pfr.inputs[0])
+    pinv = M("SUBTRACT", -1040, -460); pinv.inputs[0].default_value = 1.0
+    nt.links.new(pfr.outputs["Value"], pinv.inputs[1])
+    pmin = M("MINIMUM", -900, -460)
+    nt.links.new(pfr.outputs["Value"], pmin.inputs[0])
+    nt.links.new(pinv.outputs["Value"], pmin.inputs[1])
+    pm = M("MULTIPLY", -760, -460, uw); nt.links.new(pmin.outputs["Value"], pm.inputs[0])
+    perp = nt.nodes.new("ShaderNodeMapRange"); perp.location = (-620, -460); perp.clamp = True
+    perp.inputs["From Max"].default_value = joint
+    perp.inputs["To Min"].default_value = 1.0
+    perp.inputs["To Max"].default_value = 0.0
+    nt.links.new(pm.outputs["Value"], perp.inputs["Value"])
+
+    jm = M("MAXIMUM", -460, -620)
+    nt.links.new(bed.outputs["Result"], jm.inputs[0])
+    nt.links.new(perp.outputs["Result"], jm.inputs[1])
+    # Only on faces that are actually walls -- a block does not course on its
+    # top surface.
+    nz = M("ABSOLUTE", -1600, -980); nt.links.new(nsep.outputs["Z"], nz.inputs[0])
+    vert = nt.nodes.new("ShaderNodeMapRange"); vert.location = (-1460, -980); vert.clamp = True
+    vert.inputs["From Min"].default_value = 0.85
+    vert.inputs["From Max"].default_value = 0.45
+    nt.links.new(nz.outputs["Value"], vert.inputs["Value"])
+    jf = M("MULTIPLY", -320, -620)
+    nt.links.new(jm.outputs["Value"], jf.inputs[0])
+    nt.links.new(vert.outputs["Result"], jf.inputs[1])
+
+    mixc = nt.nodes.new("ShaderNodeMixRGB"); mixc.location = (-140, 260)
+    mixc.blend_type = "MULTIPLY"
+    mixc.inputs["Color2"].default_value = srgb(0xB6B2A9)
+    nt.links.new(jf.outputs["Value"], mixc.inputs["Fac"])
+    nt.links.new(src, mixc.inputs["Color1"])
+    nt.links.new(mixc.outputs["Color"], bsdf.inputs["Base Color"])
+
+    rl = bsdf.inputs["Roughness"].links
+    if rl:
+        rsrc = rl[0].from_socket
+        mixr = nt.nodes.new("ShaderNodeMixRGB"); mixr.location = (-140, -260)
+        mixr.inputs["Color2"].default_value = (0.96, 0.96, 0.96, 1.0)
+        nt.links.new(jf.outputs["Value"], mixr.inputs["Fac"])
+        nt.links.new(rsrc, mixr.inputs["Color1"])
+        nt.links.new(mixr.outputs["Color"], bsdf.inputs["Roughness"])
+    return mat
+
+
 def road_surface(name="asphalt", tile=(1.6, 1.6)):
     """
     Asphalt, with the grime where the water actually goes.
@@ -1148,8 +1265,7 @@ def standard_materials(wear=0.5, lit=0.0):
             # laid, clean and unweathered against a frame that has stood
             # through months of rain is a real ~1.5x albedo difference, and
             # it is flatter because a block face is not a formed face.
-            "block": cc0("block", "concrete", (1.35, 0.68), rough_boost=0.20,
-                         tint=0xDCDAD2),
+            "block": blockwork("block", tint=0xDCDAD2),
             # ---- THE STREET IS FIVE MATERIALS, NOT ONE ------------------
             #
             # road, gutter, kerb, footpath and median were all handed
@@ -1204,7 +1320,7 @@ def standard_materials(wear=0.5, lit=0.0):
         "wet": concrete("wet", 0x6F757C, wear=0.15, wet=0.85),
         "ply": plywood("ply"),
         # Blockwork: laid clean, so lighter and flatter than the cast frame.
-        "block": concrete("block", 0xCFCCC3, pour_step=0.0, wear=0.12),
+        "block": concrete("block", 0xCFCCC3, pour_step=0.06, wear=0.12),
         "galv": galvanised("galv"),
         "paint": painted("paint", 0x8A9096, rough=0.5),
         "crane": painted("crane", 0xC8611A, rough=0.44, wear=0.4),
