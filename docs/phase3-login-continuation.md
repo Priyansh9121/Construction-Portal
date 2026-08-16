@@ -4,6 +4,92 @@
 
 ---
 
+## CONCRETE GATE — **CLOSED 4/4**
+
+**START HEAD** `87f2ddd` · **END HEAD** this commit. **No source change** —
+`deck` and `ground` were pure renders. Documentation commit, justified because
+they establish the final two gate facts. Daylight 46 / 18, sun 1, clouds off.
+
+### DECK — `conc5-deck.png`
+
+The frame that made flat grey **#1** in the first place.
+
+| check | verdict |
+|---|---|
+| core wall reads cast | **PASS** — visible vertical + horizontal panel divisions on lit faces |
+| stair / core mass reads cast | **PASS** — the original worst offender now has meso identity |
+| slab edge orientation | **PASS** — vertical divisions, no horizontal sheet pattern crossing it |
+| horizontal concrete lit | **NOT PROVABLE** — deck surface is OSB, soffit in shadow |
+| procedural grid / checkerboard / repeat | **NO / NO / NO** |
+| distinct from ply, OSB, steel | **PASS** |
+| operation still dominant | **PASS** — boom, hook, slings, bundle, receiver |
+| flat grey still top-three here | **NO** |
+
+**DECK = PASS.** Material was **not** strengthened in response.
+
+### GROUND — `conc6-ground.png`
+
+| check | verdict |
+|---|---|
+| broad uniform grey | **NO** |
+| obvious panel grid | **NO** — seams correctly subordinate at this range |
+| overpowers workers / festoon / staging / hoarding | **NO** |
+| reads naturally inside the site | **YES** |
+
+**GROUND = PASS.**
+
+### FULL GATE
+
+| view | verdict |
+|---|---|
+| entrance | PASS — subtle, in shadow |
+| stack | PASS |
+| deck | PASS |
+| ground | PASS |
+
+**Is flat close-range concrete still among the strongest three cues? NO.**
+
+## **CONCRETE GATE = YES. #1 CLOSED.**
+
+Closed on **orientation and joints only** — the whole system is:
+world-metre PBR, an image-aspect corrected tile, three normal-selected seam
+fields, per-sheet tone, and a 30 mm conceptual seam response.
+
+**Never added, and never needed:** tie marks · pour joints · age variation ·
+bump · displacement · dirt · stains · cracks · a second concrete download.
+Three separate sessions offered the chance to reach for those after a quiet
+frame; the lit frames said the system was already working.
+
+### STRONGEST REMAINING CONCRETE WEAKNESS
+
+**The horizontal XY field has never been seen on a lit soffit.** entrance,
+stack and deck all had it in shadow. It is implemented and orientation-correct
+but remains unproven by image. Not enough to hold the gate — vertical faces
+carry every frame that matters — but it should be stated rather than assumed.
+
+### TOP THREE AFTER CONCRETE — from current frames
+
+1. **Neighbour rear elevations** — blank slabs with boolean holes, no frames
+   or reveals, dominating `rear`.
+2. **Residual painted context window rhythm** where no service core
+   interrupts it — visible in the `deck` background.
+3. **Blockwork reads as a regular perforated dot grid** — visible in
+   `entrance` and `ground`, deliberately deferred through the whole concrete
+   milestone.
+
+### NEXT EXACT ACTION
+
+**A source-render-cost checkpoint, before any further visual work.** At
+>10 min/frame the last four sessions spent most of their budget waiting on
+single renders. Deliberately not touched mid-gate — changing resolution would
+have broken before/after comparability — but that constraint is now the
+biggest obstacle to finishing the remaining top three, the temporal matrix and
+the anti-GTA gate. A cheap diagnostic preset alongside the preserved
+final-truth preset would buy back more progress than any single visual fix
+left on the list.
+
+---
+
 ## CHECKPOINT — STACK PROVES THE CONCRETE SYSTEM WORKS WHEN LIT
 
 **START HEAD** `1f62192` · **END HEAD** this commit. **No source change** —
