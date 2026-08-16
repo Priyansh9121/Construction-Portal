@@ -4,6 +4,92 @@
 
 ---
 
+## BOX OPTIMISATION — **BUILD 728.5 s → 143.1 s, IMAGE UNCHANGED**
+
+**START HEAD** `34f11be` · **END HEAD** this commit. `L.cyl` **untouched**.
+No visual authoring.
+
+### OLD `L.box` CONTRACT (audited in full before editing)
+
+`box(name, size, loc, mat=None, bevel=0.0, rot=None, collection=None)` →
+Object. Unit cube via `primitive_cube_add(size=1)` so vertices sit at ±0.5;
+**`size` assigned to `ob.scale` and never applied**; `loc` on the object
+origin; Euler rotation on the object only when `rot` is truthy; one material
+slot appended; bevel modifier `"bev"` width=`bevel`, segments=2,
+limit=ANGLE, angle=40°, harden_normals=True, plus `use_smooth` on all
+polygons — **added after the scale**, so a non-uniform box stretches its
+bevel. `collection` is accepted and **ignored** (dead parameter, left alone).
+
+### NEW IMPLEMENTATION
+
+`bmesh.ops.create_cube` → `bpy.data.meshes.new` → `bpy.data.objects.new` →
+link to `bpy.context.collection`. **No `bpy.ops` primitive call remains.**
+Fresh bmesh per call rather than a cached prototype datablock, so nothing can
+survive `L.reset()` as a stale pointer.
+
+Every other line is byte-for-byte the old behaviour, including adding the
+bevel **after** the scale. Applying the scale first would have changed every
+bevelled edge radius in the world.
+
+### SEMANTIC PARITY — 12/12 PASS
+
+plain · non-uniform · translated · rotated · bevel=0 · bevelled · material ·
+long/thin · tiny · real context shaft · real hoist part · real crane
+counterweight (bevel + rotation + material together).
+
+Compared per case: location, rotation, scale, dimensions, vertex/edge/face
+counts, material slots, modifier name/type/width/segments/limit/angle/
+harden_normals, smooth flags, UV layers, vertex coordinates. **Zero
+mismatches.**
+
+### PERFORMANCE
+
+| measure | before | after | gain |
+|---|---|---|---|
+| micro (100 boxes, empty scene) | 3.53 ms/call | **0.0234 ms/call** | **150×** |
+| `build()` | 728.5 s / 713.5 s profiled | **143.1 s** | **5.0×** |
+| deck frame end-to-end | 12 m 17 s | **2 m 29.5 s** | **4.9×** |
+
+The micro-benchmark **understates** the real gain: an operator's cost scales
+with scene size, which is why the same call is 3.5 ms in an empty scene and
+267 ms once the site is standing. Saved ≈ 570 s against the 572.8 s the
+profile attributed to `L.box` — the prediction was accurate.
+
+### MESH COUNT 19 → 18 — INVESTIGATED, NOT A REGRESSION
+
+`L.atmosphere_box()` lives in `light()` (line 1232), not `build()` (line 518).
+The old figure measured `build() + light()`; the new one measured `build()`
+alone. **18 + 1 = 19.** Same world, different measurement boundary.
+
+### VISUAL REGRESSION — `perfbox-deck.png` vs `conc5-deck.png`
+
+| metric | value |
+|---|---|
+| mean absolute difference | **0.000015** |
+| P95 / P99 | **0.000000 / 0.000000** |
+| max | 0.007843 (one 8-bit step) |
+| pixels above 0.01 | **0.0000%** |
+
+Visually identical: crane boom, sheaves, hook, slings, rebar bundle, receiver,
+concrete panel divisions, context service cores, bevels, workers, shadows.
+**PASS.**
+
+### NEW HOTSPOT RANKING
+
+`L.cyl` — 971 calls, 124.5 s in the original profile — is now roughly **87% of
+the remaining 143 s build**. It is the same operator problem
+(`primitive_cylinder_add`) with the same fix available.
+
+### NEXT EXACT ACTION
+
+Apply the identical treatment to **`L.cyl` only**: audit its full contract
+(axis handling and `verts` are the extra fields), build the cylinder through
+`bmesh.ops.create_cone`, prove parity on representative cases, micro-benchmark,
+one full build, then a `deck` regression against `perfbox-deck.png`.
+Re-measure afterwards rather than assuming what is left.
+
+---
+
 ## BUILD PROFILE — **97.7% OF THE BUILD IS TWO FUNCTIONS**
 
 **START HEAD** `64366ce` · **END HEAD** this commit. Documentation only —
