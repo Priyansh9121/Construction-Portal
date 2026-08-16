@@ -4,6 +4,67 @@
 
 ---
 
+## CONTEXT OPENING-GRID — CLOSED; EXPORT PATH MEASURED
+
+**START HEAD** `7c8bb6c`. Source-side only. **No runtime, no export shipped.**
+
+### THE GRID WAS THE SHARED SHADER, NOT THE GEOMETRY
+
+Two wrong tiers were eliminated by render before the right one was found:
+
+1. **NEAR geometry families** — added three deterministic facade families
+   (punched / paired / ribbon, different bays and floor heights per block).
+   Rendered: `deck` **unchanged**. The offending block is FAR-tier, which uses
+   the shader, not NEAR geometry. Correct fix, wrong tier.
+2. **The `city_facade` shader itself** — one material, shared by every context
+   block, driven by world position. Every building therefore received the
+   **same grid at the same phase with the same contrast**. At 100 m that is
+   one dot field stretched across a city.
+
+**Fix:** a building-scale noise (~46 m, so one value per block rather than per
+window) modulates how strongly the glazing reads — some blocks deep, some
+nearly flush. Nothing deleted, no rhythm randomised; the grid stays regular
+*on each building*, which is correct. What stops is every building sharing one
+appearance.
+
+`deck` grid materially softened; `entrance` dot-wall-through-the-ground-floor
+now reads as distant wall texture rather than perforation. The NEAR families
+are kept — they are a genuine improvement to the near ring even though they
+did not fix this.
+
+**This closes the defect that was misattributed twice — first to blockwork,
+then to NEAR geometry.**
+
+### EXPORT PATH — RUNS, OUTPUT NOT SHIPPABLE
+
+`--export` works and produces 5 layers, 108,520 triangles from the current
+source world. But it writes **directly over the shipped production assets**,
+and the output is unoptimised:
+
+| layer | shipped | fresh export |
+|---|---|---|
+| street | 33 KB | **12.05 MB** |
+| neighbours | 149 KB | 2.47 MB |
+| architecture | 432 KB | 1.31 MB |
+| people | 182 KB | 727 KB |
+| scaffold | 198 KB | 571 KB |
+| **total** | **~1 MB** | **~17 MB** |
+
+The content is right — it carries 15 commits of source work the browser has
+never seen. The **size is not**: 12 MB for the street layer would be a serious
+load regression. The working assets were **restored**; nothing was shipped.
+
+**The shipped GLBs remain ~15 commits stale.** That is now the single largest
+gap between this repository's source truth and what a user sees.
+
+### NEXT — AND IT IS A PROGRAMME, NOT A STEP
+
+Export optimisation (Meshopt/texture strategy, per-layer budgets, validation),
+then runtime integration, then the world-life and weather systems, then
+browser QA. See the final report for the honest scope.
+
+---
+
 ## PHASE RUN — PERFORMANCE CLOSED 44x; NEIGHBOUR REAR CLOSED; #3 REATTRIBUTED
 
 **START HEAD** `f7cbc4a` · commits `3d3e198` (performance) and this one.

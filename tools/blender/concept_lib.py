@@ -422,7 +422,7 @@ def city_facade(name="city", tint=0x6E7684, lit=0.0):
     brick.inputs["Color2"].default_value = srgb(_shift(tint, 0.31))
     brick.inputs["Mortar"].default_value = srgb(tint)
     nt.links.new(face.outputs["Vector"], brick.inputs["Vector"])
-    nt.links.new(brick.outputs["Color"], bsdf.inputs["Base Color"])
+    # Base Color is wired further down, once the per-building fade exists.
 
     r = nt.nodes.new("ShaderNodeMapRange")
     r.location = (-600, -160)
@@ -430,6 +430,48 @@ def city_facade(name="city", tint=0x6E7684, lit=0.0):
     r.inputs["To Max"].default_value = 0.7        # spandrel
     nt.links.new(brick.outputs["Fac"], r.inputs["Value"])
     nt.links.new(r.outputs["Result"], bsdf.inputs["Roughness"])
+
+    # ---- ONE MATERIAL, MANY BUILDINGS --------------------------------------
+    #
+    # This shader is shared by every context block, and it is driven by world
+    # position, so every building got the SAME grid at the SAME phase with the
+    # SAME contrast. At 100 m that is one dot field stretched across a city --
+    # the cue that was chased through three sessions and misattributed twice,
+    # first to blockwork and then to the NEAR geometry tier.
+    #
+    # A building-scale noise (about 46 m, so one value per block rather than
+    # per window) modulates how strongly the glazing reads. Some blocks come
+    # out with deep openings, some almost flush, most between. Nothing is
+    # deleted and no rhythm is randomised -- the grid is still there and still
+    # regular ON EACH BUILDING, which is correct. What stops is every building
+    # sharing one appearance.
+    bpos = nt.nodes.new("ShaderNodeNewGeometry")
+    bpos.location = (-1400, -560)
+    bdiv = nt.nodes.new("ShaderNodeVectorMath")
+    bdiv.location = (-1240, -560)
+    bdiv.operation = "DIVIDE"
+    bdiv.inputs[1].default_value = (46.0, 46.0, 220.0)
+    nt.links.new(bpos.outputs["Position"], bdiv.inputs[0])
+    bn = nt.nodes.new("ShaderNodeTexNoise")
+    bn.location = (-1080, -560)
+    bn.inputs["Scale"].default_value = 1.0
+    bn.inputs["Detail"].default_value = 0.0
+    nt.links.new(bdiv.outputs["Vector"], bn.inputs["Vector"])
+    bstr = nt.nodes.new("ShaderNodeMapRange")
+    bstr.location = (-900, -560)
+    bstr.clamp = True
+    bstr.inputs["From Min"].default_value = 0.34
+    bstr.inputs["From Max"].default_value = 0.66
+    bstr.inputs["To Min"].default_value = 0.12      # glazing nearly flush
+    bstr.inputs["To Max"].default_value = 1.0       # glazing fully expressed
+    nt.links.new(bn.outputs["Fac"], bstr.inputs["Value"])
+    fade = nt.nodes.new("ShaderNodeMixRGB")
+    fade.location = (-420, 300)
+    fade.blend_type = "MIX"
+    fade.inputs["Color1"].default_value = srgb(tint)
+    nt.links.new(bstr.outputs["Result"], fade.inputs["Fac"])
+    nt.links.new(brick.outputs["Color"], fade.inputs["Color2"])
+    nt.links.new(fade.outputs["Color"], bsdf.inputs["Base Color"])
 
     # The brick pattern also drives relief, so mortar joints sit BELOW the
     # face. Kept shallow -- deep mortar reads as a dry-stone wall.
@@ -970,8 +1012,30 @@ def context_city(rng, blocks, mats, lit=0.0):
         # wall's own thickness then casts the reveal shadow at every opening
         # edge, which is the single strongest architectural cue at 25-60 m
         # and the thing a shader grid can never produce.
-        REVEAL, BAY, FLOOR = 0.15, 3.4, 3.2
-        OW, OH = 1.70, 1.45
+        # THREE FACADE FAMILIES, NOT ONE.
+        #
+        # Every NEAR block was punched on the same 3.4 m bay at the same
+        # 3.2 m floor, so at 100 m -- through the open ground floor, or behind
+        # the deck -- they all collapsed into one identical dot field. That is
+        # what was misdiagnosed as a blockwork defect for several sessions:
+        # not too little geometry, too REGULAR a rhythm shared by everything.
+        #
+        # A real street is not one structural grid. Buildings of different
+        # periods and uses have different bays, different window proportions
+        # and sometimes not punched windows at all. Three deterministic
+        # families keyed on the block index give that without randomness:
+        #
+        #   0  PUNCHED    single openings on a wide bay -- the original
+        #   1  PAIRED     two narrow lights close together, then a broad pier
+        #   2  RIBBON     a continuous horizontal band per floor, no dots
+        #
+        # Family 2 matters most: a horizontal band cannot read as a dot grid
+        # at any distance, so roughly a third of the street stops contributing
+        # to the effect outright.
+        FAMILY = bi % 3
+        REVEAL = 0.15
+        BAY, FLOOR = ((3.40, 3.20), (4.60, 3.20), (5.20, 3.60))[FAMILY]
+        OW, OH = ((1.70, 1.45), (0.85, 1.55), (0.00, 1.20))[FAMILY]
         # Face the site: whichever axis the site lies along dominates.
         faces = [(0, -1 if cy > 0 else 1)] if abs(cy) >= abs(cx) else [(-1 if cx > 0 else 1, 0)]
         faces.append((0, 0))               # placeholder, replaced below
@@ -985,20 +1049,38 @@ def context_city(rng, blocks, mats, lit=0.0):
             # stacks are why real facades are not uniform -- this is
             # architecture, not a randomly deleted window.
             svc = 1 if fi == 0 else bays - 2
-            for b in range(bays):
-                if b == svc:
+            for f in range(floors):
+                oz = ph + 0.9 + f * FLOOR
+                if oz + OH > ph + sh - 0.5:
                     continue
-                for f in range(floors):
-                    u = -span / 2 + (b + 0.5) * span / bays
-                    oz = ph + 0.9 + f * FLOOR
-                    if oz + OH > ph + sh - 0.5:
+                if FAMILY == 2:
+                    # RIBBON: one band, stopped short of each end so the
+                    # corners stay solid the way a real frame building's do.
+                    bw = span - 2.4
+                    if bw <= 1.0:
                         continue
-                    ox = cx + (nx * (half - REVEAL) if nx else u)
-                    oy = cy + (ny * (half - REVEAL) if ny else u)
-                    sx = 0.06 if nx else OW
-                    sy = OW if nx else 0.06
-                    parts.append(box(f"ctxop{bi}{fi}{b}{f}", (sx, sy, OH),
+                    ox = cx + (nx * (half - REVEAL) if nx else 0.0)
+                    oy = cy + (ny * (half - REVEAL) if ny else 0.0)
+                    parts.append(box(f"ctxrb{bi}{fi}{f}",
+                                     (0.06 if nx else bw, bw if nx else 0.06, OH),
                                      (ox, oy, oz + OH / 2), dark))
+                    continue
+                for b in range(bays):
+                    if b == svc:
+                        continue
+                    u = -span / 2 + (b + 0.5) * span / bays
+                    # PAIRED: two lights either side of the bay centre, so
+                    # the wall between pairs reads as a pier rather than as
+                    # another equal gap.
+                    offs = (-0.62, 0.62) if FAMILY == 1 else (0.0,)
+                    for oi, du in enumerate(offs):
+                        uu = u + du
+                        ox = cx + (nx * (half - REVEAL) if nx else uu)
+                        oy = cy + (ny * (half - REVEAL) if ny else uu)
+                        sx = 0.06 if nx else OW
+                        sy = OW if nx else 0.06
+                        parts.append(box(f"ctxop{bi}{fi}{b}{f}{oi}", (sx, sy, OH),
+                                         (ox, oy, oz + OH / 2), dark))
         # GROUND CONDITION: a taller, wider opening at street level, because
         # the ground floor of a real building does something different.
         gu = -(d if faces[0][0] else w) / 2 + (d if faces[0][0] else w) * 0.5
