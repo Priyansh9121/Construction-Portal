@@ -791,15 +791,48 @@ def build(dusk=False, join_by_material=True):
         # looks like a front.
         rear_y = PY1 + 3.0
         for lv in range(1, int(nh / 3.4)):
-            for i in range(3):
-                wx = nx - 5.6 + i * 5.6
-                # Narrower and shorter than the street windows, and the middle
-                # bay is a blank riser rather than a window.
+            for i in range(4):
+                wx = nx - 6.3 + i * 4.2
+                # Four bays at 4.2 m, not three at 5.6. Three left roughly
+                # 18 m of wall carrying six small holes, and on the shaded
+                # rear face that reads as a blank slab someone punched rather
+                # than a building. The bay ABOVE the service door stays blank
+                # on alternate floors -- a riser, which is why it is blank.
                 if i == 1 and lv % 2 == 0:
                     continue
+                z0 = 0.2 + lv * 3.4 + 0.4
                 M.cut(body, M.prism(f"nrw{side}{lv}{i}",
                                     M.rect(wx - 0.62, rear_y - 0.65, wx + 0.62, rear_y + 0.05),
-                                    0.2 + lv * 3.4 + 0.4, 1.15))
+                                    z0, 1.15))
+                # A REAR ELEVATION IS STILL A BUILDING.
+                #
+                # This was step 1 of the street window's four and nothing
+                # else: a boolean recess with solid concrete at its back. It
+                # read as a hole punched in a slab because that is exactly
+                # what it was. The street face gets a room, glazing, a frame
+                # and a projecting sill; the back of a building legitimately
+                # gets less, but it does not get NOTHING.
+                #
+                # So it takes the same vocabulary, utilitarian: an unlit room,
+                # glazing set 300 mm back so the reveal throws a shadow, and a
+                # plain frame. No projecting sill -- that is a street detail,
+                # and a service elevation would not have one.
+                parts["conc"].append(
+                    M.prism(f"nrw{side}{lv}{i}-room",
+                            M.rect(wx - 0.60, rear_y - 2.40, wx + 0.60, rear_y - 0.63),
+                            z0 + 0.02, 1.11, mats["interior"]))
+                parts["glass"].append(
+                    M.prism(f"nrw{side}{lv}{i}-glass",
+                            M.rect(wx - 0.58, rear_y - 0.32, wx + 0.58, rear_y - 0.30),
+                            z0 + 0.05, 1.05, mats["glass"]))
+                for (fx0, fy0, fx1, fy1, fz, fh) in (
+                        (wx - 0.60, rear_y - 0.36, wx + 0.60, rear_y - 0.28, z0 + 1.10, 0.05),
+                        (wx - 0.60, rear_y - 0.36, wx + 0.60, rear_y - 0.28, z0 + 0.02, 0.05),
+                        (wx - 0.60, rear_y - 0.36, wx - 0.55, rear_y - 0.28, z0 + 0.02, 1.13),
+                        (wx + 0.55, rear_y - 0.36, wx + 0.60, rear_y - 0.28, z0 + 0.02, 1.13)):
+                    parts["conc"].append(
+                        M.prism(f"nrw{side}{lv}{i}-fr{fz:.1f}",
+                                M.rect(fx0, fy0, fx1, fy1), fz, fh, mats["paint"]))
         # Service door at lane level.
         M.cut(body, M.prism(f"nrd{side}",
                             M.rect(nx + sx * 4.2 - 0.65, rear_y - 0.6,
@@ -822,6 +855,29 @@ def build(dusk=False, join_by_material=True):
                 M.prism(f"nfp{side}{lv}",
                         M.rect(nx - 7.62, rear_y - 1.56, nx - 7.54, rear_y - 1.48),
                         0.2 + lv * 3.4, 3.4, mats["galv"]))
+        # ---- SERVICE STACK -------------------------------------------
+        #
+        # A rear elevation is where a building admits what it does. A soil and
+        # vent stack running the full height, with a boxed riser at its head
+        # and small vent grilles off it, is the cheapest honest thing that
+        # turns a blank field into a service elevation -- and it is the reason
+        # the riser bay above is blank.
+        stk = nx + sx * 1.4
+        parts["galv"].append(
+            M.prism(f"nsv{side}", M.rect(stk - 0.09, rear_y - 0.20, stk + 0.09, rear_y - 0.02),
+                    0.2, nh - 0.6, mats["galv"]))
+        for lv in range(1, int(nh / 3.4)):
+            zz = 0.2 + lv * 3.4
+            parts["galv"].append(
+                M.prism(f"nsb{side}{lv}", M.rect(stk - 0.16, rear_y - 0.26, stk + 0.16, rear_y - 0.02),
+                        zz + 0.9, 0.22, mats["galv"]))
+            if lv % 2:
+                parts["conc"].append(
+                    M.prism(f"nvg{side}{lv}",
+                            M.rect(stk + sx * 0.9 - 0.28, rear_y - 0.14,
+                                   stk + sx * 0.9 + 0.28, rear_y + 0.02),
+                            zz + 1.9, 0.34, mats["paint"]))
+
         # Condensers and a downpipe.
         for i in range(3):
             parts["galv"].append(

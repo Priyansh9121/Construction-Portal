@@ -4,6 +4,110 @@
 
 ---
 
+## PHASE RUN — PERFORMANCE CLOSED 44x; NEIGHBOUR REAR CLOSED; #3 REATTRIBUTED
+
+**START HEAD** `f7cbc4a` · commits `3d3e198` (performance) and this one.
+
+### PERFORMANCE — CLOSED
+
+`L.cyl` used `primitive_cylinder_add` (971 calls, 128.2 ms each). Replaced with
+`bmesh.ops.create_cone`, equal radii, n-gon caps — **14/14 semantic parity**
+across all three axes, segment counts 4→32, thin pipe, large disc, tiny part
+and real hoist/crane/lighting shapes, comparing vertex COORDINATES by sorted
+list, not just counts.
+
+| measure | before | after |
+|---|---|---|
+| micro (100 cylinders) | 2.97 ms | **0.069 ms** (43×) |
+| `build()` after box | 143.1 s | **16.5 s** (8.7×) |
+| `build()` from original | 728.5 s | **16.5 s — 44×** |
+| deck end-to-end | 12 m 17 s | **45 s** |
+| **10-frame matrix, one process** | ~123 min | **2 m 29 s** |
+
+Visual regression vs `perfbox-deck` and `conc5-deck`: mean 0.000026 / 0.000013,
+P95 and P99 zero, no pixel above 0.01. **Two rewrites, image unmoved.**
+Closed at 16.5 s. Remaining `primitive_cube_add` calls (atmosphere box, cloud
+domain) run once each and are noise.
+
+### #1 NEIGHBOUR REAR — CLOSED
+
+**Root cause:** the street window is a four-part assembly — recess, unlit
+room, glazing set back 300 mm, frame. **The rear was step one only:** a bare
+`M.cut` recess with solid concrete at its back. It read as a boolean hole
+because that is precisely what it was.
+
+Rear now takes the same vocabulary, utilitarian: room, glazing, plain frame,
+**no projecting sill** (a street detail a service elevation would not have).
+Bay density raised 3→4 (4.2 m, was 5.6 m) because three bays left ~18 m of
+wall carrying six holes. Added a full-height **soil and vent stack** with
+boxed risers and vent grilles — which is also *why* the riser bay is blank.
+
+`nb1-rear.png` → `nb2-rear.png` → `mx2-rear.png`: **PASS.** Openings read as
+windows with frames and reveal depth; the elevation reads as back-of-house.
+
+### #3 BLOCKWORK — **REATTRIBUTED, NOT A BLOCKWORK DEFECT**
+
+Cropping the panel showed a grid of dark **squares** sitting in the
+**ground-floor band**, while blockwork infill lives at L1+ (z ≥ 7.9). Test:
+rebuild, hide the `city` object, re-render `entrance`. **The dot grid
+disappeared entirely** — that area is open sky.
+
+**It was never blockwork.** It is a context **NEAR-tier block ~100 m north,
+seen straight through the open ground floor**, whose 1.7 m openings at 3.4 m
+bays collapse into a regular dot field at that range. Misattributed for
+several sessions, mine included.
+
+Blockwork *was* separately improved while investigating — it had no coursing
+at all, being a concrete photograph tiled at 1.35 × 0.68 m. It now has real
+stretcher bond: 440 × 215 mm units, 10 mm bed and perp joints, half-block
+stagger, joint darkening plus roughness, applied only to vertical faces.
+Dimensions are **representative/conceptual**. That is a genuine improvement,
+but **it did not fix #3, because #3 was not blockwork.**
+
+### #2 CONTEXT RESIDUAL RHYTHM — IMPROVED, **NOT CLOSED**
+
+FAR tier now gets the podium material break every other tier had — one line,
+no new geometry, and it was the only tier still rendering as a single
+uninterrupted field. `establishing` regression: composition unchanged,
+4.3% of pixels differ, all in context podiums. **PASS, no regression.**
+
+But `mx2-deck.png` still shows the punched grid on its background block. The
+no-city test explains why: **NEAR is keyed to distance from the SITE ORIGIN,
+so a block 100 m away still receives full opening geometry — and the camera
+may be 110 m from it.** The tier assumption is sound for source truth (no
+camera-dependent LOD) but it means regular openings can still read as a grid
+from far viewpoints. **This is a newly-understood problem and deserves its own
+measurement, not a rushed fix.**
+
+### MATRIX — 10 frames, one process, final truth
+
+establishing **PASS** (no regression) · rear **PASS** · deck **PASS with
+reservation** (background grid) · ground **PASS** · entrance **PASS** ·
+road_truth **PASS** · lift **PASS** · hero **PASS** · hoist **PASS** ·
+stack **PASS**.
+
+Concrete, crane, hero, hoist, context distance-tier, road, sky and cloud all
+remain closed — nothing regressed.
+
+### NEW TOP THREE
+
+1. **Regular opening grids read at long range** — the honest generalisation of
+   old #2 and #3, now that both trace to the same cause.
+2. **Crane boom broad faces** still read soft rather than sharply fabricated
+   at `deck` range.
+3. **Horizontal formwork field never proven on a lit soffit** — implemented,
+   orientation-correct, still unproven by image.
+
+### NEXT EXACT ACTION
+
+Measure which context blocks produce a resolvable opening grid **from the
+actual gate cameras** — not from the site origin — and decide whether the fix
+is bay-rhythm variation, a coarser NEAR opening module beyond some range, or
+accepting it. Then the temporal matrix, which still waits on real site
+latitude, longitude and date.
+
+---
+
 ## BOX OPTIMISATION — **BUILD 728.5 s → 143.1 s, IMAGE UNCHANGED**
 
 **START HEAD** `34f11be` · **END HEAD** this commit. `L.cyl` **untouched**.
