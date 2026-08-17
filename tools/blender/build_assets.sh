@@ -11,6 +11,7 @@
 # Usage:
 #   tools/blender/build_assets.sh            build and optimise
 #   tools/blender/build_assets.sh --raw      build only, skip optimisation
+#   tools/blender/build_assets.sh --skip-gate  build, but do not enforce bytes
 #
 set -euo pipefail
 
@@ -18,7 +19,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BLENDER="${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}"
 ASSETS="$ROOT/frontend/public/world/assets"
 OPTIMISE=1
-[[ "${1:-}" == "--raw" ]] && OPTIMISE=0
+GATE=1
+for arg in "$@"; do
+  case "$arg" in
+    --raw)        OPTIMISE=0 ;;
+    --skip-gate)  GATE=0 ;;
+  esac
+done
+
+# --raw skips compression, so the gate would be measuring the uncompressed
+# figures against limits set for the shipped ones. Failing there would say
+# nothing about what users receive.
+[[ $OPTIMISE -eq 0 ]] && GATE=0
 
 if [[ ! -x "$BLENDER" ]]; then
   echo "Blender not found at $BLENDER. Set BLENDER=/path/to/blender." >&2
@@ -70,9 +82,13 @@ if [[ $OPTIMISE -eq 1 ]]; then
   command -v npx >/dev/null || { echo "npx not found; use --raw" >&2; exit 1; }
   total_before=0
   total_after=0
+  # login-site-people was absent from this list until 2026-08-17, so a clean
+  # build compressed every layer except that one. The shipped people.glb does
+  # carry EXT_meshopt_compression, from some earlier invocation -- which is
+  # exactly why the gap survived: the artifact looked right.
   for a in cabin hoist light-tower worker \
            login-site-architecture login-site-neighbours \
-           login-site-scaffold login-site-street; do
+           login-site-people login-site-scaffold login-site-street; do
     before=$(stat -f%z "$ASSETS/$a.glb")
     npx --yes @gltf-transform/cli meshopt \
       "$ASSETS/$a.glb" "$ASSETS/$a.glb" --level medium >/dev/null 2>&1
@@ -85,6 +101,70 @@ if [[ $OPTIMISE -eq 1 ]]; then
   printf '  %-12s %7d -> %7d bytes  (%d%%)\n' \
     "TOTAL" "$total_before" "$total_after" \
     $((100 - total_after * 100 / total_before))
+fi
+
+# --- Byte gate --------------------------------------------------------------
+#
+# Deliberately NOT in validate(). That function asserts CORRECTNESS -- 2 mm off
+# the ground plane is a defect, and a defect is not a matter of degree. A size
+# limit is a BUDGET: it is a choice about what the product can afford to send
+# over a field worker's connection, it changes when that choice changes, and
+# mixing the two would mean a budget revision showing up as a correctness
+# regression.
+#
+# It runs HERE, at the end, rather than after the Blender export, because the
+# meshopt step above sits between the two and the only number that matters is
+# the one that lands in $ASSETS. Blender writes 5.77 MB; what ships is 2.01 MB.
+# Gating the Blender figure would fail on bytes no user ever receives.
+#
+# Numbers, agreed 2026-08-17 and measured rather than guessed:
+#
+#   per layer, hard fail       2.0 MB   largest shipped layer is 0.78 MB
+#   whole set, hard fail       6.0 MB   uncompressed set measures 5.77 MB
+#   whole set, warn            1.2 MB   the aspiration, currently 2.01 MB
+#
+# The warn fires today, on purpose. The set is roughly twice the ~0.99 MB it
+# ought to be, and a budget line that only appears once it is already breached
+# is a budget nobody was keeping. A warn does not fail the build.
+#
+# --skip-gate bypasses it.
+LAYER_LIMIT=$((2 * 1024 * 1024))
+SET_LIMIT=$((6 * 1024 * 1024))
+SET_WARN=$((1228800))
+
+if [[ $GATE -eq 1 ]]; then
+  echo
+  echo "byte gate"
+  gate_total=0
+  gate_failed=0
+  for f in "$ASSETS"/login-site-*.glb; do
+    [[ -e "$f" ]] || continue
+    sz=$(stat -f%z "$f")
+    gate_total=$((gate_total + sz))
+    if (( sz > LAYER_LIMIT )); then
+      printf '  FAIL  %-32s %8d bytes  (limit %d)\n' \
+        "$(basename "$f")" "$sz" "$LAYER_LIMIT"
+      gate_failed=1
+    else
+      printf '  ok    %-32s %8d bytes\n' "$(basename "$f")" "$sz"
+    fi
+  done
+
+  printf '  ----  %-32s %8d bytes\n' "TOTAL" "$gate_total"
+
+  if (( gate_total > SET_LIMIT )); then
+    printf '  FAIL  whole set %d bytes exceeds %d\n' "$gate_total" "$SET_LIMIT"
+    gate_failed=1
+  elif (( gate_total > SET_WARN )); then
+    printf '  WARN  whole set %d bytes is over the %d target (not a failure)\n' \
+      "$gate_total" "$SET_WARN"
+  fi
+
+  if (( gate_failed == 1 )); then
+    echo "byte gate FAILED -- something got bigger. Do not ship this." >&2
+    exit 1
+  fi
+  echo "  byte gate passed"
 fi
 
 echo
