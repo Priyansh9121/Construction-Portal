@@ -58,9 +58,24 @@
 
 import { test, expect, request as playwrightRequest } from "@playwright/test";
 
-import { assertLocalTarget, login, seedSession } from "./support/fixtures.js";
+import {
+  assertLocalTarget,
+  assertServerFresh,
+  login,
+  seedSession,
+} from "./support/fixtures.js";
 
 assertLocalTarget();
+
+/*
+ * BUG-001 was a frontend defect and Vite serves the working tree, so this
+ * check is not guarding the thing under test. It runs anyway because the
+ * suite signs in and reads real data: a stale API is a stale fixture, and
+ * finding that out here is cheaper than debugging an empty wizard.
+ */
+test.beforeAll(async () => {
+  await assertServerFresh(playwrightRequest);
+});
 
 const TYPED = "12345";
 

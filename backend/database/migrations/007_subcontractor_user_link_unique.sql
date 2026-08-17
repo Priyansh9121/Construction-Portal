@@ -59,6 +59,23 @@
 -- check exists.
 --
 -- RE-RUNNABLE. The check is a SELECT; the index is IF NOT EXISTS.
+--
+-- IF IT REFUSES
+--
+-- The exception aborts the transaction this file opened. `psql -f` handles
+-- that on its own — Postgres turns the trailing COMMIT into a ROLLBACK and
+-- psql exits non-zero having changed nothing. A PROGRAMMATIC runner that
+-- sends this file as one string must issue its own ROLLBACK before reusing
+-- the connection, or every later statement returns "current transaction is
+-- aborted".
+--
+-- Either way no data is modified by a refused run. Clear user_id on the
+-- duplicate rows named in the message, then run this again.
+--
+-- VERIFIED 2026-08-17 on a genuinely fresh database: 002 -> 003 -> 004 ->
+-- 005 -> 006 -> 007 applies clean (48 tables, both link indexes present),
+-- this file is re-runnable, the guard fires with duplicates present, and the
+-- recovery it instructs restores a clean apply.
 -- ===========================================================================
 
 BEGIN;
