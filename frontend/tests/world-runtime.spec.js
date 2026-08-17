@@ -84,6 +84,28 @@ test.describe("world readiness contract", () => {
     expect(debug.layers["login-site-architecture"]).toBe("FAILED");
   });
 
+  test("the scale check measures the building, and says so", async ({ page }) => {
+    /*
+     * `siteScale.test.mjs` proves the check's LOGIC against transcribed
+     * dimensions. This proves the same thing against the GLB that actually
+     * ships, which is the half a unit test cannot cover: the shipped export
+     * has to still contain a `conc` primitive in the architecture layer, at
+     * the plot's 22 m frontage, or the assertion has quietly lost its target.
+     *
+     * `meshes: 1` is the load-bearing number. The old check resolved by name,
+     * and THIRTEEN primitives answer to "login-site-architecture" — it measured
+     * whichever came first and reported ok:true while reading a 43 m piece of
+     * site. If this ever reads 13, the identity has collapsed back to the name.
+     */
+    await page.goto(LOGIN);
+    await settle(page, "ready");
+    const scale = await canvas(page).evaluate((c) => c.__siteScale);
+    expect(scale.reason).toBeUndefined();
+    expect(scale.meshes).toBe(1);
+    expect(scale.width).toBe(22);
+    expect(scale.ok).toBe(true);
+  });
+
   test("READY is unreachable while an essential layer is missing", async ({ page }) => {
     await page.route(ARCHITECTURE, (route) => route.abort());
     await page.goto(LOGIN);

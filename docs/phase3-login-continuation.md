@@ -5162,3 +5162,115 @@ A fixed `waitForTimeout` flaked; waiting on `__perf` is reliable. Handles:
 4. **A plan is not evidence, and neither is a passing check.** The brief's
    texture mechanism was wrong. `checkSiteScale` passed for builds by
    coincidence. Both were caught by measuring, and only by measuring.
+
+---
+
+# The glTF's own names could not fix the scale check (2026-08-17)
+
+The instruction was to look for the cheap route first: `mesh.name = layer.name`
+overwrites whatever the GLB carried, `concept_c.py` joins objects as
+`f"{layer}-{key}"`, so **if meaningful names are already arriving, the fix is to
+stop discarding them rather than to invent new ones.**
+
+Names are arriving, they are being discarded twice, and **they still would not
+have fixed it.** Measured before changing anything.
+
+## What actually arrives
+
+Decoded straight out of `login-site-architecture.glb` — accessor `min`/`max`
+plus the node TRS, no browser involved. Each layer has one glTF **node** per
+`(layer, part)` join, named exactly as the export writes it:
+
+    architecture-galv  architecture-conc   architecture-block  architecture-ply
+    architecture-paint architecture-crane  architecture-workwear
+
+Those land on a three.js **Group**. The child `Mesh`es — the objects
+`extract()` collects — get `meshDef.name` (GLTFLoader.js:3895), which is the
+Blender *mesh-data* name, i.e. whichever source object happened to survive the
+join:
+
+    architecture: nsvW, nvgW1, inf1s0, sfm500, binw0, gas0, hoseD
+    street:       ground, road, pbar0, pbf0, gply100, gblk0, skip.001
+    people:       Mesh
+
+Meaningless. And discarded in **two** places, not one: `assets.js` `extract()`
+returns only `{ geometry, material }`, so the name is gone before the loader
+ever sees it, and then `authWorld.js` stamps `layer.name` over the result.
+
+## Why preserving them would not have worked
+
+`architecture-conc` is a PART BUCKET, not the building:
+
+| node | prim | material | w x h x d |
+|---|---|---|---|
+| `architecture-conc` | 0 | `paint` | **45.16** x 13.94 x 0.16 |
+| `architecture-conc` | 1 | `conc` | **22.00** x 31.10 x 34.18 |
+| `architecture-conc` | 2 | `wet` | 9.00 x 0.30 x 29.50 |
+
+Restoring node names moves the check from measuring 43.12 m to measuring
+45.16 m. Still not the building.
+
+**The building is exactly one primitive** — the one in the architecture layer
+whose material is `conc` — at 22.00 x 31.10 x 34.18. That is `plotWidth` 22 by
+`plotDepth` 34, and it is the only `conc` primitive in the layer. It also means
+`expectArchitectureWidth: 22.6` was the wrong constant to assert against it;
+`plotWidth` is the right one, and 22.6 is now gone.
+
+So the handoff's premise for option (b) was half right: names exist and are
+destroyed, but none of them means "the building". **Your call was the material
+identity, no re-export.**
+
+## The fix
+
+Identity is `(layer, material)`, because `name` is ambiguous by construction:
+
+- `authWorld.js` tags each primitive `mesh.userData.worldLayer = layer.name`.
+  `mesh.name` is left alone — nothing else in the repo resolves by it
+  (`checkSiteScale` was the only `getObjectByName` caller) — with a comment
+  saying why it must never be trusted as an identity.
+- `checkSiteScale` unions the architecture-layer geometry whose material slot is
+  `conc` and compares against `plotWidth`. The `.001` suffix is stripped the
+  same way `dressSurface` strips it.
+- **An absent target is now an error, not `null`.** The original returned `null`
+  when it found nothing, which is indistinguishable from "not measured yet" and
+  is precisely how a check that asserted nothing survived for a whole milestone.
+
+Measured in the browser after the change:
+
+    { width: 22, height: 31.1, depth: 34.18, expectedWidth: 22, meshes: 1, ok: true }
+    tagged: 13   conc: 1   named "login-site-architecture": 13
+
+Thirteen objects still answer to the layer name. Exactly one is the building.
+
+## The guards
+
+`src/world/siteScale.test.mjs`, 9 tests, real three rather than a stub — the
+defect lived in `Box3`/traversal behaviour, so stubbing it out would stub out
+the bug. It builds the shipped layer from its measured dimensions and asserts
+that 2x and 0.5x FAIL, that the empty scene and the missing target FAIL, that a
+`conc` in the street layer is not the building, and — the important one — that
+**the 43.12 m galv decoy which `getObjectByName` returns first does not fool
+it**. That is the assertion that catches a revert to resolving by name.
+
+`world-runtime.spec.js` gains the same check against the GLB that actually
+ships, asserting `meshes: 1`. If that ever reads 13, the identity has collapsed
+back to the name.
+
+## A correction to the last handoff, worth the line
+
+**Headless is not categorically blind to the world.** The handoff says headless
+cannot render it and "every debug handle reads `null`". `world-runtime.spec.js`
+runs under Playwright's default headless Chromium with
+
+    --use-gl=angle --use-angle=metal --enable-gpu --ignore-gpu-blocklist
+
+reaches `data-world-state="ready"`, and reads `__siteScale` fine. The blanket
+claim is about headless *without* those flags. Headed `channel: "chrome"` is
+still the right tool for looking at the thing; it is not required for asserting
+against it.
+
+## Also seen, not chased
+
+The browser run logs one **404** during world load — next on the list. It did
+not surface through Playwright's page-level `response` listener, so it is not a
+plain document-context fetch.
