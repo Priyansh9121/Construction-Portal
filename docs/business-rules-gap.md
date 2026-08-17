@@ -141,22 +141,37 @@ a worker to a tender on first use. Recorded in `business-rules.md` §1.11.
 
 ## Defects and gaps found while diffing
 
-1. **`daily_update` is listed in `MODULES` but bypasses the grant mechanism.**
-   `siteLog.controller.js` imports `daysAgo()` only, so daily updates never
-   reach `checkEntryWindow` and cannot be unlocked by an access grant. Recorded
-   in-code as the remaining action on F-13.
-2. **Inconsistent backdating exemption.** `entryWindow.service.js` exempts
-   `admin` **and** `manager`; `siteLog.controller.js` exempts `admin` only. So a
-   manager may backdate a material entry but not a daily update. Left in place
-   deliberately in-code — *"widening it is a decision about who may rewrite site
-   history, not a bug fix."* Your call.
-3. **Multi-timezone limitation — THE ONE DEFECT TO FIX.** `checkEntryWindow` resolves against
-   `DEFAULT_TIMEZONE`, not the company's own `timezone` column. Correct for a
-   single-region deployment, wrong for multi-region. The other three items
-   here are policy questions, not bugs, and are left recorded by decision.
+> **Corrected 2026-08-17.** Two of the four were **wrong**. I took them from
+> `entryWindow.service.js`'s own docstring, which described a migration (F-13)
+> as still pending when the code had already completed it. Reading the callers
+> rather than the comment shows both are fixed. Recorded here rather than
+> quietly deleted, because the lesson is the repository's own: *do not reason
+> from an unverified premise* — a stale comment is exactly that.
+
+1. ~~`daily_update` bypasses the grant mechanism.~~ **WRONG.**
+   `siteLog.controller.js` imports `checkEntryWindow`, `consumeGrant`, `MODULES`
+   and calls `checkEntryWindow({ module: MODULES.DAILY_UPDATE })`. Daily updates
+   do participate, and grants are module-scoped. The stale docstring has been
+   corrected in place.
+2. ~~Inconsistent backdating exemption, admin-only in `siteLog`.~~ **WRONG.**
+   That file's own comment says the divergent `role !== "admin"` check
+   *"diverged from the canonical rule"* — past tense. F-13 removed it; every
+   dated module now reads one exemption set. Docstring corrected.
+3. **Multi-timezone resolution — FIXED 2026-08-17.** `checkEntryWindow` resolved
+   "today" against `DEFAULT_TIMEZONE` rather than `companies.timezone`, so a
+   deployment serving companies in more than one region judged every
+   supervisor's current day against somebody else's calendar.
+   `companyTimezone()` now reads the company's own column, and
+   `accessRequest.controller.js` — which had the same defect at its
+   `daysAgo(target_date)` call — uses it too. Falls back to `DEFAULT_TIMEZONE`
+   when the row or column is missing, so a lookup failure can never be the
+   reason an entry is refused. **It cannot widen the window**: it only makes
+   "today" the site's own day, which is what the rule always meant. For a
+   single-region deployment nothing observable changes. 254 backend tests pass.
 4. **Labour has no approve/reject workflow**, unlike materials and banking,
-   which the office signs off. Bounded only by the entry window. Notebook does
-   not specify — flagging rather than assuming.
+   which the office signs off. Bounded only by the entry window. The notebook
+   does not specify. **Left recorded as a policy question by decision** — who
+   may amend site history is not a bug fix.
 
 ---
 
