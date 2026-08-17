@@ -114,6 +114,142 @@ export function credentials(role) {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Is the API actually running the code on disk?
+|--------------------------------------------------------------------------
+|
+| WHY THIS EXISTS
+|
+| A backend process that had been running for three days once held port 5051.
+| `npm start` could not bind, failed quietly, and the health check answered
+| 200 from the OLD process. A suite written to prove a bug was fixed then ran
+| against code that predated the fix and reported the bug as still live.
+|
+| That is the worst failure mode a test suite has: not a red build, but a
+| CONFIDENT WRONG ANSWER about the product. Three specs failed and the honest
+| reading of the evidence was "the fix does not work."
+|
+| WHAT IT COSTS
+|
+| Nothing on the server. /api/health already returns `uptime_seconds`, so the
+| server's start time is `now - uptime_seconds` and no endpoint changed.
+|
+| HOW IT DECIDES
+|
+| If the API started BEFORE the most recently modified backend source file,
+| it cannot be running that file. That is the whole test.
+|
+| THE TRADE-OFF, DELIBERATELY ONE-SIDED
+|
+| Touching a file without changing it — a checkout, a rebase, a formatter —
+| makes this ask for a restart it did not strictly need. That is the cheap
+| error. The expensive error is the one this replaces: believing a stale
+| process and drawing a false conclusion about the code. A needless restart
+| costs seconds; a false verdict cost most of a session.
+|
+| Set E2E_SKIP_FRESHNESS=1 to bypass it.
+|
+*/
+const BACKEND_DIR = new URL("../../../backend/", import.meta.url).pathname;
+
+const SKIP_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "logs",
+  "uploads",
+  "coverage",
+  "test-results",
+]);
+
+/** Newest mtime under backend/, ignoring anything not loaded by the server. */
+async function newestBackendChange(fs, path, dir = BACKEND_DIR, best = 0) {
+  let entries;
+
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return best;
+  }
+
+  let newest = best;
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
+
+    const full = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      newest = await newestBackendChange(fs, path, full, newest);
+      continue;
+    }
+
+    if (!/\.(js|mjs|cjs|json|sql)$/.test(entry.name)) continue;
+
+    try {
+      const { mtimeMs } = await fs.stat(full);
+      if (mtimeMs > newest) newest = mtimeMs;
+    } catch {
+      /* a file that vanished mid-walk cannot be what the server is running */
+    }
+  }
+
+  return newest;
+}
+
+/**
+ * Fails if the API process predates the newest backend source change.
+ *
+ * Call it from beforeAll in any suite whose result depends on backend
+ * behaviour. Never throws for a reason other than staleness: if health cannot
+ * be reached at all, that is left for the suite's own failure to report,
+ * because "server is down" is already obvious and this should not mask it.
+ */
+export async function assertServerFresh(requestContextFactory) {
+  if (process.env.E2E_SKIP_FRESHNESS === "1") return;
+
+  const [fs, path] = await Promise.all([
+    import("node:fs/promises"),
+    import("node:path"),
+  ]);
+
+  const ctx = await requestContextFactory.newContext();
+
+  let uptimeSeconds;
+
+  try {
+    const res = await ctx.get(`${API_URL}/api/health`);
+    uptimeSeconds = (await res.json())?.uptime_seconds;
+  } catch {
+    return; // unreachable is the suite's problem to report, not ours
+  } finally {
+    await ctx.dispose();
+  }
+
+  if (typeof uptimeSeconds !== "number") return;
+
+  const startedAt = Date.now() - uptimeSeconds * 1000;
+  const changedAt = await newestBackendChange(fs.default ?? fs, path.default ?? path);
+
+  if (!changedAt || startedAt >= changedAt) return;
+
+  const staleBy = Math.round((changedAt - startedAt) / 1000);
+
+  throw new Error(
+    `The API on ${API_URL} is running code older than your working tree.\n\n` +
+      `  API started : ${new Date(startedAt).toISOString()}\n` +
+      `  backend/ last changed : ${new Date(changedAt).toISOString()}\n` +
+      `  stale by : ${staleBy}s\n\n` +
+      `Anything this suite reports would describe the OLD code, so a "fixed" bug\n` +
+      `can look broken and a broken one can look fixed. Restart the API:\n\n` +
+      `  ps -eo pid,lstart,command | grep "node server.js"   # find the old one\n` +
+      `  kill <pid>\n` +
+      `  cd backend && RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=100000 npm start\n\n` +
+      `A previous process holding the port makes npm start fail quietly, so\n` +
+      `check the PID actually changed. Set E2E_SKIP_FRESHNESS=1 to bypass.`
+  );
+}
+
 /** Signs in and returns { token, user }. Throws with actionable guidance. */
 export async function login(requestContextFactory, role) {
   const { email, password } = credentials(role);

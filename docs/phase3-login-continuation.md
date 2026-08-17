@@ -4450,3 +4450,92 @@ Playwright **6 specs**, lint clean, `npm run build` clean.
 `ui-redesign-e2e@local.test` did not exist in this database and was created with
 `scripts/createBreakGlassAdmin.js`, per `authenticated.spec.js`. Playwright specs
 need `LOCAL_ADMIN_FIXTURE_PASSWORD` from `backend/.env`.
+
+---
+
+# Migration 007 on a genuinely fresh database — VERIFIED 2026-08-17
+
+The concern was fair: 007 had only ever run against a database that already
+had the schema, and a migration that works only on an already-migrated database
+is a deploy failure waiting to happen.
+
+Created an empty `cp_migration_probe` and ran the README's fresh-database order
+end to end:
+
+| migration | result |
+|---|---|
+| `002_baseline_supabase.sql` | OK (543ms) |
+| `003_supabase_rls.sql` | OK (19ms) |
+| `004_seed_reference_data.sql` | OK (3ms) |
+| `005_drop_duplicate_assignment_table.sql` | OK (7ms) |
+| `006_idempotency_keys.sql` | OK (2ms) |
+| `007_subcontractor_user_link_unique.sql` | OK (1ms) |
+
+Result: **48 tables**, and both link indexes present —
+`ux_workers_user_id` (from 002) and `ux_subcontractors_user_id` (from 007).
+That also confirms 002's baseline does **not** already carry the subcontractor
+index, so 007 is doing real work rather than being a no-op on a fresh install.
+
+Four further checks on that fresh database, not just the dev one:
+
+1. **Re-runnable** — applying 007 twice in a row is clean.
+2. **The guard fires** with duplicates present, naming the login and the
+   subcontractor ids sharing it.
+3. **The recovery it instructs actually works** — clearing `user_id` on the
+   duplicate and re-running applies the index.
+4. **A refused run modifies no data** — the row count was unchanged after it.
+
+Also verified through the documented operator path, `psql -f … -v
+ON_ERROR_STOP=1`: exit 0, `IF NOT EXISTS` honoured.
+
+## One sharp edge found, and documented in the file
+
+A refusal aborts the transaction 007 opens. `psql` handles that by itself —
+Postgres turns the trailing `COMMIT` into a `ROLLBACK`. **A programmatic runner
+that sends the file as one string must issue its own `ROLLBACK`**, or every
+later statement returns *"current transaction is aborted"*. Found by hitting it
+in the probe harness. Recorded in the migration's header under **IF IT
+REFUSES**, since the README does not mandate psql.
+
+The probe database was dropped afterwards.
+
+---
+
+# The stale-server trap now announces itself
+
+## It needed no backend change
+
+`/api/health` **already returns `uptime_seconds`**, so the process start time is
+`now - uptime_seconds` and no endpoint was touched. That is the whole reason
+this stayed cheap.
+
+## What it does
+
+`assertServerFresh()` in `frontend/tests/support/fixtures.js`: if the API
+started **before** the newest mtime under `backend/` (skipping `node_modules`,
+logs, uploads, coverage), it cannot be running that code, and the suite refuses
+to start. Called from `beforeAll` in both behaviour suites.
+
+The failure names the two timestamps, how stale, why the result would be
+untrustworthy, and the exact commands — including `ps -eo pid,lstart,command`
+to find the old process and a warning to check the PID actually changed,
+because a process already holding the port makes `npm start` fail quietly.
+
+## The trade-off, deliberately one-sided
+
+Touching a file without changing it — a checkout, a rebase, a formatter — asks
+for a restart that was not strictly needed. **That is the cheap error.** The
+expensive one is what it replaces: believing a stale process and concluding the
+product is broken when it is not. A needless restart costs seconds; the false
+verdict cost most of a session. `E2E_SKIP_FRESHNESS=1` bypasses it.
+
+It stays **silent when health is unreachable**, so "the server is down" is
+still reported as itself rather than masked as staleness — confirmed
+accidentally when the API was down and the suite failed with a clean
+`ECONNREFUSED`.
+
+## Demonstrated, not assumed
+
+It fired on its first run — correctly, because migration 007 had just been
+edited — reporting the API as 8,669s stale. After a restart, all **6 specs
+pass**. Both the alarm and the all-clear are observed.

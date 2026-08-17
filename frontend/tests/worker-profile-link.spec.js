@@ -57,6 +57,7 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
 import {
   API_URL,
   assertLocalTarget,
+  assertServerFresh,
   login,
 } from "./support/fixtures.js";
 
@@ -85,6 +86,13 @@ const authed = (headers = {}) => ({
 });
 
 test.beforeAll(async () => {
+  /*
+   * Before anything else. This suite's whole purpose is to say whether a
+   * backend fix works, so a stale API process would make it answer
+   * confidently about code that is not running. It has done exactly that.
+   */
+  await assertServerFresh(playwrightRequest);
+
   admin = await login(playwrightRequest, "admin");
   api = await playwrightRequest.newContext();
 });
