@@ -6,12 +6,12 @@
 | Request-body validation for creating and updating a worker.
 |
 | Two rules the generic CRUD factory cannot express on its own: that salary
-| must be a positive number, and that the whole set of core fields is
-| present with one combined message rather than four separate ones.
+| must be a positive number WHEN SUPPLIED, and that the whole set of core
+| fields is present with one combined message rather than four separate ones.
 |
 | Responsibilities:
 |   - Reject a worker payload missing any core field
-|   - Reject a non-positive salary
+|   - Reject a non-positive salary, while allowing no salary at all
 |
 | Exports:
 |   validateWorker (the function itself, not an object — callers write
@@ -51,14 +51,14 @@
  * for checking only, and the controller re-reads and coerces them.
  *
  * Business rules:
- * - full_name, phone, salary, role and status must all be present and
- *   truthy.
- * - Salary must be greater than zero.
+ * - full_name, phone, role and status must all be present and truthy.
+ * - Salary is OPTIONAL. When supplied it must be greater than zero.
  *
  * Notes:
- * The truthiness test means salary: 0 fails as "missing" rather than
- * reaching the positivity check — the same message either way, so the
- * outcome is right even though the reasoning differs.
+ * salary: 0 is now rejected by the positivity check rather than by the
+ * missing-field test, so the message names the real problem. Sending no
+ * salary at all is accepted, which is what lets a worker created alongside
+ * a portal login be edited afterwards.
  *
  * `status` is required here but has a default of "active" in the
  * controller's config. Because this middleware runs first, that default is
@@ -78,23 +78,40 @@ function validateWorker(req, res, next) {
       status,
     } = req.body;
   
-    if (!full_name || !phone || !salary || !role || !status) {
+    if (!full_name || !phone || !role || !status) {
       return res.status(400).json({
         success: false,
-        message: "Worker name, phone, salary, role and status are required",
+        message: "Worker name, phone, role and status are required",
       });
     }
-  
+
     /*
-     * The rule the factory's config cannot state. A negative or zero salary
-     * would be accepted by a "number" column and would then flow into the
-     * worker-money calculations as a nonsense figure.
+     * Salary is optional, but must be sane when given.
+     *
+     * The `undefined` guard is what makes optional work. This middleware
+     * runs on PUT as well as POST, so without it a worker created through
+     * the portal-login flow — which does not collect a salary — could never
+     * be edited again: every update would 400 until somebody invented a
+     * figure. See the note on the column in worker.controller.js.
      *
      * Number("abc") is NaN, and every comparison with NaN is false — so a
      * non-numeric salary passes this check and reaches the controller,
      * where coerce() turns it into 0. Worth knowing; not changed here.
+     *
+     * A previous version of this comment justified the check by saying a
+     * bad salary "would flow into the worker-money calculations as a
+     * nonsense figure." That was measured and is false: grepping `salary`
+     * across modules/workerMoney/ returns nothing, and the only reader of
+     * workers.salary anywhere is workerPortal.controller.js, which displays
+     * it. The check is still worth keeping — a negative wage is meaningless
+     * whatever reads it — but not for the reason previously given.
      */
-    if (Number(salary) <= 0) {
+    if (
+      salary !== undefined &&
+      salary !== null &&
+      salary !== "" &&
+      Number(salary) <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Salary must be greater than 0",

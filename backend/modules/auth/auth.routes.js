@@ -25,6 +25,7 @@
 |   GET    /users                      yes    admin  no
 |   POST   /users                      yes    admin  create
 |   PUT    /users/:userId              yes    admin  update
+|   PUT    /users/:userId/profile      yes    admin  update
 |   PUT    /users/:userId/disable      yes    admin  update
 |   PUT    /users/:userId/enable       yes    admin  update
 |
@@ -449,6 +450,41 @@ router.put(
   ),
   asyncHandler(
     authController.updateUser
+  )
+);
+
+/**
+ * PUT /api/auth/users/:userId/profile
+ *
+ * Auth:       required
+ * Roles:      admin
+ * Params:     :userId must belong to the caller's company
+ * Body:       { profile: { mode: "link", id } | { mode: "create", ... } }
+ * Controller: auth.controller.linkUserProfile
+ * Audited:    yes — logActivity("users", UPDATE)
+ * Response:   200 { success, profile_id }
+ *             400 the role has no register, or the instruction is malformed
+ *             404 no such user in this company, or no such record
+ *             409 the user or the record is already linked
+ *
+ * Purpose:
+ * Repair. POST /users cannot create an unlinked worker or subcontractor any
+ * more, but accounts made before that could, and they are unusable: the
+ * portal refuses them and the tender picker cannot see them. This is how an
+ * admin fixes one without a database script.
+ *
+ * Which human an orphaned login belongs to is not a question a migration can
+ * answer, which is why this is an endpoint and not a one-off script.
+ */
+router.put(
+  "/users/:userId/profile",
+  ...requireAdministrator,
+  logActivity(
+    "users",
+    ACTIVITY_ACTIONS.UPDATE
+  ),
+  asyncHandler(
+    authController.linkUserProfile
   )
 );
 

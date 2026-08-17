@@ -10,6 +10,8 @@ restore-from-backup. Take a dump before you run anything.
 | `003_supabase_rls.sql` | 387 | Creates the non-superuser `construction_app` role and the row-level security policies |
 | `004_seed_reference_data.sql` | 249 | 24 materials and 13 labour categories per company (Gujarati names preserved), plus a trigger that seeds every new company automatically |
 | `005_drop_duplicate_assignment_table.sql` | 70 | Drops `tender_workers`, a duplicate of `worker_assignments`. Conditional and non-destructive |
+| `006_idempotency_keys.sql` | 108 | Adds the `idempotency_keys` table so a retried Site Operations write returns the first answer instead of duplicating evidence or burning a single-use grant. Was missing from this table |
+| `007_subcontractor_user_link_unique.sql` | 110 | Adds `ux_subcontractors_user_id`, the partial unique index `workers` already had. Checks for existing duplicates first and names them. Re-runnable |
 
 ---
 
@@ -18,7 +20,7 @@ restore-from-backup. Take a dump before you run anything.
 ### Fresh database (new Supabase project, or a new local database)
 
 ```
-002  ->  003  ->  004  ->  005
+002  ->  003  ->  004  ->  005  ->  006  ->  007
 ```
 
 **Do not run 001.** It is an upgrade script for a database that predates the
@@ -27,7 +29,7 @@ baseline; 002 already contains everything it adds.
 ### Existing older database
 
 ```
-001  ->  003  ->  004  ->  005
+001  ->  003  ->  004  ->  005  ->  006  ->  007
 ```
 
 **Do not run 002 on a database that already has data.** It is a `pg_dump`

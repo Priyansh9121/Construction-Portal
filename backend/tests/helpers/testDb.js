@@ -179,8 +179,13 @@ const createCompany = async (request, label) => {
  * request - the supertest agent
  * owner   - the result of createCompany; its admin token authorises the
  *           creation and determines which company the member joins
- * options - { label, role }. role defaults to "worker"; see USER_ROLES in
- *           config/constants.js for the valid set.
+ * options - { label, role, profile }. role defaults to "worker"; see
+ *           USER_ROLES in config/constants.js for the valid set.
+ *           profile controls the register row that a worker or
+ *           subcontractor login must resolve — omit it for the sensible
+ *           default (create a minimal one), pass an object to link an
+ *           existing row, or pass null to send no instruction at all and
+ *           test that the endpoint refuses.
  *
  * Returns:
  * The same shape as createCompany minus companyId — label, email, token,
@@ -202,9 +207,30 @@ const createCompany = async (request, label) => {
 const createMember = async (
   request,
   owner,
-  { label, role = "worker" }
+  { label, role = "worker", profile }
 ) => {
   const email = `${marker(label)}@test.local`;
+
+  /*
+   * A 'worker' or 'subcontractor' login is refused unless it resolves a
+   * register row — see modules/auth/profileLink.service.js. Before that
+   * existed this helper produced exactly the broken account BUG-002 was
+   * about: a login that authenticates and then reaches nothing.
+   *
+   * Defaulting to mode "create" keeps every existing caller working while
+   * making the accounts they build genuinely usable. A caller that wants to
+   * link an existing register row passes `profile` explicitly, and a caller
+   * testing the refusal passes `profile: null`.
+   *
+   * Roles with no profile concept ignore this entirely.
+   */
+  const profileForRole =
+    profile === undefined
+      ? {
+          mode: "create",
+          full_name: `${label} User`,
+        }
+      : profile;
 
   const created = await owner.auth(
     request.post("/api/auth/users")
@@ -213,6 +239,9 @@ const createMember = async (
     email,
     password: "TestPass123!",
     role,
+    ...(profileForRole
+      ? { profile: profileForRole }
+      : {}),
   });
 
   // Neither of these used to be checked, so a failure here surfaced much
@@ -246,6 +275,13 @@ const createMember = async (
     email,
     token: login.body.token,
     user: login.body.user,
+    /*
+     * The workers / subcontractors row this login resolves to, so a test
+     * that needs the register id does not have to create a second row —
+     * which the partial unique index on user_id would reject anyway.
+     * null for roles with no profile concept.
+     */
+    profileId: created.body?.profile_id ?? null,
     auth: (req) =>
       req.set(
         "Authorization",

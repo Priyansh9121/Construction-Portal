@@ -6,6 +6,7 @@
  * - GET  /auth/users
  * - POST /auth/users
  * - PUT  /auth/users/:userId
+ * - PUT  /auth/users/:userId/profile
  * - PUT  /auth/users/:userId/disable
  * - PUT  /auth/users/:userId/enable
  * - PUT  /auth/change-password
@@ -37,6 +38,27 @@ export const getUsers = async () => {
 
 export const createUser = async (data) => {
   const res = await axiosClient.post("/auth/users", data);
+  return res.data;
+};
+
+/*
+ * Repair for an account that predates the link operation: a worker- or
+ * subcontractor-role login with no register record can sign in and then
+ * reach nothing, because both portals and the tender picker read the
+ * register rather than the account list.
+ *
+ * `profile` takes the same shape createUser accepts —
+ * { mode: "link", id } or { mode: "create", full_name, ... }.
+ */
+export const linkUserProfile = async (
+  id,
+  profile
+) => {
+  const res = await axiosClient.put(
+    `/auth/users/${id}/profile`,
+    { profile }
+  );
+
   return res.data;
 };
 
