@@ -1,0 +1,182 @@
+# Business rules — implementation gap list
+
+Phase A step 2. Every rule in `business-rules.md` diffed against the code, with
+the file that implements it. Read at `7c8bb6c`/`f21b774`, branch
+`redesign/ui-foundation`.
+
+Verdicts: **implemented** · **partial** · **absent** · **contradicted**
+(the code deliberately does something else).
+
+---
+
+## The headline finding — the brief's premise is wrong
+
+The master brief opens (§0):
+
+> The notebooks contain business rules that exist **nowhere in the repository**.
+
+**That is not the case.** Three files are explicit transcriptions of the same
+notebooks, and quote them:
+
+- `modules/payments/payment.hierarchy.js` — *"Transcribed from the 'Add
+  Payment' notebook. This is the server-side source of truth: the frontend
+  renders from GET /api/payments/hierarchy rather than keeping its own copy, so
+  the two cannot drift."* Its header comment reproduces the whole Income/Expense
+  tree, including the 6-vs-3 asymmetry.
+- `modules/siteOperations/entryWindow.service.js` — quotes the site notebook
+  directly: *"All of this must be added within 2 days… you have to call the
+  company and take access."*
+- `modules/siteOperations/material.controller.js` — quotes the photo rule:
+  *"Keep an option to add the material photo from gallery OR direct camera."*
+
+The seed data carries the notebook's Gujarati material names verbatim —
+`કપચી`, `રેતી`, `સિમેન્ટ` — in `004_seed_reference_data.sql`.
+
+**Consequence for the plan:** Phase A's premise that "nobody knows how much is
+already built" was right; its premise that the rules are unrecorded was not.
+Far more is implemented than the brief assumes. The payment taxonomy is done.
+
+---
+
+## §1.1–§1.10 Add Payment taxonomy
+
+Implemented server-side in `modules/payments/payment.hierarchy.js` (796 lines),
+which drives both validation and the rendered form.
+
+| Rule | Verdict | Evidence |
+|---|---|---|
+| 1.1 Two sides; Income 6 categories, Expense 3 | **implemented** | `DIRECTIONS`, `SCOPES`, `SUB_TYPES`; asymmetry preserved |
+| 1.2 Income · Personal tender → Investor | **implemented** | `INVESTOR_FIELDS` — name, FD/site, date, amount, cash/bank, interest % |
+| 1.2 Interest accrues and is displayed | **implemented** | `payment.service.js` `calculateInterest`; `GET /api/payments/investor-interest`; computed live, not stored |
+| 1.2 Income · Government bill (GST amount) | **implemented** | `GOVERNMENT_BILL` |
+| 1.3 Income · Subcontractor | **implemented** | `SUBCONTRACTOR_TENDER` scope reuses 1.1/1.2 |
+| 1.4 Income · Office | **implemented** | `OFFICE_INCOME` |
+| 1.5 Income · Company charge (%, GST received/outstanding) | **implemented** | `company_charge_percent`, `bill_amount * pct / 100`, `gst_received`, `gst_total - gst_received` |
+| 1.6 Income · TDS | **implemented** | `TDS` |
+| 1.7 Income · GST Return | **implemented** | `GST_RETURN` |
+| 1.8 Expense · Personal tender → Supervisor / Site A–E / Investor | **implemented** | `SUPERVISOR`, `MATERIAL`, `SALARY`, `LABOUR`, `GST`, `OTHER` |
+| 1.9 Expense · Subcontract → Investor / Government bill → generate bill | **partial** | Scope and sub-types present; **"Generate Bill" not verified** — see open items |
+| 1.10 Expense · Office (Salary, PF, Tax, Other) | **implemented** | `SALARY`, `PF`, `TAX`, `OTHER` |
+
+---
+
+## §1.11 Worker Portal — structure
+
+| Rule | Verdict | Evidence |
+|---|---|---|
+| **Tender-scoped login: ID + password per tender** | **CONTRADICTED** | See below |
+| Two branches: Tender list, Personal Banking | **partial** | `GET /assignments` (tender list), `GET /money`; a distinct "Personal Banking" branch is not modelled as such |
+| Within a tender: Documents | **implemented** | `GET /api/worker-portal/tenders/:id/documents` |
+| Within a tender: Material data | **implemented** | `siteOperations/material.controller.js` |
+| Within a tender: Banking | **implemented** | `siteOperations/banking.controller.js` |
+| Within a tender: Labour work | **implemented** | `siteOperations/labour.controller.js` |
+
+### The contradiction — needs your decision
+
+The notebook says a worker logs in **per tender**, with an ID and password for
+each. The code does something else entirely:
+
+- `workerPortal.routes.js`: *"Mounted by server.js behind authMiddleware and a
+  role gate… the role gate proves the caller is a worker, not WHICH worker."*
+- Authentication is the ordinary application login (`users` table, email/role).
+- Tender access comes from **`worker_assignments`** rows.
+- The portal then requires a linked `workers` profile — its own error text is
+  *"No worker profile is linked to this login user."*
+
+Searched for any per-tender credential concept across `modules/` and
+`database/`: **nothing**. No `tender_credential`, no `portal_password`, no
+per-tender login column, and no such table in `002_baseline_supabase.sql`.
+
+This is one login plus assignment rows — a different architecture, not a
+partial implementation. Per the brief's own stop rule, the notebook is your
+intent but the code may encode a later decision, and I should not assume which
+wins. **This is the first thing I need from you.**
+
+---
+
+## §1.12–§1.15 Worker Portal — the four areas
+
+| Rule | Verdict | Evidence |
+|---|---|---|
+| 1.12 Materials grouped into sections | **implemented** | `main_section` column; controller groups server-side *"so the UI can render the notebook's 'Main Section' structure"* |
+| 1.12 Item taxonomy (colour, sand, cement, aggregate/કપચી, firestone, tiles, iron, bricks, block, soil, other) | **implemented** | `004_seed_reference_data.sql` with `name_local` Gujarati, unit, default GST |
+| 1.12 Daily quantities added with the bill | **implemented** | `material.controller.js` |
+| 1.12 Photo upload | **implemented** | `material.controller.js` |
+| **1.13 Entry window: 2 days** | **implemented** | `entryWindow.service.js`, `SUPERVISOR_EDIT_WINDOW_DAYS` |
+| **1.13 One extra grace day** | **implemented** | `SUPERVISOR_BANKING_GRACE_DAYS`, **banking only** |
+| 1.13 Older entries need company-granted access | **implemented** | `findUsableGrant`, `consumeGrant`; scoped per user + module + **exact date**, single-use, expiry-aware |
+| 1.13 Future dates | **implemented** | Explicit `FUTURE_DATE` refusal |
+| 1.13 Photo: gallery or direct camera | **implemented** | `PHOTO_SOURCES = ["camera","gallery"]` |
+| 1.13 Company must see which was used | **implemented** | Source recorded; `LIVE_CAPTURE_TOLERANCE_MS` corroborates a camera claim against capture time — treated as signal, not proof, exactly as the brief requires |
+| 1.14 Banking: bank / cash / GST cash | **implemented** | `["bank","cash","gst_cash"]`; validation message names all three |
+| 1.14 Supervisor records daily expenditure and wages | **implemented** | `banking.controller.js` |
+| 1.15 Supervisor adds labourers | **implemented** | `labour` master per supervisor |
+| 1.15 Per-labourer account, daily payments | **implemented** | `GET /labour/:id/ledger`, running paid/outstanding balance |
+| 1.15 Grouped by trade | **implemented** | `category` + `category_local` (Gujarati) |
+| 1.15 Outstanding dues visible | **implemented** | Ledger carries outstanding |
+
+---
+
+## [verify] items — two answered by the code, one still open
+
+**1.2 Investor interest: daily or monthly?** → **Daily.**
+`payment.service.js`: *"Whole days only. Interest starts accruing the day AFTER
+the money…"*, returning `{ interest_amount, days_accrued, daily_interest }`.
+Confirm this matches your intent.
+
+**1.13 Does the grace day extend the window to 3?** → **Yes, for banking only.**
+`checkEntryWindow` uses `EDIT_WINDOW + BANKING_GRACE` for
+`MODULES.BANKING` and `EDIT_WINDOW` alone for material, labour, expense and
+daily update. Confirm the grace day was meant to be banking-specific.
+
+**1.11 One credential per tender, or one granting several?** → **still open**,
+and now subordinate to the architectural contradiction above.
+
+---
+
+## Defects and gaps found while diffing
+
+1. **`daily_update` is listed in `MODULES` but bypasses the grant mechanism.**
+   `siteLog.controller.js` imports `daysAgo()` only, so daily updates never
+   reach `checkEntryWindow` and cannot be unlocked by an access grant. Recorded
+   in-code as the remaining action on F-13.
+2. **Inconsistent backdating exemption.** `entryWindow.service.js` exempts
+   `admin` **and** `manager`; `siteLog.controller.js` exempts `admin` only. So a
+   manager may backdate a material entry but not a daily update. Left in place
+   deliberately in-code — *"widening it is a decision about who may rewrite site
+   history, not a bug fix."* Your call.
+3. **Multi-timezone limitation.** `checkEntryWindow` resolves against
+   `DEFAULT_TIMEZONE`, not the company's own `timezone` column. Correct for a
+   single-region deployment, wrong for multi-region.
+4. **Labour has no approve/reject workflow**, unlike materials and banking,
+   which the office signs off. Bounded only by the entry window. Notebook does
+   not specify — flagging rather than assuming.
+
+---
+
+## BUG-002 — mechanism strongly indicated, not yet proven
+
+The portal's own failure message is *"No worker profile is linked to this login
+user. Ask admin to link this user to a worker record."* With authentication
+being the ordinary app login and tender access coming from
+`worker_assignments`, the likely gap is that User Management writes a `users`
+row without the linked `workers` row and/or the `worker_assignments` row.
+
+**Not yet proven.** The brief mandates diffing the database across both creation
+paths before reading controller code, and that has not been done. Stated as a
+hypothesis with its evidence, not a diagnosis.
+
+---
+
+## What this means for the roadmap
+
+- **Phase A is essentially complete as a discovery exercise**, and its finding
+  is that the backend is far further along than assumed. The payment taxonomy,
+  the entry window, photo provenance, banking modes and the labour ledger are
+  all built.
+- **The real gap is not backend business logic. It is the worker-portal login
+  architecture**, which contradicts the notebook, and the frontend surfaces for
+  rules the backend already enforces.
+- Phase E should be ordered against this list. Several routes may need far less
+  work than their file size suggests, because the server already carries the
+  rule.
