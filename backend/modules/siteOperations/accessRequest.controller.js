@@ -70,6 +70,7 @@ const {
 const {
   MODULES,
   daysAgo,
+  companyTimezone,
 } = require("./entryWindow.service");
 
 const {
@@ -236,7 +237,16 @@ exports.createRequest = asyncHandler(
       });
     }
 
-    const age = daysAgo(target_date);
+    /*
+     * Resolved in the COMPANY's timezone, for the same reason
+     * checkEntryWindow is: a supervisor east of Greenwich asking in the
+     * evening is already on tomorrow's UTC date, and judging their request
+     * against UTC would reject their own current day as being in the future.
+     */
+    const age = daysAgo(
+      target_date,
+      await companyTimezone(companyId)
+    );
 
     if (age === null || age < 0) {
       return res.status(400).json({

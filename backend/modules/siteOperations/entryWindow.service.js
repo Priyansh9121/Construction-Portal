@@ -22,6 +22,8 @@
 | Exports:
 |   MODULES                 the five dated modules this applies to
 |   checkEntryWindow()      the decision
+|   companyTimezone()       the company's own timezone, for callers that
+|                           need daysAgo() directly
 |   consumeGrant()          marks a grant used after the entry is written
 |   daysAgo()               the day-count helper, exported for reuse
 |   todayInCompanyTimezone()  exported for tests
@@ -29,8 +31,8 @@
 | Used by:
 |   ./material.controller.js, ./labour.controller.js,
 |   ./banking.controller.js  — the dated site-operations entries
-|   modules/siteLogs/siteLog.controller.js — imports daysAgo() only; see
-|     the note below
+|   modules/siteLogs/siteLog.controller.js — goes through checkEntryWindow
+|     like the rest; F-13 is complete
 |
 | Depends on:
 |   database/pool.js — for the grant lookup
@@ -55,13 +57,12 @@
 |   using the server clock and has been migrated to daysAgo(). Covered by
 |   backend/tests/entryWindowTimezone.test.js.
 |
-| Remaining limitation:
-|   checkEntryWindow calls daysAgo() without a timezone, so it resolves
-|   against DEFAULT_TIMEZONE from the environment rather than the
-|   company's own `timezone` column. Correct for a single-region
-|   deployment; wrong for a deployment serving companies in more than one
-|   timezone. Recorded as the remaining action on F-13, and related to
-|   F-04.
+| Timezone resolution:
+|   checkEntryWindow resolves the COMPANY's timezone from
+|   companies.timezone and passes it to daysAgo, so "today" is the site's
+|   own calendar day even where one deployment serves companies in more
+|   than one region. Falls back to DEFAULT_TIMEZONE when the row or column
+|   is missing, so a lookup failure cannot refuse an entry.
 |
 */
 
@@ -108,10 +109,9 @@ const {
  * grant is scoped to one module and one date, so a grant to backdate a
  * material entry does not also permit a backdated banking expense.
  *
- * DAILY_UPDATE is listed here, but note that siteLog.controller.js only
- * imports daysAgo() rather than going through checkEntryWindow, so daily
- * updates do not currently participate in the grant mechanism. See the
- * remaining action on F-13.
+ * DAILY_UPDATE goes through checkEntryWindow like every other module, so a
+ * backdated daily update needs a grant scoped to that module and date. F-13
+ * migrated it; siteLog.controller.js no longer derives the rule itself.
  */
 const MODULES = Object.freeze({
   MATERIAL: "material",
@@ -128,11 +128,10 @@ const MODULES = Object.freeze({
  * access, so requiring them to grant it to themselves would be
  * ceremony rather than control.
  *
- * Note siteLog.controller.js applies a NARROWER rule — admin only, read
- * from users.role — so a manager can backdate a material entry but not a
- * daily update. That inconsistency is recorded on F-13 and left in place
- * deliberately: widening it is a decision about who may rewrite site
- * history, not a bug fix.
+ * siteLog.controller.js used to apply a narrower rule — admin only, read
+ * from users.role — so a manager could backdate a material entry but not a
+ * daily update. F-13 removed that divergence; every dated module now reads
+ * this one set.
  */
 const WINDOW_EXEMPT_ROLES = new Set([
   "admin",
@@ -270,6 +269,44 @@ const daysAgo = (
  * ORDER BY id DESC LIMIT 1 takes the most recent grant when several
  * exist for the same date — a supervisor who asked twice.
  */
+/**
+ * The company's own timezone, defaulting to the configured one.
+ *
+ * This is the fix for the limitation recorded above. checkEntryWindow used to
+ * call daysAgo() with no timezone, so every company's "today" was resolved
+ * against DEFAULT_TIMEZONE from the environment. Correct while every company
+ * sits in one region; wrong the moment two do, because a supervisor's own
+ * current day would be judged against somebody else's calendar.
+ *
+ * `companies.timezone` already exists and already defaults to Asia/Kolkata, so
+ * for a single-region deployment this changes nothing observable — which is
+ * the point. It cannot widen the window: it only makes "today" the site's own
+ * day, which is what the rule always meant.
+ *
+ * One indexed primary-key read per entry. Falls back to DEFAULT_TIMEZONE if
+ * the row or column is missing, so a lookup failure can never be the reason an
+ * entry is refused.
+ */
+const companyTimezone = async (companyId) => {
+  if (!companyId) {
+    return DEFAULT_TIMEZONE;
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT timezone FROM companies WHERE id = $1`,
+      [companyId]
+    );
+
+    return (
+      result.rows[0]?.timezone ||
+      DEFAULT_TIMEZONE
+    );
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+};
+
 const findUsableGrant = async ({
   companyId,
   userId,
@@ -319,7 +356,14 @@ const checkEntryWindow = async ({
   entryDate,
   windowDays,
 }) => {
-  const age = daysAgo(entryDate);
+  const timeZone = await companyTimezone(
+    companyId
+  );
+
+  const age = daysAgo(
+    entryDate,
+    timeZone
+  );
 
   if (age === null) {
     return {
@@ -433,6 +477,7 @@ const consumeGrant = async (
 
 module.exports = {
   MODULES,
+  companyTimezone,
   checkEntryWindow,
   consumeGrant,
   daysAgo,
