@@ -5493,3 +5493,111 @@ actually pulled is otherwise unobservable.
 
 1. **Workforce -> invite a login** — the deferred inverse of BUG-002's fix.
 2. Phase D merge; Phase E routes against `business-rules-gap.md`; Phase F.
+
+---
+
+# HANDOFF — Phase C closed; the list is down to one item (2026-08-18)
+
+**Branch** `redesign/ui-foundation`. **Tree clean.** Lint and build clean.
+Unit 19 pass. Playwright credential-free specs pass (`world-runtime` 9,
+`shell-contract` 2, `register-contract`, `reset-password`).
+
+## Done this session — all four open Phase C items
+
+1. ✅ **`checkSiteScale` measures the building.** The glTF's own names could not
+   supply an identity: node names are part buckets (`architecture-conc`), and
+   that bucket's box is 45.16 m because it also carries a painted screen. The
+   building is one primitive — architecture layer, material `conc`, 22.00 ×
+   31.10 × 34.18. Identity is now `(userData.worldLayer, material.name)`. An
+   absent target is an error, not `null`.
+2. ✅ **The 404 was `/favicon.ico`**, not a world asset. `public/favicon.svg` was
+   authored and referenced nowhere while `index.html`'s comment claimed it was.
+3. ✅ **The delivery gate ran, both tools, and changed nothing.** `csp_repro`
+   green under production's CSP and red with `wasm-unsafe-eval` removed — which
+   matters more since the rebuild, because meshopt decoding is WebAssembly.
+   `deploy_parity` showed **production passing its scale check by accident**.
+4. ✅ **The mobile tier is real**, and had a second hole: the maps loaded from a
+   static table, so dropping a layer saved none of its textures. Phones now pull
+   41% less, verified on the wire.
+
+## Next, in order
+
+1. **Workforce → invite a login** — the deferred inverse of BUG-002's fix. Not
+   blocked: `resolveProfilePlan`/`applyProfilePlan` take a client and a role, so
+   it is a second caller, not a second implementation.
+2. **Phase D** — merge to `main`. See the pre-merge note below.
+3. **Phase E** — routes ordered against `business-rules-gap.md`, not by file size.
+4. **Phase F** — weather, moon, animated crowds, rain, login→dashboard.
+
+## Before merging, read this
+
+`deploy_parity.mjs` recorded production (on `main`) reporting
+`{width: 22, height: 31.1, depth: 34.18, expectedWidth: 22.6, ok: true}` — the
+building's exact dimensions, from a check that resolves by an ambiguous name and
+happened to reach the right object first. **Merging changes that number to
+`expectedWidth: 22`** and makes the pass deliberate. Nothing about the scene
+changes; if someone diffs the two and reads it as a regression, it is not one.
+
+Phase F's crowd work should also note that **phones no longer load
+`login-site-people` at all.** Animating the crowd will not reach a phone without
+revisiting `SITE_LAYERS`, and that was a deliberate art-direction call, not an
+oversight — 21,840 triangles for 289 KB, the worst ratio in the set.
+
+## Running the suite — the trap that costs the most time
+
+`a11y`, `authenticated`, `portals-and-tables`, `worker-profile-link`,
+`finance-wizard-focus` and one `forgot-password` test — about 170 in all — fail
+instantly with
+
+    Missing required environment variable LOCAL_ADMIN_FIXTURE_PASSWORD
+
+That is `tests/support/fixtures.js` refusing to carry a default password. **It is
+an unset local environment variable, not a defect and not a regression.** Export
+the break-glass fixture credentials first (DEPLOYMENT.md, "Local fixtures") or
+the suite looks catastrophically broken in a way that has nothing to do with the
+code in front of you.
+
+## How to look at the world — CORRECTED
+
+The previous handoff says headless cannot render it and every debug handle reads
+`null`. **That is true only without GPU flags.** `world-runtime.spec.js` runs
+under Playwright's DEFAULT headless Chromium with
+
+    --use-gl=angle --use-angle=metal --enable-gpu --ignore-gpu-blocklist
+
+reaches `data-world-state="ready"`, and reads `__siteScale` and
+`__authWorldDebug` fine. Nine tests depend on that working. Headed
+`channel: "chrome"` is the right tool for LOOKING at the world; it is not
+required for asserting against it.
+
+Handles: `__authWorldDebug.layers` / `.surfaces` / **`.maps`** (new — which map
+sets this device pulled), `__siteScale`, `__perf.scene`, `__geom`, `__camera`.
+
+## The offline instrument, which did not exist before
+
+`min`/`max` on a glTF POSITION accessor, dequantised and put through the node's
+TRS, gives per-primitive world dimensions **without a browser**. It reproduced
+the browser's numbers exactly, to the centimetre, and it is how the scale
+diagnosis was settled in minutes. Positions are normalised SHORTs
+(`componentType: 5122, normalized: true`), so divide by 32767 before applying
+scale — skip that and every dimension comes out about 65,000× too large.
+
+## Traps already paid for
+
+1. The API on `:5051` can be days old — `assertServerFresh()` catches it.
+2. A green suite is not evidence a path is exercised.
+3. A foreground Bash command dies with its process group at the 2-minute tool
+   timeout, SIGTERMing a server started in the same call. Use `nohup … &`.
+4. **A comment is not evidence, and neither is a passing check.** Four now: the
+   brief's `EXPORT_UV_TILE` claim; `checkSiteScale` passing while measuring an
+   arbitrary object; `index.html` claiming a favicon reference that was never
+   written; and `loadSurfaceMaps` fetching a `spandrel` map for a slot that
+   appears in no shipped layer. Every one was caught by measuring, and only by
+   measuring.
+5. **A fix can be half a fix.** Both remaining items this session turned out to
+   have a second, unrecorded half — the scale check needed an identity the glTF
+   could not give it, and the mobile filter needed the textures to stop ignoring
+   it. Check whether the thing you fixed is actually the whole mechanism.
+6. **A session can die between the work and the record.** Four commits had
+   landed cleanly when the API dropped; only the handoff was lost. Write the
+   handoff in its own commit as soon as a unit closes, rather than batching it.
