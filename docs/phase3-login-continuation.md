@@ -3969,8 +3969,16 @@ thing absent is a way to make one. Concretely:
   existing login, or invite one. Optional, because payroll-only stays valid.
 - One service both call, keyed on role → profile table. The subcontractor case
   is configuration, not a second implementation.
-- **It is the only option that repairs the four rows already orphaned here.**
+- **It is the only option that repairs the two rows already broken here.**
   (a) and (b) fix new writes only.
+
+  > **Tally corrected 2026-08-17.** An earlier draft of this line said *four*
+  > rows. That contradicted this document's own asymmetry finding two sections
+  > above. Only **two** rows are broken: the worker-role `users` with no
+  > `workers` row. The two `workers` rows with no `user_id` are **valid
+  > payroll-only records** — `worker.controller.js:127`, *"Most workers have
+  > none — they exist as payroll records only."* Counting them as damage is
+  > exactly the over-correction that would end in mandatory logins.
 
 ### The answer to the framing question
 
@@ -3992,3 +4000,207 @@ side, patching pages individually means meeting this a third time.
 No code changed. Next, once chosen: implement, then a Playwright spec under
 `frontend/tests/` asserting a User-Management-created worker appears in the
 tender picker.
+
+---
+
+# BUG-002 — (d) chosen. Implementation shape, proposed 2026-08-17
+
+Decision: **build the link operation as a shared primitive.** Direction stays
+asymmetric — a role-bearing user must resolve a profile; a profile need never
+have a login. **Link-existing is the primary path**, create-new the fallback.
+Nothing implemented yet; this section is the shape, for approval.
+
+## 1. Where profile resolution fits in the transaction
+
+`createCompanyUser` (`auth.service.js:1313`) is already one `withTransaction`:
+
+```
+withTransaction(async (client) => {
+  1  parse companyId
+  2  SELECT the company exists          ← existing
+  3  normalise roles
+  4  createBaseUser({ client })         ← hashes the password, INSERTs users
+  5  createCompanyMembership({ client }) ← INSERTs company_users
+  6  getUserContextById(id, { client })
+})
+```
+
+The file states its own ordering rule at step 2: the company is checked first
+*"so the failure names the real problem rather than surfacing as a foreign-key
+violation **after the password has been hashed**."*
+
+Profile resolution has to honour that rule and still write a row that needs
+`user.id`, which does not exist until step 4. **So it splits in two:**
+
+```
+withTransaction(async (client) => {
+  1  parse companyId
+  2  SELECT the company exists
+  2b resolveProfilePlan({ client, companyId, role, profile })    ← NEW · READ ONLY
+       · role not in the map (admin, manager)  → returns null, nothing follows
+       · { mode: "link", id }    → SELECT the row FOR UPDATE; must exist, be in
+                                   this company, not deleted, and have user_id
+                                   IS NULL. Else 404 / 409.
+       · { mode: "create", ... } → validate the fields it will insert
+       · missing/absent profile for a role that needs one → 400
+     Returns a PLAN. Throws here, BEFORE any hashing.
+  3  normalise roles
+  4  createBaseUser({ client })
+  5  createCompanyMembership({ client })
+  5b applyProfilePlan({ client, plan, userId: user.id })         ← NEW · THE WRITE
+       · link:   UPDATE <table> SET user_id = $userId
+                   WHERE id = $1 AND company_id = $2
+                     AND user_id IS NULL AND COALESCE(is_deleted,false) = false
+                 → assert rowCount === 1, else throw 409
+       · create: INSERT INTO <table> (company_id, …, user_id) RETURNING id
+  6  getUserContextById(id, { client })
+})
+```
+
+**Why it cannot half-succeed.** Every statement takes the same `client`, so it
+is one transaction: a failure at 5b rolls back the `users` and `company_users`
+rows with it. The broken state this whole bug is about — a role-bearing user
+with no profile — stops being reachable, because the only path that creates one
+also creates or claims the profile, atomically.
+
+**Two guards, deliberately both.** `resolveProfilePlan` re-states its
+preconditions in 5b's `WHERE` clause rather than trusting the check at 2b. That
+closes the window between them — two admins linking the same worker
+concurrently — and `SELECT … FOR UPDATE` at 2b holds the row for the duration.
+The `rowCount === 1` assertion is what turns a lost race into a rolled-back 409
+instead of a user silently created with no profile.
+
+**Validation before the hash, write after the id.** That is the only reason
+this is two functions rather than one, and it is the file's own rule.
+
+## 2. Shared, not written twice
+
+One config, keyed by role. Subcontractor is **a row in this object**, not a
+branch:
+
+```js
+const PROFILE_FOR_ROLE = {
+  [USER_ROLES.WORKER]:        { table: "workers",        label: "worker" },
+  [USER_ROLES.SUBCONTRACTOR]: { table: "subcontractors", label: "subcontractor" },
+};
+```
+
+A role absent from the map needs no profile — `admin` and `manager` are
+unaffected, and stay unaffected by omission rather than by an exception.
+`resolveProfilePlan` and `applyProfilePlan` read the map; neither names a table
+literally. **If implementing this produces an `if (role === "subcontractor")`,
+that is the signal to stop and report, per the instruction.**
+
+Proposed home: `backend/modules/auth/profileLink.service.js`. Auth already owns
+account creation and `createCompanyUser` is the mandatory caller. The two
+registers import it for the optional inverse.
+
+## 3. Link-existing needs no new backend
+
+`GET /workers?search=` and `GET /subcontractors?search=` already exist, are
+company-scoped by `createScopedCrud`, and return `t.*` — which includes
+`user_id`. The picker searches and hides rows that already have one, the same
+client-side filtering idiom `TenderWorkersTab` already uses for assigned
+workers. **Zero backend change for the dominant path.**
+
+In that dominant case — the worker is already on the payroll — **no phone and
+no salary are collected at all.** The admin picks a name; the transaction sets
+`user_id` on a row that already has its payroll fields.
+
+## 4. `salary` — measured, and the recommendation is DO NOT relax it
+
+Asked to say what relaxing breaks before changing anything. What was measured:
+
+| | finding |
+|---|---|
+| DB column | `workers.salary numeric` — **NULLABLE**. No migration needed either way |
+| Enforced at | **two** independent places, not one |
+| …1 | `worker.validation.js:81` route middleware — `!salary` → 400; `Number(salary) <= 0` → 400. Runs on **POST and PUT** |
+| …2 | `worker.controller.js:113` factory config `required: true` |
+| Read by | `workerPortal.controller.js:77` — selects `w.salary` into the portal profile. Displays it; computes nothing |
+| Tests | four references, all **fixture payloads** (`salary: 25000` etc.), no assertions on the rule. Relaxing breaks none of them |
+
+**And a comment that does not survive its callers.** `worker.validation.js:89`
+justifies the positivity check: a bad salary *"would then flow into the
+worker-money calculations as a nonsense figure."* Grepping `salary` across
+`backend/modules/workerMoney/` returns **nothing**. Worker-money does not read
+`workers.salary`. The rationale is stale in the same way the `entryWindow`
+docstring was. Recorded, not acted on — the check is harmless and this is not
+its bug.
+
+**The recommendation: change neither enforcement point.**
+
+The reason is that the question dissolves. `applyProfilePlan` INSERTs on the
+transaction client — it is server-side, so **it never passes through
+`validateWorker` and never reaches the factory's `required` check.** The
+create-new fallback can write `salary = NULL` today without touching either
+rule. Relaxing `POST /workers` would change a working, human-facing validation
+on a payroll form to serve a path that does not use it.
+
+**The honest cost, stated rather than hidden:** this leaves an asymmetry. The
+HTTP API demands a salary; the internal path does not. A worker row created by
+issuing a login will have `salary = NULL`, and `WorkersPage` will render it
+blank until someone fills it in. That is the correct trade — a blank field an
+admin can complete beats a fabricated number that looks like payroll data — but
+it is a real inconsistency and should be a deliberate choice, not a side effect.
+
+If you would rather the two agree, the change is to drop `required: true` at
+`worker.controller.js:113` and remove `salary` from the `!` test at
+`worker.validation.js:81` while **keeping** the `Number(salary) <= 0` check for
+when a value is supplied. Nothing measured above breaks. It is simply a second
+decision, and not one this bug forces.
+
+## 5. Repair — the UI, not a script
+
+Both existing orphans are `worker1785638794@probe.local` and
+`dev.worker@test.com`. **They are probe and test leftovers, not real people.** A
+repair migration would invent `workers` rows for junk.
+
+More importantly, linking an orphan is a question only an admin can answer —
+*which human is this?* A script cannot know, and production will grow its own.
+
+**Proposal: surface them in User Management.** A role-bearing user with no
+profile row gets an "unlinked" marker and opens **the same dialog** as
+create-time. Repair and prevention are then one surface, and the next orphan —
+however it arises — is fixable by the person who notices it.
+
+The one piece of work this adds: `getUsers` (`auth.controller.js:786`) selects
+from `company_users` with an INNER JOIN and knows nothing about profiles. It
+needs a `LEFT JOIN` to the role's profile table to report linked status.
+
+## 6. One integrity gap the primitive would otherwise expose
+
+| table | index on `user_id` |
+|---|---|
+| `workers` | `ux_workers_user_id` — **UNIQUE**, partial: `WHERE user_id IS NOT NULL AND is_deleted = false` |
+| `subcontractors` | **none** |
+
+Only a foreign key on the subcontractor side. Two subcontractor rows may point
+at one login, and `subcontractorPortal.controller.js:82` resolves with `LIMIT
+1` — so it would silently serve one of them.
+
+That has been survivable while the only writer was a dev fixture script.
+Turning linking into a product operation removes that protection. **Proposed:
+migration `007` adding the matching partial unique index** before the feature
+ships. It is the DB-level half of 5b's `rowCount === 1` guard, and the
+subcontractor side is currently missing it.
+
+## 7. Playwright, both directions
+
+Per the instruction, the second spec is the one that guards against
+over-correcting:
+
+1. A worker created through **User Management** (linked to an existing payroll
+   row) **appears in the tender's worker picker.** The reported bug.
+2. A **payroll-only worker with no login** can still be created through
+   Workforce and still appears in the picker. Proves the link stayed optional in
+   the direction where optional is correct.
+
+## Open questions before implementing
+
+1. **`salary`** — accept the recommendation (change nothing, internal path
+   writes NULL), or align the API with it as a separate decision?
+2. **Repair** — UI marker in User Management, as proposed?
+3. **Scope** — build the optional inverse (Workforce/Subcontractors → invite a
+   login) in this change, or land the mandatory direction plus repair first?
+4. **Migration 007** — add the subcontractor partial unique index now?
