@@ -116,6 +116,66 @@ test.describe("world readiness contract", () => {
   });
 });
 
+test.describe("the mobile tier", () => {
+  /*
+   * A phone used to download the entire world — 2,064 KB of GLB, 1,200 KB of
+   * maps, 108,520 triangles — because `portrait ? l.mobile : true` filtered
+   * nothing, every layer being flagged `mobile: true`. A unit test can prove
+   * the TABLE has a tier in it. Only this can prove the tier reaches the wire,
+   * and the wire is the whole point: the saving is bytes a phone does not pull.
+   */
+  const PORTRAIT = { width: 390, height: 844 };
+
+  test("a portrait device fetches neither the optional layers nor their maps",
+    async ({ browser }) => {
+      const page = await browser.newPage({ viewport: PORTRAIT });
+      const got = [];
+      page.on("request", (r) => {
+        const u = r.url();
+        if (u.includes("/world/assets/") || u.includes("/world/textures/")) got.push(u);
+      });
+      await page.goto(LOGIN);
+      await settle(page, "ready");
+
+      const debug = await canvas(page).evaluate((c) => c.__authWorldDebug);
+      for (const optional of ["login-site-street", "login-site-people",
+                              "login-site-scaffold"]) {
+        expect(debug.layers[optional]).toBe("skipped (mobile)");
+        expect(got.filter((u) => u.includes(optional))).toEqual([]);
+      }
+      /* Essential layers are NOT part of the tier. Skipping one would pin the
+       * phone in DEGRADED and hold the fallback up forever. */
+      expect(debug.layers["login-site-architecture"]).toBe("loaded");
+      expect(debug.layers["login-site-neighbours"]).toBe("loaded");
+      expect(debug.essentialMissing).toEqual([]);
+
+      /*
+       * THE HALF THAT WAS NOT OBVIOUS. `ground` and `asphalt` belong to the
+       * street layer and to nothing else — 527 KB. While the maps were fetched
+       * from a static table, dropping the layer saved none of them, and the
+       * tier would have looked like it worked while saving 40% less than it
+       * claimed.
+       */
+      for (const dead of ["ground-", "asphalt-", "spandrel"]) {
+        expect(got.filter((u) => u.includes(dead))).toEqual([]);
+      }
+      expect(debug.maps).not.toContain("ground-color");
+      expect(debug.maps).toContain("concrete-color");
+      await page.close();
+    });
+
+  test("a desktop device still gets the whole world", async ({ page }) => {
+    /* The tier must cost the constrained device less, not cost everyone the
+     * same. If this ever matches the portrait list, the tier has stopped being
+     * a tier and become a deletion. */
+    await page.goto(LOGIN);
+    await settle(page, "ready");
+    const debug = await canvas(page).evaluate((c) => c.__authWorldDebug);
+    for (const status of Object.values(debug.layers)) expect(status).toBe("loaded");
+    expect(debug.maps).toContain("ground-color");
+  });
+});
+
 test.describe("reduced motion", () => {
   test("the still contains the authored world, not the world minus its layers", async ({ page }) => {
     /* emulateMedia rather than the context-level `reducedMotion` option: the
