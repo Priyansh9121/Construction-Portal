@@ -21,6 +21,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Without this the comment above was wrong: public/favicon.svg was
+         authored, copied to dist/, and never referenced, so every browser fell
+         back to requesting /favicon.ico and got a 404 on every page load. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Construction Portal</title>
   </head>
   <body>
