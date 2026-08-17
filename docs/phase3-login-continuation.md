@@ -3616,3 +3616,175 @@ plus the shipped-asset table. Not yet confirmed against a fresh export artifact 
 the production GLBs on disk are the Aug 13 content (mtimes read Aug 17 12:55
 from a `git restore`, tree clean, so the invariant held). Confirming means a
 re-export to a scratch directory and a material dump from the actual GLB.
+
+---
+
+# HANDOFF — Phase A complete, Phase B in progress (2026-08-17)
+
+Written at the end of a context window. Everything a fresh session needs to
+resume BUG-002 is here; this session's transcript should not need re-reading.
+
+**Branch** `redesign/ui-foundation`. **Tree clean.** Three commits this session:
+
+| sha | what |
+|---|---|
+| `d7f05a6` | Phase A gap list — the notebooks diffed against the code |
+| `f6cf3cc` | Worker-portal identity decision + brief §0 corrected + brief renamed |
+| `9221d06` | Entry-window timezone fix + retraction of two false defects (254 backend tests pass, lint clean) |
+
+Governing document: `docs/construction-portal-master-brief.md` (renamed from
+`docs/ Construction portal master brief.md`, which had a leading space and was
+untracked). Notebook transcription: `docs/business-rules.md`. Gap list:
+`docs/business-rules-gap.md`.
+
+## Phase A — what was found
+
+**The brief's opening premise was wrong and has been corrected in place.** §0
+claimed the notebook rules "exist nowhere in the repository." Three files are
+explicit transcriptions that quote the notebooks directly —
+`modules/payments/payment.hierarchy.js` (796 lines, the whole Income/Expense
+tree including the 6-vs-3 asymmetry), `modules/siteOperations/entryWindow.service.js`,
+and `modules/siteOperations/material.controller.js`. Seed data carries the
+Gujarati material names verbatim (`કપચી`, `રેતી`, `સિમેન્ટ`) in
+`004_seed_reference_data.sql`.
+
+**The backend is far further along than the brief assumes.** Payment taxonomy,
+entry window, photo provenance, banking modes, labour ledger — all built. The
+real gap is frontend surfaces for rules the server already enforces. Phase E
+should be ordered against the gap list, not against route file sizes.
+
+## Phase A — what was decided
+
+**Worker-portal identity (supersedes notebook §1.11).** The notebook describes
+a per-tender ID and password. The code uses one identity plus `worker_assignments`
+rows. **Decision: keep the code.** Per-tender credentials will not be built —
+they fragment identity. If per-tender enrolment proves operationally necessary,
+it will be enrolment codes that link a worker to a tender on first use. Recorded
+with reasoning in `business-rules.md` §1.11.
+
+**Both [verify] items confirmed as intent, no change needed.** Investor interest
+is daily (*રોજનું* on the Investor page). The grace day extends the window to 3
+for banking only (it is written on the banking page specifically).
+
+**Four defects were found; only one was a bug.** The other three are policy
+questions and stay recorded, not fixed.
+
+## The retraction — two of four defects were WRONG
+
+Defects #1 (`daily_update` bypasses the grant mechanism) and #2 (backdating
+exemption is admin-only in `siteLog`) were **both false**. I took them from
+`entryWindow.service.js`'s own docstring, which described migration F-13 as
+still pending when the code had already completed it. `siteLog.controller.js`
+does import and call `checkEntryWindow({ module: MODULES.DAILY_UPDATE })`, and
+the divergent `role !== "admin"` check was removed by F-13.
+
+Three stale docstring passages have been corrected in place so the next reader
+is not misled the same way. The retraction is recorded in the gap list rather
+than quietly deleted, because the lesson is the brief's own: **do not reason
+from an unverified premise — a stale comment is exactly that.**
+
+**Defect #3 was real and is fixed** (`9221d06`). `checkEntryWindow` resolved
+"today" against `DEFAULT_TIMEZONE` rather than `companies.timezone`. A new
+`companyTimezone()` reads the company's own column; `accessRequest.controller.js`
+had the same defect at its `daysAgo(target_date)` call and now uses it too.
+Falls back to `DEFAULT_TIMEZONE` on any lookup failure, so a missing row can
+never be the reason an entry is refused. **It cannot widen the window.**
+
+## Phase B — BUG-002, where it actually stands
+
+### The symptom was misstated in the original prompt, and corrected by the user
+
+**Not** "the worker cannot log in." The actual symptom:
+
+> A worker created through **User Management** never appears in the tender's
+> worker picker, so they cannot be assigned to a tender at all. A worker created
+> through **Workforce** does appear.
+
+### Database diff (done before reading any controller code, as mandated)
+
+DB reachable: `construction_portal` as `postgres`.
+
+`users` by role — manager 101, admin 19, worker 3, subcontractor 1.
+
+The three `role='worker'` users:
+
+| user | linked `workers` row | assignments |
+|---|---|---|
+| `worker1785638794@probe.local` | **missing** | 0 |
+| `dev.worker@test.com` | **missing** | 0 |
+| `worker-fixture@local.test` | present | 0 |
+
+Separately: **3 `workers` rows exist, 2 with no `user_id` at all.**
+
+**This is the bug, both halves visible at once:**
+- 2 `workers` rows with no `user_id` — created via **Workforce**, no login.
+- 2 worker-role `users` with no `workers` row — created via **User Management**,
+  no worker profile.
+
+Two creation paths, **neither completing the other's record.**
+
+### RETRACTED — do not reuse
+
+`worker_assignments` is empty in this database. I inferred a second, independent
+failure from that. **That inference was wrong and is withdrawn.** This is a
+fresh dev database with probe leftovers; it would look identical whether or not
+the feature works. **It works in production.** Draw nothing from the empty table.
+
+### Where the picker trace stopped — resume exactly here
+
+Confirming the picker reads `workers` rows (not `users` rows) closes the
+diagnosis. Two of three links are traced:
+
+1. **`frontend/src/components/tenderDetails/TenderWorkersTab.jsx`** — read.
+   It does **not** fetch. It receives `workers = []` **as a prop**, filters out
+   already-assigned ids into `availableWorkers`, and renders
+   `<option>{worker.full_name} - {worker.role || "Worker"}</option>`.
+   Its header says: *"The worker picker lists only the caller's company"* and
+   *"Assigning is a grant of ACCESS as well as a record: /worker-portal reads
+   these rows to decide which tenders a worker can see."*
+2. **`frontend/src/services/tenderWorkerService.js`** — read. Covers only
+   GET/POST/PUT/DELETE `/tenders/:id/workers` (the *assignments*), backed by
+   `backend/modules/tenders/tender.controller.js`. **It does not supply the
+   `workers` prop.**
+
+**THE NEXT STEP:** find the parent component that passes `workers=` into
+`TenderWorkersTab`, and the service/endpoint behind it. That endpoint is the
+picker's data source and the last link in the chain.
+
+Strong indication, **not yet proof**: the option renders `worker.full_name`,
+which is a `workers` column, not a `users` column. If the source is a query over
+`workers`, then a User Management worker — `users` row with no `workers` row —
+is invisible to the picker by construction, and the diagnosis is closed.
+
+### Also unchecked — the subcontractor split
+
+One `subcontractor`-role user exists with no linked row, which suggests the same
+two-path pattern between User Management and the subcontractor equivalent. **Not
+investigated.** `backend/scripts/createLocalPortalFixtures.js` documents the same
+three-row shape for subcontractors (*"each fixture needs three rows: `users`,
+`company_users`, and the linked `workers` / `subcontractors` record"*), so the
+same defect is plausible on that side. Worth confirming before proposing a fix,
+because it changes which option below is right.
+
+### STOP HERE — do not implement
+
+The user's instruction: **once the diagnosis is confirmed, stop and propose the
+fix rather than implementing it.** The choice is a product decision they will
+make, and it needs trade-offs written out:
+
+- **(a)** User Management creating a worker-role user also creates the linked
+  `workers` row.
+- **(b)** Workforce optionally creates a login for the worker it creates.
+- **(c)** Merge the two paths into one.
+
+Whether the subcontractor side has the same split bears directly on (c).
+
+Once the fix is chosen and made, add a Playwright spec under `frontend/tests/`
+so it cannot regress.
+
+## Phase B — still untouched
+
+**BUG-001** — Finance wizard step 3 loses focus after one character. Cheapest
+test first: `useEffect(() => console.log('MOUNT'), [])` in the step component to
+see whether it is remounting per keystroke. Fix the cause, then grep the pattern
+across the other wizards. Playwright spec after.
