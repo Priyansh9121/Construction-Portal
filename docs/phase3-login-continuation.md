@@ -4862,3 +4862,164 @@ Playwright 6 specs, lint and build clean.
    tool timeout**, which SIGTERMs a server started in the same call. Use `nohup … &`.
 4. **The shipped assets are not what the scene produces.** Do not reason about
    world size from `frontend/public/world/assets/` until step 1 above has run.
+
+---
+
+# Phase C — instrument, rebuild, and eyes on it (2026-08-17)
+
+## The layer instrument already existed — the surface one did not
+
+Asked to build dev-only layer-resolution visibility first. **`canvas.__authWorldDebug`
+already reports it**, published unconditionally after a production CSP incident
+where all five layers fetched 200, failed to *decode*, and the world carried on
+silently. Nothing to build. Inventory before you build, again.
+
+What did **not** exist was the level below, and the rebuild made it urgent.
+`dressSurface()` returned silently on an unmatched material:
+
+```js
+if (!surface) return material;      // no map, no signal, flat colour
+```
+
+Since the export now ships **no images at all**, every textured surface depends
+on being matched by material name. A stripped material that `SITE_SURFACES` does
+not name renders flat and says nothing — the same silent degradation the layer
+report was built to end, one level down.
+
+Added `__authWorldDebug.surfaces`, reporting three outcomes per layer:
+
+| outcome | meaning |
+|---|---|
+| `dressed` | matched `SITE_SURFACES`, maps attached |
+| `own-texture` | still carries an embedded map — **should now be impossible**; warns |
+| `bare` | no entry and no map. Flat colour |
+
+`bare` is not always wrong — metals and glass are deliberately absent, being
+defined by environment reflection — so it reports rather than throws. An
+unexpected **name** is the signal, not a non-zero count.
+
+## The rebuild
+
+`build_assets.sh` ran end to end on a clean tree: export → meshopt → gate.
+
+    login-site-street      970,812 ->  331,152  (-66%)
+    login-site-neighbours 2,469,680 -> 780,964  (-69%)
+    TOTAL                6,383,308 -> 2,214,636 (-66%)
+
+    byte gate: all five layers ok, TOTAL 2,113,512
+    WARN whole set over the 1,228,800 target (not a failure)
+    byte gate passed
+
+Post-compression hard limit set to **2.5 MB** as agreed, alongside the 1.2 MB
+warn.
+
+## Eyes on it — the five surfaces reattach correctly
+
+Headless could not answer this. `CAPABLE()` refuses software renderers by
+design — *"a device that can only software-render gets the authored still"* —
+and headless Chromium is SwiftShader, so the world correctly never starts. **The
+browser check needs a real GPU**: `test.use({ headless: false, channel: "chrome" })`,
+which reported `ANGLE Metal Renderer: Apple M2`.
+
+    LAYERS   all five "loaded"
+    DEGRADED false   essentialMissing []
+
+    SURF street  dressed=[earth, ply, footpath, kerb, asphalt, median_top, conc, haul]
+    own-texture  [] on every layer
+
+**All five new surfaces are in `dressed`, and nothing anywhere reports
+`own-texture`** — confirming both halves: the export strips every image, and the
+runtime reattaches all five by name. Screenshot shows brick, concrete, aggregate
+and asphalt rendering as textures, not flat colour.
+
+## STOP — an artifact contradicts expectations
+
+The same run reported:
+
+    [world] site scale looks wrong: architecture is 43.12 m wide,
+            expected ~22.6 m
+    __siteScale { width: 43.12, height: 30.45, depth: 38.72, ok: false }
+
+**The architecture is ~1.9× its expected width.** `checkSiteScale` is a
+pre-existing assertion; it is now failing.
+
+What is known:
+
+- **My changes cannot have caused it.** `EXPORT_UV_TILE` affects UV projection
+  scale only; `export_image_format` affects images only; the meshopt loop fix
+  affects one layer's compression. None touches geometry scale.
+- **The shipped assets were stale** — architecture 21,324 tris then, 23,744 now
+  — so the most likely reading is that the current scene has always had this and
+  a stale artifact was hiding it.
+- That is a *hypothesis, not a measurement*. It has not been confirmed by
+  re-running the check against the old assets.
+
+**This is the first thing to settle next**, and the cheap test is exact: stash
+the new GLBs, restore the old ones, load the page, read `__siteScale`. If the
+old ones also fail, it is long-standing and unrelated to this work. If they
+pass, the current scene has a scale defect that the rebuild has now exposed.
+
+A 404 was also logged during load and was not chased.
+
+## Not done, deliberately
+
+`deploy_parity.mjs`, `csp_repro.mjs` and `SITE_LAYERS.mobile` were next in the
+order and are **not started** — the scale finding should be settled before
+spending on delivery gates for assets whose geometry is in question.
+
+---
+
+# HANDOFF — Phase C, assets rebuilt and verified, one open question (2026-08-17)
+
+**Branch** `redesign/ui-foundation`. Backend 272 tests, Playwright 6 specs, lint
+and build clean.
+
+## The state of the tree
+
+The rebuilt GLBs **are committed** with this. They are correct and verified in a
+browser; the open question is about the scene's scale, not the pipeline. `git
+log` has the previous assets if a comparison is needed.
+
+## Phase C — done
+
+1. ✅ Texture analysis confirmed against an artifact (five names, not four).
+2. ✅ The five names in `EXPORT_UV_TILE` and `SITE_SURFACES`.
+3. ✅ `export_image_format: "NONE"` — the actual mechanism. Street 11.49 → 0.95 MB.
+4. ✅ Compression already existed; `login-site-people` was silently skipped, fixed.
+5. ✅ Byte gate at the end of `build_assets.sh`. 2.0 / 2.5 / 1.2 MB. Green.
+6. ✅ Surface-resolution visibility (`__authWorldDebug.surfaces`).
+7. ✅ Real rebuild, and confirmed in a browser that all five surfaces dress.
+
+## Next, in order
+
+1. **Settle the site-scale finding.** Cheap test above. Ask before changing any
+   export scale — it is art direction as much as correctness.
+2. **The 404 during world load** — identify it.
+3. `deploy_parity.mjs` and `csp_repro.mjs`.
+4. **`SITE_LAYERS.mobile`** — every layer is `mobile: true`, so
+   `portrait ? l.mobile : true` filters nothing.
+5. **Workforce → invite a login** — the deferred inverse of BUG-002's fix.
+6. Phase D merge; Phase E routes against `business-rules-gap.md`; Phase F.
+
+## How to look at the world (this cost real time)
+
+Headless **cannot** render it — `CAPABLE()` rejects SwiftShader on purpose. Use:
+
+```js
+test.use({ headless: false, channel: "chrome",
+           launchOptions: { args: ["--use-angle=metal"] } });
+```
+
+then read `document.querySelector("canvas").__authWorldDebug` — `.layers` for
+what arrived, `.surfaces` for what dressed — and `__siteScale`. Give it ~14 s:
+the world loads on idle, deliberately off the critical path.
+
+## Traps already paid for
+
+1. The API on `:5051` can be days old — `assertServerFresh()` catches it now.
+2. A green suite is not evidence a path is exercised.
+3. A foreground Bash command dies with its process group at the 2-minute tool
+   timeout, SIGTERMing a server started in the same call. Use `nohup … &`.
+4. **A comment or a plan is not evidence.** The texture mechanism in the brief
+   was wrong; `EXPORT_UV_TILE` never flattened anything. The artifact said so
+   within one export.
