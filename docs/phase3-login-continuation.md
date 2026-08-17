@@ -5274,3 +5274,71 @@ against it.
 The browser run logs one **404** during world load — next on the list. It did
 not surface through Playwright's page-level `response` listener, so it is not a
 plain document-context fetch.
+
+---
+
+# The 404 during world load was never a world asset (2026-08-17)
+
+Second on the list, seen in the browser check and never identified. **It has
+nothing to do with the world**, and finding that out took one probe.
+
+Playwright's page-level `response` listener never saw it, so the request is not
+a plain document-context fetch. A CDP `Network.responseReceived` listener names
+it immediately:
+
+    404 Other http://localhost:5173/favicon.ico
+
+It also does not reproduce in headless: default headless Chromium does not ask
+for `/favicon.ico` at all, which is why the byte gate, the layer probes and
+`world-runtime.spec.js` were all green while every real browser took a 404 on
+every page load.
+
+## The cause is the same shape as the last three findings
+
+`public/favicon.svg` exists, is authored ("File purpose: browser tab icon"), and
+is copied to `dist/` on every build. `index.html`'s own comment says:
+
+> The favicon is referenced from public/ and copied verbatim at build.
+
+**It was referenced nowhere.** `grep -rn favicon` across the repo returns
+exactly one hit, and that hit is the comment claiming the reference exists. No
+`<link rel="icon">` was ever in the shell, so the browser fell back to the
+implicit `/favicon.ico` and missed.
+
+A comment is not evidence. That is now four.
+
+## The fix, and the guard
+
+One `<link rel="icon" type="image/svg+xml" href="/favicon.svg" />` in the shell.
+Re-probed: no non-200 responses at all during a headed Chrome login load.
+
+`tests/shell-contract.spec.js` guards both halves, because they fail
+independently: that the shell DECLARES the reference, and that the declared path
+actually SERVES. A link tag pointing at a 404 is the same defect wearing a
+different hat. This is a class rather than one asset — everything in `public/`
+is copied verbatim and referenced only by a hand-written string, so nothing
+links the two and no build step complains.
+
+## Cost of not chasing it
+
+Nothing was broken by this beyond a tab icon. What it cost was attention: a 404
+in the console during a world-load investigation reads as a world asset failing,
+and it charges whoever sees it the time to prove it is not their bug. It had
+already been carried across at least two handoffs on that basis.
+
+## Suite state, and a pre-existing gap that is NOT a regression
+
+Unit: 17 pass (`stationContract` 8, `siteScale` 9). Lint and build clean.
+Playwright, credential-free specs: 18 pass — `world-runtime` 7,
+`shell-contract` 2, `register-contract`, `reset-password`.
+
+`a11y`, `authenticated`, `portals-and-tables`, `worker-profile-link`,
+`finance-wizard-focus` and one `forgot-password` test all fail on
+
+    Missing required environment variable LOCAL_ADMIN_FIXTURE_PASSWORD
+
+which is `tests/support/fixtures.js` refusing to carry a default password. It is
+an unset local environment variable, not a defect and not a regression — see
+DEPLOYMENT.md, "Local fixtures". Anyone running the full suite needs the
+break-glass fixture credentials exported first, or ~170 tests fail instantly
+and misleadingly.
