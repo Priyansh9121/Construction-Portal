@@ -4539,3 +4539,164 @@ accidentally when the API was down and the suite failed with a clean
 It fired on its first run — correctly, because migration 007 had just been
 edited — reporting the API as 8,669s stale. After a restart, all **6 specs
 pass**. Both the alarm and the all-clear are observed.
+
+---
+
+# Phase C — the texture analysis CONFIRMED against a fresh artifact, with one correction (2026-08-17)
+
+Source-level analysis confirmed by exporting and reading the actual GLBs.
+`concept_c.py --export` via Blender, into a scratch directory. **Production
+assets never overwritten** — verified below.
+
+## Confirmed
+
+**1. The four texture-free layers are intentional.** Every one ships **zero
+images**, and no material in them references a texture at all:
+
+| layer | total | images | textured materials |
+|---|---|---|---|
+| architecture | 1.25 MB | **0** | 0 of 10 |
+| neighbours | 2.36 MB | **0** | 0 of 9 |
+| people | 0.69 MB | **0** | 0 of 4 |
+| scaffold | 0.54 MB | **0** | 0 of 4 |
+
+**2. Street is a coverage gap, and the numbers land where predicted.**
+
+| | |
+|---|---|
+| total | **11.49 MB** — the analysis said 11.49 MB |
+| embedded images | **10.57 MB**, 9 of them — 6 JPEG, 3 PNG |
+| geometry once they go | **0.91 MB** — the analysis said "~0.9 MB" |
+
+**3. Zero new bytes shipped.** All the uncovered materials map to CC0 sets
+already in `/world/textures/cc0/` (1.2 MB, shipped once, cached across layers):
+`footpath`→concrete, `kerb`→concrete, `asphalt`→asphalt,
+`median_top`→ground, `haul`→ground.
+
+**4. Compression is still mandatory.** Strip every texture from every layer and
+**5.77 MB** of geometry remains — the analysis said 5.72 MB, a ~1% variance —
+against a ~0.99 MB budget. Meshopt/Draco is not optional.
+
+Fresh export totals **16.34 MB** across five layers, 108,520 triangles.
+
+## CORRECTED — it is FIVE names, not four
+
+The analysis said *"add four names to both tables."* The artifact says **five**.
+The street's textured materials are:
+
+    footpath · kerb · asphalt · median_top · haul
+
+**None of the five appears in either table.** Both currently carry the same
+seven entries:
+
+- `EXPORT_UV_TILE` — `tools/blender/concept_lib.py:2174`
+- `SITE_SURFACES` — `frontend/src/world/loginSite.js:239`
+
+both being: `conc, wet, city_warm, city_cool, spandrel, earth, ply`.
+
+The mechanism is confirmed working on the covered ones: `earth`, `ply` and
+`conc` all appear in street and are **not** textured there, because they are
+flattened at export and reattached at runtime. The five are exactly the ones
+that fall through.
+
+**The conclusion is unchanged and the fix is unchanged in kind** — one more
+name in each table than expected. Flagged because the standing instruction is
+to stop when an artifact contradicts the source-level analysis, and this is
+that, in a small way. Anyone budgeting the change should plan five.
+
+## Invariant honoured, and made enforceable
+
+`concept_c.py` hardcoded its output to `frontend/public/world/assets/`, so
+"export to a scratch directory" meant exporting over production and running
+`git restore` afterwards. **A rule that depends on remembering to undo
+something eventually gets forgotten mid-investigation.**
+
+Added `WORLD_EXPORT_DIR`, defaulting to the production path so
+`build_assets.sh` and every other caller is unaffected. `git status` on
+`frontend/public/world/assets/` was empty before and after the export.
+
+## Phase C — what remains
+
+1. **A byte gate on the export.** Kept categorically separate from `validate()`
+   — 2 mm off the ground plane is a defect, 12 MB is a budget overrun.
+   **Needs a number from you; proposal below.**
+2. **gltf-transform compression** — Meshopt/Draco on 5.77 MB of geometry.
+3. **Add the five names** to both tables.
+4. **Make `SITE_LAYERS.mobile` mean something** — every layer is `mobile: true`.
+5. **Ship it and look at it in a browser.** `deploy_parity.mjs` and
+   `csp_repro.mjs` are the delivery gate.
+6. Dev-only visibility of which layers resolved, since the loader degrades
+   silently by design.
+
+### Proposed budget numbers, for your decision
+
+Measured, not guessed. Post-fix estimate: street drops 11.49 → 0.91 MB, so the
+five layers total **≈5.77 MB** before compression, against a ~0.99 MB target.
+
+- **Per-layer hard fail at 2.0 MB.** Nothing should ever again be 11 MB, and
+  neighbours at 2.34 MB is the largest honest layer — so 2.0 MB fails today and
+  is the forcing function for step 2 rather than a rubber stamp.
+- **Whole-set hard fail at 6.0 MB** uncompressed — just above the 5.77 MB
+  measured, so any *new* geometry has to be argued for.
+- **Whole-set warn at 1.2 MB** post-compression, hard fail at **2.0 MB**,
+  against the ~0.99 MB target. A warn band because Meshopt ratios vary with
+  mesh topology and a gate that fails on a good day gets disabled.
+
+I would not set the post-compression *hard* number until step 2 has run once
+and the real ratio is known. Say if you would rather fix it now.
+
+---
+
+# HANDOFF — migrations verified, stale-server trap closed, Phase C confirmed (2026-08-17)
+
+**Branch** `redesign/ui-foundation`. **Tree clean** apart from the
+`concept_c.py` change committed with this. Backend **272 tests**, Playwright
+**6 specs**, lint clean, build clean.
+
+## Done this session
+
+| | |
+|---|---|
+| BUG-002 | diagnosed, fixed via a shared link primitive, spec'd |
+| S-01 | subcontractor cross-tenant exposure recorded in `business-rules-gap.md` and closed by migration 007 |
+| BUG-001 | finance wizard remount fixed; sweep found it was the only instance |
+| Migration 007 | verified end to end on a genuinely fresh database |
+| Stale-server trap | `assertServerFresh()` — self-announcing, no backend change |
+| Phase C step 1 | texture analysis confirmed against a real artifact |
+
+## Resume Phase C here
+
+Everything needed is above. **The analysis is confirmed — act on it**, with the
+five-not-four correction. Order: add the five names, then compression, then the
+byte gate once the real ratio is known, then `mobile`, then ship and look.
+
+Re-export with:
+
+```
+WORLD_EXPORT_DIR=/path/to/scratch \
+  /Applications/Blender.app/Contents/MacOS/Blender -b \
+  -P tools/blender/concept_c.py -- --export
+```
+
+The material dump used is `scratchpad/dump.mjs` — it reads GLB chunks directly
+and separates image bytes from geometry bytes. Worth keeping if you re-measure.
+
+## Still open, in order
+
+1. **The byte-gate numbers** — proposed above, awaiting your decision.
+2. **Workforce → invite a login** — the deferred optional inverse. Not blocked.
+3. **Phase D** merge to `main`; **Phase E** routes against
+   `business-rules-gap.md`; **Phase F** new world capabilities.
+
+## Two traps already paid for — do not pay again
+
+1. **The API on `:5051` can be days old.** `npm start` fails quietly when a
+   process holds the port. `assertServerFresh()` now catches this, but only for
+   suites that call it. It fired correctly on its first run.
+2. **A green test suite is not evidence a path is exercised.** `createMember`
+   was building the broken state by hand and 254 tests passed while BUG-002 was
+   live.
+
+Third, smaller: a foreground command here is killed with its process group at
+the 2-minute tool timeout, which SIGTERMs a server started in the same call.
+Start long-running servers with `nohup … &`.

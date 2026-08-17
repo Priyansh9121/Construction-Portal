@@ -1443,9 +1443,19 @@ def export_production():
             L.uv_project_for_export(ob, L.EXPORT_UV_TILE.get(key, L.DEFAULT_UV_TILE))
             merged.setdefault(layer, []).append(ob)
 
-    out_dir = os.path.join(
+    # Defaults to the production asset directory, so every existing caller —
+    # build_assets.sh included — is unaffected.
+    #
+    # WORLD_EXPORT_DIR redirects the export elsewhere. That exists because the
+    # standing rule for this project is to re-export to a scratch directory and
+    # never leave production assets overwritten, and until now honouring it
+    # meant exporting over them and running `git restore` afterwards. A rule
+    # that depends on remembering to undo something is a rule that eventually
+    # gets forgotten mid-investigation, with a dirty tree as the result.
+    out_dir = os.environ.get("WORLD_EXPORT_DIR") or os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
         "frontend", "public", "world", "assets")
+    os.makedirs(out_dir, exist_ok=True)
     report = []
     for layer, objs in merged.items():
         path = os.path.join(out_dir, f"login-site-{layer}.glb")
