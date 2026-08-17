@@ -175,7 +175,32 @@ a worker to a tender on first use. Recorded in `business-rules.md` §1.11.
 
 ---
 
-## BUG-002 — mechanism strongly indicated, not yet proven
+## BUG-002 — CONFIRMED and FIXED 2026-08-17
+
+> The hypothesis below was recorded before the database was diffed. It was
+> **correct**, and the diagnosis is now closed with the picker's query read end
+> to end. Full trace and implementation in
+> `docs/phase3-login-continuation.md`.
+
+`GET /workers` — the tender picker's source — is
+`SELECT t.* FROM workers t WHERE t.company_id = $1`. One table, **no join to
+`users`**. A worker created through User Management was a `users` row with no
+`workers` row, so the picker could not return them: not filtered out, absent
+from the table being read.
+
+The cause was not that one path forgot a step. `workers.user_id` and
+`subcontractors.user_id` had always existed and had always been writable, and
+**nothing in the product ever set either** — the only writer in the repository
+was a local dev fixture script. The linking operation had never been built.
+
+**Fixed** by `modules/auth/profileLink.service.js`: creating a `worker`- or
+`subcontractor`-role login now resolves a register record — link an existing
+one, or create a minimal new one — inside `createCompanyUser`'s existing
+transaction, so a login with no record cannot be created. The direction stays
+asymmetric: a payroll-only worker with no login remains valid, which is the
+normal case.
+
+### The original hypothesis, kept for the record
 
 The portal's own failure message is *"No worker profile is linked to this login
 user. Ask admin to link this user to a worker record."* With authentication
@@ -183,9 +208,79 @@ being the ordinary app login and tender access coming from
 `worker_assignments`, the likely gap is that User Management writes a `users`
 row without the linked `workers` row and/or the `worker_assignments` row.
 
-**Not yet proven.** The brief mandates diffing the database across both creation
-paths before reading controller code, and that has not been done. Stated as a
-hypothesis with its evidence, not a diagnosis.
+---
+
+## SECURITY — S-01: cross-tenant record exposure in the subcontractor portal
+
+**Found while fixing BUG-002. Latent, never triggered in this database, closed
+by migration 007 on 2026-08-17.** Recorded here rather than only in the working
+notes because it is a data-isolation defect, and this is the file an audit
+reads.
+
+**Severity: high if reached.** One subcontractor could have been served another
+subcontractor's tenders, documents, invoices and bank details, with nothing in
+the logs to distinguish it from normal use.
+
+### The defect
+
+Both portals resolve the caller's own record by their login id:
+
+```sql
+SELECT ... FROM subcontractors s ... WHERE s.user_id = $1 LIMIT 1
+```
+
+`LIMIT 1` with no uniqueness guarantee. The two registers were **not** equally
+protected:
+
+| table | constraint on `user_id` |
+|---|---|
+| `workers` | `ux_workers_user_id` — UNIQUE, partial: `WHERE user_id IS NOT NULL AND is_deleted = false` |
+| `subcontractors` | a foreign key to `users(id)`, and **nothing else** |
+
+So two `subcontractors` rows could carry the same `user_id`. The portal would
+not error — it would silently serve whichever row the planner returned first,
+and that choice is not stable across plans or data changes. Every downstream
+read in `subcontractorPortal.controller.js` scopes to that resolved record, so
+one wrong resolution mis-scopes the whole session.
+
+The identical `LIMIT 1` in `workerPortal.controller.js`
+(`getWorkerByLoggedInUser`) is **harmless**, because the unique index makes a
+second row impossible. Same code shape, opposite safety — which is precisely
+why it went unnoticed.
+
+### Why it never fired, and why that stopped being reassuring
+
+Nothing in the product ever wrote `subcontractors.user_id`. The only writer was
+`backend/scripts/createLocalPortalFixtures.js`, a local dev script that creates
+one linked row deliberately. **A monopoly held by one careful script is not a
+constraint.** BUG-002's fix turns linking into an operation admins perform, so
+the accident that had been protecting this was about to be removed.
+
+Measured before and after: **zero duplicate `user_id` values** on
+`subcontractors` in the development database. This was never exploited here.
+A production database was not checked and may differ — which is what the
+migration's pre-check is for.
+
+### The fix
+
+`007_subcontractor_user_link_unique.sql` adds `ux_subcontractors_user_id`,
+deliberately identical in shape to the workers index. It **refuses to run** if
+the data already violates it, raising an exception that names every offending
+login and the subcontractor ids sharing it, rather than letting `CREATE UNIQUE
+INDEX` fail with a message an operator cannot act on. Re-runnable; verified by
+temporarily inserting a duplicate inside a rolled-back transaction.
+
+Two further layers were added in application code: `SELECT … FOR UPDATE` when
+resolving a link, and a `rowCount === 1` assertion on the linking `UPDATE`. The
+index is the one that still holds when a future caller forgets both.
+
+### What this does not fix
+
+The `LIMIT 1` reads themselves are unchanged. They are now correct on both
+sides because both tables are constrained, but neither would report a violation
+if one ever arose — they would still silently pick a row. **Any new
+profile-style table linked by `user_id` must ship with the partial unique index
+in the same migration**, or it reintroduces this exact defect.
 
 ---
 
