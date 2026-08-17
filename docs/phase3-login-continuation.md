@@ -3545,3 +3545,74 @@ $BL -b -P tools/blender/concept_c.py -- --frames hero,ground,rear
 ## Locked
 
 Production Three.js migration, Rapier, post-processing, Login → Dashboard.
+
+## Phase 0 — the texture question, resolved: intentional, and street is a coverage gap
+
+**Finding: the four texture-free layers are deliberate. Phase 0 exits `intentional`.**
+The concrete gate closed 4/4 remains valid. But the street diagnosis in the
+roadmap was wrong in a way that changes what Phase 1 optimises.
+
+### Why architecture, neighbours, people and scaffold ship zero images
+
+By design, and the design is stated twice in the source. `export_production()`
+runs two passes:
+
+1. `L.to_uv_materials()` — retargets every image-backed material from BOX/world
+   projection to the UV set, so real-world-scale UVs travel inside the GLB.
+2. `bake_production_materials(skip=frozenset())` — flattens materials to
+   constant factors so the **images do not travel**. They ship once from
+   `frontend/public/world/textures/cc0/` and are reattached at runtime by
+   material name (`SITE_SURFACES`, `frontend/src/world/loginSite.js:239`).
+
+Embedding was tried and abandoned: it put a full copy of every map into every
+layer that used it, taking the set from 0.5 MB to ~30 MB. Both the exporter and
+the runtime carry that note.
+
+So zero images in those four layers is the pipeline working. Nothing was
+silently flattened; the browser reattaches the maps.
+
+⚠️ Two adjacent comments in `concept_c.py` (1408–1413 and 1416–1421) state
+**opposite** policies — "maps travel with the geometry" then "the images do not
+travel inside the GLB". The second matches the code. The first is stale from
+the abandoned approach and should be deleted before it misleads someone.
+
+### Why street is different — and it is not an encoding problem
+
+`bake_production_materials()` flattens a material only if its name is a key in
+`PRODUCTION_FACTORS` (17 keys: conc, block, wet, ply, galv, paint, crane,
+screen, spandrel, glass, city_warm, city_cool, earth, hiviz, workwear, hat,
+skin).
+
+Street is built from `asphalt`, `footpath`, `kerb` and `roadline`
+(`concept_c.py:580–650`). **None of those four is in `PRODUCTION_FACTORS`.**
+So they are never flattened, keep their image nodes, and glTF embeds them —
+9 image slots resolving to 6 unique JPEGs (asphalt + ground map sets), 10.57 MB.
+
+**They are also absent from the runtime `SITE_SURFACES` map.** So the embed is
+not duplication: today it is the *only* path by which street textures reach the
+browser. Removing it alone would ship an untextured street.
+
+The two tables have a coverage gap in the same four names, in opposite
+directions. That is the whole of street's 11.49 MB.
+
+### What this changes
+
+- Phase 1 step 4 ("street textures: resolution cap, quality setting, or drop
+  the maps") is the wrong frame. The fix is to add the four names to **both**
+  tables: flatten at export, reattach at runtime from maps already shipping.
+  Expected: street 11.49 MB → ~0.9 MB, with **zero** new bytes shipped, because
+  asphalt-* and ground-* are already in `/world/textures/cc0/`.
+- The JPEG dimension/encoder probe (Phase 0 step 3) becomes moot for sizing. The
+  embedded copies should not exist at all. Left unfixed deliberately rather than
+  fixed to complete a checklist.
+- Conclusion (a) of the roadmap **survives unchanged**: strip every texture and
+  5.72 MB of geometry remains against a ~0.99 MB shipped budget. Meshopt/Draco
+  is still mandatory.
+
+### Evidential status
+
+Source-level analysis of `concept_c.py`, `concept_lib.py` and `loginSite.js`,
+plus the shipped-asset table. Not yet confirmed against a fresh export artifact —
+the production GLBs on disk are the Aug 13 content (mtimes read Aug 17 12:55
+from a `git restore`, tree clean, so the invariant held). Confirming means a
+re-export to a scratch directory and a material dump from the actual GLB.
