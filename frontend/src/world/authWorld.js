@@ -1314,7 +1314,27 @@ export async function createAuthWorld(canvas, opts = {}) {
              * the scaffold onto the facade. */
             mesh.castShadow = !portrait;
             mesh.receiveShadow = true;
+            /*
+             * THE NAME IS NOT AN IDENTITY. Every primitive of a layer gets the
+             * LAYER's name, so thirteen objects in the site are called
+             * "login-site-architecture" and `getObjectByName` returns whichever
+             * one traversal reaches first. `checkSiteScale` measured that
+             * arbitrary object for the whole of M2 and reported `ok: true`
+             * while measuring a 43 m piece of site.
+             *
+             * The glTF's own names are no help: the meaningful name is on the
+             * NODE (`architecture-conc`), and it lands on a Group, while the
+             * meshes `extract()` collects carry Blender mesh-data names
+             * ("nsvW", "nvgW1"). Those are whichever source object survived the
+             * join, and mean nothing.
+             *
+             * So provenance is recorded where it cannot be ambiguous: the layer
+             * on userData, the surface on the material's own name. Together
+             * they name one primitive. Anything that wants to find a specific
+             * object must match on those, never on `name`.
+             */
             mesh.name = layer.name;
+            mesh.userData.worldLayer = layer.name;
             scene.add(mesh);
             const idx = geometry.getIndex();
             tris += (idx ? idx.count : geometry.getAttribute("position").count) / 3;

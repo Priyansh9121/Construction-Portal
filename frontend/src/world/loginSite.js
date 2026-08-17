@@ -171,9 +171,13 @@ export const SITE_METRICS = {
   /* Ground floor 4.6 m, then 7 levels at 3.3 m = 27.7 m to the top deck. */
   buildingHeight: 27.7,
   storeyHeight: 3.3,
-  /* The architecture layer spans the plot plus its party walls. */
-  expectArchitectureWidth: 22.6,
   tolerance: 0.12,
+};
+
+/** The layer, and the material within it, that together name the building. */
+export const SITE_FRAME = {
+  layer: "login-site-architecture",
+  material: "conc",
 };
 
 /**
@@ -182,30 +186,67 @@ export const SITE_METRICS = {
  * A scale error is the one import bug that looks entirely correct in a
  * screenshot — a site at 0.8x still photographs as a site, and every FPS and
  * triangle number stays right. The only way to catch it is to measure a known
- * object, so this measures the architecture layer's own bounding box against
- * the 22 m frontage the concept actually authored.
+ * object.
+ *
+ * WHICH KNOWN OBJECT, AND WHY IT IS NOT A NAME
+ * --------------------------------------------
+ * This used to do `scene.getObjectByName("login-site-architecture")`, which
+ * returns the FIRST match — and the loader gives every primitive of a layer the
+ * layer's name, so thirteen objects answer to it. The check measured whichever
+ * one traversal reached first: a 43 m piece of site, not the building. It
+ * reported `ok: true` for builds by coincidence, and only started failing when
+ * the export's merge grouping changed which arbitrary object came first. It was
+ * never asserting what it claims.
+ *
+ * The glTF cannot supply a better name either. Its meaningful names
+ * ("architecture-conc") are PART BUCKETS on the node, not objects: that bucket's
+ * own box is 45.16 m wide because it also carries a painted screen. Measured
+ * from the shipped GLB, the building is exactly one primitive — the one in the
+ * architecture layer whose material is `conc` — at 22.00 x 31.10 x 34.18, which
+ * is `plotWidth` by `plotDepth`.
+ *
+ * So the identity is (layer, material). The layer comes from userData because
+ * `name` is ambiguous by construction; the material name is the same slot
+ * `dressSurface` keys on, and is the reason the export preserves it.
  *
  * A warning rather than a throw: a mis-scaled world is a visual defect, not a
- * reason to deny anyone a login form.
+ * reason to deny anyone a login form. But an ABSENT target is an error, because
+ * a check that silently finds nothing is exactly how this one survived.
  */
 export function checkSiteScale(THREE, scene) {
-  const target = scene.getObjectByName("login-site-architecture");
-  if (!target) return null;
-  const box = new THREE.Box3().setFromObject(target);
+  const want = SITE_METRICS.plotWidth;
+  let box = null;
+  let meshes = 0;
+  scene.traverse((o) => {
+    if (!o.isMesh || o.userData?.worldLayer !== SITE_FRAME.layer) return;
+    /* Same `.001` suffix strip as dressSurface: three dedupes material names
+     * per instance, and the slot is the part before the dot. */
+    const slot = String(o.material?.name || "").split(".")[0];
+    if (slot !== SITE_FRAME.material) return;
+    meshes += 1;
+    box = (box || new THREE.Box3()).expandByObject(o);
+  });
+  if (!box) {
+    console.error(
+      `[world] checkSiteScale found no "${SITE_FRAME.material}" geometry in `
+      + `${SITE_FRAME.layer}, so the scale assertion did not run. Either the `
+      + "layer failed to load or the export stopped emitting that material.");
+    return { ok: false, reason: "target-absent", expectedWidth: want, meshes: 0 };
+  }
   const size = box.getSize(new THREE.Vector3());
-  const want = SITE_METRICS.expectArchitectureWidth;
   const ok = Math.abs(size.x - want) <= want * SITE_METRICS.tolerance;
   const result = {
     width: +size.x.toFixed(2),
     height: +size.y.toFixed(2),
     depth: +size.z.toFixed(2),
     expectedWidth: want,
+    meshes,
     ok,
   };
   if (!ok) {
     console.warn(
-      `[world] site scale looks wrong: architecture is ${result.width} m wide, `
-      + `expected ~${want} m. Check the glTF export scale.`, result);
+      `[world] site scale looks wrong: the building frame is ${result.width} m `
+      + `wide, expected ~${want} m. Check the glTF export scale.`, result);
   }
   return result;
 }
