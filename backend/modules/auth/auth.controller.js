@@ -109,6 +109,72 @@ const {
   serialiseUserContext,
 } = require("./auth.service");
 
+const {
+  PROFILE_FOR_ROLE,
+  resolveProfilePlan,
+  applyProfilePlan,
+} = require("./profileLink.service");
+
+/*
+|--------------------------------------------------------------------------
+| Profile-link reporting for the users list
+|--------------------------------------------------------------------------
+|
+| A 'worker' or 'subcontractor' login is only usable if a register row is
+| linked to it. Before the link operation existed, User Management could
+| create such a login with no way to make that row and no way to see that it
+| was missing — the account simply did not work, silently. That was BUG-002.
+|
+| These three fragments add two columns to the list so the gap is visible:
+| `requires_profile` (does this role need one) and `profile_id` (does it have
+| one). A row with the first true and the second null is broken, and
+| UsersPage renders it as such.
+|
+| THEY ARE GENERATED FROM PROFILE_FOR_ROLE, NOT WRITTEN OUT.
+|
+| That map is the single source of truth for which roles have a profile and
+| which table holds it. Hand-writing the joins here would be the second
+| implementation this design exists to avoid: adding a third role, or moving
+| a table, would then need an edit in two places and would fail silently in
+| this one. Nothing below names 'worker' or 'subcontractor'.
+|
+| Interpolation is safe: every value comes from a frozen module constant, so
+| no request data reaches the SQL string. The parameterised WHERE is
+| untouched.
+|
+| One row each, guaranteed: both tables carry a partial UNIQUE index on
+| user_id — ux_workers_user_id, and ux_subcontractors_user_id from migration
+| 007. Without those the LEFT JOINs could multiply a user's row in this list.
+| That is the second job migration 007 does.
+|
+*/
+const PROFILE_ROLE_ENTRIES = Object.entries(
+  PROFILE_FOR_ROLE
+);
+
+const PROFILE_JOIN_SQL = PROFILE_ROLE_ENTRIES.map(
+  ([, config], index) => `
+      LEFT JOIN public.${config.table} pl${index}
+        ON pl${index}.user_id = u.id
+       AND pl${index}.company_id = cu.company_id
+       AND COALESCE(pl${index}.is_deleted, false) = false`
+).join("");
+
+const PROFILE_ID_SQL = `CASE${PROFILE_ROLE_ENTRIES.map(
+  ([role], index) =>
+    `
+          WHEN u.role = '${role}' THEN pl${index}.id`
+).join("")}
+          ELSE NULL
+        END`;
+
+const PROFILE_REQUIRED_SQL = `CASE
+          WHEN u.role IN (${PROFILE_ROLE_ENTRIES.map(
+            ([role]) => `'${role}'`
+          ).join(", ")}) THEN TRUE
+          ELSE FALSE
+        END`;
+
 /**
  * Reset token lifetime.
  *
@@ -609,6 +675,7 @@ exports.createUser = async (
     password,
     role = USER_ROLES.WORKER,
     company_role,
+    profile,
     status =
       RECORD_STATUS.ACTIVE,
   } = req.body;
@@ -678,8 +745,10 @@ exports.createUser = async (
     }
   }
 
-  const user =
-    await createCompanyUser({
+  const {
+    user,
+    profileId,
+  } = await createCompanyUser({
       companyId,
       fullName: full_name,
       email,
@@ -687,6 +756,13 @@ exports.createUser = async (
       role: userRole,
       companyRole:
         membershipRole,
+      /*
+       * Passed through untouched. profileLink.service validates it inside
+       * the transaction, where the company scope and the row lock are, so
+       * checking it here as well would only be a second place to keep in
+       * step with the register schema.
+       */
+      profile,
       status,
     });
 
@@ -698,6 +774,178 @@ exports.createUser = async (
       serialiseUserContext(
         user
       ),
+    /*
+     * The register row this login resolves to — the workers or
+     * subcontractors id. null for roles that have no profile concept.
+     *
+     * Reported so the caller can see the link was made rather than having
+     * to go and look for it. It is the whole point of the request for a
+     * worker or subcontractor, and leaving it implicit is what let the
+     * missing link go unnoticed for as long as it did.
+     */
+    profile_id: profileId ?? null,
+  });
+};
+
+/**
+ * PUT /api/auth/users/:userId/profile
+ *
+ * Links an existing login to a register record, or creates one for it.
+ *
+ * Purpose:
+ * The repair counterpart to createUser. Accounts created before the link
+ * operation existed can be worker- or subcontractor-role with no record at
+ * all — they authenticate and then reach nothing, and no tender picker can
+ * see them. This gives an admin a way to fix one.
+ *
+ * Parameters:
+ * req - Express request. Params: userId. Body: { profile }, the same
+ *       instruction shape POST /users accepts.
+ * res - Express response
+ *
+ * Returns:
+ * 200 { success, profile_id }
+ *
+ * Side effects:
+ * A SELECT to confirm the user, then the shared resolve and apply, all in
+ * one transaction.
+ *
+ * Business rules:
+ * - The target must be in the caller's company. The lookup joins through
+ *   company_users, so a user in another tenant is a 404.
+ * - A user who already has a record is refused rather than given a second
+ *   one. One login, one record — the partial unique indexes say the same
+ *   thing at the database level.
+ * - A role with no register concept is a 400: there is nothing to link, and
+ *   silently succeeding would suggest otherwise.
+ *
+ * Security:
+ * Admin-gated in auth.routes.js, and the company id comes from the caller's
+ * session rather than the body, so this cannot reach another tenant.
+ */
+exports.linkUserProfile = async (
+  req,
+  res
+) => {
+  const companyId =
+    requireCompanyId(
+      req,
+      res
+    );
+
+  if (!companyId) {
+    return;
+  }
+
+  const userId =
+    requireParamId(
+      req,
+      res,
+      "userId",
+      "user"
+    );
+
+  if (!userId) {
+    return;
+  }
+
+  const profileId =
+    await withTransaction(
+      async (client) => {
+        const target =
+          await client.query(
+            `
+            SELECT u.id, u.role
+            FROM public.company_users cu
+            INNER JOIN public.users u
+              ON u.id = cu.user_id
+            WHERE cu.company_id = $1
+              AND cu.user_id = $2
+            LIMIT 1
+            `,
+            [companyId, userId]
+          );
+
+        if (target.rows.length === 0) {
+          const error = new Error(
+            "User not found."
+          );
+
+          error.statusCode = 404;
+          error.publicMessage =
+            "User not found.";
+
+          throw error;
+        }
+
+        const role =
+          target.rows[0].role;
+
+        const config =
+          PROFILE_FOR_ROLE[role];
+
+        if (!config) {
+          const error = new Error(
+            "That role does not use a register record."
+          );
+
+          error.statusCode = 400;
+          error.publicMessage =
+            "That role does not use a register record.";
+
+          throw error;
+        }
+
+        /*
+         * Refuse if they already have one. Without this the link plan would
+         * happily attach a SECOND record to the same login, which the
+         * partial unique index would then reject with a message naming an
+         * index rather than the problem.
+         */
+        const existing =
+          await client.query(
+            `
+            SELECT id
+            FROM public.${config.table}
+            WHERE user_id = $1
+              AND COALESCE(is_deleted, false) = false
+            LIMIT 1
+            `,
+            [userId]
+          );
+
+        if (existing.rows.length > 0) {
+          const error = new Error(
+            `That login is already linked to a ${config.label}.`
+          );
+
+          error.statusCode = 409;
+          error.publicMessage = `That login is already linked to a ${config.label}.`;
+
+          throw error;
+        }
+
+        const plan =
+          await resolveProfilePlan({
+            client,
+            companyId,
+            role,
+            profile: req.body?.profile,
+          });
+
+        return applyProfilePlan({
+          client,
+          plan,
+          userId,
+        });
+      }
+    );
+
+  return res.status(200).json({
+    success: true,
+    message:
+      "Login linked to its record successfully.",
+    profile_id: profileId,
   });
 };
 
@@ -781,7 +1029,10 @@ exports.getUsers = async (
           WHEN c.owner_user_id = u.id
             THEN TRUE
           ELSE FALSE
-        END AS is_company_owner
+        END AS is_company_owner,
+
+        ${PROFILE_REQUIRED_SQL} AS requires_profile,
+        ${PROFILE_ID_SQL} AS profile_id
 
       FROM public.company_users cu
 
@@ -790,6 +1041,8 @@ exports.getUsers = async (
 
       INNER JOIN public.companies c
         ON c.id = cu.company_id
+
+      ${PROFILE_JOIN_SQL}
 
       WHERE cu.company_id = $1
 

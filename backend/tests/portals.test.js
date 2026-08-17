@@ -65,28 +65,34 @@ beforeAll(async () => {
   tenderId = tender.body.tender.id;
   siteId = tender.body.tender.sites[0].id;
 
-  // --- a login, and a worker record pointing at it ------------------------
+  // --- a login and its worker record, created together --------------------
+  /*
+   * This used to be two steps: create the login, then POST /api/workers with
+   * user_id to point a record at it. That is the manual linking the product
+   * never offered anybody — and doing it by hand here is why the test suite
+   * passed while BUG-002 was live.
+   *
+   * Creating the user now resolves its own register row atomically, so there
+   * is one step and the id comes back from it.
+   */
   workerLogin = await createMember(request, office, {
     label: "portalworker",
     role: "worker",
-  });
-
-  const worker = await office
-    .auth(request.post("/api/workers"))
-    .send({
+    profile: {
+      mode: "create",
       full_name: "Portal Worker",
       phone: "9812345670",
-      salary: 800,
       role: "Mason",
-      status: "active",
-      user_id: workerLogin.user.id,
-    });
+    },
+  });
 
-  workerId = worker.body?.worker?.id ?? worker.body?.data?.id;
+  workerId = workerLogin.profileId;
 
   if (!workerId) {
     throw new Error(
-      `Could not create worker: ${JSON.stringify(worker.body)}`
+      `Worker login was created with no linked worker record: ${JSON.stringify(
+        workerLogin
+      )}`
     );
   }
 
@@ -270,26 +276,24 @@ describe("subcontractor portal", () => {
   let subcontractorId;
 
   beforeAll(async () => {
+    // Same single step as the worker above, through the same shared service.
     subLogin = await createMember(request, office, {
       label: "portalsub",
       role: "subcontractor",
-    });
-
-    const created = await office
-      .auth(request.post("/api/subcontractors"))
-      .send({
+      profile: {
+        mode: "create",
         full_name: "Portal Subcontractor",
         phone: "9812345671",
-        status: "active",
-        user_id: subLogin.user.id,
-      });
+      },
+    });
 
-    subcontractorId =
-      created.body?.subcontractor?.id ?? created.body?.data?.id;
+    subcontractorId = subLogin.profileId;
 
     if (!subcontractorId) {
       throw new Error(
-        `Could not create subcontractor: ${JSON.stringify(created.body)}`
+        `Subcontractor login was created with no linked record: ${JSON.stringify(
+          subLogin
+        )}`
       );
     }
 

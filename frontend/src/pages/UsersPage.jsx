@@ -42,9 +42,12 @@ import {
   updateUser,
   disableUser,
   enableUser,
+  linkUserProfile,
 } from "../services/userService";
 
 import useAsyncResource from "../hooks/useAsyncResource";
+import ProfileLinkField from "../components/users/ProfileLinkField";
+import { roleNeedsProfile } from "../components/users/profileSources";
 import ResponsiveTable from "../components/ui/ResponsiveTable";
 
 const EMPTY_FORM = {
@@ -102,6 +105,37 @@ function UsersPage() {
     editingUser,
     setEditingUser,
   ] = useState(null);
+
+  /*
+   * The register record a worker or subcontractor login will resolve to.
+   * Link is the default because payroll comes first: the person is usually
+   * already on the register when someone decides they need portal access.
+   */
+  const [
+    profileLink,
+    setProfileLink,
+  ] = useState({
+    mode: "link",
+    id: "",
+  });
+
+  /*
+   * Repair. An account created before the link operation existed can be
+   * worker- or subcontractor-role with no register record; this is the one
+   * that is being fixed, and the instruction being given.
+   */
+  const [
+    repairTarget,
+    setRepairTarget,
+  ] = useState(null);
+
+  const [
+    repairLink,
+    setRepairLink,
+  ] = useState({
+    mode: "link",
+    id: "",
+  });
 
   const [
     selectedUser,
@@ -374,10 +408,124 @@ function UsersPage() {
     );
   };
 
+  /*
+   * Shapes the control's state into what POST /auth/users expects. Link mode
+   * sends the id as a number; create mode sends only the fields that were
+   * actually filled in, so a blank optional field is absent rather than an
+   * empty string the server would have to interpret.
+   */
+  const buildProfilePayload = (
+    link = profileLink
+  ) => {
+    if (link.mode === "link") {
+      return {
+        mode: "link",
+        id: Number(link.id),
+      };
+    }
+
+    return Object.entries(
+      link
+    ).reduce(
+      (payload, [key, value]) => {
+        if (
+          key === "mode" ||
+          String(value || "").trim()
+        ) {
+          payload[key] =
+            key === "mode"
+              ? value
+              : String(value).trim();
+        }
+
+        return payload;
+      },
+      {}
+    );
+  };
+
+  /*
+   * Applies the repair. Uses the same instruction shape the create form
+   * sends, against the same server-side primitive — the only difference is
+   * that the login already exists.
+   */
+  const handleRepair = async () => {
+    if (!repairTarget || submitting) {
+      return;
+    }
+
+    if (
+      repairLink.mode === "link" &&
+      !repairLink.id
+    ) {
+      toast.error(
+        `Select which ${normaliseRole(
+          repairTarget.role
+        )} record this login belongs to.`
+      );
+
+      return;
+    }
+
+    if (
+      repairLink.mode === "create" &&
+      !String(
+        repairLink.full_name || ""
+      ).trim()
+    ) {
+      toast.error(
+        "A name is required to create a new record."
+      );
+
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      await linkUserProfile(
+        repairTarget.id,
+        buildProfilePayload(
+          repairLink
+        )
+      );
+
+      toast.success(
+        "Login linked to its record."
+      );
+
+      setRepairTarget(null);
+      setRepairLink({
+        mode: "link",
+        id: "",
+      });
+
+      await fetchUsers({
+        showLoader: false,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to link profile:",
+        error.response?.data || error
+      );
+
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to link the record."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData(EMPTY_FORM);
     setEditingUser(null);
     setShowPassword(false);
+    setProfileLink({
+      mode: "link",
+      id: "",
+    });
   };
 
   const startEdit = (
@@ -528,6 +676,41 @@ function UsersPage() {
       return;
     }
 
+    /*
+     * Checked here as well as on the server so the admin is told before the
+     * password is submitted, not after a round trip. The server check is the
+     * real one — it runs inside the transaction, where the company scope and
+     * the row lock are.
+     */
+    if (
+      !editingUser &&
+      roleNeedsProfile(payload.role)
+    ) {
+      if (
+        profileLink.mode === "link" &&
+        !profileLink.id
+      ) {
+        toast.error(
+          `Select which ${payload.role} record this login belongs to.`
+        );
+
+        return;
+      }
+
+      if (
+        profileLink.mode === "create" &&
+        !String(
+          profileLink.full_name || ""
+        ).trim()
+      ) {
+        toast.error(
+          `A name is required to create a new ${payload.role} record.`
+        );
+
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
 
@@ -559,6 +742,20 @@ function UsersPage() {
             payload.password,
           role:
             payload.role,
+          /*
+           * Only sent for roles that have a register. The server refuses a
+           * worker or subcontractor login without one, because both their
+           * portals and the tender picker read the register rather than the
+           * account list — see profileLink.service.js.
+           */
+          ...(roleNeedsProfile(
+            payload.role
+          )
+            ? {
+                profile:
+                  buildProfilePayload(),
+              }
+            : {}),
         });
 
         toast.success(
@@ -1088,6 +1285,25 @@ function UsersPage() {
               )}
             </div>
 
+            {/*
+              * Only on create. Changing an existing user's role does not
+              * move their register record, and pretending otherwise here
+              * would be the second half-written path this fix removed.
+              * Repairing an already-unlinked account is a separate action
+              * from the list below.
+              */}
+            {!editingUser && (
+              <ProfileLinkField
+                role={formData.role}
+                value={profileLink}
+                onChange={setProfileLink}
+                fallbackName={
+                  formData.full_name
+                }
+                disabled={submitting}
+              />
+            )}
+
             {!editingUser && (
               <small className="muted-text">
                 The temporary password
@@ -1446,6 +1662,36 @@ function UsersPage() {
                             portalUser.role
                           )}
                         </span>
+
+                        {/*
+                          * requires_profile without profile_id is an
+                          * account that can sign in and then reach
+                          * nothing — the portal refuses it and no tender
+                          * picker can see it. New ones cannot be made any
+                          * more; this surfaces the ones that already were.
+                          */}
+                        {portalUser.requires_profile &&
+                          !portalUser.profile_id && (
+                            <button
+                              type="button"
+                              className="table-link-button"
+                              onClick={() =>
+                                setRepairTarget(
+                                  portalUser
+                                )
+                              }
+                              disabled={
+                                submitting ||
+                                disabling
+                              }
+                            >
+                              No{" "}
+                              {normaliseRole(
+                                portalUser.role
+                              )}{" "}
+                              record — link one
+                            </button>
+                          )}
                       </td>
 
                       <td>
@@ -1546,6 +1792,76 @@ function UsersPage() {
           </table>
         </ResponsiveTable>
       </section>
+
+      {/*
+        * Repair for an account that predates the link operation. The same
+        * control as the create form, because it is the same decision — the
+        * only difference is that the login already exists.
+        */}
+      {repairTarget && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Link a record to ${repairTarget.full_name}`}
+        >
+          <div className="modal panel">
+            <h3>
+              Link a record to{" "}
+              {repairTarget.full_name}
+            </h3>
+
+            <p className="muted-text">
+              This login has no{" "}
+              {normaliseRole(
+                repairTarget.role
+              )}{" "}
+              record, so it can sign in but
+              reach nothing, and no tender
+              picker can see it.
+            </p>
+
+            <ProfileLinkField
+              role={repairTarget.role}
+              value={repairLink}
+              onChange={setRepairLink}
+              fallbackName={
+                repairTarget.full_name
+              }
+              disabled={submitting}
+            />
+
+            <div className="form-actions">
+              <button
+                type="button"
+                onClick={handleRepair}
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Linking…"
+                  : "Link record"}
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  if (!submitting) {
+                    setRepairTarget(null);
+                    setRepairLink({
+                      mode: "link",
+                      id: "",
+                    });
+                  }
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DeleteVerificationModal
         open={Boolean(

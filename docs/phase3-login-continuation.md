@@ -4204,3 +4204,121 @@ over-correcting:
 3. **Scope** — build the optional inverse (Workforce/Subcontractors → invite a
    login) in this change, or land the mandatory direction plus repair first?
 4. **Migration 007** — add the subcontractor partial unique index now?
+
+---
+
+# BUG-002 — (d) IMPLEMENTED. Specs green 2026-08-17
+
+Option (d) built as proposed, with the four answers applied. Backend **272
+tests pass** (was 254). Playwright **5/5**. Lint clean, tree clean.
+
+## What shipped
+
+| | |
+|---|---|
+| `modules/auth/profileLink.service.js` | new — the shared primitive |
+| `modules/auth/auth.service.js` | `createCompanyUser` resolves and applies a plan inside its existing transaction |
+| `modules/auth/auth.controller.js` | passes `profile` through; new `linkUserProfile`; `getUsers` reports the link |
+| `modules/auth/auth.routes.js` | `PUT /users/:userId/profile` — the repair |
+| `modules/workers/worker.controller.js` | `salary` no longer `required` |
+| `modules/workers/validations/worker.validation.js` | salary optional, positive when given; stale comment corrected |
+| `database/migrations/007_…sql` | `ux_subcontractors_user_id`, with a pre-check |
+| `components/users/ProfileLinkField.jsx` + `profileSources.js` | the control, and its role map |
+| `pages/UsersPage.jsx` | the control on create, the marker and repair dialog on the list |
+| `tests/profileLink.test.js` · `tests/worker-profile-link.spec.js` | 18 + 5 |
+
+## The transaction, as built
+
+`resolveProfilePlan` runs **after** the company check and **before**
+`createBaseUser`, so a bad request is refused before the password is hashed —
+the ordering rule `auth.service.js` states for itself. It returns a plan and
+writes nothing, because the write needs a `user.id` that does not exist yet.
+`applyProfilePlan` runs after `createCompanyMembership`, on the same client.
+
+Three layers, each catching what the one above cannot:
+
+1. `SELECT … FOR UPDATE` at resolve — serialises two admins racing.
+2. `WHERE … user_id IS NULL` + `rowCount === 1` at apply — turns a lost race
+   into a rolled-back 409 rather than a login with no record.
+3. The partial unique indexes — hold even if a future caller skips both.
+
+Asserted directly: a refused profile leaves **no `users` row** behind.
+
+## Subcontractor stayed configuration
+
+`PROFILE_FOR_ROLE` is the only place either table is named. Neither
+`resolveProfilePlan` nor `applyProfilePlan` tests which role it was given, and
+`getUsers`'s joins are **generated from the same map** rather than written out.
+The frontend mirrors it in `profileSources.js`. No `if (role === …)` was
+written, so the instruction to stop and report was not triggered.
+
+Both `create-new` tests and the picker-control test run the subcontractor path
+through the identical code.
+
+## `salary` — aligned, as directed
+
+The instruction was right and my proposal was wrong on the point that mattered:
+`validateWorker` runs on **PUT as well as POST**, so a row created with
+`salary = NULL` could not have been edited at all. Not a blank field awaiting
+completion — a row frozen until somebody fabricated payroll data. Aligning was
+correct.
+
+`required: true` dropped at the column; `salary` removed from the missing-field
+test; `Number(salary) <= 0` kept, now guarded so absent and invalid are
+different outcomes. The database column was always nullable, so no migration.
+
+The stale comment is corrected in place, with what replaced it: worker-money
+does **not** read `workers.salary` — `grep` across `modules/workerMoney/`
+returns nothing, and the only reader anywhere is `workerPortal.controller.js`,
+which displays it.
+
+## The `LIMIT 1` question — answered
+
+Both portals resolve the caller's record with `LIMIT 1`:
+
+| | line | load-bearing? |
+|---|---|---|
+| `workerPortal.controller.js` `getWorkerByLoggedInUser` | 85 | **No.** `ux_workers_user_id` makes a second row impossible |
+| `subcontractorPortal.controller.js` | 82 | **It was.** Nothing stopped two rows claiming one login, and the `LIMIT 1` would have silently served one — another subcontractor's tenders, invoices and bank details |
+
+Migration 007 closes it. Both are now belt-and-braces; neither is the only
+thing standing between a login and someone else's data. **Recorded here so the
+next reader does not have to work out which was which.**
+
+## Repair — surfaced, not scripted
+
+`requires_profile && !profile_id` renders as *"No worker record — link one"* in
+User Management, opening the same control the create form uses, backed by
+`PUT /users/:userId/profile` — the same primitive against an existing login.
+
+**The two original orphans — `worker1785638794@probe.local` and
+`dev.worker@test.com` — are deliberately left in place.** They are probe
+leftovers, not people, and inventing register rows for them is exactly what
+the UI-not-script choice was meant to avoid. They now carry the marker; whoever
+knows what they were can link or disable them.
+
+## Where the test suite had been hiding this
+
+`tests/helpers/testDb.js` `createMember` was creating worker-role logins with
+no register row — the broken state itself — and `portals.test.js` then wrote the
+link by hand with `POST /api/workers { user_id }`. **That hand-written link is
+why 254 tests passed while BUG-002 was live.** The helper now defaults to
+resolving a record, and the manual second step is gone.
+
+## Deliberately not done
+
+**The optional inverse — Workforce → invite a login — is not built**, per the
+scope decision. It needs credential capture on a payroll form and is its own
+unit. Nothing here blocks it: `resolveProfilePlan`/`applyProfilePlan` take a
+client and a role, so the inverse is a second caller, not a second
+implementation.
+
+## Note for whoever runs this next
+
+The backend on `:5051` was a process started **three days earlier**, so the
+first Playwright run tested pre-fix code and reported the bug as still live.
+Restarting it changed 3 failures into 5 passes. **If a result contradicts the
+code you just read, check what the server is actually running.**
+
+`ui-redesign-e2e@local.test` did not exist in this database and was created
+with `scripts/createBreakGlassAdmin.js`, as `authenticated.spec.js` documents.

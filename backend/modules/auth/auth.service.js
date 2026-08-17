@@ -94,6 +94,16 @@ const {
 } = require("../../utils/requestContext");
 
 /*
+ * The link between a login and the register row that gives it meaning.
+ * A 'worker' or 'subcontractor' users row without one can authenticate and
+ * then reach nothing — see profileLink.service.js for the full reasoning.
+ */
+const {
+  resolveProfilePlan,
+  applyProfilePlan,
+} = require("./profileLink.service");
+
+/*
  * The role vocabularies as Sets, built once from config/constants.js.
  *
  * Derived rather than retyped, so adding a role to the constants file
@@ -1318,6 +1328,7 @@ const createCompanyUser =
     password,
     role,
     companyRole,
+    profile,
     status =
       ACTIVE_STATUS,
   }) =>
@@ -1383,6 +1394,28 @@ const createCompanyUser =
               userRole
           );
 
+        /*
+         * Decide the profile work BEFORE createBaseUser, for the same
+         * reason the company is checked above: createBaseUser hashes the
+         * password, and a request that was always going to be rejected
+         * should be rejected before that work is done and before any row
+         * is written.
+         *
+         * This is read-only. It cannot write yet — the link needs a user
+         * id that does not exist until the next statement — which is why
+         * resolving and applying are separate calls.
+         *
+         * Returns null for admin and manager, so their path is unchanged.
+         */
+        const profilePlan =
+          await resolveProfilePlan({
+            client,
+            companyId:
+              parsedCompanyId,
+            role: userRole,
+            profile,
+          });
+
         const user =
           await createBaseUser({
             client,
@@ -1403,12 +1436,38 @@ const createCompanyUser =
             membershipRole,
         });
 
-        return getUserContextById(
-          user.id,
-          {
+        /*
+         * The write half. Same client, so a failure here rolls back the
+         * users and company_users rows above it rather than leaving a
+         * login with no profile — which was BUG-002 exactly.
+         */
+        const profileId =
+          await applyProfilePlan({
             client,
-          }
-        );
+            plan: profilePlan,
+            userId: user.id,
+          });
+
+        const context =
+          await getUserContextById(
+            user.id,
+            {
+              client,
+            }
+          );
+
+        /*
+         * Returned beside the context, not inside it. serialiseUserContext
+         * is an allow-list over the users table and adding a field there
+         * would widen it for every caller; this one belongs to the create
+         * response alone.
+         *
+         * null for admin and manager, which have no profile concept.
+         */
+        return {
+          user: context,
+          profileId,
+        };
       }
     );
 

@@ -111,10 +111,29 @@ const workers = createScopedCrud({
       type: "text",
       required: true,
     },
+    /*
+     * NOT required, deliberately.
+     *
+     * It used to be. That made issuing a portal login impossible without
+     * inventing payroll data: creating a worker-role user creates or links a
+     * `workers` row, and an admin doing that from User Management has no
+     * business knowing anyone's salary. Worse, `validateWorker` applies to
+     * PUT as well as POST, so a row created without one could not be edited
+     * at all — changing a phone number would 400 demanding a salary. The row
+     * would be frozen until somebody made a number up.
+     *
+     * A blank salary the payroll screen can fill in later is a better state
+     * than a fabricated one that looks like real data.
+     *
+     * Still validated when supplied: worker.validation.js keeps rejecting a
+     * non-positive value. Absent and wrong are different things.
+     *
+     * The column has always been nullable in the database, so this relaxes
+     * an application rule only — no migration was involved.
+     */
     {
       name: "salary",
       type: "number",
-      required: true,
     },
     {
       name: "role",
