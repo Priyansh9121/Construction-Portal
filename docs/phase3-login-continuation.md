@@ -4322,3 +4322,131 @@ code you just read, check what the server is actually running.**
 
 `ui-redesign-e2e@local.test` did not exist in this database and was created
 with `scripts/createBreakGlassAdmin.js`, as `authenticated.spec.js` documents.
+
+---
+
+# BUG-001 — FIXED 2026-08-17. Remount, and the only instance in the repo
+
+## The probe answered it in one run
+
+Per the method, the mount probe went in **before** reading the file in depth —
+a `useEffect(() => console.log("PROBE_FIELD_MOUNT", label), [])` inside the
+suspect component, driven by Playwright typing one character into step 3.
+
+| | mounts per keystroke | focus kept | typing "1" then "2" |
+|---|---|---|---|
+| before | **10** | false | **"21"** |
+| after | **0** | true | **"12"** |
+
+**Remount, not focus theft.** The reversed value is the clearest tell: not a
+dropped character, but the caret returning to position 0 of a newly created
+input. The regression spec reproduces the reported symptom exactly — against
+the unfixed code it reads `"1"` after five keystrokes.
+
+## The cause
+
+`FinanceWizard.jsx` declared `Field` — the label wrapper, used **31 times** —
+inside the component body:
+
+```js
+const Field = ({ label, children }) => (
+  <label>{label}{children}</label>
+);
+```
+
+A component declared in another component's body is a new function identity on
+every render, so React sees a different component *type* in that position,
+unmounts the subtree and mounts a fresh one. Every `<input>` inside became a
+brand-new DOM node on each keystroke.
+
+**Fix:** hoisted to module scope. `Field` closes over nothing, so it is
+behaviour-preserving. The declaration carries a comment saying why it must stay
+there, and that anything it later needs should arrive as a prop.
+
+## The sweep — a negative result
+
+Grepped the whole of `frontend/src` for uppercase `const`/`function`
+declarations at any indent greater than zero, excluding hooks and non-component
+assignments. **`Field` was the only instance in the repository.**
+
+Three hits look nested to a grep and are not — all three are the exported
+top-level component of a file whose entire body is indented:
+
+| file | line | verdict |
+|---|---|---|
+| `charts/FinanceTrendChart.jsx` | 150 `TrendHead` | module scope, sibling of `FinanceTrendChart` |
+| `tenderDetails/TenderSitesTab.jsx` | 33 | the file's own default export |
+| `finance/FinanceRecordsTable.jsx` | 27 | the file's own default export |
+
+Confirmed by `export default` at the foot of each. **The four large files named
+as likely to share the pattern — FinanceWizard, TenderFinanceTab,
+TenderSitesTab, SettingsPage — carry it only in FinanceWizard.** Checked and
+changed nothing in the other three.
+
+## Spec
+
+`frontend/tests/finance-wizard-focus.spec.js`. It asserts the user-visible
+consequence — five characters arrive in order with focus retained — rather than
+the mount count, so it survives `Field` being refactored away and still fails if
+a component declaration moves back inside a body. **Verified to fail against the
+reverted code before being kept.**
+
+---
+
+# HANDOFF — BUG-001 and BUG-002 both closed (2026-08-17)
+
+**Branch** `redesign/ui-foundation`. **Tree clean.** Backend **272 tests**,
+Playwright **6 specs**, lint clean, `npm run build` clean.
+
+## Commits this session
+
+| sha subject | what |
+|---|---|
+| Close the BUG-002 trace… | diagnosis closed, subcontractor split confirmed |
+| Propose the shared link primitive… | the shape, for approval |
+| Build the link operation as a shared primitive… | the implementation |
+| Record the subcontractor portal exposure… | S-01 in the gap list |
+| *(this one)* | BUG-001 |
+
+## State of play
+
+- **BUG-002 closed.** `modules/auth/profileLink.service.js` is the shared
+  primitive; subcontractor is a key in `PROFILE_FOR_ROLE`, never a branch.
+  Migration **007** applied to the dev database.
+- **S-01 recorded** in `docs/business-rules-gap.md` — the audit-facing file, not
+  only here.
+- **BUG-001 closed**, and the sweep says it was the only instance.
+- **The two original orphans are still in the database on purpose**
+  (`worker1785638794@probe.local`, `dev.worker@test.com`). Probe leftovers, now
+  carrying the "No worker record — link one" marker. Do not invent register rows
+  for them.
+
+## Next, in order
+
+1. **Workforce → invite a login** — the optional inverse, deliberately deferred.
+   It needs credential capture on a payroll form. Not blocked: `resolveProfilePlan`
+   and `applyProfilePlan` take a client and a role, so it is a second *caller*.
+2. **Phase C** — confirm the source-level texture analysis against a fresh export
+   artifact **before acting on it**; then the byte gate (kept separate from
+   `validate()`'s correctness assertions), gltf-transform compression, make
+   `SITE_LAYERS.mobile` mean something, ship and look at it in a browser.
+3. **Phase D** — merge to `main`. **Phase E** — routes ordered against
+   `business-rules-gap.md`. **Phase F** — new world capabilities.
+
+## Two traps that cost time here — read before debugging anything
+
+1. **Check what the server is actually running.** The backend on `:5051` was a
+   process started three days earlier, so `npm start` never bound and the first
+   Playwright run reported BUG-002 as still live against pre-fix code. Restarting
+   it turned 3 failures into 5 passes. `ps -eo pid,lstart,command | grep "node
+   server.js"`.
+2. **The test suite was concealing BUG-002.** `tests/helpers/testDb.js`
+   `createMember` created the broken state, and `portals.test.js` then wrote the
+   link by hand. 254 tests passed while the bug was live. A green suite is not
+   evidence that a path is exercised the way the product exercises it.
+
+## Fixture note
+
+`ui-redesign-e2e@local.test` did not exist in this database and was created with
+`scripts/createBreakGlassAdmin.js`, per `authenticated.spec.js`. Playwright specs
+need `LOCAL_ADMIN_FIXTURE_PASSWORD` from `backend/.env`.

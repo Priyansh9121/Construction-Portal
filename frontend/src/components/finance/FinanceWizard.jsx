@@ -25,6 +25,31 @@ import PaymentTabs from "../payments/PaymentTabs";
 import TenderSummaryCard from "./TenderSummaryCard";
 import { money } from "../../utils/financeHelper";
 
+/*
+ * Declared at module scope, NOT inside FinanceWizard.
+ *
+ * It used to live in the component body, and that was BUG-001: step 3 lost
+ * focus after a single character. A component declared inside another
+ * component's body is a NEW function identity on every render, so React sees
+ * a different component type in that position, unmounts the old subtree and
+ * mounts a fresh one. The <input> inside becomes a brand-new DOM node, the
+ * caret resets, and the next keystroke lands at position 0.
+ *
+ * Measured before the fix, by mounting a probe inside Field and typing into
+ * step 3: ten Field mounts per keystroke, document.activeElement no longer the
+ * input, and typing "1" then "2" leaving a value of "21".
+ *
+ * Field closes over nothing, so hoisting it is behaviour-preserving. Anything
+ * it did need should arrive as a prop — moving it back inside to capture a
+ * variable would restore the bug.
+ */
+const Field = ({ label, children }) => (
+  <label>
+    {label}
+    {children}
+  </label>
+);
+
 function FinanceWizard({
   editingPayment,
   mainTab,
@@ -69,13 +94,6 @@ function FinanceWizard({
     update("interest_percent", 2);
     update("gst_amount", company2.toFixed(2));
   };
-
-  const Field = ({ label, children }) => (
-    <label>
-      {label}
-      {children}
-    </label>
-  );
 
   const renderTenderSelector = () => {
     // Do not show Step 2 until a finance section is selected.
