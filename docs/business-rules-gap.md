@@ -71,7 +71,7 @@ which drives both validation and the rendered form.
 | Within a tender: Banking | **implemented** | `siteOperations/banking.controller.js` |
 | Within a tender: Labour work | **implemented** | `siteOperations/labour.controller.js` |
 
-### The contradiction — needs your decision
+### The contradiction — RESOLVED 2026-08-17 in favour of the code
 
 The notebook says a worker logs in **per tender**, with an ID and password for
 each. The code does something else entirely:
@@ -88,9 +88,11 @@ Searched for any per-tender credential concept across `modules/` and
 per-tender login column, and no such table in `002_baseline_supabase.sql`.
 
 This is one login plus assignment rows — a different architecture, not a
-partial implementation. Per the brief's own stop rule, the notebook is your
-intent but the code may encode a later decision, and I should not assume which
-wins. **This is the first thing I need from you.**
+partial implementation. **The user has confirmed the code is correct and
+per-tender credentials will not be built**; access is a property of the
+assignment, not of the identity. Verdict above therefore reads *contradicted*
+in the sense of *supersedes the notebook*, not *defective*. Full reasoning in
+`business-rules.md` §1.11.
 
 ---
 
@@ -117,20 +119,23 @@ wins. **This is the first thing I need from you.**
 
 ---
 
-## [verify] items — two answered by the code, one still open
+## [verify] items — all three resolved 2026-08-17
 
 **1.2 Investor interest: daily or monthly?** → **Daily.**
 `payment.service.js`: *"Whole days only. Interest starts accruing the day AFTER
 the money…"*, returning `{ interest_amount, days_accrued, daily_interest }`.
-Confirm this matches your intent.
+**Confirmed by the user as intent**, and the notebook supports it: *રોજનું* on the Investor page means daily. No change needed.
 
 **1.13 Does the grace day extend the window to 3?** → **Yes, for banking only.**
 `checkEntryWindow` uses `EDIT_WINDOW + BANKING_GRACE` for
 `MODULES.BANKING` and `EDIT_WINDOW` alone for material, labour, expense and
-daily update. Confirm the grace day was meant to be banking-specific.
+daily update. **Confirmed by the user as intent** — the grace day is written on the banking page specifically. No change needed.
 
-**1.11 One credential per tender, or one granting several?** → **still open**,
-and now subordinate to the architectural contradiction above.
+**1.11 One credential per tender, or one granting several?** → **moot.**
+Resolved in favour of the implementation: one identity, many
+`worker_assignments`. Per-tender credentials will not be built; if
+per-tender enrolment is needed later it will be enrolment codes that link
+a worker to a tender on first use. Recorded in `business-rules.md` §1.11.
 
 ---
 
@@ -145,9 +150,10 @@ and now subordinate to the architectural contradiction above.
    manager may backdate a material entry but not a daily update. Left in place
    deliberately in-code — *"widening it is a decision about who may rewrite site
    history, not a bug fix."* Your call.
-3. **Multi-timezone limitation.** `checkEntryWindow` resolves against
+3. **Multi-timezone limitation — THE ONE DEFECT TO FIX.** `checkEntryWindow` resolves against
    `DEFAULT_TIMEZONE`, not the company's own `timezone` column. Correct for a
-   single-region deployment, wrong for multi-region.
+   single-region deployment, wrong for multi-region. The other three items
+   here are policy questions, not bugs, and are left recorded by decision.
 4. **Labour has no approve/reject workflow**, unlike materials and banking,
    which the office signs off. Bounded only by the entry window. Notebook does
    not specify — flagging rather than assuming.

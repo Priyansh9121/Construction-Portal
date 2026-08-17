@@ -114,6 +114,39 @@ A. Salary · B. PF · C. Tax · D. Other
 
 ### 1.11 Worker Portal — structure
 
+> ## DECISION 2026-08-17 — this rule is SUPERSEDED by the implementation
+>
+> **The notebook says:** login is tender-scoped; a worker logs in with an ID and
+> password *per tender*.
+>
+> **The system does, and will continue to do:** one identity per worker —  the
+> ordinary application login — with tender access derived from
+> `worker_assignments` rows. Confirmed by the user as correct.
+>
+> **Do not build per-tender credentials.**
+>
+> **Reasoning.** A credential per tender fragments identity. The same human
+> would hold several logins, so password resets, lockouts, role changes and
+> audit trails would all have to be reconciled across them, and revoking a
+> worker's access would mean finding every credential they hold rather than
+> disabling one. Access is a property of the *assignment*, not of the identity,
+> and `worker_assignments` already models that: granting or removing a tender is
+> a row, not a new account.
+>
+> **If per-tender enrolment proves operationally necessary** — a supervisor
+> handing a worker something tender-specific on site — the agreed shape is
+> **enrolment codes**: a code that links an existing worker to a tender on first
+> use, creating the assignment. That keeps the on-site ergonomics of a
+> per-tender handout without fragmenting identity.
+>
+> **Consequence.** The **[verify]** question below — whether one worker holds
+> several tender credentials or one credential granting several tenders — is
+> moot. Neither: one identity, many assignments.
+>
+> Evidence for the current behaviour is in `business-rules-gap.md` §1.11;
+> no per-tender credential concept exists in `modules/` or `database/`.
+
+
 Login: tender-scoped. A worker logs in with an ID and password **per tender**.
 A company-level login is separate. **[verify]** whether one worker holds
 multiple tender credentials or one credential granting access to several tenders.
