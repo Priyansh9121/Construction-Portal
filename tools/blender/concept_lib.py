@@ -2174,6 +2174,21 @@ def in_situ_concrete(name="conc", base="concrete", tile=(2.4, 2.4),
 EXPORT_UV_TILE = {
     "conc": 2.4, "wet": 2.4, "city_warm": 2.06, "city_cool": 2.4,
     "spandrel": 2.0, "earth": 2.4, "ply": 2.0,
+    # The five street surfaces. Absent until 2026-08-17, and that absence was
+    # the whole of the street layer's size problem: a material missing from
+    # here is not flattened at export, so glTF embeds a full copy of its maps
+    # in the GLB. Street was 11.49 MB, of which 10.57 MB was nine embedded
+    # images, leaving 0.91 MB of actual geometry.
+    #
+    # Every value below is the `tile` argument the material was built with,
+    # read off its own constructor call in site_materials(). They must keep
+    # matching it -- the right image at the wrong size is the failure this
+    # table exists to prevent.
+    "asphalt": 1.6,       # road_surface("asphalt", tile=(1.6, 1.6))
+    "kerb": 1.10,         # cc0("kerb", "concrete", (1.10, 1.10))
+    "footpath": 2.90,     # cc0("footpath", "concrete", (2.90, 2.90))
+    "median_top": 1.8,    # site_ground("median_top", tile=(1.8, 1.8))
+    "haul": 1.15,         # site_ground("haul", tile=(1.15, 1.15))
 }
 DEFAULT_UV_TILE = 2.4
 

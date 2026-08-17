@@ -4700,3 +4700,165 @@ and separates image bytes from geometry bytes. Worth keeping if you re-measure.
 Third, smaller: a foreground command here is killed with its process group at
 the 2-minute tool timeout, which SIGTERMs a server started in the same call.
 Start long-running servers with `nohup … &`.
+
+---
+
+# Phase C — the five names, the real mechanism, and the gate (2026-08-17)
+
+## The plan's mechanism was wrong, and the artifact said so
+
+Adding the five names to both tables was **necessary but not sufficient**. I
+added them, re-exported, and **street did not move — still 11,769 KB.**
+
+The prior analysis held that a material named in `EXPORT_UV_TILE` is *"flattened
+at export."* It is not. That table feeds one call —
+`uv_project_for_export(ob, EXPORT_UV_TILE.get(key, DEFAULT_UV_TILE))` — which
+sets **UV projection scale only**. Nothing in the export was ever stripping
+images. The four texture-free layers ship no images because their materials are
+**PBR factors with no image nodes at all**, not because anything removed them.
+
+The actual lever is a Blender exporter setting that was never set:
+
+```python
+"export_image_format": "NONE",   # added to export_group() in concept_c.py
+```
+
+| | street |
+|---|---|
+| before | 11,769 KB |
+| five names alone | 11,769 KB — **no change** |
+| + `export_image_format: "NONE"` | **948 KB** |
+
+The predicted ~0.9 MB, reached — but by a different mechanism than the plan
+named. **Both halves are required:** the export must stop embedding, and the
+runtime must know what to reattach. Strip without the `SITE_SURFACES` entries
+and those five surfaces render as flat colour.
+
+## The shipped assets are STALE, which reframes the budget
+
+The ~0.99 MB "shipped budget" the analysis compared against is the size of an
+artifact that no longer corresponds to the scene:
+
+| layer | shipped tris | fresh tris |
+|---|---|---|
+| architecture | 21,324 | 23,744 |
+| neighbours | **7,352** | **39,780** |
+| people | 12,480 | 21,840 |
+| scaffold | 8,688 | 8,300 |
+| street | **684** | **14,856** |
+
+Street ships **684 triangles** against 14,856 in a fresh export. That is not
+compression, it is a different scene. The shipped set predates the street
+build-out and the neighbours density work. **~0.99 MB was never a budget the
+current world met — it is the weight of an older, smaller one.**
+
+## The real compression ratio, as asked
+
+`@gltf-transform/cli meshopt --level medium` over the corrected export:
+
+| layer | before | after | |
+|---|---|---|---|
+| architecture | 1,310,352 | 512,260 | −61% |
+| neighbours | 2,471,504 | 781,292 | −69% |
+| people | 727,064 | 296,328 | −60% |
+| scaffold | 571,052 | 192,544 | −67% |
+| street | 970,812 | 331,512 | −66% |
+| **total** | **6,050,784** | **2,113,936** | **−66%** |
+
+**5.77 MB → 2.01 MB.**
+
+### Proposed post-compression hard number: 2.5 MB
+
+Measured 2.01 MB, so 2.5 MB is ~24% headroom — enough that a legitimate
+addition does not trip it, tight enough that a doubling does. I would not set it
+at the 1.2 MB aspiration: a hard limit the build cannot currently meet is a
+limit that gets bypassed within a week. **The 1.2 MB stays as the warn**, which
+fires today and should.
+
+## Compression was already built
+
+Phase C listed *"compress geometry with gltf-transform"* as work to do. The
+meshopt step **already exists** in `build_assets.sh` and already runs in place
+over the assets. Nothing new was written. Inventory before you build.
+
+**One real defect found there:** `login-site-people` was **absent from the
+optimise loop**, so a clean build compressed every layer except that one. The
+shipped `people.glb` does carry `EXT_meshopt_compression` from some earlier
+invocation — which is precisely why it survived: the artifact looked right.
+Added.
+
+## The gate — at the end of build_assets.sh, not in validate()
+
+Confirmed by reading the pipeline: meshopt sits **between** the Blender export
+and `$ASSETS`, and the two figures differ by 66%. Blender writes 5.77 MB; what
+lands in `public/` is 2.01 MB. **Gating the Blender figure would fail on bytes
+no user ever receives**, so the gate runs last, over what actually ships.
+
+Kept categorically apart from `validate()`: that asserts correctness, where 2 mm
+off the ground plane is a defect and not a matter of degree. A size limit is a
+budget — it changes when the choice changes, and a budget revision must not
+surface as a correctness regression.
+
+| | limit | today |
+|---|---|---|
+| per layer, hard fail | 2.0 MB | largest is 0.78 MB — green |
+| whole set, hard fail | 6.0 MB | 5.77 MB uncompressed — green |
+| whole set, warn | 1.2 MB | 2.01 MB — **warns, deliberately** |
+
+Verified green against the real post-compression artifacts. `--skip-gate`
+bypasses it, and `--raw` disables it automatically, since uncompressed figures
+against shipped limits would mean nothing.
+
+**Production assets untouched throughout** — every export went to
+`WORLD_EXPORT_DIR`. `git status` on `frontend/public/world/assets/` empty.
+
+---
+
+# HANDOFF — Phase C part-way (2026-08-17)
+
+**Branch** `redesign/ui-foundation`. **Tree clean.** Backend 272 tests,
+Playwright 6 specs, lint and build clean.
+
+## Phase C — done
+
+1. ✅ Texture analysis confirmed against a real artifact (and one correction:
+   five names, not four).
+2. ✅ The five names added to `EXPORT_UV_TILE` and `SITE_SURFACES`.
+3. ✅ **The real fix found**: `export_image_format: "NONE"`. Street 11.49 MB →
+   0.948 MB.
+4. ✅ Compression — **already existed**; fixed `login-site-people` being skipped.
+5. ✅ Byte gate at the end of `build_assets.sh`, green today.
+
+## Phase C — remaining, in order
+
+1. **Rebuild and ship the real assets.** Everything so far went to scratch.
+   `tools/blender/build_assets.sh` now does export → meshopt → gate in one run.
+   **This is the step that replaces the stale shipped set**, and it will change
+   `frontend/public/world/assets/` substantially — 684 → 14,856 triangles in
+   street alone. Expect the login world to look different, and check it.
+2. **Verify the five surfaces actually reattach.** They are stripped at export
+   now, so if `SITE_SURFACES` is wrong they render flat-coloured. **This has not
+   been seen in a browser yet** — it is the first thing to look at.
+3. **`SITE_LAYERS.mobile`** — every layer is `mobile: true`, so the
+   `portrait ? l.mobile : true` filter does nothing.
+4. **Ship and look**, with `deploy_parity.mjs` and `csp_repro.mjs` as the gate.
+5. **Dev-only layer-resolution visibility** — the loader degrades silently by
+   design, so there is currently no way to see which layers resolved.
+6. **Post-compression hard limit at 2.5 MB** once you accept it — the warn at
+   1.2 MB is already in.
+
+## Still open elsewhere
+
+- **Workforce → invite a login** — the deferred optional inverse of BUG-002's fix.
+- **Phase D** merge to `main`; **Phase E** routes against
+  `business-rules-gap.md`; **Phase F** new world capabilities.
+
+## Traps already paid for
+
+1. **The API on `:5051` can be days old** — `assertServerFresh()` now catches it.
+2. **A green suite is not evidence a path is exercised** — `createMember` built
+   the broken state by hand while 254 tests passed.
+3. **A foreground Bash command is killed with its process group at the 2-minute
+   tool timeout**, which SIGTERMs a server started in the same call. Use `nohup … &`.
+4. **The shipped assets are not what the scene produces.** Do not reason about
+   world size from `frontend/public/world/assets/` until step 1 above has run.

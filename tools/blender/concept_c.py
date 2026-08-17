@@ -1484,6 +1484,27 @@ def export_group(objs, path):
         "filepath": path, "export_format": "GLB", "use_selection": True,
         "export_yup": True, "export_apply": True, "export_normals": True,
         "export_materials": "EXPORT", "export_cameras": False,
+        # No images in the GLB. This is the "flatten at export" half of the
+        # texture design -- the runtime reattaches maps from
+        # /world/textures/cc0/ by material name, via SITE_SURFACES in
+        # frontend/src/world/loginSite.js, so one copy of each map is fetched
+        # and cached across every layer that uses it.
+        #
+        # Without it the exporter embeds a full copy of every map into every
+        # GLB whose materials reference one. Measured 2026-08-17: that was
+        # 10.57 MB of the street layer's 11.49 MB, against 0.91 MB of actual
+        # geometry, and every one of those nine images was already shipping
+        # as a file.
+        #
+        # The four other layers were unaffected only because their materials
+        # are PBR factors with no image nodes at all -- not because anything
+        # was stripping them.
+        #
+        # A material stripped here MUST have an entry in SITE_SURFACES, or it
+        # renders as a flat colour. EXPORT_UV_TILE in concept_lib.py must
+        # carry it too, so the UVs are projected at the size the map was
+        # authored for.
+        "export_image_format": "NONE",
         "export_lights": False, "export_extras": False,
         "export_animations": False, "export_texcoords": True,
         "export_draco_mesh_compression_enable": False,

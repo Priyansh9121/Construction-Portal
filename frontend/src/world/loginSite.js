@@ -244,6 +244,25 @@ export const SITE_SURFACES = {
   city_warm: { tex: "brick" },
   city_cool: { tex: "concrete" },
   spandrel: { tex: "asphalt" },
+
+  /*
+   * The five street surfaces, added 2026-08-17.
+   *
+   * They were missing from here and from EXPORT_UV_TILE in concept_lib.py,
+   * and the two tables have to agree: the export flattens a material only if
+   * it is named there, and the runtime reattaches a map only if it is named
+   * here. A material in neither keeps its images embedded in the GLB.
+   *
+   * That was the entire street size problem. Measured on a fresh export:
+   * 11.49 MB, of which 10.57 MB was nine embedded copies of maps that were
+   * ALREADY SHIPPING in /world/textures/cc0/. Adding these five names costs
+   * zero new bytes -- every one maps to a set already on disk below.
+   */
+  asphalt: { tex: "asphalt" },
+  kerb: { tex: "concrete" },
+  footpath: { tex: "concrete" },
+  median_top: { tex: "ground" },
+  haul: { tex: "ground" },
 };
 
 /*
