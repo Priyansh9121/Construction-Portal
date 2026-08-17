@@ -1341,6 +1341,11 @@ export async function createAuthWorld(canvas, opts = {}) {
           }
         }
         canvas.__authWorldDebug.surfaces = surfaceReport;
+        /* Which map sets this DEVICE actually pulled. The maps are fetched on
+         * demand now, so on a phone this is the shorter list — and without it
+         * there is no way to tell a working mobile tier from a table that
+         * happens to look right. */
+        canvas.__authWorldDebug.maps = surfaces.loaded;
 
         /*
          * One line naming every surface that came out flat, so the check is a

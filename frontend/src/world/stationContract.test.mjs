@@ -69,6 +69,27 @@ test("architecture and neighbours are essential", () => {
   assert.ok(essential.includes("login-site-neighbours"));
 });
 
+test("the mobile filter actually filters something", () => {
+  /* `portrait ? l.mobile : true` was a no-op for the whole of M2 because every
+   * layer was flagged `mobile: true`. It looked like a tier and was not one,
+   * and a phone downloaded all 3,264 KB of the world. The assertion is not
+   * "some layer is false" as a style rule — it is that this seam has to keep
+   * costing a phone less than a desktop, which is invisible in a screenshot. */
+  const mobile = SITE_LAYERS.filter((l) => l.mobile);
+  assert.ok(mobile.length < SITE_LAYERS.length,
+    "no layer is skipped on mobile, so the portrait filter does nothing");
+});
+
+test("every essential layer is still fetched on mobile", () => {
+  /* The tier may only remove OPTIONAL layers. Dropping an essential one would
+   * put a phone permanently in DEGRADED and hold the fallback up forever —
+   * the readiness contract, defeated by a performance decision. */
+  for (const layer of SITE_LAYERS.filter((l) => l.essential)) {
+    assert.equal(layer.mobile, true,
+      `essential layer ${layer.name} is skipped on mobile`);
+  }
+});
+
 test("READY is a distinct state from DEGRADED and FAILED", () => {
   /* The whole readiness fix rests on these not collapsing into one another:
    * only READY may hide the fallback. */

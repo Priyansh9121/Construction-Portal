@@ -5422,3 +5422,74 @@ have to re-run these to find that out.
    `portrait ? l.mobile : true` filters nothing and phones download everything.
 2. **Workforce -> invite a login** — the deferred inverse of BUG-002's fix.
 3. Phase D merge; Phase E routes against `business-rules-gap.md`; Phase F.
+
+---
+
+# The mobile tier had two holes, and only one of them was known (2026-08-18)
+
+Fourth on the list. The recorded defect was that every layer is `mobile: true`,
+so `portrait ? l.mobile : true` filters nothing. **That was half of it.**
+
+## The second hole
+
+`loadSurfaceMaps` walked `SITE_SURFACES` and fetched all fifteen maps up front,
+for every device, regardless of which layers had arrived. So the texture payload
+was decided by a static table rather than by the scene.
+
+**Fixing only the known hole would have saved 40% less than it appeared to.**
+`ground` and `asphalt` are used by the street layer and by nothing else — 527 KB
+that a phone downloaded whether or not it loaded the street. And `spandrel` is
+in the table, appears in no shipped layer, and was fetched on every load on
+every device for nothing.
+
+Maps are now fetched the first time `dressSurface` asks for a slot, which is
+after that slot's layer has arrived. The set of maps is derived from the
+geometry instead of declared alongside it, so the two cannot drift.
+
+## What a phone was actually carrying
+
+    2,064 KB of GLB + 1,197 KB of maps = 3,233 KB, 108,520 triangles
+
+| layer | GLB | tris | texture sets it alone owns |
+|---|---|---|---|
+| architecture *(essential)* | 501 KB | 23,744 | — |
+| neighbours *(essential)* | 763 KB | 39,780 | brick 277 KB |
+| street | 323 KB | 14,856 | **ground 336 + asphalt 191 = 527 KB** |
+| people | 289 KB | 21,840 | none |
+| scaffold | 188 KB | 8,300 | none |
+
+Measured with all three optional layers aborted before proposing anything: the
+world still reaches READY and still reads. There is a procedural ground plane
+under the site, so nothing floats. It costs the road, footpath, kerbs and
+markings, the external scaffold, and the figures.
+
+**Your call: phones skip all three.** Verified on the wire — a portrait viewport
+requests **nine fewer files** than a desktop one, being the three layer GLBs and
+six map files, and reports `maps: 9` against desktop's `15`:
+
+    desktop  : 33 world requests, maps 15
+    portrait : 24 world requests, maps  9
+
+By their on-disk sizes that is **1,328 KB of 3,233 KB, 41%**, and 44,996 of
+108,520 triangles, also 41%.
+
+## The guards
+
+Unit (`stationContract.test.mjs`): that the filter removes *something* — the
+literal defect was a table that looked like a tier and was not one — and that no
+ESSENTIAL layer is ever in the skip list. Skipping an essential layer would pin
+a phone in DEGRADED and hold the fallback up forever: the readiness contract
+defeated by a performance decision.
+
+Browser (`world-runtime.spec.js`): that the tier reaches the WIRE, which is the
+only thing that matters, since the saving is bytes a phone does not pull. It
+asserts the three optional layers are `skipped (mobile)` AND that no request for
+them was made, that no `ground-`, `asphalt-` or `spandrel` map is fetched, that
+architecture and neighbours still load, and that a desktop still gets all of it.
+`__authWorldDebug.maps` is new and exists for this: which map sets a device
+actually pulled is otherwise unobservable.
+
+## Remaining
+
+1. **Workforce -> invite a login** — the deferred inverse of BUG-002's fix.
+2. Phase D merge; Phase E routes against `business-rules-gap.md`; Phase F.

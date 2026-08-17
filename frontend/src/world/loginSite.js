@@ -34,14 +34,40 @@
  */
 
 /** Load order. `essential` layers are what the scene needs to read at all. */
+/*
+ * `mobile: false` means a PORTRAIT device does not fetch that layer at all.
+ *
+ * Every layer used to be `mobile: true`, so `portrait ? l.mobile : true`
+ * filtered nothing and a phone downloaded the entire world — 2,064 KB of GLB,
+ * 1,200 KB of maps, 108,520 triangles. Field roles reach this product on
+ * phones, which makes that the case that matters rather than the case to get
+ * to later.
+ *
+ * The three optional layers go. Measured, with all three aborted: the world
+ * still reaches READY and still reads — there is a procedural ground plane
+ * under the site, so nothing floats. It costs the road, footpath, kerbs and
+ * markings, the external scaffold, and the figures.
+ *
+ *   street     323 KB  14,856 tris  + ground and asphalt maps, 527 KB
+ *   people     289 KB  21,840 tris  (worst triangles-per-byte in the set)
+ *   scaffold   188 KB   8,300 tris
+ *
+ * Street carries by far the most because it is the ONLY user of two whole
+ * texture sets — but that half of the saving is only real because
+ * `loadSurfaceMaps` now fetches on demand. Dropping a layer while the maps
+ * loaded from a static table saved none of its textures.
+ *
+ * Total: 3,264 KB -> 1,925 KB and 108,520 -> 63,524 triangles, both -41%.
+ */
 export const SITE_LAYERS = [
   { name: "login-site-architecture", essential: true, mobile: true },
   { name: "login-site-neighbours", essential: true, mobile: true },
-  { name: "login-site-scaffold", essential: false, mobile: true },
-  { name: "login-site-street", essential: false, mobile: true },
+  { name: "login-site-scaffold", essential: false, mobile: false },
+  { name: "login-site-street", essential: false, mobile: false },
   /* People carry their own materials and are small; they arrive last because
-   * the site has to read before it can be populated. */
-  { name: "login-site-people", essential: false, mobile: true },
+   * the site has to read before it can be populated. Also the densest layer
+   * per byte, and static until the Phase F crowd work. */
+  { name: "login-site-people", essential: false, mobile: false },
 ];
 
 /**
@@ -322,11 +348,27 @@ export const SITE_SURFACES = {
 const TEXTURE_BASE = "/world/textures/cc0/";
 
 /**
- * Load the baked PBR maps.
+ * Load the baked PBR maps, ON DEMAND.
  *
  * Never rejects and never blocks: a surface whose maps fail keeps the flat
  * factor it already has, which is duller but completely correct. The form has
  * no relationship with any of this.
+ *
+ * DEMAND-DRIVEN, AND THAT IS THE POINT
+ * ------------------------------------
+ * This used to walk `SITE_SURFACES` and fetch all fifteen maps up front, which
+ * meant the texture payload was decided by a STATIC TABLE rather than by what
+ * the scene actually contains. Two consequences, both measured:
+ *
+ *   - Skipping a layer on mobile saved none of its textures. `ground` and
+ *     `asphalt` are used by the street layer and by nothing else — 527 KB that
+ *     a phone downloaded whether or not it loaded the street.
+ *   - `spandrel` is in the table and appears in no shipped layer, so its maps
+ *     were fetched on every load, on every device, for nothing.
+ *
+ * A slot is now fetched the first time `dressSurface` asks for it, which is
+ * after its layer has arrived. The set of maps is therefore derived from the
+ * geometry rather than declared alongside it, and the two cannot drift.
  */
 export function loadSurfaceMaps(THREE, maxAnisotropy = 4) {
   const loader = new THREE.TextureLoader();
@@ -361,13 +403,26 @@ export function loadSurfaceMaps(THREE, maxAnisotropy = 4) {
     return tex;
   };
 
-  const out = new Map();
-  for (const [slot, def] of Object.entries(SITE_SURFACES)) {
-    out.set(slot, {
-      map: grab(def.tex, "color", true),
-      roughnessMap: grab(def.tex, "roughness", false),
-      normalMap: grab(def.tex, "normal", false),
-    });
-  }
-  return out;
+  /*
+   * Map-shaped on purpose: `dressSurface` does `surfaces.get(slot)` and does
+   * not need to know that the fetch happens here rather than earlier. `loaded`
+   * is what the mobile-tier probe reads, because "which maps did this device
+   * actually pull" is otherwise unobservable.
+   */
+  const resolved = new Map();
+  return {
+    get(slot) {
+      const def = SITE_SURFACES[slot];
+      if (!def) return undefined;
+      if (!resolved.has(slot)) {
+        resolved.set(slot, {
+          map: grab(def.tex, "color", true),
+          roughnessMap: grab(def.tex, "roughness", false),
+          normalMap: grab(def.tex, "normal", false),
+        });
+      }
+      return resolved.get(slot);
+    },
+    get loaded() { return [...cache.keys()].sort(); },
+  };
 }
