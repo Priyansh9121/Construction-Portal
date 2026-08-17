@@ -785,10 +785,37 @@ function buildSite(THREE, scene, portrait, MAT, opts = {}) {
  * and painting diffuse detail onto them would flatten the very response that
  * makes them read as metal.
  */
-function dressSurface(THREE, material, surfaces) {
+/*
+ * `report` is the surface-level counterpart to __authWorldDebug.layers.
+ *
+ * The layer report answers "did the GLB arrive". It cannot answer "does the
+ * GLB look right", and since 2026-08-17 that is a real gap: the export now
+ * ships NO images at all (export_image_format NONE in concept_c.py), so every
+ * textured surface depends on being matched here by material name. A material
+ * the export stripped and SITE_SURFACES does not name gets no map, renders as
+ * a flat colour, and says nothing — the same silent degradation the layer
+ * report was built to end, one level further down.
+ *
+ * Three outcomes, and only one of them is correct for a site material:
+ *   dressed      matched SITE_SURFACES, maps attached
+ *   own-texture  carries its own map from the GLB — should not happen now
+ *                that the export strips images; if it does, the export ran
+ *                without that setting
+ *   bare         no entry and no map. Flat colour. This is the failure.
+ *
+ * "bare" is not always wrong: metals and glass are deliberately absent from
+ * SITE_SURFACES because they are defined by how they reflect the environment,
+ * and an albedo map would flatten that. So this reports rather than throws —
+ * reading it is a human job.
+ */
+function dressSurface(THREE, material, surfaces, report) {
   const slot = String(material.name || "").split(".")[0];
   const surface = surfaces.get(slot);
-  if (!surface) return material;
+  if (!surface) {
+    report?.(slot, material.map ? "own-texture" : "bare");
+    return material;
+  }
+  report?.(slot, "dressed");
 
   material.map = surface.map;
   material.roughnessMap = surface.roughnessMap;
@@ -1261,11 +1288,26 @@ export async function createAuthWorld(canvas, opts = {}) {
             `[world] ESSENTIAL layers failed: ${essentialMissing.map((l) => l.name).join(", ")}. `
             + "The site will render without its architecture. See canvas.__authWorldDebug.");
         }
+        /*
+         * Surface resolution, gathered as the layers are dressed. Same
+         * reasoning as the layer status above: published unconditionally and
+         * carrying only material names, all of which are already readable in
+         * any GLB the browser fetched.
+         */
+        const surfaceReport = {};
+        const noteSurface = (layerName) => (slot, outcome) => {
+          const bucket = (surfaceReport[layerName] ||= {
+            dressed: [], bare: [], "own-texture": [],
+          });
+          if (!bucket[outcome].includes(slot)) bucket[outcome].push(slot);
+        };
+
         for (const layer of wanted) {
           const prims = loaded.get(layer.name);
           if (!prims) continue;
+          const note = noteSurface(layer.name);
           for (const { geometry, material } of prims) {
-            dressSurface(THREE, material, surfaces);
+            dressSurface(THREE, material, surfaces, note);
             const mesh = new THREE.Mesh(geometry, material);
             /* Everything here is static architecture: it both casts and
              * receives, which is what puts the window reveals into shadow and
@@ -1278,6 +1320,27 @@ export async function createAuthWorld(canvas, opts = {}) {
             tris += (idx ? idx.count : geometry.getAttribute("position").count) / 3;
           }
         }
+        canvas.__authWorldDebug.surfaces = surfaceReport;
+
+        /*
+         * One line naming every surface that came out flat, so the check is a
+         * glance rather than an expansion of a nested object. Bare surfaces
+         * are expected for metal and glass; an unexpected NAME here is the
+         * signal, not a non-zero count.
+         */
+        const bare = Object.entries(surfaceReport)
+          .flatMap(([layer, b]) => b.bare.map((slot) => `${layer}:${slot}`));
+        if (bare.length) {
+          console.info(`[world] surfaces with no map (metal/glass expected): ${bare.join(", ")}`);
+        }
+        const ownTex = Object.entries(surfaceReport)
+          .flatMap(([layer, b]) => b["own-texture"].map((slot) => `${layer}:${slot}`));
+        if (ownTex.length) {
+          console.warn(
+            `[world] these GLB materials still carry embedded textures: ${ownTex.join(", ")}. `
+            + "The export is meant to strip every image — check export_image_format in concept_c.py.");
+        }
+
         rigParts.stats.site = Math.round(tris);
         canvas.__siteScale = checkSiteScale(THREE, scene);
 

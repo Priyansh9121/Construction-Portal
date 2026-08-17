@@ -96,3 +96,6 @@ backend/database/snapshots/*.local.sql
 
 # Blender bytecode from headless concept runs
 tools/blender/__pycache__/
+
+# Ad-hoc world render captures (tools/fresh_ui writes its own elsewhere)
+frontend/world-shots/

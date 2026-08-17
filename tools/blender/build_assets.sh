@@ -120,8 +120,14 @@ fi
 # Numbers, agreed 2026-08-17 and measured rather than guessed:
 #
 #   per layer, hard fail       2.0 MB   largest shipped layer is 0.78 MB
-#   whole set, hard fail       6.0 MB   uncompressed set measures 5.77 MB
+#   whole set, hard fail       2.5 MB   shipped set measures 2.01 MB (-66%)
 #   whole set, warn            1.2 MB   the aspiration, currently 2.01 MB
+#
+# 2.5 MB is ~24% headroom over the measured 2.01 MB: loose enough that a
+# legitimate addition does not trip it, tight enough that a doubling does. It
+# is deliberately NOT set at the 1.2 MB aspiration -- a hard limit the build
+# cannot currently meet is a limit that gets bypassed within a week, and then
+# there is no gate at all.
 #
 # The warn fires today, on purpose. The set is roughly twice the ~0.99 MB it
 # ought to be, and a budget line that only appears once it is already breached
@@ -129,7 +135,7 @@ fi
 #
 # --skip-gate bypasses it.
 LAYER_LIMIT=$((2 * 1024 * 1024))
-SET_LIMIT=$((6 * 1024 * 1024))
+SET_LIMIT=$(( (5 * 1024 * 1024) / 2 ))   # 2.5 MB, post-compression
 SET_WARN=$((1228800))
 
 if [[ $GATE -eq 1 ]]; then
