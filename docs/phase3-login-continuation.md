@@ -5023,3 +5023,142 @@ the world loads on idle, deliberately off the critical path.
 4. **A comment or a plan is not evidence.** The texture mechanism in the brief
    was wrong; `EXPORT_UV_TILE` never flattened anything. The artifact said so
    within one export.
+
+---
+
+# The site-scale warning is a defect in the CHECK, not in the scene (2026-08-17)
+
+Measured before changing anything. **The scene is not twice its intended size,
+and no art-direction decision is needed.**
+
+## The hypothesis I offered was wrong, and the correction was right
+
+I had suggested the stale assets were hiding a scene that grew. That does not
+survive arithmetic: architecture went 21,324 → 23,744 triangles, **11%**, while
+the width is out by **91%**. An 11% geometry change cannot produce that, and
+1.91 is close enough to 2 to point at a convention rather than drift.
+
+## What `checkSiteScale` actually measures
+
+```js
+const target = scene.getObjectByName("login-site-architecture");
+const box = new THREE.Box3().setFromObject(target);
+```
+
+`getObjectByName` returns **the first match**. In the loader, every primitive of
+a layer is given the layer's name:
+
+```js
+mesh.name = layer.name;   // authWorld.js, once per primitive
+```
+
+Measured in the browser:
+
+    meshesNamedArchitecture : 13
+    firstIsSameAsNamed0     : true
+    singleMeshBox           : [43.12, 30.45, 38.72]   <- what the check reads
+    wholeLayerBox           : [45.16, 32.80, 40.36]
+    perMeshWidths           : [43.12, 7.88, 7.94, 45.16, 22, 9, 17.36, …]
+
+**Thirteen objects share that name, and the check measures whichever one
+traversal reaches first.** That is not the building — it is a 43 m wide piece of
+site or context.
+
+## The building is exactly the right size
+
+One primitive measures **22.00 m** — the plot frontage `SITE_METRICS` documents
+as *"Plot: 22 m frontage x 34 m deep."* The authored dimension is present and
+correct in the imported GLB, against an `expectArchitectureWidth` of 22.6 with a
+12% tolerance.
+
+So the geometry is right, the constant is right, and **the selector is wrong.**
+
+Neither of the two things suggested as causes was it: the constant is not stale,
+and the bounding box did not grow by absorbing something new. It has always been
+measuring an arbitrary object; the export's merge grouping changed which
+arbitrary object came first, and that is what flipped it from accidentally
+passing to failing. **It was never actually asserting what it claims.**
+
+## Why this matters more than the warning
+
+The check's own docstring is right about the risk — *"a scale error is the one
+import bug that looks entirely correct in a screenshot"*. That makes a check
+which passes by accident worse than no check: it was reporting `ok: true` on
+earlier builds while measuring an object nobody chose.
+
+## Proposed fix — NOT APPLIED, awaiting your call
+
+Measure the object the assertion is about. Two options:
+
+- **(a)** Union every primitive named `login-site-architecture` and compare that
+  against a plot-plus-party-walls figure. Simple, but the union is 45.16 m —
+  the layer legitimately contains more than the building, so the constant would
+  have to be re-derived and would drift again with content.
+- **(b)** *(recommended)* Give the building its own identity at export — a
+  distinct material or object name — and measure that. It makes the assertion
+  say what it means, and it stops depending on traversal order. Costs a name in
+  `concept_c.py` and a lookup change here.
+
+(b) is the one that makes this a real check rather than a coincidence. It needs
+a decision because it touches the export.
+
+**No code changed.** `checkSiteScale` still warns; the warning is now understood
+and is not a reason to hold the assets.
+
+---
+
+# HANDOFF — Phase C: assets shipped and verified; scale warning explained (2026-08-17)
+
+**Branch** `redesign/ui-foundation`. **Tree clean.** Backend 272 tests,
+Playwright 6 specs, lint and build clean. Rebuilt GLBs are committed.
+
+## Done
+
+1. ✅ Texture analysis confirmed against an artifact — five names, not four.
+2. ✅ The five names in `EXPORT_UV_TILE` and `SITE_SURFACES`.
+3. ✅ **`export_image_format: "NONE"`** — the real mechanism. Street 11.49 → 0.95 MB.
+   The brief's claim that `EXPORT_UV_TILE` flattens materials was wrong.
+4. ✅ Compression already existed; `login-site-people` was silently skipped, fixed.
+5. ✅ Byte gate at the end of `build_assets.sh` — 2.0 / 2.5 / 1.2 MB. Green.
+6. ✅ Surface-resolution visibility, `__authWorldDebug.surfaces`.
+7. ✅ Real rebuild, verified in a browser: all five street surfaces dress, no
+   layer carries an embedded texture, nothing renders flat.
+8. ✅ Site-scale warning diagnosed — **a defect in the check, not the scene.**
+
+## Next, in order
+
+1. **Decide the `checkSiteScale` fix** — (a) or (b) above. Product-ish, because
+   (b) touches the export.
+2. **The 404 during world load** — seen but not chased.
+3. **`deploy_parity.mjs` and `csp_repro.mjs`** — not started.
+4. **`SITE_LAYERS.mobile`** — every layer is `mobile: true`, so
+   `portrait ? l.mobile : true` filters nothing.
+5. **Workforce → invite a login** — the deferred inverse of BUG-002's fix.
+6. Phase D merge; Phase E routes against `business-rules-gap.md`; Phase F.
+
+## How to look at the world — this cost real time twice
+
+Headless **cannot** render it. `CAPABLE()` rejects software renderers on purpose
+and headless Chromium is SwiftShader, so the world never starts and every debug
+handle reads `null`. Use:
+
+```js
+test.use({ headless: false, channel: "chrome",
+           launchOptions: { args: ["--use-angle=metal"] } });
+await page.waitForFunction(() => document.querySelector("canvas")?.__perf,
+                           null, { timeout: 60000 });
+```
+
+A fixed `waitForTimeout` flaked; waiting on `__perf` is reliable. Handles:
+`__authWorldDebug.layers` / `.surfaces`, `__siteScale`, `__perf.scene`,
+`__geom`, `__camera`.
+
+## Traps already paid for
+
+1. The API on `:5051` can be days old — `assertServerFresh()` catches it.
+2. A green suite is not evidence a path is exercised.
+3. A foreground Bash command dies with its process group at the 2-minute tool
+   timeout, SIGTERMing a server started in the same call. Use `nohup … &`.
+4. **A plan is not evidence, and neither is a passing check.** The brief's
+   texture mechanism was wrong. `checkSiteScale` passed for builds by
+   coincidence. Both were caught by measuring, and only by measuring.
