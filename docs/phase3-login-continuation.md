@@ -5342,3 +5342,83 @@ an unset local environment variable, not a defect and not a regression — see
 DEPLOYMENT.md, "Local fixtures". Anyone running the full suite needs the
 break-glass fixture credentials exported first, or ~170 tests fail instantly
 and misleadingly.
+
+---
+
+# The delivery gate, run for the first time (2026-08-17)
+
+Third on the list. Both tools already existed in `tools/fresh_ui/`; neither had
+been run against the rebuilt assets. **Both pass, nothing changed as a result,
+and one of them produced the best corroboration yet of the scale diagnosis.**
+
+## `csp_repro.mjs` — the new assets survive production's CSP
+
+This matters more than it did before the rebuild: the layers are now
+**meshopt-compressed**, and the meshopt decoder is WebAssembly. `wasm-unsafe-eval`
+is therefore load-bearing for the world in a way it was not when the geometry
+was uncompressed.
+
+Served `frontend/dist` under the exact policy string from `frontend/vercel.json`:
+
+    CSP ARM: new-csp      script-src 'self' 'wasm-unsafe-eval'
+    layers in scene : all five, loaded
+    meshes in scene : 60
+    essentialMissing: []      degraded: false      errors (0)
+
+**And the control arm proves the probe can fail** — the same build with the one
+token removed, which is the policy production was serving during the incident:
+
+    CSP ARM: old-csp      script-src 'self'
+    layers in scene : NONE          all five FAILED
+    WebAssembly.instantiate(): ... violates the following Content Security policy
+
+A green check is not evidence unless it can go red. This one can.
+
+That arm also produced an unplanned result worth keeping:
+
+    [world] checkSiteScale found no "conc" geometry in login-site-architecture,
+            so the scale assertion did not run.
+
+That is the new error firing in exactly the production-incident scenario it was
+written for. **The old check returned `null` there, silently** — the world's
+architecture was entirely absent and the scale check said nothing at all.
+
+## `deploy_parity.mjs` — and production confirms the diagnosis outright
+
+Local (this branch, rebuilt assets) against live production (`main`, old assets).
+No page errors and no failed requests on either side; all five layers 200 and
+load on both. The interesting line is the scale check.
+
+| | local (this branch) | production (`main`) |
+|---|---|---|
+| `width / height / depth` | 22 / 31.1 / 34.18 | **22 / 31.1 / 34.18** |
+| `expectedWidth` | 22 | 22.6 |
+| `meshes` | 1 | — |
+| `ok` | true | true |
+| `meshCount` | 60 | 36 |
+
+**Production is measuring the building — by accident.** It runs the old
+name-resolving check on the old assets, and there `getObjectByName` happens to
+reach the `conc` primitive first, so it returns the right numbers for the wrong
+reason and passes against a constant that is 0.6 m out, inside a 12% tolerance.
+
+This is the coincidence claim, caught live rather than argued: same geometry,
+same dimensions, both green — one because it asserts, one because traversal
+order was kind to it. The merge grouping in the rebuilt export is what moved a
+43 m object to the front and turned the coincidence into a warning. Nothing
+about the scene ever changed.
+
+`meshCount` 60 vs 36 is the export's merge grouping, not new content.
+
+## Nothing changed as a result
+
+Both gates green, no code touched. Recording it because "measured X, changed
+nothing because of it" is the outcome, and because the next person should not
+have to re-run these to find that out.
+
+## Remaining on the list
+
+1. **`SITE_LAYERS.mobile`** — every layer is `mobile: true`, so
+   `portrait ? l.mobile : true` filters nothing and phones download everything.
+2. **Workforce -> invite a login** — the deferred inverse of BUG-002's fix.
+3. Phase D merge; Phase E routes against `business-rules-gap.md`; Phase F.
