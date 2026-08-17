@@ -3788,3 +3788,207 @@ so it cannot regress.
 test first: `useEffect(() => console.log('MOUNT'), [])` in the step component to
 see whether it is remounting per keystroke. Fix the cause, then grep the pattern
 across the other wizards. Playwright spec after.
+
+---
+
+# BUG-002 — DIAGNOSIS CLOSED (2026-08-17)
+
+## The picker's data source — the third link, traced
+
+The chain, end to end. Each link read, none inferred from a comment:
+
+| # | Where | What it does |
+|---|---|---|
+| 1 | `pages/TenderDetailsPage.jsx:185` | `const [workers, setWorkers] = useState([])` — local state |
+| 2 | `pages/TenderDetailsPage.jsx:490` | fills it from `getWorkers()` |
+| 3 | `services/workerService.js:29` | `axiosClient.get("/workers")` |
+| 4 | `modules/workers/worker.controller.js:81` | `createScopedCrud({ table: "workers" })` |
+| 5 | `utils/scopedCrud.js:520` | `SELECT t.*, COUNT(*) OVER () FROM workers t WHERE t.company_id = $1` |
+| 6 | `components/tenderDetails/TenderWorkersTab.jsx:1712` | receives it as the `workers` prop |
+
+**Single table, no join to `users`.** The picker is a list of `workers` rows,
+company-scoped, nothing more.
+
+**Therefore:** a worker created through User Management is a `users` row with no
+`workers` row. The picker's query cannot return it — not by a filter, by
+construction. It is not that the worker is filtered out; the worker does not
+exist in the table being read. **Diagnosis closed.**
+
+The earlier "strong indication" — that `<option>` renders `worker.full_name`, a
+`workers` column — is now confirmed by the query rather than by the column name.
+
+## Step 2 — the subcontractor side has the identical structure
+
+### What each path writes
+
+| Path | Writes | Never writes |
+|---|---|---|
+| User Management → `POST /auth/users` | `users`, `company_users` | `workers`, `subcontractors` |
+| Workforce → `POST /workers` | `workers` | `users` |
+| Subcontractors → `POST /subcontractors` | `subcontractors` | `users` |
+
+`auth.service.js` `createCompanyUser` is two INSERTs in one transaction —
+`users` and `company_users` — and its role parameter is *"whatever the admin
+chose… this is how workers, supervisors and subcontractors get their accounts."*
+It is role-blind: it will mint a `subcontractor`-role user exactly as readily as
+a `worker`-role one, and creates a profile row for neither.
+
+`subcontractorPortal.controller.js` returns *"No subcontractor profile is linked
+to this login user"* at five call sites, the exact counterpart of
+`workerPortal.controller.js`'s message at five of its own. The subcontractor
+picker is the same shape too: `TenderSubcontractorsTab.jsx:131` maps
+`allSubcontractors` from `getSubcontractors()` → `GET /subcontractors` →
+`createScopedCrud({ table: "subcontractors" })`. One table, no join.
+
+**This is one structural gap with two instances, not two bugs.**
+
+### The measurement — and a correction to the handoff
+
+Run against `construction_portal` at HEAD:
+
+| | count |
+|---|---|
+| `workers` rows | 3 |
+| …with no `user_id` | **2** |
+| `subcontractors` rows | 3 |
+| …with no `user_id` | **2** |
+| `role='worker'` users with no `workers` row | **2** |
+| `role='subcontractor'` users with no `subcontractors` row | **0** |
+
+The rows:
+
+- workers — `Ramesh Patel` (no user), `Ramesh` (no user), `Local Fixture Worker` → user 1689
+- subcontractors — `Probe Subcontractor` (no user), `Ghost Sub` (no user), `Local Fixture Subcontractor` → user 1690
+
+**The handoff was wrong on one point.** It recorded *"one `subcontractor`-role
+user exists with no linked row."* There is one subcontractor-role user and it
+**is** linked — `subcontractor-fixture@local.test` → subcontractor 196, created
+by `createLocalPortalFixtures.js`, which writes all three rows on purpose. The
+users-side orphan does not exist on the subcontractor side **in this database**.
+
+That does not weaken the finding, and it is important not to read it as
+absence of the defect. Nobody has yet created a subcontractor-role user through
+User Management here; `createCompanyUser` is role-blind, so the first one will
+be orphaned exactly as the two worker-role users are. **The gap is in the code
+path, and it is confirmed there. The dev database simply has not exercised it
+yet.** Measured, and the earlier claim corrected.
+
+### The finding that decides the fix
+
+`workers.user_id` and `subcontractors.user_id` both exist and are both declared
+**writable** — `worker.controller.js:135`, `subcontractor.controller.js:211`.
+The API has always accepted the link.
+
+**Nothing in the product ever sets it.** Grepping `user_id` across
+`frontend/src` returns exactly one file, `SiteOperationsPage.jsx`, unrelated to
+either register. Neither the Workforce form, the Subcontractors form, nor User
+Management sends it.
+
+The only writer of `workers.user_id` in the repository is
+`backend/scripts/createLocalPortalFixtures.js` — a local dev script. **Every
+correctly linked row in this database was made by hand.** There is no product
+surface, in either direction, that can join an identity to a profile.
+
+That reframes the bug. It is not that one of two creation paths forgets a step.
+It is that **the linking operation was never built**, and each path writes the
+half it owns because that is all it can do.
+
+## The asymmetry that the three options obscure
+
+The two orphan states are not equally wrong, and `worker.controller.js:127`
+says so in the code:
+
+> *"The optional link to a users row, which is what turns a worker record into
+> someone who can sign into the worker portal. **Most workers have none — they
+> exist as payroll records only.**"*
+
+- **`workers` row with no `user_id`** — **valid and expected.** A labourer on the
+  payroll who never signs in. Two of the three rows here are this, correctly.
+- **`role='worker'` user with no `workers` row** — **always broken.** They can
+  authenticate, the portal refuses them at five call sites, and the tender
+  picker cannot see them. There is no legitimate reading of this state.
+
+So the defect is one-directional. Workforce creating a worker without a login is
+the system working. User Management creating a login without a profile is the
+system minting a role whose every downstream surface requires a row it did not
+create — and `UsersPage.jsx:54` defaults the new-user role to `"worker"`, so
+this is the path of least resistance, not an edge case.
+
+## Two constraints any fix has to clear
+
+1. **`workers` requires `full_name`, `phone` AND `salary`**
+   (`worker.controller.js:106-119`, all `required: true`). User Management
+   collects name, email, password, role — no phone, no salary. Option (a)
+   cannot just call the existing create; it either grows those fields or
+   bypasses the CRUD factory with defaults, and a required `salary` on a
+   forced-created row is a number an admin has to invent.
+2. **The Workforce form has no email field at all** — `WorkersPage.jsx` posts
+   `full_name`, `phone`, `salary`, `role`, `status`. Option (b) means adding
+   credential capture to a payroll form.
+
+Also worth naming, because it will bite whoever implements this:
+**`workers.role` and `users.role` are different things.** `workers.role` is a
+free-text trade ("Worker", "Mason") rendered into the picker option;
+`users.role` is the auth enum. Same word, unrelated domains.
+
+## The options, with trade-offs
+
+**(a) User Management also creates the linked `workers` row.**
+Closes the only always-broken state at its source, and only there.
+*Costs:* must satisfy `phone` + `salary`, so either the admin form grows payroll
+fields it has no business asking for, or rows are created with placeholder
+values that a payroll screen later shows as real. Repairs nothing that already
+exists. Needs duplicating for subcontractors — two implementations of one idea,
+which is how the paths drifted in the first place.
+
+**(b) Workforce optionally creates a login.**
+Matches the domain: the link genuinely is optional, and this is where someone
+who knows the worker is standing. *Costs:* needs email + password on the
+payroll form. **It does not fix the reported bug** — User Management can still
+mint an orphaned worker-role user, which is the exact path that produced both
+orphans in this database. Fixes the half that was never broken.
+
+**(c) Merge the two paths into one.**
+Ends the drift by removing the second path. *Costs:* the two forms collect
+disjoint fields, so the merge is really one form with a conditional credentials
+section — and it would force every payroll-only labourer through a screen built
+around logins. It also merges two audiences: Workforce is a roster the office
+maintains, User Management is admin-and-owner-gated (creating an admin needs
+company ownership). One form now has two permission levels inside it.
+
+**(d) Build the missing primitive: a link operation, shared.** — *recommended*
+The column, the API and both portals already assume a link exists. The only
+thing absent is a way to make one. Concretely:
+
+- Creating a **role-bearing** user in User Management (`worker`,
+  `subcontractor`) requires resolving a profile — **link an existing
+  `workers`/`subcontractors` row, or create one** — before the user is written.
+  Same transaction, so the broken state cannot exist. Roles with no profile
+  concept (`admin`, `manager`) are unaffected.
+- Workforce and Subcontractors each get the inverse: link this record to an
+  existing login, or invite one. Optional, because payroll-only stays valid.
+- One service both call, keyed on role → profile table. The subcontractor case
+  is configuration, not a second implementation.
+- **It is the only option that repairs the four rows already orphaned here.**
+  (a) and (b) fix new writes only.
+
+### The answer to the framing question
+
+"Worker" is **one person with two facets, and the facets are separable** — the
+code already says so: most workers are payroll records with no login, and that
+is correct, not incomplete. So they should not be merged (c), and the
+relationship should not be made mandatory in both directions.
+
+But **`users.role='worker'` is not a facet, it is a claim about a facet** — it
+asserts a portal identity that only a `workers` row can satisfy. That single
+direction should be non-optional, and it is the one nothing enforces.
+
+(a) and (b) each patch one page and leave two paths that can drift again, and
+demonstrably have. With the identical structure confirmed on the subcontractor
+side, patching pages individually means meeting this a third time.
+
+## STOP — awaiting the product decision
+
+No code changed. Next, once chosen: implement, then a Playwright spec under
+`frontend/tests/` asserting a User-Management-created worker appears in the
+tender picker.
