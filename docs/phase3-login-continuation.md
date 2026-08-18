@@ -5848,3 +5848,164 @@ and export the fixture credentials from `backend/.env` first.
    passed its first falsification with an email input on the page, because it
    scoped to `form:first` and the input landed outside it. Falsify every guard,
    and check that the falsification actually reaches it.
+
+---
+
+# The four unexplained failures were three causes, none of them a defect (2026-08-18)
+
+Diagnosed before touching the fixtures, because re-seeding destroys the evidence.
+
+## They were not what I reported
+
+**Correction to the last handoff: I said "2 in a11y". It was 4**, and all four
+are the same cause. Run in isolation, `a11y` fails exactly four times — Worker
+Portal and Subcontractor Portal, mobile and desktop — every one of them on
+`Login failed for the 'worker' / 'subcontractor' fixture`. They were downstream
+of the broken fixtures all along, not accessibility violations.
+
+**Nothing in a11y had ever audited those two portals.** The audits could not run,
+so their passing was never established either way.
+
+## `reset-password` and `forgot-password` — a THIRD limiter
+
+Both pass in isolation. In a full run they fail, and the cause is
+`PASSWORD_RESET_RATE_LIMIT_MAX`, which defaults to **5 requests per hour** and
+is governed by neither `RATE_LIMIT_MAX` nor `AUTH_RATE_LIMIT_MAX`.
+
+`middleware/rateLimiter.js` states it plainly, and the comment is right where a
+reader would want it:
+
+> Defaults are 60 minutes and 5 requests… They became configurable ONLY so a
+> local end-to-end run can exercise the recovery flow more than five times an
+> hour. The limiter is never skipped and there is no IP bypass.
+
+So the machinery for the fix already existed and the documented e2e command
+never used it — the same shape as the `AUTH_RATE_LIMIT_MAX` defect, one line
+further down. `DEPLOYMENT.md` now raises all three.
+
+## Re-seeding the fixtures was safe, and I checked before running it
+
+`createLocalPortalFixtures.js` loads dotenv (`:90`), takes
+`process.env.LOCAL_WORKER_FIXTURE_PASSWORD || generatePassword()` (`:367`), and
+hashes it with `bcrypt.hash(password, 12)` (`:165`). **No truncation, no
+normalisation**, so re-seeding cannot recreate the divergence.
+
+The drift is explained by the shape of the values. `generatePassword()` returns
+`local-` plus 16 base64url bytes — about 22 characters. Both `.env` values are
+8. They were hand-written, and the database held hashes of something the script
+had generated on an earlier run.
+
+Its guard refuses any non-local `DATABASE_URL` host (`:145`); ours is
+`localhost`, so it ran. All three fixtures now authenticate: **200 / 200 / 200**.
+
+## The browser suite, before and after
+
+    before   337 passed,  54 failed
+    after    390 passed,   1 failed
+
+## The last failure is the suite racing itself
+
+Two full runs, one failure each, **a different test each time** — first
+`portals-and-tables › Subcontractor Portal — rejects an admin`, then
+`authenticated › no horizontal overflow › Dashboard @ 375px`. Both pass in
+isolation; the Dashboard one passes 3/3.
+
+The second is a real assertion, not a timeout — *"Dashboard overflows by 16px at
+375px"*. `playwright.config.js` sets `fullyParallel: true`, so specs create rows
+concurrently while the layout assertions measure whatever the database holds at
+that instant. The suite is non-deterministic by construction, at roughly one
+test in 390.
+
+Same signature as the backend flake fixed earlier: **a moving failure is
+contention; a logic regression fails the same test every time.** Recorded, not
+fixed — isolating data per spec or dropping `fullyParallel` is a decision, not a
+cleanup.
+
+---
+
+# `parseInteger` blast radius — measured, nothing changed
+
+Requested as a survey. **No behaviour was changed.**
+
+## Live out-of-range values today: none, beyond the one already fixed
+
+Every numeric value declared in `render.yaml` and `backend/.env.example` is
+inside its bounds. The only instance found anywhere was
+`DEPLOYMENT.md`'s `AUTH_RATE_LIMIT_MAX=100000`, fixed in `ab371d2`. That is a
+complete negative result, and it means this is a latent class rather than an
+active outage.
+
+## Seventeen bounded variables, measured by resolution rather than by reading
+
+I set each variable through `config/env.js` in a child process and recorded what
+came out, rather than parsing the declarations.
+
+**The units trap is total.** Six `*_MS` variables carry `minimum: 1000`, so any
+plausible *seconds* value silently reverts:
+
+    DB_IDLE_TIMEOUT_MS  DB_CONNECTION_TIMEOUT_MS  DB_STATEMENT_TIMEOUT_MS
+    DB_QUERY_TIMEOUT_MS  RATE_LIMIT_WINDOW_MS  PASSWORD_RESET_RATE_LIMIT_WINDOW_MS
+
+Writing `60` meaning a minute gives you the default in all six.
+
+## The dangerous direction is TIGHTENING, and it is nine for nine
+
+Our own bug reverted to something *more* restrictive — it broke tests, it did
+not open a hole. The opposite direction is the one that matters, and every
+tightening attempt below a minimum silently yields a **looser** setting than
+asked for:
+
+| set | intent | got |
+|---|---|---|
+| `RATE_LIMIT_MAX=5` | throttle the API hard | **300** |
+| `AUTH_RATE_LIMIT_MAX=1` | one login attempt | **10** |
+| `PASSWORD_RESET_RATE_LIMIT_MAX=0` | disable password reset | **5/hour** |
+| `MAX_UPLOAD_SIZE_MB=0` | disable uploads | **10 MB** |
+| `RESET_TOKEN_TTL_MINUTES=1` | short-lived token | **60 min** |
+| `DB_STATEMENT_TIMEOUT_MS=500` | half-second cap | **30 s** |
+| `SUPERVISOR_EDIT_WINDOW_DAYS=-1` | disable back-dating | **2 days** |
+| `SUPERVISOR_BANKING_GRACE_DAYS=-1` | no grace day | **1 day** |
+| `DB_POOL_MAX=0` | disable pooling | **15** |
+
+The last two are **entry-window controls** — the §1.13 anti-fraud rule. An
+operator disabling back-dating silently gets the standard window instead, and
+nothing says so.
+
+`RESET_TOKEN_TTL_MINUTES` is worth its own line: it is **30 locally because
+`.env` sets it**, while the code fallback is **60**. `render.yaml` declares no
+such key, so production runs 60-minute reset tokens, and any out-of-range value
+lands on 60 rather than on the 30 a reader of `.env` would expect.
+
+## The decision is yours
+
+Not taken, as asked. The three options, and what each actually costs:
+
+- **Clamp** — an operator asking for 5 gets 10 rather than 300. Still disagrees
+  with them, but always in the safe direction. Cheapest change; silent too.
+- **Throw at boot** — impossible to miss, and turns one typo in a dashboard into
+  a failed deploy. On Render that is an outage, not a warning.
+- **Log and continue** — preserves current behaviour, costs nothing, and is only
+  as good as whoever reads the boot output.
+
+**The cheapest detector, whichever you pick:** `config/env.js` already knows the
+supplied string and the resolved number. One line per variable where they
+disagree, printed at boot, would have caught the rate-limit bug the first time
+anyone started the server — and it is the same shape as the byte gate and the
+freshness assert, so it fits the project's habit of making a claim carry a probe.
+
+---
+
+# Migration set confirmed — 006 and 007, and nothing else
+
+    git diff --name-only main...HEAD -- backend/database/migrations/
+      backend/database/migrations/006_idempotency_keys.sql
+      backend/database/migrations/007_subcontractor_user_link_unique.sql
+      backend/database/migrations/README.md
+
+**Only those two are new relative to `main`.** 001–005 are unchanged on this
+branch, so anything they create is already in production if `main` was ever
+deployed against them. There is no third migration to be discovered mid-deploy.
+
+The invite work needed none: `workers.user_id` and `workers.email` both already
+exist in `002_baseline_supabase.sql`, with the partial unique index
+`ux_workers_user_id`. The role-gap fix was pure application logic.
