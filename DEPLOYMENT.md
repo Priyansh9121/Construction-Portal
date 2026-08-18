@@ -1136,8 +1136,20 @@ Then start the backend with the rate limiter raised:
 
 ```bash
 cd backend
-RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=1000 npm start
+RATE_LIMIT_MAX=100000 \
+AUTH_RATE_LIMIT_MAX=1000 \
+PASSWORD_RESET_RATE_LIMIT_MAX=100000 \
+npm start
 ```
+
+**Three limiters, not two.** `PASSWORD_RESET_RATE_LIMIT_MAX` defaults to **5 per
+hour** and is governed by neither of the other two — `middleware/rateLimiter.js`
+says it "is never skipped and there is no IP bypass", and its own comment states
+it became configurable "ONLY so a local end-to-end run can exercise the recovery
+flow more than five times an hour". Without it the `forgot-password` and
+`reset-password` specs fail once the suite has requested six resets, which a
+full run does easily — and they pass in isolation, so it reads as flakiness
+rather than as a limit.
 
 This is not optional. The suite makes ~150 page loads; at the default limit
 the backend starts returning 429 partway through, the registers render
