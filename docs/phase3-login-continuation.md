@@ -5748,3 +5748,103 @@ rather than closed.
 
 Run `deploy_parity.mjs --only prod` and confirm production matches local. That
 is the evidence the merge worked.
+
+---
+
+# HANDOFF — Task 1 done; Task 2 blocked at the gate, not at the merge (2026-08-18)
+
+**Branch** `redesign/ui-foundation`. **Tree clean.** Six commits this session.
+
+## Done
+
+1. ✅ **BUG-002's second door closed** — creation keyed on `users.role`, admission
+   on `users.role` OR `company_users.role`. `resolveEffectiveProfileRole` states
+   the rule once; both creation and the repair endpoint use it. Six of seven new
+   tests watched failing first.
+2. ✅ **Workforce → invite a login** — a row action, admin only, temporary
+   password, `users.email` only. **No backend was added**: the endpoint already
+   accepted `profile: { mode: "link", id }`.
+3. ✅ **The audit-test race** — `companyAudit` read `activity_logs` once,
+   immediately after a fire-and-forget write. Eight clean runs after polling,
+   and `activityLog.test.js` already had the polling helper.
+4. ✅ **`DEPLOYMENT.md`'s e2e rate-limit command** — did the opposite of what it
+   said. See its own commit.
+
+## The merge is NOT blocked on code
+
+Backend **281 tests, 8 consecutive clean runs.** Lint and build clean both
+sides. CSP still carries `wasm-unsafe-eval`. Migrations 006 and 007 are present.
+
+It is blocked on two things, both yours:
+
+### 1. Migrations 006 and 007 on the production database
+
+I have not touched a production database and will not without being asked. They
+are forward-only with no down steps, so **take a dump first**. 007 refuses if
+duplicates exist and names them — that refusal is the safe outcome.
+
+**Order matters.** Merging to `main` triggers the deploy. If the deploy lands
+before the migrations, production runs new code against an old schema. Apply the
+migrations first, or with the deploy — not after.
+
+### 2. Two local portal fixtures whose passwords no longer match
+
+Not a merge blocker for correctness, but it means **~50 portal tests cannot run
+here**, so the gate is partial.
+
+    ADMIN  login: 200
+    WORKER login: 400   "Invalid email or password."
+    SUB    login: 400   "Invalid email or password."
+
+All three users exist and are active (ids 1688/1689/1690). The stored hashes for
+the worker and subcontractor fixtures do not match `LOCAL_WORKER_FIXTURE_PASSWORD`
+and `LOCAL_SUBCONTRACTOR_FIXTURE_PASSWORD` in `backend/.env`.
+`backend/scripts/createLocalPortalFixtures.js` re-seeds them — that overwrites
+two accounts' passwords, so it is your call, not mine.
+
+## Current browser-suite state, honestly
+
+With the corrected rate limit and the admin fixture working:
+
+    337 passed, 54 failed
+
+Of the 54: **50 in `portals-and-tables.spec.js`**, all downstream of the two
+fixture logins above. The remaining four are 2 in `a11y`, 1 in
+`reset-password`, 1 in `forgot-password` — **not yet diagnosed**, and they
+should be before the merge, because they are the only failures not explained by
+the fixture problem.
+
+Run the API this way, or the numbers mean nothing:
+
+```bash
+cd backend
+RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=1000 npm start   # NOT 100000
+```
+
+and export the fixture credentials from `backend/.env` first.
+
+## Still open from before
+
+- **SMTP.** If unset on Render, forgot-password has been silently failing for
+  every real user — `sendMail` returns `{sent:false, logged:true}` and never
+  throws, and `checkMailConnection` has no call site. See the pre-merge
+  checklist above.
+- **Phase E** routes ordered against `business-rules-gap.md`; **Phase F**, and a
+  world-vision brief that must not start before the merge lands.
+
+## Traps, now six
+
+1. The API on `:5051` can be days old — `assertServerFresh()` catches it.
+2. A green suite is not evidence a path is exercised.
+3. A foreground Bash command dies with its process group at the 2-minute tool
+   timeout. Use `nohup … &`.
+4. **A comment is not evidence, and neither is a passing check.** Now six,
+   the newest two being `DEPLOYMENT.md`'s rate-limit command and
+   `auth.routes.js`'s passwordless-invite docstring, which describes a flow
+   `validatePassword` refutes on the next line.
+5. **A fix can be half a fix.** Check whether what you fixed is the whole
+   mechanism.
+6. **A guard that watches one container is not a guard.** The Workforce keeper
+   passed its first falsification with an email input on the page, because it
+   scoped to `form:first` and the input landed outside it. Falsify every guard,
+   and check that the falsification actually reaches it.
