@@ -6214,3 +6214,105 @@ not happened either, so one pass fixes both.
 It also sets an acceptance bar that costs nothing to check: a migrated route
 that does not audit clean has diverged from the system, and that is worth
 knowing at the time rather than at the end.
+
+---
+
+# HANDOFF — everything pre-merge is done; the merge waits on you (2026-08-18)
+
+**Branch** `redesign/ui-foundation`. **Tree clean.** Twelve commits this session.
+
+    backend   281 tests, 19 files, green
+    browser   390 passed / 1 failed (the known parallel race)
+    a11y      44 / 44, zero exceptions
+    lint + build   clean both sides
+
+## The merge is blocked on exactly one thing, and it is yours
+
+Migrations **006** and **007** on the production database. Nothing else is
+outstanding. Confirmed this session that they are the only two new relative to
+`main` — `git diff --name-only main...HEAD -- backend/database/migrations/`
+returns those two and the README, so there is no third to be discovered
+mid-deploy.
+
+**Order matters:** merging triggers the deploy, and new code against an old
+schema is the failure mode. Migrations first or with the deploy, never after.
+Forward-only, no down steps, so take a dump. 007 refuses if duplicates exist and
+names them; that refusal is the safe outcome.
+
+When you say they are applied, the merge proceeds. Afterwards, run
+`deploy_parity.mjs --only prod` — that is the evidence it worked. Expect
+`expectedWidth` to change from 22.6 to 22; production currently passes its scale
+check by coincidence.
+
+## Done this session
+
+1. ✅ **BUG-002's second door** — creation keyed on `users.role`, admission on
+   `users.role` OR `company_users.role`. One rule, both paths, seven tests.
+2. ✅ **Workforce → invite a login** — a row action reusing an endpoint that
+   already existed. No backend added, no migration needed.
+3. ✅ **The audit-test race** — a fire-and-forget write read once. The polling
+   helper already existed one file over.
+4. ✅ **`DEPLOYMENT.md`'s e2e command** — `AUTH_RATE_LIMIT_MAX=100000` silently
+   became 10. And a **third limiter** it never raised at all,
+   `PASSWORD_RESET_RATE_LIMIT_MAX`, default 5/hour.
+5. ✅ **The four "unexplained" failures** — none was a defect. Four a11y (not
+   two; my count was wrong) were fixture logins, two were that third limiter.
+6. ✅ **Portal fixtures re-seeded** after checking the script could not recreate
+   the drift. 337/54 → 390/1.
+7. ✅ **`parseInteger` clamps and reports**, with the detector at boot.
+8. ✅ **`RESET_TOKEN_TTL_MINUTES=30` in render.yaml** — production was silently
+   running 60.
+9. ✅ **Portal a11y audits run for the first time** — clean.
+
+## Where to pick up, in order
+
+1. **The merge**, on your word.
+2. **Phase E — routes.** Order against `docs/business-rules-gap.md` as the
+   primary axis. Then use the a11y sweep as a nearly free second axis: run it
+   across all 22 routes and the failures mark what is still unmigrated. Routes
+   behind on both are the strongest first candidates. `route_inventory.py` and
+   `css_inventory.py` already exist — `css_inventory.py` also settles the three
+   coexisting style generations, which is migration residue that may still ship.
+3. **Phase F / `docs/world-vision-brief.md`** — brief only, no Blender work, and
+   not before the merge lands. The world is already further ahead than users can
+   see; that is the problem, not the goal.
+4. **The post-merge list** above — the 17 safe-direction annotations, the
+   browser-suite race, and `checkMailConnection`'s missing call site.
+
+## Still unresolved and not mine to close
+
+**SMTP on Render.** If unset, forgot-password has been silently failing for
+every real user — `sendMail` returns `{ sent: false, logged: true }` and never
+throws. With `RESET_TOKEN_TTL_MINUTES` now declared at 30 the tokens are shorter,
+but while SMTP is unset they still go to the service log rather than to a
+mailbox. Worth answering before or soon after the merge.
+
+## How to run anything here
+
+```bash
+cd backend
+RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=1000 \
+PASSWORD_RESET_RATE_LIMIT_MAX=100000 nohup npm start > /tmp/api.log 2>&1 &
+```
+
+Three limiters, not two, and **`AUTH_RATE_LIMIT_MAX` must not exceed 1000**.
+Verify with the policy header — it must read `1000;w=900`, and the boot log now
+prints a line for anything it had to adjust. Export the fixture credentials from
+`backend/.env` before any browser spec.
+
+## Traps, now seven
+
+1. The API on `:5051` can be days old — `assertServerFresh()` catches it.
+2. A green suite is not evidence a path is exercised.
+3. A foreground Bash command dies with its process group at the tool timeout.
+   Use `nohup … &`.
+4. **A comment is not evidence, and neither is a passing check.** Seven now. The
+   newest: `parseInteger`'s own docstring claiming a bad value "is refused here
+   rather than producing a confusing failure later" — it was swallowed, not
+   refused.
+5. **A fix can be half a fix.**
+6. **A guard that watches one container is not a guard.**
+7. **A rule that is true can still be applied to the wrong thing.** "Clamping
+   moves toward intent" was true; "toward intent is safe" was the claim actually
+   being relied on, and one measurement separated them. When a rule is about to
+   drive a change, check which claim you are leaning on.
