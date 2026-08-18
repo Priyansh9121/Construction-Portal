@@ -1413,6 +1413,15 @@ const createCompanyUser =
             companyId:
               parsedCompanyId,
             role: userRole,
+            /*
+             * BOTH roles, because admission reads both. The worker portal
+             * admits on users.role OR company_users.role, so passing only
+             * users.role here let { role: "manager", company_role: "worker" }
+             * create a login with no register row that the portal still let
+             * in — BUG-002 through a second door.
+             */
+            companyRole:
+              membershipRole,
             profile,
           });
 

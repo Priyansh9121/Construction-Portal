@@ -111,6 +111,7 @@ const {
 
 const {
   PROFILE_FOR_ROLE,
+  resolveEffectiveProfileRole,
   resolveProfilePlan,
   applyProfilePlan,
 } = require("./profileLink.service");
@@ -855,7 +856,7 @@ exports.linkUserProfile = async (
         const target =
           await client.query(
             `
-            SELECT u.id, u.role
+            SELECT u.id, u.role, cu.role AS company_role
             FROM public.company_users cu
             INNER JOIN public.users u
               ON u.id = cu.user_id
@@ -878,11 +879,25 @@ exports.linkUserProfile = async (
           throw error;
         }
 
-        const role =
-          target.rows[0].role;
+        /*
+         * Judged with BOTH roles, the way admission and creation now judge it.
+         *
+         * This endpoint is the repair path, and keying on users.role alone
+         * made it useless against precisely the account that most needed
+         * repairing: a { role: "manager", company_role: "worker" } login
+         * reaches the worker portal, has no register row, and used to be told
+         * "That role does not use a register record." The one state the
+         * endpoint exists to fix was the one state it refused.
+         */
+        const effective =
+          resolveEffectiveProfileRole({
+            role: target.rows[0].role,
+            companyRole:
+              target.rows[0].company_role,
+          });
 
-        const config =
-          PROFILE_FOR_ROLE[role];
+        const role = effective?.role;
+        const config = effective?.config;
 
         if (!config) {
           const error = new Error(

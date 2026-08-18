@@ -136,6 +136,66 @@ const fail = (statusCode, message) => {
 };
 
 /**
+ * Which profile config a login needs, judged the way ADMISSION judges it.
+ *
+ * Purpose:
+ * Creation and admission used to disagree, and the disagreement was a hole
+ * straight back into BUG-002.
+ *
+ * `resolveProfilePlan` keyed on `users.role` alone. The worker portal admits
+ * on `users.role` OR `company_users.role` — roleMiddleware's `source: "either"`
+ * (middleware/roleMiddleware.js:249-254). So:
+ *
+ *     POST /api/auth/users { role: "manager", company_role: "worker" }
+ *
+ * produced a login with NO workers row — `manager` is absent from
+ * PROFILE_FOR_ROLE, so the plan came back null and nothing was required — and
+ * that login then PASSED the worker-portal role gate on its company_role and
+ * landed on the exact "No worker profile is linked to this login user." 404
+ * the primitive exists to make impossible. The repair endpoint could not fix it
+ * either: it keyed on `users.role` too and answered 400 "That role does not use
+ * a register record."
+ *
+ * The rule is that the two must agree. If EITHER role is a profile-bearing
+ * role, a profile is required — which is the same "either" the gate applies,
+ * expressed once so the two cannot drift apart again.
+ *
+ * A login is refused when the two name DIFFERENT registers. `role: "worker"`
+ * with `company_role: "subcontractor"` is not a request with an obvious
+ * reading, and guessing which register wins is how a login ends up attached to
+ * the wrong one.
+ *
+ * Parameters:
+ * role        - users.role
+ * companyRole - company_users.role; optional, defaults to `role` the same way
+ *               createCompanyUser does
+ *
+ * Returns:
+ * { role, config } for a profile-bearing login, or null when neither role uses
+ * a register — admin and manager, unchanged.
+ *
+ * Throws:
+ * 400 when the two roles name different registers.
+ */
+const resolveEffectiveProfileRole = ({ role, companyRole }) => {
+  const userConfig = PROFILE_FOR_ROLE[role];
+  const companyConfig = companyRole ? PROFILE_FOR_ROLE[companyRole] : undefined;
+
+  if (userConfig && companyConfig && userConfig.table !== companyConfig.table) {
+    fail(
+      400,
+      `A login cannot be both a ${userConfig.label} and a ${companyConfig.label}. `
+        + "Set the account role and the company role to the same thing."
+    );
+  }
+
+  if (userConfig) return { role, config: userConfig };
+  if (companyConfig) return { role: companyRole, config: companyConfig };
+
+  return null;
+};
+
+/**
  * Decides what profile work a new user needs, without doing any of it.
  *
  * Purpose:
@@ -181,17 +241,25 @@ const resolveProfilePlan = async ({
   client,
   companyId,
   role,
+  companyRole,
   profile,
 }) => {
-  const config = PROFILE_FOR_ROLE[role];
+  /*
+   * Judged the way admission judges it — see resolveEffectiveProfileRole.
+   * Keying on `role` alone here is what let a manager/worker split create an
+   * unlinked login that the portal still admitted.
+   */
+  const effective = resolveEffectiveProfileRole({ role, companyRole });
 
   /*
-   * The role has no profile concept. Not an error — this is admin and
+   * Neither role has a profile concept. Not an error — this is admin and
    * manager taking the path they always took.
    */
-  if (!config) {
+  if (!effective) {
     return null;
   }
+
+  const { config } = effective;
 
   if (!profile || typeof profile !== "object") {
     return fail(
@@ -383,6 +451,12 @@ const applyProfilePlan = async ({
 
 module.exports = {
   PROFILE_FOR_ROLE,
+  /*
+   * Exported so the repair endpoint judges a role the same way creation does.
+   * Two copies of this rule is how creation and admission drifted apart in the
+   * first place.
+   */
+  resolveEffectiveProfileRole,
   resolveProfilePlan,
   applyProfilePlan,
 };
