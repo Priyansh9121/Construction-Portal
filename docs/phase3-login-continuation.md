@@ -6110,3 +6110,107 @@ nothing is filtered out: this is a clean axe run against `wcag2a`, `wcag2aa`,
 The two screens field roles reach on phones are accessible. **Nothing fixed,
 because nothing needed fixing** — the answer to "we do not know" turned out to
 be "they are fine".
+
+---
+
+# RULE — safety has a direction per variable, and the parser cannot infer it
+
+Recorded as a rule rather than as a note on one setting, because the general
+form is what matters and the specific case only happened to expose it.
+
+**A bounded setting has a safe direction. It is a property of what the setting
+means, not of the range, and it is not derivable from which bound was crossed.**
+
+The proof is that two halves of a single rate limiter point opposite ways:
+
+| setting | safe direction | why |
+|---|---|---|
+| `RATE_LIMIT_MAX` | **low** | fewer requests allowed is more restrictive |
+| `RATE_LIMIT_WINDOW_MS` | **high** | a longer window means fewer resets of the counter |
+
+Same limiter. Same operator. Opposite directions. So a parser that clamps to the
+nearest bound is guessing, and it will guess wrong roughly half the time — as
+`PASSWORD_RESET_RATE_LIMIT_WINDOW_MS=10` did, landing on 1000 ms and turning an
+intended 5 resets an hour into 18,000.
+
+The corollary that matters when reading code: **"clamping moves toward intent"
+is true, and "toward intent is safe" is a different claim that does not follow.**
+The first is about the operator, the second about the system. They were conflated
+in the original decision — mine to record, since the measurement that separated
+them was mine to take.
+
+Two consequences for anyone extending this:
+
+1. A new bounded setting must state its safe direction where it is declared, not
+   leave it to the parser.
+2. Anywhere the safe direction is unknown, `outOfRange: "fallback"` is the
+   correct choice, because a default someone deliberately chose beats a bound
+   the parser picked.
+
+---
+
+# POST-MERGE LIST
+
+Not pre-merge. These are correct changes that do not need to gate a deploy.
+
+## 1. Declare the safe direction for all 17 bounded settings
+
+`config/env.js` currently clamps to the nearest bound for 15 of them and falls
+back for the 2 password-reset limiter settings, which are the only ones whose
+direction has been established.
+
+**The work is not "what are the bounds" — the bounds are already written and
+correct. It is "which direction is safe here", one judgement per setting**, and
+it needs someone who knows what each one does at runtime. `RATE_LIMIT_MAX` and
+`RATE_LIMIT_WINDOW_MS` above are the worked example; the timeouts, the pool
+sizes, the upload ceiling and the two entry-window controls each need the same
+call. The parser already supports it — `outOfRange` takes `"clamp"` or
+`"fallback"`, and a third mode naming the safe bound would be a small addition.
+
+Until then the boot report is the mitigation: every adjustment is visible, so a
+wrong guess announces itself rather than hiding.
+
+## 2. The browser suite races itself
+
+One failure per full run, a different test each time, all passing in isolation.
+`fullyParallel: true` with specs creating rows while layout assertions measure
+the database. Either isolate data per spec or drop `fullyParallel`; both are
+decisions, not cleanups.
+
+## 3. `checkMailConnection` has no call site
+
+Exported, fully implemented, never called. Four separate comments claim the
+guard exists. Calling it at boot would make SMTP misconfiguration visible the
+same way the env report now makes range violations visible.
+
+---
+
+# What the portal a11y result is actually evidence of
+
+Worth separating from "those two screens are fine", which is the least
+interesting reading.
+
+**Both portals were built during the redesign, and both audited clean on first
+sight — 44/44 across the sweep, `DOCUMENTED_EXCEPTIONS` empty, zero rules
+disabled, at both mobile and desktop.** Nothing was fixed to get there and
+nothing had ever been measured, so this is not the result of iteration against
+the audit. It is the design system's output being accessible by default.
+
+**That is a signal about the system, not about the screens**, and it makes a
+prediction Phase E can use: **migrated routes should audit clean, and unmigrated
+ones may not.** The a11y sweep is therefore a cheap probe for migration
+progress, not only for accessibility — a route that fails it is likely still on
+the old generation, and a route that passes has probably already been through
+the system.
+
+**Consequence for Phase E's ordering.** The gap list from Phase A ranks routes by
+missing business rules, which stays the primary order. But the a11y sweep gives
+a second, nearly free axis: run it across all 22 routes first and the failures
+mark which are still unmigrated. Routes that are both rule-incomplete *and*
+audit-failing are the strongest candidates to take first — they are behind on
+both axes, and the accessibility failure is evidence the visual migration has
+not happened either, so one pass fixes both.
+
+It also sets an acceptance bar that costs nothing to check: a migrated route
+that does not audit clean has diverged from the system, and that is worth
+knowing at the time rather than at the end.
