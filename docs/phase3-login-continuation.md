@@ -5601,3 +5601,150 @@ scale — skip that and every dimension comes out about 65,000× too large.
 6. **A session can die between the work and the record.** Four commits had
    landed cleanly when the API dropped; only the handoff was lost. Write the
    handoff in its own commit as soon as a unit closes, rather than batching it.
+
+---
+
+# Workforce → invite a login, and BUG-002's second door (2026-08-18)
+
+Two commits. The gap fix goes first because the invite would otherwise ship on
+top of a hole in the thing it reuses.
+
+## The invite needed no backend
+
+`POST /api/auth/users` already accepts `profile: { mode: "link", id }` and
+forwards it untouched into `createCompanyUser`'s single `withTransaction`. The
+users row, the `company_users` membership and the UPDATE setting
+`workers.user_id` commit or roll back together, and every safety property is
+already there: `SELECT ... FOR UPDATE`, the `rowCount === 1` guard, a
+company-scoped lookup that cannot reach another tenant's register, and a 409
+when the record already has a login.
+
+So this is a row action and a role check. **Inventory before you build, again.**
+
+`workers.user_id` and `workers.email` both already exist with the right shape,
+so no migration was needed either.
+
+## BUG-002 was still reachable, by a second door
+
+Creation keyed on `users.role` alone. Admission keys on `users.role` **OR**
+`company_users.role` — `roleMiddleware`'s `source: "either"`.
+
+    POST /api/auth/users { role: "manager", company_role: "worker" }
+
+`manager` is absent from `PROFILE_FOR_ROLE`, so `resolveProfilePlan` returned
+null, nothing was required, and the resulting login had **no workers row** — yet
+it passed the worker-portal gate on its `company_role` and hit the exact
+*"No worker profile is linked to this login user."* 404. The repair endpoint
+could not fix it either: `linkUserProfile` keyed on `users.role` too, so the one
+state it exists to repair was the one state it refused, with *"That role does
+not use a register record."*
+
+`resolveEffectiveProfileRole` now states the rule once and both paths use it. A
+login naming two different registers is refused rather than guessed at. No
+existing caller changes behaviour — `createCompanyUser` already computes
+`membershipRole` as `companyRole || userRole`, and the test helper sends no
+`company_role` at all.
+
+I watched six of seven new tests fail without the fix. The one proving no users
+row survives the refusal returned **201** without it, creating the unlinked
+login — the defect, reproduced.
+
+## The email decision was reversed by a measurement
+
+The first recommendation was to write the address to both `users.email` and
+`workers.email`. `PUT /api/workers/:id` builds its UPDATE with `COALESCE`, so a
+value written there can be **set and never cleared** through the API. A
+duplicated address with no way back is worse than the drift it was guarding
+against, so the invite writes `users.email` only. The reasoning is recorded in
+the component, because the column exists and is in the allow-list, which makes
+"nobody writes it" look like an oversight rather than a decision.
+
+*An answered question can be reopened by a measurement.* That is narrower than
+treating decisions as provisional, and it is the rule.
+
+## A guard I could not make fail, and what that meant
+
+The keeper — *"the Workforce screen must never ask for an email or a password"*
+— passed on its first falsification attempt while an email input was sitting on
+the page. It scoped to `form:first` and the injected input landed outside that
+element. **A guard that watches one container is not a guard**, because the
+regression it exists to catch has no obligation to appear where the test is
+looking. Scoped to the page, it fails correctly.
+
+Every other new guard was watched failing before it was trusted.
+
+## A flake I caused, and fixed
+
+The repair test hand-writes a state the API now refuses to produce, by SQL. The
+suite runs **serially in one fork against one schema** (`vitest.config.mjs`:
+`fileParallelism: false`, `singleFork: true`), so a row left deliberately
+malformed is a row every later file inherits. Two of six full runs failed — in
+`portals`/`masters` once, `companyAudit` once, `roleSeparation` once, a
+different file each time, and never in isolation. Restoring the row at the end
+of the test: four consecutive clean runs.
+
+The moving target is the tell. A logic regression fails the same test every
+time; order-dependent shared state fails whichever test happens to look next.
+
+---
+
+# PRE-MERGE CHECKLIST — Phase D
+
+## 1. SMTP, and a question bigger than the invite
+
+**Unresolved, and it is not about the invite.** If SMTP is unset on the deployed
+Render service, **forgot-password has been silently failing for every real
+user** for as long as it has been live.
+
+The mechanism, measured:
+
+- `mailer.js` — `isConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASSWORD)`.
+- With no transport, `sendMail` **console-logs and returns
+  `{ sent: false, logged: true }`. It does not throw.** No caller can detect
+  non-delivery.
+- `checkMailConnection` exists, is exported, and **has no call site**. The only
+  startup probe in `server.js` is `checkDatabaseConnection()`.
+- `render.yaml` declares `SMTP_HOST`/`USER`/`PASSWORD`/`MAIL_FROM` as
+  `sync: false`, so the values live only in the Render dashboard.
+  `DEPLOYMENT.md` marks them **not required**.
+
+The reset flow itself is sound — 32-byte token, SHA-256 digest stored, 30-minute
+expiry locally (`RESET_TOKEN_TTL_MINUTES=30` in `.env`; the code default is
+**60**, and `render.yaml` declares no such key, so production is on 60 unless
+set), single-use enforced in the same UPDATE that matches it. The delivery is
+the only broken part, and it is broken silently.
+
+- [ ] Confirm SMTP is set in the Render dashboard.
+- [ ] If it is not: forgot-password is non-functional in production. Decide
+      whether that is fixed before or with this merge.
+- [ ] Either way, call `checkMailConnection()` at boot so the guard four
+      separate comments already claim exists becomes real.
+
+## 2. Migrations 006 and 007, in that order
+
+Forward-only, no down steps. **Take a dump first.** 007 refuses to run if
+duplicates exist and names them — that refusal is the safe outcome, not a
+failure to work around.
+
+## 3. CSP still carries `wasm-unsafe-eval`
+
+`frontend/vercel.json`. The layers are meshopt-compressed and the decoder is
+WebAssembly; without that token every layer returns 200 and then fails to
+decode. `csp_repro.mjs --old` reproduces the incident on demand.
+
+## 4. Expect `expectedWidth` to change from 22.6 to 22
+
+Production currently passes its scale check by coincidence. Deliberate, not a
+regression — see the delivery-gate entry above.
+
+## 5. Watch item, unexplained
+
+One full-suite failure was observed before the flake above was identified and
+may not be the same thing: `portals` and `masters` failed together in a run
+whose successor was clean. Not reproduced in eleven subsequent runs. Recorded
+rather than closed.
+
+## 6. After deploying
+
+Run `deploy_parity.mjs --only prod` and confirm production matches local. That
+is the evidence the merge worked.
