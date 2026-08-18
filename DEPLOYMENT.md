@@ -1136,12 +1136,30 @@ Then start the backend with the rate limiter raised:
 
 ```bash
 cd backend
-RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=100000 npm start
+RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=1000 npm start
 ```
 
 This is not optional. The suite makes ~150 page loads; at the default limit
 the backend starts returning 429 partway through, the registers render
 empty, and the layout assertions silently stop measuring anything real.
+
+**`AUTH_RATE_LIMIT_MAX` must not exceed 1000.** This line used to read
+`AUTH_RATE_LIMIT_MAX=100000` and that silently did the OPPOSITE of what it
+says. `config/env.js` bounds it to `{ minimum: 3, maximum: 1000 }`, and
+`parseInteger` returns the FALLBACK for an out-of-range value rather than
+clamping it — so `100000` resolved to the default of **10**, the most
+restrictive setting available, and the suite hit the 429 storm this paragraph
+exists to prevent. `RATE_LIMIT_MAX=100000` is fine; its maximum is 100000.
+
+To check rather than trust it, read the policy header the API returns:
+
+```bash
+curl -si -X POST http://localhost:5051/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"email":"x","password":"y"}' \
+  | grep -i ratelimit-policy
+# RateLimit-Policy: 1000;w=900   <- the raised limit is in force
+# RateLimit-Policy: 10;w=900     <- it is NOT; the value fell back
+```
 
 ### Safety
 
