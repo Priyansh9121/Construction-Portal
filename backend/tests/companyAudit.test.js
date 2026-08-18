@@ -38,19 +38,46 @@ let company;
 let member;
 let memberUserId;
 
-const logsFor = async (companyId, module) => {
-  const result = await pool.query(
-    `
-    SELECT module, action, user_id
-    FROM activity_logs
-    WHERE company_id = $1
-      AND module = $2
-    ORDER BY id DESC
-    `,
-    [companyId, module]
-  );
+/*
+ * THE AUDIT WRITE IS FIRE-AND-FORGET, SO READING ONCE IS A RACE.
+ *
+ * utils/activityLog.js:73 — "Calls are fire-and-forget by default. The caller
+ * does not await" — and :319 notes the promise is "returned only so tests can
+ * await the write". The route hooks res.json, so the HTTP response lands
+ * BEFORE the activity_logs INSERT has necessarily committed.
+ *
+ * Reading immediately after the response therefore passes or fails on timing.
+ * It failed roughly one full-suite run in four, always in whichever audit test
+ * happened to lose, never in isolation, and never the same test twice — the
+ * signature of a race rather than a regression.
+ *
+ * Polling is the honest fix here rather than making the product await the
+ * write: fire-and-forget is a deliberate design choice, so an audit row is
+ * guaranteed to arrive, not guaranteed to have arrived. The test asserts the
+ * former. The timeout is short enough that a genuinely missing row still fails
+ * the suite promptly.
+ */
+const logsFor = async (companyId, module, { expectRows = true } = {}) => {
+  const deadline = Date.now() + 5000;
 
-  return result.rows;
+  for (;;) {
+    const result = await pool.query(
+      `
+      SELECT module, action, user_id
+      FROM activity_logs
+      WHERE company_id = $1
+        AND module = $2
+      ORDER BY id DESC
+      `,
+      [companyId, module]
+    );
+
+    if (result.rows.length > 0 || !expectRows || Date.now() > deadline) {
+      return result.rows;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
 };
 
 beforeAll(async () => {
