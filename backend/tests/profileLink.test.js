@@ -267,6 +267,72 @@ describe("link-existing is the primary path", () => {
     expect(res.body.message).toMatch(/already has a login/i);
   });
 
+  /*
+   * THE ROLLBACK THAT IS ACTUALLY A ROLLBACK.
+   *
+   * "writes no users row when the profile is refused" above proves nothing
+   * about ROLLBACK, and its own comment says so: on the no-profile path
+   * resolveProfilePlan throws BEFORE createBaseUser runs, so the users row was
+   * never inserted and the test cannot distinguish "rolled back" from "never
+   * written".
+   *
+   * This one can. Linking an already-linked record fails inside
+   * applyProfilePlan, which runs AFTER the users row exists — so the account
+   * has been created and hashed by the time the refusal happens, and only
+   * withTransaction's ROLLBACK removes it. If the primitive were ever given
+   * its own connection, or a caller forgot the transaction, this is the test
+   * that notices: the 409 would still be returned, and an orphan login would
+   * be left behind holding the email address.
+   */
+  it("leaves no orphan login behind when the link is refused", async () => {
+    const address = email("orphan-check");
+
+    const res = await createUser({
+      full_name: "Orphan Check",
+      email: address,
+      role: "worker",
+      profile: {
+        mode: "link",
+        id: payrollWorkerId,
+      },
+    });
+
+    expect(res.status).toBe(409);
+
+    const found = await pool.query(
+      "SELECT id FROM public.users WHERE email = $1",
+      [address]
+    );
+
+    expect(found.rows).toHaveLength(0);
+  });
+
+  /* The address must be genuinely free afterwards, not merely absent — a
+   * half-rolled-back row would surface here as a 409 on a fresh worker. */
+  it("frees the email address the refused attempt used", async () => {
+    const address = email("reusable");
+
+    await createUser({
+      full_name: "Reusable",
+      email: address,
+      role: "worker",
+      profile: { mode: "link", id: payrollWorkerId },
+    });
+
+    const second = await createUser({
+      full_name: "Reusable",
+      email: address,
+      role: "worker",
+      profile: {
+        mode: "create",
+        full_name: "Reusable",
+        phone: "9800000044",
+      },
+    });
+
+    expect(second.status).toBe(201);
+  });
+
   it("reports an unknown record as not found", async () => {
     const res = await createUser({
       full_name: "Ghost Link",
@@ -484,6 +550,18 @@ describe("the company role cannot smuggle a profile-bearing login past the gate"
     );
 
     expect(linked.rows).toHaveLength(1);
+
+    /*
+     * Put it back. The suite runs serially in ONE fork against ONE schema
+     * (vitest.config.mjs: fileParallelism false, singleFork true), so a row
+     * this test leaves in a deliberately malformed state is a row every later
+     * file inherits. A test that hand-writes a state the API refuses to
+     * produce owes the rest of the suite its cleanup.
+     */
+    await pool.query(
+      "UPDATE public.company_users SET role = 'manager' WHERE user_id = $1",
+      [userId]
+    );
   });
 
   /* admin and manager together must still be untouched by all of the above. */
