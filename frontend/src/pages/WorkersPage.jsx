@@ -39,6 +39,7 @@ import { formatCurrency } from "../utils/currency";
 
 import { useAuth } from "../contexts/authContext";
 import ResponsiveTable from "../components/ui/ResponsiveTable";
+import InviteLoginModal from "../components/workers/InviteLoginModal";
 
 const EMPTY_EDIT_FORM = {
   full_name: "",
@@ -68,6 +69,32 @@ function WorkersPage({
     deleteTarget,
     setDeleteTarget,
   ] = useState(null);
+
+  /*
+   * The worker being given a portal login, or null.
+   *
+   * Deliberately NOT part of the create form. A payroll worker with no login
+   * is a normal, supported state — see the payroll-only tests — so issuing
+   * credentials is a separate action someone chooses, never a step in creating
+   * a worker. Keeping it out of the form is what makes the optionality
+   * structural rather than a flag somebody can later make required.
+   */
+  const [
+    inviteTarget,
+    setInviteTarget,
+  ] = useState(null);
+
+  /*
+   * Admin only, matching POST /api/auth/users, which is gated on
+   * requireAdministrator. /api/workers admits managers too, so a manager can
+   * create the payroll record but cannot issue its credentials. Hiding the
+   * control keeps a manager from meeting a 403 they can do nothing about; the
+   * server's gate is still the one that decides.
+   */
+  const canIssueLogin =
+    String(user?.role || "")
+      .trim()
+      .toLowerCase() === "admin";
 
   const [
     editingWorker,
@@ -1143,6 +1170,29 @@ function WorkersPage({
                           Edit
                         </button>
 
+                        {/*
+                          * Offered only when it can succeed. A worker who
+                          * already has a login can only ever get a 409 from
+                          * this, so the action is absent rather than broken.
+                          */}
+                        {canIssueLogin &&
+                          !worker.user_id && (
+                            <button
+                              type="button"
+                              className="invite-login-btn"
+                              onClick={() =>
+                                setInviteTarget(
+                                  worker
+                                )
+                              }
+                              disabled={
+                                isBusy
+                              }
+                            >
+                              Invite login
+                            </button>
+                          )}
+
                         <button
                           type="button"
                           className="delete-btn"
@@ -1220,6 +1270,20 @@ function WorkersPage({
         }
         loading={deleting}
       />
+
+      {inviteTarget && (
+        <InviteLoginModal
+          worker={inviteTarget}
+          onClose={() =>
+            setInviteTarget(null)
+          }
+          /*
+           * Refetch so the row picks up its new user_id and stops offering an
+           * action that can now only 409.
+           */
+          onInvited={fetchWorkers}
+        />
+      )}
     </>
   );
 }

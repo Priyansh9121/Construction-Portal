@@ -351,3 +351,211 @@ test.describe("the User Management form asks for the record", () => {
     ).toHaveCount(1);
   });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Workforce -> invite a login
+|--------------------------------------------------------------------------
+|
+| The inverse direction. User Management creates a login and finds it a
+| register row; this takes a register row that already exists and gives it a
+| login. Same primitive, second caller — POST /api/auth/users with
+| `profile: { mode: "link", id }` — so there is no second implementation to
+| keep in step, which is the whole reason BUG-002 was possible.
+|
+| The keeper in this block is the FORM test. Every other guarantee here is
+| about the feature working; that one is about the feature not costing
+| anything, and it is the one that fails the moment somebody makes email or a
+| password compulsory on the payroll form.
+|
+*/
+test.describe("Workforce can issue a login for a worker that already exists", () => {
+  test("a payroll worker can be given a login afterwards", async () => {
+    const name = `${RUN} Invite Me`;
+
+    const created = await api.post(`${API_URL}/api/workers`, {
+      headers: authed(),
+      data: {
+        full_name: name,
+        phone: "9800000110",
+        salary: 1200,
+        role: "Carpenter",
+        status: "active",
+      },
+    });
+
+    expect(created.status()).toBeLessThan(400);
+
+    const createdBody = await created.json();
+    const workerId = createdBody.worker?.id ?? createdBody.data?.id;
+
+    const invited = await api.post(`${API_URL}/api/auth/users`, {
+      headers: authed(),
+      data: {
+        full_name: name,
+        email: `${RUN}-invite@profilelink.test.local`,
+        password: "TestPass123!",
+        role: "worker",
+        profile: { mode: "link", id: workerId },
+      },
+    });
+
+    expect(invited.status()).toBe(201);
+
+    const invitedBody = await invited.json();
+
+    expect(
+      invitedBody.profile_id,
+      "the invite must link the EXISTING row, not create a second one"
+    ).toBe(workerId);
+
+    const workers = await fetchPickerWorkers();
+
+    const matching = workers.filter(
+      (worker) => worker.full_name === name
+    );
+
+    expect(
+      matching,
+      "inviting a login must not leave a duplicate register row behind"
+    ).toHaveLength(1);
+
+    expect(matching[0].user_id).toBe(invitedBody.user.id);
+
+    /* The payroll data the register owns must survive being given a login —
+     * the invite is an addition, not a rewrite. */
+    expect(Number(matching[0].salary)).toBe(1200);
+  });
+
+  test("a worker that already has a login cannot be invited twice", async () => {
+    const name = `${RUN} Invite Twice`;
+
+    const created = await api.post(`${API_URL}/api/workers`, {
+      headers: authed(),
+      data: {
+        full_name: name,
+        phone: "9800000111",
+        salary: 1000,
+        role: "Mason",
+        status: "active",
+      },
+    });
+
+    const workerId = (await created.json()).worker?.id;
+
+    const first = await api.post(`${API_URL}/api/auth/users`, {
+      headers: authed(),
+      data: {
+        full_name: name,
+        email: `${RUN}-twice-a@profilelink.test.local`,
+        password: "TestPass123!",
+        role: "worker",
+        profile: { mode: "link", id: workerId },
+      },
+    });
+
+    expect(first.status()).toBe(201);
+
+    const second = await api.post(`${API_URL}/api/auth/users`, {
+      headers: authed(),
+      data: {
+        full_name: name,
+        email: `${RUN}-twice-b@profilelink.test.local`,
+        password: "TestPass123!",
+        role: "worker",
+        profile: { mode: "link", id: workerId },
+      },
+    });
+
+    expect(second.status()).toBe(409);
+    expect((await second.json()).message).toMatch(/already has a login/i);
+  });
+
+  /*
+   * THE KEEPER.
+   *
+   * `a payroll-only worker with no login still appears in the picker` above
+   * proves the API still allows it. This proves the FORM still does, which is
+   * where the regression would actually be introduced — by somebody adding an
+   * email or password field to the Workforce screen because the invite needs
+   * one, and quietly making it required.
+   *
+   * Asserted against the rendered form rather than a payload, because a field
+   * that exists but is optional today is a field somebody makes required
+   * tomorrow. The invite deliberately captures its email in its own dialog.
+   */
+  test("the Workforce create form still asks for no login fields", async ({
+    page,
+    context,
+  }) => {
+    await context.addInitScript(
+      ([token, user]) => {
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", user);
+      },
+      [admin.token, JSON.stringify(admin.user)]
+    );
+
+    await page.goto("/workers");
+
+    await expect(
+      page.locator('input[name="full_name"]').first()
+    ).toBeVisible({ timeout: 15000 });
+
+    /*
+     * Scoped to the PAGE, not to `form:first`.
+     *
+     * The first draft of this scoped to the first form and I could not make it
+     * fail: an injected email input landed outside that element and the test
+     * sailed past it. A guard that only watches one container is no guard,
+     * because the regression it exists to catch — somebody adding a login
+     * field to this screen — has no obligation to put it where the test is
+     * looking. The invite's own email and password live in a modal that is
+     * not rendered until a row action opens it, so the page is clean here.
+     */
+    await expect(
+      page.locator('input[type="password"]'),
+      "the Workforce screen must never ask for a password"
+    ).toHaveCount(0);
+
+    await expect(
+      page.locator('input[type="email"], input[name="email"]'),
+      "the Workforce screen must never ask for an email"
+    ).toHaveCount(0);
+  });
+
+  /* The control is offered only where it can succeed, and only to the role
+   * the endpoint actually admits. */
+  test("the invite action is absent for a worker that already has a login", async ({
+    page,
+    context,
+  }) => {
+    await context.addInitScript(
+      ([token, user]) => {
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", user);
+      },
+      [admin.token, JSON.stringify(admin.user)]
+    );
+
+    await page.goto("/workers");
+
+    const rows = page.locator("tbody tr");
+    await expect(rows.first()).toBeVisible({ timeout: 15000 });
+
+    /* Every row that offers the action must be a row with no login yet. The
+     * assertion is over the whole table rather than one row, so it holds
+     * however the fixtures happen to be ordered. */
+    const invited = page.getByRole("row", { name: /Invite Twice/ }).first();
+
+    await expect(
+      invited.getByRole("button", { name: /Invite login/i })
+    ).toHaveCount(0);
+
+    const notInvited = page.getByRole("row", { name: /Payroll Only/ }).first();
+
+    await expect(
+      notInvited.getByRole("button", { name: /Invite login/i })
+    ).toHaveCount(1);
+  });
+});
