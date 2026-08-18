@@ -336,6 +336,170 @@ describe("link-existing is the primary path", () => {
 |
 | If a later change makes the link mandatory in both directions, this fails.
 */
+/*
+|--------------------------------------------------------------------------
+| Creation and admission must judge a role the same way
+|--------------------------------------------------------------------------
+|
+| The gate used to key on users.role ALONE, while the worker portal admits on
+| users.role OR company_users.role — roleMiddleware's `source: "either"`. So
+| a login could be created as { role: "manager", company_role: "worker" },
+| acquire NO register row because `manager` has no profile concept, and then
+| pass the portal's role gate on its company_role and land on the exact
+| "No worker profile is linked to this login user." 404 that this whole module
+| exists to make impossible.
+|
+| It was BUG-002 reachable through a second door, and nothing covered the
+| combination. These are the tests that keep the two definitions in step.
+|
+*/
+describe("the company role cannot smuggle a profile-bearing login past the gate", () => {
+  it("refuses a manager account whose COMPANY role is worker", async () => {
+    const res = await createUser({
+      full_name: "Smuggled Worker",
+      email: email("smuggled-worker"),
+      role: "manager",
+      company_role: "worker",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/worker record/i);
+  });
+
+  it("refuses a manager account whose COMPANY role is subcontractor", async () => {
+    const res = await createUser({
+      full_name: "Smuggled Sub",
+      email: email("smuggled-sub"),
+      role: "manager",
+      company_role: "subcontractor",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/subcontractor record/i);
+  });
+
+  /* Same discipline as the users.role case: refused before the account
+   * exists, not alongside it. */
+  it("writes no users row when the company role is refused", async () => {
+    const address = email("smuggled-rollback");
+
+    const res = await createUser({
+      full_name: "Smuggled Rollback",
+      email: address,
+      role: "manager",
+      company_role: "worker",
+    });
+
+    expect(res.status).toBe(400);
+
+    const found = await pool.query(
+      "SELECT id FROM public.users WHERE email = $1",
+      [address]
+    );
+
+    expect(found.rows).toHaveLength(0);
+  });
+
+  /* The split is allowed once the register row is supplied — this is a
+   * refusal to create an UNLINKED login, not a ban on the role combination. */
+  it("accepts the same combination when a profile is supplied", async () => {
+    const res = await createUser({
+      full_name: "Legitimate Split",
+      email: email("legit-split"),
+      role: "manager",
+      company_role: "worker",
+      profile: {
+        mode: "create",
+        full_name: "Legitimate Split",
+        phone: "9800000042",
+      },
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.profile_id).toBeGreaterThan(0);
+  });
+
+  /* Two different registers is not a request with an obvious reading, and
+   * guessing which one wins is how a login lands on the wrong register. */
+  it("refuses a login that names two different registers", async () => {
+    const res = await createUser({
+      full_name: "Both At Once",
+      email: email("both-at-once"),
+      role: "worker",
+      company_role: "subcontractor",
+      profile: { mode: "create", full_name: "Both At Once" },
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/cannot be both/i);
+  });
+
+  /*
+   * THE REPAIR PATH, WHICH IS THE HALF THAT MATTERS FOR EXISTING DATA.
+   *
+   * Refusing the combination at creation protects new accounts. It does
+   * nothing for accounts already in that state, and those are exactly the
+   * ones that need fixing — a login that reaches the worker portal and 404s.
+   *
+   * The repair endpoint keyed on users.role too, so it answered 400 "That
+   * role does not use a register record." for the one state it exists to
+   * repair. This drives the account into the legacy shape through SQL,
+   * because the API now correctly refuses to produce it.
+   */
+  it("repairs a legacy account whose company role is worker", async () => {
+    const address = email("legacy-split");
+
+    const created = await createUser({
+      full_name: "Legacy Split",
+      email: address,
+      role: "manager",
+      company_role: "manager",
+    });
+
+    expect(created.status).toBe(201);
+    const userId = created.body.user?.id ?? created.body.user_id;
+
+    /* The state the old gate allowed through the front door. */
+    await pool.query(
+      "UPDATE public.company_users SET role = 'worker' WHERE user_id = $1",
+      [userId]
+    );
+
+    const repaired = await office
+      .auth(request.put(`/api/auth/users/${userId}/profile`))
+      .send({
+        profile: {
+          mode: "create",
+          full_name: "Legacy Split",
+          phone: "9800000043",
+        },
+      });
+
+    expect(repaired.status).toBe(200);
+    expect(repaired.body.profile_id).toBeGreaterThan(0);
+
+    const linked = await pool.query(
+      "SELECT user_id FROM public.workers WHERE user_id = $1",
+      [userId]
+    );
+
+    expect(linked.rows).toHaveLength(1);
+  });
+
+  /* admin and manager together must still be untouched by all of the above. */
+  it("still leaves an ordinary manager alone", async () => {
+    const res = await createUser({
+      full_name: "Ordinary Manager",
+      email: email("ordinary-manager"),
+      role: "manager",
+      company_role: "manager",
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.profile_id).toBeNull();
+  });
+});
+
 describe("a profile still needs no login", () => {
   it("creates a payroll-only worker with no user_id", async () => {
     const res = await office
