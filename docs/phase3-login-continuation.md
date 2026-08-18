@@ -6009,3 +6009,104 @@ deployed against them. There is no third migration to be discovered mid-deploy.
 The invite work needed none: `workers.user_id` and `workers.email` both already
 exist in `002_baseline_supabase.sql`, with the partial unique index
 `ux_workers_user_id`. The role-gap fix was pure application logic.
+
+---
+
+# parseInteger clamps now, and says so — plus one place the decision had to bend (2026-08-18)
+
+Decision taken: clamp, and log every clamp at boot. Implemented, falsified, and
+shipped with the detector in the same change.
+
+## What changed
+
+`parseInteger` clamps to the nearest bound it is allowed to honour instead of
+reverting to the default, and records every disagreement. Re-measured, the nine
+tightening cases from the audit:
+
+| set | before | after |
+|---|---|---|
+| `AUTH_RATE_LIMIT_MAX=100000` | 10 | **1000** |
+| `RATE_LIMIT_MAX=5` | 300 | **10** |
+| `RESET_TOKEN_TTL_MINUTES=1` | 60 | **5** |
+| `DB_STATEMENT_TIMEOUT_MS=500` | 30000 | **1000** |
+| `SUPERVISOR_EDIT_WINDOW_DAYS=-1` | 2 | **0** |
+| `SUPERVISOR_BANKING_GRACE_DAYS=-1` | 1 | **0** |
+
+The two entry-window controls now honour "disable this" **exactly** — asking for
+no back-dating gives zero days rather than the standard window.
+
+`parseBoolean` had the same shape. A boolean cannot be clamped, so it still
+falls back, but it reports. `parseList` falls back only on empty or non-string,
+which means "unset" — not this defect, left alone.
+
+## The detector
+
+`server.js` calls `reportEnvAdjustments()` first thing at boot. Falsified three
+ways: it fires on wrong values, it stays silent on a clean environment, and the
+running API's log confirms no adjustments in normal operation.
+
+    [env] DB_SSL=ture is not a recognised true/false value; using false
+    [env] RATE_LIMIT_MAX=5 is below the minimum of 10; using 10
+    [env] AUTH_RATE_LIMIT_MAX=100000 is above the maximum of 1000; using 1000
+
+## Two things the measurement changed, and one is a correction to the decision
+
+**A real bug, caught by the existing suite.** `Number("")` is `0`, so an
+unset-but-present variable — the shape `.env.example` ships every optional
+setting in — parsed as zero and clamped to the minimum instead of taking its
+default. Absent or blank now short-circuits before parsing. The suite named it
+precisely: *"falls back to the strict default for a empty max"*.
+
+**Clamping is not uniformly the safe direction.** `tests/passwordResetRateLimit.test.js`
+was right, and the counter-example is decisive. For a rate limiter the window
+and the ceiling pull opposite ways:
+
+    PASSWORD_RESET_RATE_LIMIT_WINDOW_MS=10     (someone writing ten SECONDS)
+      clamps up to the 1000 ms minimum
+      -> 5 resets per SECOND = 18,000 per hour, against an intended 5
+
+Moving toward the operator's intent moved **3,600× away** from the security
+property the setting exists to provide. So "clamping always moves toward their
+intent" is true, and for this variable the intent is not the safe direction.
+
+Those two settings keep their documented fallback contract through
+`outOfRange: "fallback"`, and are still reported. **The general question is
+yours:** every bounded variable arguably needs to declare which bound is safe
+when the operator's value is unusable, rather than the parser assuming nearest.
+That is 17 annotations and a policy, so it is not decided here.
+
+## `RESET_TOKEN_TTL_MINUTES` declared in render.yaml at 30
+
+Its absence was not neutral. Production fell through to the code fallback of
+**60** while `backend/.env` says 30 and every local test agreed on 30 — deployed
+reset tokens lived twice as long as anything in the repository believed.
+
+It compounds with SMTP exactly as suspected: while `SMTP_*` are unset,
+`sendMail` returns `{ sent: false, logged: true }` without throwing, so those
+hour-long credentials were never emailed — **they were written to the service
+log.**
+
+---
+
+# The portal accessibility audits, run for the first time
+
+They had never produced a result, because the fixture logins failed before axe
+ever ran.
+
+**All four pass. 44/44 across the whole a11y sweep.**
+
+    Worker Portal @ mobile          ✓
+    Worker Portal @ desktop         ✓
+    Subcontractor Portal @ mobile   ✓
+    Subcontractor Portal @ desktop  ✓
+
+This is a real result rather than a vacuous one, and the spec's own design is
+why. It asserts the page did **not** redirect to `/login` before scanning —
+*"redirected — fixture or role problem, not an a11y result"* — so a broken
+fixture cannot masquerade as a pass. And `DOCUMENTED_EXCEPTIONS` is `[]`, so
+nothing is filtered out: this is a clean axe run against `wcag2a`, `wcag2aa`,
+`wcag21a` and `wcag21aa` with zero rules disabled.
+
+The two screens field roles reach on phones are accessible. **Nothing fixed,
+because nothing needed fixing** — the answer to "we do not know" turned out to
+be "they are fine".
