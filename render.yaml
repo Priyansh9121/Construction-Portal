@@ -85,6 +85,22 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
 
+      # Password-reset token lifetime, in minutes.
+      #
+      # DECLARED EXPLICITLY BECAUSE ITS ABSENCE WAS NOT NEUTRAL. With no key
+      # here, production fell through to config/env.js's fallback of 60, while
+      # backend/.env sets 30 and every local test therefore agreed on 30. The
+      # deployed system was issuing reset tokens that lived twice as long as
+      # anything in the repository believed, and nothing anywhere said so.
+      #
+      # 30 matches what the codebase already assumes. It also compounds with
+      # SMTP: while SMTP_* are unset, sendMail returns { sent: false,
+      # logged: true } without throwing, so these tokens are not emailed --
+      # they are written to the service log. An hour-long credential sitting
+      # in a log file is a materially worse version of the same bug.
+      - key: RESET_TOKEN_TTL_MINUTES
+        value: "30"
+
       # --- Supabase Storage ---------------------------------------------
       - key: SUPABASE_URL
         sync: false

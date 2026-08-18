@@ -71,6 +71,7 @@ const {
   PORT,
   NODE_ENV,
   CORS_ORIGINS,
+  reportEnvAdjustments,
 } = require("./config/env");
 
 const {
@@ -994,6 +995,20 @@ let shuttingDown = false;
  */
 const startServer = async () => {
   try {
+    /*
+     * SAY WHAT THE ENVIRONMENT ACTUALLY RESOLVED TO, before anything uses it.
+     *
+     * The parsers in config/env.js clamp an out-of-range value toward the
+     * range rather than reverting it to the default, and record every such
+     * disagreement. Printing them first means a misconfigured limit announces
+     * itself at boot instead of surfacing later as inexplicable behaviour --
+     * which is exactly how AUTH_RATE_LIMIT_MAX=100000 silently became 10 and
+     * cost a day of chasing 429s that looked like flaky tests.
+     *
+     * Silent when every value was used as written.
+     */
+    reportEnvAdjustments();
+
     const database =
       await checkDatabaseConnection();
 

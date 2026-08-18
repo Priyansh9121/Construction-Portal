@@ -118,6 +118,55 @@ const cleanString = (
   return cleaned || fallback;
 };
 
+/*
+ * EVERY PLACE A SUPPLIED VALUE WAS NOT USED AS WRITTEN.
+ *
+ * The parsers below no longer disagree with an operator in silence. When a
+ * value is supplied and cannot be used exactly, the disagreement is recorded
+ * here and printed once at boot by reportEnvAdjustments().
+ *
+ * This exists because of a real incident. DEPLOYMENT.md instructed
+ * AUTH_RATE_LIMIT_MAX=100000 for the browser suite; its range is
+ * { minimum: 3, maximum: 1000 }; the old parser returned the FALLBACK for an
+ * out-of-range value, so the documented way to RAISE the limit silently set it
+ * to 10 -- the most restrictive value available -- and produced the exact 429
+ * storm the instruction existed to prevent. Nothing said a word. One line of
+ * boot output would have caught it the first time anyone started the server.
+ */
+const adjustments = [];
+
+const recordAdjustment = (entry) => {
+  /* Unnamed call sites cannot be reported usefully, and silently dropping
+   * them would rebuild the original defect one level up. */
+  adjustments.push({
+    ...entry,
+    name: entry.name || "(unnamed setting)",
+  });
+};
+
+/**
+ * Everything the parsers had to change, as lines ready to print.
+ *
+ * Returns an array rather than logging directly so the caller decides where
+ * boot output goes, and so a test can assert on it without capturing stdout.
+ */
+const describeEnvAdjustments = () =>
+  adjustments.map(
+    (a) =>
+      `[env] ${a.name}=${a.supplied} ${a.reason}; using ${a.resolved}`
+  );
+
+/**
+ * Print the adjustments at boot. Silent when there is nothing to say.
+ */
+const reportEnvAdjustments = (log = console.warn) => {
+  const lines = describeEnvAdjustments();
+
+  for (const line of lines) log(line);
+
+  return lines.length;
+};
+
 /**
  * An integer within bounds, or the fallback.
  *
@@ -135,16 +184,95 @@ const parseInteger = (
   {
     minimum = Number.MIN_SAFE_INTEGER,
     maximum = Number.MAX_SAFE_INTEGER,
+    name,
+    outOfRange = "clamp",
   } = {}
 ) => {
+  const supplied =
+    value !== undefined &&
+    value !== null &&
+    String(value).trim() !== "";
+
+  /*
+   * ABSENT OR BLANK IS NOT A DISAGREEMENT.
+   *
+   * Number("") and Number(null) are both 0, so without this an unset-but-
+   * present variable -- PASSWORD_RESET_RATE_LIMIT_MAX= in a .env file, which
+   * is how .env.example ships every optional setting -- parsed as zero and
+   * clamped to the minimum instead of taking its default. The backend suite
+   * caught it: "falls back to the strict default for a empty max".
+   */
+  if (!supplied) {
+    return fallback;
+  }
+
   const parsed = Number(value);
 
-  if (
-    !Number.isInteger(parsed) ||
-    parsed < minimum ||
-    parsed > maximum
-  ) {
+  /*
+   * A NON-NUMBER STILL FALLS BACK, because there is nothing to clamp toward.
+   * "abc" carries no intent about direction; 5 does.
+   */
+  if (!Number.isInteger(parsed)) {
+    if (supplied) {
+      recordAdjustment({
+        name,
+        supplied: String(value),
+        resolved: fallback,
+        reason: "is not a whole number",
+      });
+    }
+
     return fallback;
+  }
+
+  /*
+   * OUT OF RANGE CLAMPS TOWARD THE OPERATOR'S INTENT, rather than reverting
+   * to the default.
+   *
+   * The direction is the whole argument. Reverting moved AWAY from what was
+   * asked: every attempt to TIGHTEN a limit below its minimum silently
+   * produced a LOOSER setting than requested -- RATE_LIMIT_MAX=5 became 300,
+   * PASSWORD_RESET_RATE_LIMIT_MAX=0 became 5 an hour, RESET_TOKEN_TTL_MINUTES=1
+   * became 60, and SUPERVISOR_EDIT_WINDOW_DAYS=-1 became the standard two-day
+   * back-dating window. Clamping still disagrees with the operator, but it can
+   * only ever land on the nearest value it is allowed to honour.
+   */
+  /*
+   * CLAMPING IS NOT UNIFORMLY THE SAFE DIRECTION, AND A LIMITER PROVES IT.
+   *
+   * For a rate limiter the window and the ceiling pull opposite ways. Clamping
+   * PASSWORD_RESET_RATE_LIMIT_WINDOW_MS=10 -- someone writing ten SECONDS --
+   * up to the 1000 ms minimum yields 5 resets per second, 18,000 an hour
+   * against an intended 5. Moving toward the operator's intent moved 3,600x
+   * away from the security property the setting exists to provide.
+   *
+   * So a call site may opt out with outOfRange: "fallback". Those keep the
+   * documented contract asserted by tests/passwordResetRateLimit.test.js --
+   * "a typo fails in the secure direction" -- while still being REPORTED,
+   * which is the part that was missing before.
+   */
+  const refuse = outOfRange === "fallback";
+
+  if (parsed < minimum) {
+    recordAdjustment({
+      name,
+      supplied: String(value),
+      resolved: refuse ? fallback : minimum,
+      reason: `is below the minimum of ${minimum}`,
+    });
+
+    return refuse ? fallback : minimum;
+  }
+
+  if (parsed > maximum) {
+    recordAdjustment({
+      name,
+      supplied: String(value),
+      resolved: refuse ? fallback : maximum,
+      reason: `is above the maximum of ${maximum}`,
+    });
+
+    return refuse ? fallback : maximum;
   }
 
   return parsed;
@@ -160,7 +288,8 @@ const parseInteger = (
  */
 const parseBoolean = (
   value,
-  fallback = false
+  fallback = false,
+  { name } = {}
 ) => {
   if (
     typeof value !==
@@ -187,6 +316,18 @@ const parseBoolean = (
   ) {
     return false;
   }
+
+  /*
+   * A BOOLEAN CANNOT BE CLAMPED, so this still falls back -- but it says so.
+   * DB_SSL=ture keeping the safer default is correct behaviour and a silent
+   * one is not: the operator believes they set something.
+   */
+  recordAdjustment({
+    name,
+    supplied: String(value),
+    resolved: fallback,
+    reason: "is not a recognised true/false value",
+  });
 
   return fallback;
 };
@@ -310,6 +451,7 @@ const PORT = parseInteger(
   process.env.PORT,
   5051,
   {
+      name: "PORT",
     minimum: 1,
     maximum: 65535,
   }
@@ -510,6 +652,7 @@ const DB_POOL_MAX =
     process.env.DB_POOL_MAX,
     15,
     {
+      name: "DB_POOL_MAX",
       minimum: 1,
       maximum: 100,
     }
@@ -520,6 +663,7 @@ const DB_POOL_MIN =
     process.env.DB_POOL_MIN,
     0,
     {
+      name: "DB_POOL_MIN",
       minimum: 0,
       maximum: DB_POOL_MAX,
     }
@@ -531,6 +675,7 @@ const DB_IDLE_TIMEOUT_MS =
       .DB_IDLE_TIMEOUT_MS,
     30000,
     {
+      name: "DB_IDLE_TIMEOUT_MS",
       minimum: 1000,
       maximum: 600000,
     }
@@ -542,6 +687,7 @@ const DB_CONNECTION_TIMEOUT_MS =
       .DB_CONNECTION_TIMEOUT_MS,
     10000,
     {
+      name: "DB_CONNECTION_TIMEOUT_MS",
       minimum: 1000,
       maximum: 120000,
     }
@@ -553,6 +699,7 @@ const DB_STATEMENT_TIMEOUT_MS =
       .DB_STATEMENT_TIMEOUT_MS,
     30000,
     {
+      name: "DB_STATEMENT_TIMEOUT_MS",
       minimum: 1000,
       maximum: 600000,
     }
@@ -564,6 +711,7 @@ const DB_QUERY_TIMEOUT_MS =
       .DB_QUERY_TIMEOUT_MS,
     35000,
     {
+      name: "DB_QUERY_TIMEOUT_MS",
       minimum: 1000,
       maximum: 600000,
     }
@@ -580,6 +728,8 @@ const DB_SSL =
   parseBoolean(
     process.env.DB_SSL,
     IS_PRODUCTION
+  ,
+    { name: "DB_SSL" }
   );
 
 /**
@@ -607,6 +757,8 @@ const DB_SSL_REJECT_UNAUTHORIZED =
     process.env
       .DB_SSL_REJECT_UNAUTHORIZED,
     true
+  ,
+    { name: "DB_SSL_REJECT_UNAUTHORIZED" }
   );
 
 /*
@@ -621,6 +773,7 @@ const RATE_LIMIT_WINDOW_MS =
       .RATE_LIMIT_WINDOW_MS,
     15 * 60 * 1000,
     {
+      name: "RATE_LIMIT_WINDOW_MS",
       minimum: 1000,
       maximum: 3600000,
     }
@@ -631,6 +784,7 @@ const RATE_LIMIT_MAX =
     process.env.RATE_LIMIT_MAX,
     300,
     {
+      name: "RATE_LIMIT_MAX",
       minimum: 10,
       maximum: 100000,
     }
@@ -648,6 +802,7 @@ const AUTH_RATE_LIMIT_MAX =
       .AUTH_RATE_LIMIT_MAX,
     10,
     {
+      name: "AUTH_RATE_LIMIT_MAX",
       minimum: 3,
       maximum: 1000,
     }
@@ -675,6 +830,8 @@ const PASSWORD_RESET_RATE_LIMIT_WINDOW_MS =
       .PASSWORD_RESET_RATE_LIMIT_WINDOW_MS,
     60 * 60 * 1000,
     {
+      name: "PASSWORD_RESET_RATE_LIMIT_WINDOW_MS",
+      outOfRange: "fallback",
       minimum: 1000,
       maximum: 24 * 60 * 60 * 1000,
     }
@@ -686,6 +843,8 @@ const PASSWORD_RESET_RATE_LIMIT_MAX =
       .PASSWORD_RESET_RATE_LIMIT_MAX,
     5,
     {
+      name: "PASSWORD_RESET_RATE_LIMIT_MAX",
+      outOfRange: "fallback",
       minimum: 1,
       maximum: 100000,
     }
@@ -710,6 +869,7 @@ const SUPERVISOR_EDIT_WINDOW_DAYS =
       .SUPERVISOR_EDIT_WINDOW_DAYS,
     2,
     {
+      name: "SUPERVISOR_EDIT_WINDOW_DAYS",
       minimum: 0,
       maximum: 365,
     }
@@ -721,6 +881,7 @@ const SUPERVISOR_BANKING_GRACE_DAYS =
       .SUPERVISOR_BANKING_GRACE_DAYS,
     1,
     {
+      name: "SUPERVISOR_BANKING_GRACE_DAYS",
       minimum: 0,
       maximum: 30,
     }
@@ -744,6 +905,7 @@ const SMTP_PORT = parseInteger(
   process.env.SMTP_PORT,
   587,
   {
+      name: "SMTP_PORT",
     minimum: 1,
     maximum: 65535,
   }
@@ -753,7 +915,9 @@ const SMTP_PORT = parseInteger(
 const SMTP_SECURE = parseBoolean(
   process.env.SMTP_SECURE,
   SMTP_PORT === 465
-);
+,
+    { name: "SMTP_SECURE" }
+  );
 
 const SMTP_USER = cleanString(
   process.env.SMTP_USER
@@ -793,6 +957,7 @@ const RESET_TOKEN_TTL_MINUTES =
       .RESET_TOKEN_TTL_MINUTES,
     60,
     {
+      name: "RESET_TOKEN_TTL_MINUTES",
       minimum: 5,
       maximum: 1440,
     }
@@ -849,6 +1014,7 @@ const MAX_UPLOAD_SIZE_MB =
       .MAX_UPLOAD_SIZE_MB,
     10,
     {
+      name: "MAX_UPLOAD_SIZE_MB",
       minimum: 1,
       maximum: 100,
     }
@@ -956,6 +1122,11 @@ const DEFAULT_TIMEZONE =
   );
 
 module.exports = Object.freeze({
+  /* Boot-time visibility for any value the parsers could not use as written.
+   * See the adjustments recorder above. */
+  reportEnvAdjustments,
+  describeEnvAdjustments,
+
   NODE_ENV,
   IS_PRODUCTION,
   IS_DEVELOPMENT,
