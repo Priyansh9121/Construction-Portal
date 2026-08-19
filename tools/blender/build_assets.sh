@@ -50,9 +50,9 @@ done
 # The SITE itself, exported from the winning concept scene in production
 # layers. Same geometry source as the concept renders -- the production world
 # is not a second, hand-maintained copy of it.
-"$BLENDER" -b -P "$ROOT/tools/blender/concept_c.py" -- --export 2>&1 \
+"$BLENDER" -b -P "$ROOT/tools/blender/concept_d.py" -- --export 2>&1 \
   | grep -E '^OK|^AssertionError|Error:' || {
-    echo "FAILED: concept_c.py --export" >&2; exit 1; }
+    echo "FAILED: concept_d.py --export" >&2; exit 1; }
 
 # --- Optimise ---------------------------------------------------------------
 #

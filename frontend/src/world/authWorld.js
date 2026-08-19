@@ -1306,9 +1306,18 @@ export async function createAuthWorld(canvas, opts = {}) {
           const prims = loaded.get(layer.name);
           if (!prims) continue;
           const note = noteSurface(layer.name);
-          for (const { geometry, material } of prims) {
+          for (const { geometry, material, matrices } of prims) {
             dressSurface(THREE, material, surfaces, note);
-            const mesh = new THREE.Mesh(geometry, material);
+            /* A prim carrying matrices came from EXT_mesh_gpu_instancing and
+             * has to be rebuilt as an InstancedMesh, or its placements are
+             * lost and every copy lands on top of the first. */
+            const mesh = matrices
+              ? new THREE.InstancedMesh(geometry, material, matrices.length)
+              : new THREE.Mesh(geometry, material);
+            if (matrices) {
+              matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
+              mesh.instanceMatrix.needsUpdate = true;
+            }
             /* Everything here is static architecture: it both casts and
              * receives, which is what puts the window reveals into shadow and
              * the scaffold onto the facade. */
@@ -1337,7 +1346,8 @@ export async function createAuthWorld(canvas, opts = {}) {
             mesh.userData.worldLayer = layer.name;
             scene.add(mesh);
             const idx = geometry.getIndex();
-            tris += (idx ? idx.count : geometry.getAttribute("position").count) / 3;
+            const per = (idx ? idx.count : geometry.getAttribute("position").count) / 3;
+            tris += per * (matrices ? matrices.length : 1);
           }
         }
         canvas.__authWorldDebug.surfaces = surfaceReport;

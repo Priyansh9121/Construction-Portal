@@ -100,10 +100,39 @@ function extract(THREE, gltf) {
   gltf.scene.traverse((o) => {
     if (!o.isMesh || !o.geometry) return;
     const geometry = o.geometry.clone();
+    dequantize(THREE, geometry);
+
+    /*
+     * AN InstancedMesh IS AN isMesh, AND ITS PLACEMENTS ARE NOT IN matrixWorld.
+     *
+     * EXT_mesh_gpu_instancing arrives from the loader as an InstancedMesh whose
+     * own matrixWorld is the Empty's — identity — with every real placement in
+     * `instanceMatrix`. Baking matrixWorld and dropping instanceMatrix
+     * therefore collapsed all 17 clad floors of the tower into ONE, at z = 0,
+     * inside the podium: the export was correct, the GLB carried the extension,
+     * the loader built the InstancedMesh, and the world drew a building with no
+     * floors. Nothing threw, and the byte gate was delighted.
+     *
+     * So instanced nodes keep their geometry in local space and carry their
+     * matrices out, composed with the node's own world transform.
+     */
+    if (o.isInstancedMesh && o.instanceMatrix) {
+      geometry.computeBoundingSphere();
+      const m = new THREE.Matrix4();
+      const world = o.matrixWorld;
+      const matrices = [];
+      for (let i = 0; i < o.count; i += 1) {
+        o.getMatrixAt(i, m);
+        matrices.push(new THREE.Matrix4().multiplyMatrices(world, m));
+      }
+      const materials = Array.isArray(o.material) ? o.material : [o.material];
+      materials.forEach((material) => prims.push({ geometry, material, matrices }));
+      return;
+    }
+
     /* Bake the node transform. Blender's exporter may nest the mesh under a
      * root node, and an un-baked transform would place every instance at the
      * origin of that node instead of at its placement. */
-    dequantize(THREE, geometry);
     geometry.applyMatrix4(o.matrixWorld);
     geometry.computeBoundingSphere();
     const materials = Array.isArray(o.material) ? o.material : [o.material];
