@@ -4,7 +4,16 @@
 > **never been used**: one company, six users, and zero tenders, sites, workers,
 > payments — and an empty `activity_logs`, which records every mutating request.
 >
-> That explains why **three consecutive ordering axes came back flat.** The a11y
+> **CORRECTED 2026-08-19: the census was wrong.** It was read without company
+> context while RLS was in force, so every tenant-scoped table appeared empty.
+> Production **has** been used — 10 tenders, 11 sites, 7 payments, 23 logged
+> actions to 2026-08-13. What is genuinely unused is the **supervisor half**:
+> zero material entries, labour entries, supervisor expenses, receipts and
+> worker assignments. That is a real usage signal and the first non-flat axis
+> found, so **the reason for pausing no longer holds as stated** — the pause is
+> the user's to revisit.
+>
+> The rest of this note stands: two of the three axes were flat. The a11y
 > sweep passed 44/44. The business-rule gap list was 32 implemented / 3 partial.
 > And usage, the axis that should have broken the tie, does not exist at all.
 > The ordering below cannot be made non-arbitrary, because there is nothing to
