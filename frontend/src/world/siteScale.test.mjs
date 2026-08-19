@@ -51,7 +51,7 @@ function shippedArchitecture(scale = 1) {
     ["lamp", [7.88, 4.41, 24.41]],
     ["crane", [7.94, 0.30, 4.84]],
     ["paint", [45.16, 13.94, 0.16]],
-    ["conc", [22.00, 31.10, 34.18]],   /* <- the building */
+    ["conc", [64.00, 111.90, 52.75]],  /* <- the building, concept D */
     ["wet", [9.00, 0.30, 29.50]],
     ["block", [17.36, 6.27, 0.24]],
     ["ply", [21.40, 28.41, 33.20]],
@@ -62,7 +62,7 @@ function shippedArchitecture(scale = 1) {
   return scene;
 }
 
-test("the shipped architecture layer passes, and passes by measuring 22 m", () => {
+test("the shipped architecture layer passes, and passes by measuring 64 m", () => {
   const r = checkSiteScale(THREE, shippedArchitecture());
   assert.equal(r.ok, true);
   assert.equal(r.width, SITE_METRICS.plotWidth);
@@ -74,7 +74,7 @@ test("a mis-scaled scene FAILS — this is the whole point of the check", () => 
    * screenshot stays plausible, and only a measurement can tell. */
   const r = checkSiteScale(THREE, shippedArchitecture(2));
   assert.equal(r.ok, false);
-  assert.equal(r.width, 44);
+  assert.equal(r.width, 128);
 });
 
 test("half scale fails too, so the check is not one-sided", () => {
@@ -119,14 +119,14 @@ test("a `.001` material suffix still resolves to the slot", () => {
   /* three dedupes material names per instance; dressSurface strips the suffix
    * and so must this, or the check silently loses its target. */
   const scene = new THREE.Scene();
-  scene.add(prim(SITE_FRAME.layer, "conc.001", [22.00, 31.10, 34.18]));
+  scene.add(prim(SITE_FRAME.layer, "conc.001", [64.00, 111.90, 52.75]));
   assert.equal(checkSiteScale(THREE, scene).ok, true);
 });
 
 test("a primitive named for the layer but lacking the userData tag is ignored", () => {
   /* `name` is ambiguous by construction. Only the tag counts. */
   const orphan = new THREE.Mesh(
-    new THREE.BoxGeometry(44, 31, 34),
+    new THREE.BoxGeometry(128, 112, 53),
     new THREE.MeshStandardMaterial({ name: "conc" }),
   );
   orphan.name = SITE_FRAME.layer;

@@ -79,65 +79,72 @@ export const SITE_LAYERS = [
  * elevation is whatever puts the eye at the height a person stands at.
  */
 export const SITE_JOURNEY = [
+  /*
+   * RE-DERIVED for the 106.4 m hero on the 64 x 52 m plot (concept D).
+   *
+   * These are not the old numbers scaled. A 27.7 m building and a 106.4 m one
+   * are different photographs: the old street station stood 70 m back at 35 mm,
+   * which frames a seven-storey infill and crops a tower at the fourth floor.
+   * Each station below is an eye position and a look-at chosen for the new
+   * building, with radius, azimuth and elevation DERIVED from that pair rather
+   * than typed — the rig's own spherical convention, so what is written here is
+   * what the camera does.
+   *
+   * Eye heights stay human: 1.7-3.0 m. The temptation with a tall building is
+   * to fly, and a drone shot is exactly what stops it reading as a place.
+   */
   {
     /*
      * STREET ESTABLISHING — the frame the page opens on.
      *
-     * It used to stand 40 m out at 28 mm, which filled the frame with
-     * scaffold and cropped away the street, the sky and the neighbours. An
-     * opening shot has to show the WORLD before it shows the subject.
-     *
-     * Now 70 m back at 35 mm, the architectural-photography default. The
-     * camera physically MOVED rather than the lens widening: a wide angle
-     * from close up is the game-camera look, and it distorts the verticals
-     * that make architecture read.
-     *
-     * The eye sits at 1.7 m -- a person on the far footpath, not a drone. The
-     * target is lifted to 13 m so the frame carries sky above the parapet
-     * instead of cropping the building at the top edge, which is what 62 m did:
-     * a hero cropped by the frame reads as an object too big for its picture,
-     * and the whole point of an establishing shot is that the site reads as a
-     * PLACE rather than as one large thing.
+     * 159 m back at 32 mm, from the far side of the street. The target sits at
+     * 52 m, roughly half the height of the structure, so the frame carries the
+     * crown AND the ground: an establishing shot of a tower that crops the top
+     * reads as an object too big for its picture.
      */
     name: "street",
-    target: [1, 13, 3],
-    radius: 70,
-    azimuth: -0.50,
-    elevation: -0.1621,
-    fov: 37.85,
-    mm: 35,
+    target: [-2, 52, 14],
+    radius: 158.9,
+    azimuth: -0.673,
+    elevation: -0.3200,
+    fov: 41.11,
+    mm: 32,
   },
   {
-    /* HUMAN SCALE — the corrected ground frame. Opposite footpath, 26 m back,
-     * hoarding and a worker in shot so scale is immediately readable. */
+    /* HUMAN SCALE — the opposite footpath at 62 m, 24 mm. Podium, hoarding and
+     * the transfer level in shot, with the tower running out of the top of the
+     * frame, which is what a person on that pavement actually sees. */
     name: "footpath",
-    target: [3, 10, 12],
-    radius: 29.1,
-    azimuth: -0.367,
-    elevation: -0.290,
-    fov: 46.4,
-    mm: 28,
+    target: [0, 24, 10],
+    radius: 62.4,
+    azimuth: -0.540,
+    elevation: -0.3653,
+    fov: 53.13,
+    mm: 24,
   },
   {
-    /* SITE ENTRY — through the hoarding line toward the ground floor. */
+    /* SITE ENTRY — at the gate, 47 m out and looking steeply up past the
+     * podium into the transfer level. The steepest elevation of the four,
+     * because that is the one view where the building is overhead. */
     name: "entry",
-    target: [0, 7, 2],
-    radius: 21.0,
-    azimuth: -0.18,
-    elevation: -0.22,
-    fov: 53.1,
-    mm: 24,
+    target: [4, 30, 6],
+    radius: 47.3,
+    azimuth: -0.322,
+    elevation: -0.6408,
+    fov: 61.93,
+    mm: 20,
   },
   {
-    /* REAR LANE — the side nothing was composed for, which is the one that
-     * proves the world survives a 360 orbit. */
+    /* REAR — the far corner at 124 m, where the podium terrace, the offset
+     * core and the crane's counter-jib are all exposed. The side nothing was
+     * composed for, which is the one that proves the world survives an orbit. */
     name: "lane",
-    target: [-2, 11, -6],
-    radius: 42.8,
-    azimuth: 2.698,
-    elevation: -0.183,
-    fov: 53.1,
-    mm: 24,
+    target: [0, 40, 0],
+    radius: 123.7,
+    azimuth: 2.206,
+    elevation: -0.3038,
+    fov: 46.40,
+    mm: 28,
   },
 ];
 
@@ -191,12 +198,21 @@ export const WORLD_STATE = {
  * checked against what the concept actually authored.
  */
 export const SITE_METRICS = {
-  /* Plot: 22 m frontage x 34 m deep. */
-  plotWidth: 22,
-  plotDepth: 34,
-  /* Ground floor 4.6 m, then 7 levels at 3.3 m = 27.7 m to the top deck. */
-  buildingHeight: 27.7,
-  storeyHeight: 3.3,
+  /*
+   * Concept D: a 64 x 52 m plot carrying a podium-and-tower of 30 floors.
+   *
+   * Every number here was MEASURED out of the shipped GLB rather than copied
+   * from the Blender constants — accessor min/max on the architecture layer's
+   * `conc` primitive gives 64.00 x 52.75 x 111.90. The width is the podium,
+   * which covers the plot; the 111.90 is the core, which is slipformed past
+   * the top slab as the lift overrun and is therefore taller than the
+   * building.
+   */
+  plotWidth: 64,
+  plotDepth: 52,
+  /* Podium 4 x 4.5 m = 18 m, then 26 tower levels at 3.4 m = 106.4 m. */
+  buildingHeight: 106.4,
+  storeyHeight: 3.4,
   tolerance: 0.12,
 };
 
@@ -225,11 +241,18 @@ export const SITE_FRAME = {
  * never asserting what it claims.
  *
  * The glTF cannot supply a better name either. Its meaningful names
- * ("architecture-conc") are PART BUCKETS on the node, not objects: that bucket's
- * own box is 45.16 m wide because it also carries a painted screen. Measured
- * from the shipped GLB, the building is exactly one primitive — the one in the
- * architecture layer whose material is `conc` — at 22.00 x 31.10 x 34.18, which
- * is `plotWidth` by `plotDepth`.
+ * ("architecture-conc") are PART BUCKETS on the node, not objects. Measured
+ * from the shipped GLB, the building is the primitive in the architecture
+ * layer whose material is `conc`, and under concept D it measures
+ * 64.00 x 111.90 x 52.75 — `plotWidth` by the core height by `plotDepth`.
+ *
+ * KEEPING IT HONEST AS THE SITE GREW. A tower crane's counterweight is
+ * concrete, so putting the crane in the architecture layer would have widened
+ * this box to 72 m and the check would have gone on passing while measuring
+ * something that is not the building. The crane is therefore named into the
+ * SCAFFOLD layer, which is also where it belongs: it is site logistics, and it
+ * leaves site. This check has been fooled by an arbitrary object once already;
+ * that is the failure mode to keep designing against.
  *
  * So the identity is (layer, material). The layer comes from userData because
  * `name` is ambiguous by construction; the material name is the same slot

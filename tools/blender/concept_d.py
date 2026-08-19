@@ -360,6 +360,13 @@ def build(dusk=False):
     #
     # The mast is INSTANCED: one braced section, repeated up the height. It is
     # the same discipline as the floors and for the same reason.
+    #
+    # Every crane object is prefixed "mc" so C's LAYER_RULES route it to the
+    # SCAFFOLD layer. A crane is site logistics, not architecture — and the
+    # counterweight is concrete, so leaving it in the architecture layer would
+    # have widened the `conc` bounding box that checkSiteScale measures by
+    # 8 m and quietly reintroduced the arbitrary-object bug that check was
+    # rewritten to escape.
     SEC = 5.0
     half = MAST_W / 2
     sections = int((CRANE_H - 6.0) // SEC)
@@ -367,36 +374,36 @@ def build(dusk=False):
     sec_parts = []
     for cx in (-half, half):
         for cy in (-half, half):
-            sec_parts.append(M.column(f"csleg{cx}{cy}", cx, cy, 0.0, SEC, 0.26,
+            sec_parts.append(M.column(f"mccsleg{cx}{cy}", cx, cy, 0.0, SEC, 0.26,
                                       mats["galv"]))
     for cy in (-half, half):
-        sec_parts.append(M.prism(f"cstie{cy}", M.rect(-half, cy - 0.13, half, cy + 0.13),
+        sec_parts.append(M.prism(f"mccstie{cy}", M.rect(-half, cy - 0.13, half, cy + 0.13),
                                  SEC - 0.3, 0.26, mats["galv"], bevel=0.02))
-        sec_parts.append(strut(f"csdg{cy}", (-half, cy, 0.1), (half, cy, SEC - 0.35),
+        sec_parts.append(strut(f"mccsdg{cy}", (-half, cy, 0.1), (half, cy, SEC - 0.35),
                                0.17, mats["galv"]))
     for cx in (-half, half):
-        sec_parts.append(M.prism(f"cstx{cx}", M.rect(cx - 0.13, -half, cx + 0.13, half),
+        sec_parts.append(M.prism(f"mccstx{cx}", M.rect(cx - 0.13, -half, cx + 0.13, half),
                                  SEC - 0.3, 0.26, mats["galv"], bevel=0.02))
-    section = L.join_all("cmastsec", [o for o in sec_parts if o])
+    section = L.join_all("mccmastsec", [o for o in sec_parts if o])
     e3, _ = instance_group(
-        "instmast", section,
+        "mcinstmast", section,
         [(CRANE_X, CRANE_Y, s * SEC) for s in range(sections)])
     empties.append(e3)
 
     slew = sections * SEC
     parts["galv"].append(
-        M.prism("cslew", M.rect(CRANE_X - half - 0.3, CRANE_Y - half - 0.3,
+        M.prism("mccslew", M.rect(CRANE_X - half - 0.3, CRANE_Y - half - 0.3,
                                 CRANE_X + half + 0.3, CRANE_Y + half + 0.3),
                 slew, 1.6, mats["galv"], bevel=0.04))
 
     # Jib and counter-jib, deep enough to read against a skyline.
     jib_z = slew + 1.6
     parts["galv"].append(
-        M.prism("cjib", M.rect(CRANE_X - 0.9, CRANE_Y - 0.9,
+        M.prism("mccjib", M.rect(CRANE_X - 0.9, CRANE_Y - 0.9,
                                CRANE_X + JIB, CRANE_Y + 0.9),
                 jib_z, 2.1, mats["galv"], bevel=0.04))
     parts["galv"].append(
-        M.prism("ccj", M.rect(CRANE_X - COUNTER_JIB, CRANE_Y - 1.0,
+        M.prism("mcccj", M.rect(CRANE_X - COUNTER_JIB, CRANE_Y - 1.0,
                               CRANE_X - 0.9, CRANE_Y + 1.0),
                 jib_z, 2.3, mats["galv"], bevel=0.04))
 
@@ -404,40 +411,40 @@ def build(dusk=False):
     apex = (CRANE_X, CRANE_Y, jib_z + APEX_H)
     for cy in (-half, half):
         parts["galv"].append(
-            strut(f"cap{cy}", (CRANE_X - half, CRANE_Y + cy, jib_z), apex,
+            strut(f"mccap{cy}", (CRANE_X - half, CRANE_Y + cy, jib_z), apex,
                   0.28, mats["galv"]))
         parts["galv"].append(
-            strut(f"cap2{cy}", (CRANE_X + half, CRANE_Y + cy, jib_z), apex,
+            strut(f"mccap2{cy}", (CRANE_X + half, CRANE_Y + cy, jib_z), apex,
                   0.28, mats["galv"]))
     for frac in (0.42, 0.78):
         parts["galv"].append(
-            strut(f"cpend{int(frac * 100)}",
+            strut(f"mccpend{int(frac * 100)}",
                   apex, (CRANE_X + JIB * frac, CRANE_Y, jib_z + 2.1),
                   0.16, mats["galv"]))
     parts["galv"].append(
-        strut("cpendc", apex,
+        strut("mccpendc", apex,
               (CRANE_X - COUNTER_JIB + 1.5, CRANE_Y, jib_z + 2.3),
               0.18, mats["galv"]))
 
     parts["conc"].append(
-        M.prism("cctw", M.rect(CRANE_X - COUNTER_JIB + 1.0, CRANE_Y - 1.6,
+        M.prism("mccctw", M.rect(CRANE_X - COUNTER_JIB + 1.0, CRANE_Y - 1.6,
                                CRANE_X - COUNTER_JIB + 5.5, CRANE_Y + 1.6),
                 jib_z + 0.5, 2.6, mats["conc"], bevel=0.05))
     parts["galv"].append(
-        M.prism("ccab", M.rect(CRANE_X + 1.4, CRANE_Y - 1.3,
+        M.prism("mcccab", M.rect(CRANE_X + 1.4, CRANE_Y - 1.3,
                                CRANE_X + 4.6, CRANE_Y + 1.3),
                 jib_z - 3.0, 3.0, mats["galv"], bevel=0.06))
 
     # Trolley and hook block, out over the deck where the load lands.
     parts["galv"].append(
-        M.prism("ctrolley", M.rect(CRANE_X + 26.0, CRANE_Y - 0.7,
+        M.prism("mcctrolley", M.rect(CRANE_X + 26.0, CRANE_Y - 0.7,
                                    CRANE_X + 28.4, CRANE_Y + 0.7),
                 jib_z - 0.7, 0.7, mats["galv"], bevel=0.03))
     parts["galv"].append(
-        strut("crope", (CRANE_X + 27.2, CRANE_Y, jib_z - 0.7),
+        strut("mccrope", (CRANE_X + 27.2, CRANE_Y, jib_z - 0.7),
               (CRANE_X + 27.2, CRANE_Y, TOP + 2.5), 0.06, mats["galv"]))
     parts["galv"].append(
-        M.prism("chook", M.rect(CRANE_X + 26.6, CRANE_Y - 0.4,
+        M.prism("mcchook", M.rect(CRANE_X + 26.6, CRANE_Y - 0.4,
                                 CRANE_X + 27.8, CRANE_Y + 0.4),
                 TOP + 1.6, 0.9, mats["galv"], bevel=0.04))
 
