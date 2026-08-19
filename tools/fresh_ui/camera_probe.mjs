@@ -15,6 +15,9 @@
  *
  *   3. The wheel MOVES BETWEEN PLACES rather than changing distance. If the
  *      only thing that varies across the journey is radius, it is a zoom.
+ *   4. The dolly changes distance WITHOUT changing station, and it is on a
+ *      modifier rather than on the bare wheel — so adding free movement
+ *      cannot quietly retire the journey that claim 3 protects.
  *
  * Also writes a frame at each 90 degrees and at each station, so the parallax
  * can be looked at as well as asserted.
@@ -145,6 +148,49 @@ const bearings = stations.map((s) => Math.atan2(s.eye[0], s.eye[2]));
 const bearingSpread = Math.max(...bearings) - Math.min(...bearings);
 check(bearingSpread > 0.5,
   `journey changed bearing by ${(bearingSpread * 57.3).toFixed(0)} deg, so it is not a dolly`);
+
+/* ---- 4: the dolly is a dolly, and it is not the wheel ------------------ */
+
+/*
+ * Added when free movement arrived. The point of checking it HERE, next to
+ * check 3, is that the two claims are easy to break together: the obvious way
+ * to add a zoom is to put it on the wheel, which would silently retire the
+ * authored journey that check 3 exists to protect.
+ *
+ * So: a modifier-wheel must change the standing distance, and it must do it
+ * WITHOUT moving to another station.
+ */
+await page.mouse.move(1050, 640);
+const beforeDolly = await probe();
+
+for (let k = 0; k < 14; k += 1) {
+  await page.keyboard.down("Shift");
+  await page.mouse.wheel(0, 100);
+  await page.keyboard.up("Shift");
+  await page.waitForTimeout(30);
+}
+await settle(1400);
+const zoomedOut = await probe();
+
+check(zoomedOut.radius > beforeDolly.radius * 1.4,
+  `modifier-wheel dollied out (${beforeDolly.radius} -> ${zoomedOut.radius})`);
+check(zoomedOut.station === beforeDolly.station,
+  `dolly stayed at one station (${beforeDolly.station})`);
+
+for (let k = 0; k < 28; k += 1) {
+  await page.keyboard.down("Shift");
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up("Shift");
+  await page.waitForTimeout(30);
+}
+await settle(1400);
+const zoomedIn = await probe();
+
+check(zoomedIn.radius < beforeDolly.radius,
+  `modifier-wheel dollied back in (${zoomedOut.radius} -> ${zoomedIn.radius})`);
+/* Clamped, so the camera can never end up inside the building it is filming. */
+check(zoomedIn.dolly >= 0.45,
+  `dolly clamped at the near end (${zoomedIn.dolly})`);
 
 await browser.close();
 
