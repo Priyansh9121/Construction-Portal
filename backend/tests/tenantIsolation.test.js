@@ -140,6 +140,35 @@ beforeAll(async () => {
 
   alphaIds.investor = investor.body?.item?.id;
 
+  /*
+   * Every test below asserts that Beta CANNOT reach one of Alpha's records,
+   * so each one needs a real id to aim at. They used to guard themselves
+   * with `if (!alphaIds.x) return;`, which turns a broken fixture into a
+   * silent pass — the suite reported green while asserting nothing.
+   *
+   * That is exactly what happened on 2026-08-19: requiring a site on labour
+   * creates made this file's labourer fail to be created, and the ledger
+   * isolation test stopped running without anything going red.
+   *
+   * So the setup is checked ONCE, here, and it names what is missing. A
+   * fixture that cannot be built is a failure, not a skip.
+   */
+  const missing = Object.entries({
+    tender: alphaIds.tender,
+    site: alphaIds.site,
+    allocation: alphaIds.allocation,
+    labour: alphaIds.labour,
+    investor: alphaIds.investor,
+  })
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Alpha's fixture is incomplete, so the isolation tests below would ` +
+        `assert nothing. Missing: ${missing.join(", ")}.`
+    );
+  }
 }, 60000);
 
 afterAll(async () => {
@@ -300,8 +329,6 @@ describe("write endpoints reject another company's record ids", () => {
   });
 
   it("Beta cannot approve Alpha's worker allocation", async () => {
-    if (!alphaIds.allocation) return;
-
     const response = await beta.auth(
       request.post(
         `/api/worker-allocations/${alphaIds.allocation}/approve`
@@ -312,8 +339,6 @@ describe("write endpoints reject another company's record ids", () => {
   });
 
   it("Beta cannot attach an expense to Alpha's allocation", async () => {
-    if (!alphaIds.allocation) return;
-
     const response = await beta.auth(
       request.post("/api/worker-expenses")
     ).send({
@@ -334,7 +359,9 @@ describe("write endpoints reject another company's record ids", () => {
       sites.body.sites ?? []
     )[0];
 
-    if (!alphaSite) return;
+    // Fetched here rather than in setup, so it is asserted here — a missing
+    // site means this test cannot test anything.
+    expect(alphaSite, "Alpha has no site to attack").toBeTruthy();
 
     const response = await beta.auth(
       request.post("/api/site-logs")
@@ -349,8 +376,6 @@ describe("write endpoints reject another company's record ids", () => {
   });
 
   it("Beta cannot read Alpha's labour ledger", async () => {
-    if (!alphaIds.labour) return;
-
     const response = await beta.auth(
       request.get(
         `/api/site-operations/labour/${alphaIds.labour}/ledger`
@@ -361,8 +386,6 @@ describe("write endpoints reject another company's record ids", () => {
   });
 
   it("Beta cannot read Alpha's investor statement", async () => {
-    if (!alphaIds.investor) return;
-
     const response = await beta.auth(
       request.get(
         `/api/masters/investors/${alphaIds.investor}/statement`
@@ -438,8 +461,6 @@ describe("write endpoints reject another company's record ids", () => {
   });
 
   it("Beta cannot attach a payment to Alpha's tender", async () => {
-    if (!alphaIds.tender) return;
-
     const response = await beta.auth(
       request.post("/api/payments")
     ).send({
