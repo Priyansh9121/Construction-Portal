@@ -53,6 +53,8 @@ import bpy
 import concept_lib as L
 import concept_mesh as M
 import concept_c as C
+import site_dressing as D
+import human as H
 
 NAME = "D-highrise"
 
@@ -257,7 +259,22 @@ def build_typical_floor(name, mats, level, clad):
 # render and in the browser.
 
 CITY_INNER = 96.0        # nothing closer than this: the orbit has to breathe
-CITY_OUTER = 620.0
+
+# WHERE THE FOG ENDS, which is where the city should.
+#
+# environment.js runs FogExp2, and three's is 1 - exp(-(density*depth)^2).
+# Densities measured out of the running world: 0.0022 at high sun, 0.0050 at
+# golden hour, 0.0090 at night. That puts the horizon at:
+#
+#     day     35% fogged at 300 m,  57% at 420 m,  84% at 620 m
+#     dusk    89% fogged at 300 m,  99% at 420 m
+#     night   99.9% fogged at 300 m
+#
+# A ring reaching 620 m was therefore spending instances on blocks that are
+# 84% gone in the best light and entirely gone in the other two. 420 m is the
+# useful edge by day and generous for everything else, and pulling the ring in
+# puts the same instances where they can actually be seen.
+CITY_OUTER = 420.0
 CITY_COUNT = 220
 
 # WHERE THE CAMERA STANDS, and therefore where no building may.
@@ -339,7 +356,7 @@ def build_city(mats, empties):
     placements = {name: [] for name, *_ in archetypes}
     for _ in range(CITY_COUNT):
         # Radius weighted outward so the ring does not crowd the near edge.
-        t = rng.random() ** 0.62
+        t = rng.random() ** 0.78
         r = CITY_INNER + t * (CITY_OUTER - CITY_INNER)
         a = rng.uniform(0.0, math.tau)
         x, y = math.cos(a) * r, math.sin(a) * r * 0.82
@@ -587,6 +604,51 @@ def build(dusk=False):
         M.prism("mcchook", M.rect(CRANE_X + 26.6, CRANE_Y - 0.4,
                                 CRANE_X + 27.8, CRANE_Y + 0.4),
                 TOP + 1.6, 0.9, mats["galv"], bevel=0.04))
+
+
+    # ---- HOARDING, GATE AND THE STREET ----------------------------------
+    #
+    # The plot is 64 x 52 m now, so C's 22 m hoarding line does not fit it.
+    # Named with C's prefixes so LAYER_RULES routes them to the street layer.
+    hx0, hy0, hx1, hy1 = PODX0 - 3.5, PODY0 - 3.5, PODX1 + 3.5, PODY1 + 3.5
+    for i in range(26):
+        x = hx0 + i * (hx1 - hx0) / 26.0
+        if -9.0 < x < 9.0:
+            continue                     # the gate opening, on the street side
+        parts["paint"].append(
+            M.prism(f"hoard-s{i}", M.rect(x, hy0, x + (hx1 - hx0) / 26.0 - 0.12, hy0 + 0.16),
+                    0.4, 2.4, mats["spandrel"], bevel=0.02))
+    for i in range(20):
+        y = hy0 + i * (hy1 - hy0) / 20.0
+        for hx in (hx0, hx1):
+            parts["paint"].append(
+                M.prism(f"hoard-{'w' if hx < 0 else 'e'}{i}",
+                        M.rect(hx, y, hx + 0.16, y + (hy1 - hy0) / 20.0 - 0.12),
+                        0.4, 2.4, mats["spandrel"], bevel=0.02))
+
+    # Gate posts either side of the opening.
+    for gx in (-9.0, 9.0):
+        parts["galv"].append(
+            M.column(f"gate{int(gx)}", gx, hy0 + 0.08, 0.4, 3.0, 0.22, mats["galv"]))
+
+    # Site content, from the same dressing library C uses, laid out for this
+    # plot rather than C's. An empty site was the single largest cause of the
+    # game-like read, and that finding does not stop applying because the
+    # building got taller.
+    D.dress(parts, mats, rng, PODX0 + 2, PODX1 - 2, PODY0 + 2, PODY1 - 2, pad_z=0.5)
+
+    # ---- PEOPLE ----------------------------------------------------------
+    # Scale is what a person gives a 106 m building, and nothing else does.
+    for nm, x, y, z, face, pose in (
+            ("wk-gate", -6.0, -27.5, 0.5, 0.4, "stand"),
+            ("wk-yard", 14.0, -18.0, 0.5, 2.3, "carry"),
+            ("wk-pod", -18.0, 6.0, 0.5, 1.1, "stand"),
+            ("wk-path", 22.0, -31.0, 0.36, 3.1, "stand"),
+            ("wk-deck", 6.0, -8.0, TOP + 0.06, 2.0, "signal")):
+        w = H.worker(nm, mats, pose=pose, facing=face,
+                     height=rng.uniform(1.68, 1.83), seed=int(abs(x) * 7))
+        w.location = (x, y, z)
+        parts.setdefault("people", []).append(w)
 
     build_city(mats, empties)
 
