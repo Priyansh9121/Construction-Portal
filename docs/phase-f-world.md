@@ -232,3 +232,72 @@ for 4 MB would be asking for the wrong thing.
 Headless cannot render it: `CAPABLE()` rejects software renderers and headless
 Chromium is SwiftShader. Use `channel: "chrome"`, headed, and wait on
 `canvas.__perf` rather than a timeout.
+
+---
+
+## TRAP 8 — verifying a pipeline is not verifying the product
+
+Before building the tower, instancing was checked end to end: Blender emitted
+`EXT_mesh_gpu_instancing`, `meshopt` preserved it, and three's `GLTFLoader`
+built an `InstancedMesh` — 2 draw calls against 400 for the same geometry.
+Every one of those claims was true, and the check was worthless where it
+mattered.
+
+It used a **raw `GLTFLoader`**. The product does not. `assets.js` runs
+`extract()`, which bakes `o.matrixWorld` into geometry — and an `InstancedMesh`
+IS an `isMesh` whose `matrixWorld` is the Empty's, identity, with every real
+placement in `instanceMatrix`. So the world shipped with **17 clad floors
+collapsed into one at z = 0 inside the podium**, and the tower had no floors at
+all. The GLB was right, the loader was right, the byte gate was delighted, and
+nothing threw.
+
+**The end that was never in the loop is the end that broke.**
+
+So: any claim of the form *"I verified X end to end"* has to **name which end**.
+The useful question is not "does the format work" but "does the code that will
+actually consume this, consume it". If the check does not run the product's own
+entry point, it is a check of the library, and it should say so.
+
+Sibling of trap 2 (a green suite is not evidence a path is exercised) and of
+trap 6 (a guard that watches one container is not a guard). The family
+resemblance: all three verify something adjacent to the thing that matters.
+
+---
+
+## Shadow cost, measured
+
+**The frustum was wrong first, and a number measured against it would have
+been meaningless.** `key.shadow.camera` was ±85 with the light 140 m out and
+far at 320 — sized for a 27.7 m building on a 22 x 34 m plot. Against a 106.4 m
+tower with a 118 m crane the light sits *inside* the height the tower occupies
+and the ortho box clips the caster, which does not read as a missing shadow but
+as one cut off partway down the facade.
+
+Re-derived: the plot's corner is ~41 m out and the crane stands at 118 m, so
+±150 holds the pair; the light moved to 300 m so the whole tower is in front of
+the near plane; far reaches 620 m. It deliberately does not reach the city,
+which starts at 96 m — distant blocks would spend the same 2048 texels on
+shadows the fog has already eaten. Both places that position the key light now
+share `KEY_DISTANCE`; the second one re-places it on every environment update
+and would otherwise have undone the frustum on the first sun move.
+
+Then measured, A/B on the same loaded scene, `info.autoReset` off and
+`gl.finish()` for the timing:
+
+    DESKTOP   main pass only     40 calls   102,406 tris   0.10 ms
+              with shadow pass   78 calls   204,800 tris   0.22 ms
+              SHADOW PASS        38 calls   102,394 tris   0.12 ms
+
+    MOBILE    shadow pass         0 calls         0 tris   0.00 ms
+
+**38 draw calls for 493 instances.** The shadow pass roughly doubles submitted
+geometry, which is what a second pass over every caster costs — but it is 38
+calls rather than 500 because the casters are 14 `InstancedMesh`, and that is
+the instancing payoff showing up twice.
+
+The timing is honest but small: at 0.1-0.2 ms both passes are near the floor of
+what `performance.now()` around a `finish()` can resolve, so the **call and
+triangle counts are the solid figures** and the millisecond is indicative.
+
+Mobile pays nothing, now confirmed rather than assumed: `castShadow = !portrait`
+holds, and the phone tier reports 0 calls and 0 triangles for the pass.

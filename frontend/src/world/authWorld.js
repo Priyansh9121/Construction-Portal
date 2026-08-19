@@ -839,6 +839,10 @@ function dressSurface(THREE, material, surfaces, report) {
 }
 
 
+/* How far out the sun stands. Shared, because two places place the key light
+ * and the shadow frustum is sized against this number. */
+const KEY_DISTANCE = 300;
+
 function buildLights(THREE, scene, portrait, preset, sunDir) {
   /*
    * Every light here is DERIVED FROM THE SKY. The key sits at the sun's own
@@ -848,14 +852,38 @@ function buildLights(THREE, scene, portrait, preset, sunDir) {
    * lamps pointed at it.
    */
   const key = new THREE.DirectionalLight(preset.key, preset.keyI);
-  key.position.copy(sunDir).multiplyScalar(140);
+
+  /*
+   * THE SHADOW FRUSTUM IS SIZED FROM THE BUILDING, NOT INHERITED.
+   *
+   * These were +/-85 with the light 140 m out and far at 320, which fitted a
+   * 27.7 m building on a 22 x 34 m plot. Against a 106.4 m tower with a 118 m
+   * crane they are too small twice over: the light sits inside the height the
+   * tower occupies, and the ortho box clips the caster. The result is not a
+   * missing shadow, which would be obvious — it is a shadow cut off partway
+   * down the facade, which reads as a lighting choice.
+   *
+   * Derived rather than guessed. Half-extent has to hold the site's own radius
+   * plus the height that leans across it when the sun is low: the plot's
+   * corner is ~41 m out and the crane stands at 118 m, so 150 m covers the
+   * pair with room. The light is pushed to 300 m so the whole tower is in
+   * FRONT of the near plane, and far reaches past the site to 620 m.
+   *
+   * It deliberately does NOT reach the city, which starts at 96 m and runs to
+   * 420 m. Distant blocks casting into this map would spend the same 2048
+   * texels on shadows that fog has already eaten — see the fog measurement in
+   * docs/phase-f-world.md.
+   */
+  key.position.copy(sunDir).multiplyScalar(KEY_DISTANCE);
   key.castShadow = !portrait;
   if (!portrait) {
     key.shadow.mapSize.set(2048, 2048);
     const c = key.shadow.camera;
-    c.left = -85; c.right = 85; c.top = 85; c.bottom = -85; c.far = 320;
-    key.shadow.bias = -0.0009;
-    key.shadow.normalBias = 0.4;
+    c.left = -150; c.right = 150; c.top = 150; c.bottom = -150; c.far = 620;
+    /* A frustum this much deeper needs more slope bias, or the tower
+     * self-shadows in bands down the fitting-out floors. */
+    key.shadow.bias = -0.0012;
+    key.shadow.normalBias = 0.6;
   }
   scene.add(key);
 
@@ -1154,7 +1182,11 @@ export async function createAuthWorld(canvas, opts = {}) {
     /* Below the horizon the sun contributes nothing. Without this the key
      * keeps lighting the site from underneath all night. */
     lights.key.intensity = env.sun.up ? g.keyI : 0;
-    lights.key.position.set(...env.sun.dir).multiplyScalar(140);
+    /* The same distance buildLights derived the shadow frustum against. Two
+     * places place the key light, and this one re-places it every time the sun
+     * moves — leaving it at 140 would have quietly undone the frustum on the
+     * first environment update. */
+    lights.key.position.set(...env.sun.dir).multiplyScalar(KEY_DISTANCE);
 
     lights.moon.intensity = env.moon.intensity;
     lights.moon.position.set(...env.moon.dir).multiplyScalar(160);
