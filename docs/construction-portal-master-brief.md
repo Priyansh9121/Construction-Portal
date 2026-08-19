@@ -403,6 +403,22 @@ From the earlier brief, still correct and still blocking:
 
 168 commits. Verify auth, shell, Dashboard, then merge to `main`.
 
+### Phase E — PAUSED 2026-08-19
+
+A production census found the system has **never been used** — one company, six
+users, zero tenders/sites/workers/payments, empty `activity_logs`. Three
+consecutive attempts to order the route programme came back flat (a11y 44/44,
+gap list 32-of-36 implemented, and no usage at all), because there is nothing to
+order against.
+
+Superseded for now by `docs/first-tender-walkthrough.md`. Phase E resumes once
+one real tender has been through the system and there is a usage signal.
+
+Two blockers that walkthrough found, both needing a production data change:
+**migration 004 was never applied** (`material_catalog` and `labour_categories`
+are empty, so material entry is impossible), and **every existing worker login is
+unlinked** (`workers` is empty), which is BUG-002's state.
+
 ### Phase E — The remaining route programme *(the largest phase)*
 
 Twenty-two page components, roughly 600 KB of JSX. `WorkerPortalPage` is 60 KB,

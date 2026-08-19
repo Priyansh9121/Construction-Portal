@@ -1,4 +1,20 @@
-# Phase E — the ordered route plan
+# Phase E — the ordered route plan  ·  **PAUSED 2026-08-19**
+
+> **Phase E is paused, not abandoned.** A production census found the system has
+> **never been used**: one company, six users, and zero tenders, sites, workers,
+> payments — and an empty `activity_logs`, which records every mutating request.
+>
+> That explains why **three consecutive ordering axes came back flat.** The a11y
+> sweep passed 44/44. The business-rule gap list was 32 implemented / 3 partial.
+> And usage, the axis that should have broken the tie, does not exist at all.
+> The ordering below cannot be made non-arbitrary, because there is nothing to
+> order against.
+>
+> Migrating twenty-two routes for a product nobody has used is the wrong next
+> thing. **`docs/first-tender-walkthrough.md` replaces it**: the shortest path to
+> one real tender end to end, which is what will produce the usage signal this
+> plan needs. Everything below stays valid as analysis and resumes when it has
+> one.
 
 Both axes were run before deciding anything. **Neither discriminates**, and that
 is the headline finding: the ordering has to come from somewhere else.

@@ -329,3 +329,37 @@ in the same migration**, or it reintroduces this exact defect.
 - Phase E should be ordered against this list. Several routes may need far less
   work than their file size suggests, because the server already carries the
   rule.
+
+---
+
+## RLS — DETERMINED 2026-08-19. The policies are in force.
+
+Recorded properly because this was flagged as undeterminable from the repository
+**three separate times**, in three different sessions, each correctly noting that
+nothing in the code could answer it:
+
+> *"Whether the deployed API actually connects as `construction_app` and is
+> therefore subject to RLS… `tenantScopingEnabled` is decided at runtime by
+> reading `rls_enforced` and defaults to false; the migration's own closing notes
+> say 'Until you do, RLS has NO effect because postgres bypasses it'. Nothing in
+> the repository establishes which role production uses."*
+
+It was never a code question. It was a question about the deployed environment,
+and a single connection answered it:
+
+    CONNECTED  db=postgres  user=construction_app
+               PostgreSQL 17.6 on aarch64-unknown-linux-gnu
+
+**Production connects as `construction_app`, not `postgres`.** `construction_app`
+is a constrained role and does not bypass row-level security, so the policies in
+`003_supabase_rls.sql` **are in force in production**, and tenant isolation does
+not rest on the `WHERE` clauses alone.
+
+That closes the caveat attached to S-01 and to every tenant-isolation note that
+depended on it.
+
+**The lesson worth keeping:** three sessions reasoned carefully about this and
+each concluded, correctly, that the repository could not answer it — and none
+tried the environment. *"No record of it in the code"* is not the same as
+*"unknowable"*. When a question is about the deployment rather than the code,
+the deployment is the artifact to measure.
