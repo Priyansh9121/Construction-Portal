@@ -371,3 +371,76 @@ Stopped at the gate, which is a product decision and not mine to change.
 Everything downstream of it — the entry window that §1.13 exists for, the
 approve/reject flow, the access-request path — is unreachable for the role it
 was written for and cannot be walked until the gate is answered.
+
+---
+
+# CENSUS CORRECTION — a large share of production is invisible to the app (2026-08-19)
+
+Run to settle the `worker_assignments` provenance question. It answered that
+and found something bigger.
+
+**Method.** Connected as `construction_app`, which is what the API connects as,
+with RLS in force and `SET LOCAL app.company_id = '1'` **inside a transaction**.
+The first attempt used `SET LOCAL` outside one, where it applies to its own
+implicit transaction and is gone by the next statement — which would have
+reported zeros again, the same way the original census did. Verified before
+trusting anything: `current_setting('app.company_id')` = 1 and
+`current_company_id()` = 1.
+
+## What the application can actually see
+
+| table | SQL Editor (`postgres`, RLS bypassed) | visible to the app (company 1) | unreachable |
+|---|---|---|---|
+| tenders | 10 | 10 | 0 |
+| activity_logs | 23 | 23 | 0 |
+| sites | 13 | 11 | **2** |
+| payments | 13 | 7 | **6** |
+| subcontractors | 5 | 1 | **4** |
+| workers | 5 | 1 | **4** |
+| tender_documents | 12 | 0 | **12** |
+| worker_assignments | 1 | 0 | **1** |
+| daily_site_logs | 1 | 0 | **1** |
+
+**Every tender document in production is unreachable by the product that wrote
+it.** So are six of thirteen payments, four of five workers, four of five
+subcontractors. `companies` holds exactly one row, id 1, so these rows carry a
+`company_id` that is null or points at a company that does not exist. RLS then
+hides them from every application query — permanently and silently.
+
+I cannot read their `company_id` as `construction_app`; that needs the SQL
+Editor:
+
+    SELECT company_id, count(*) FROM tender_documents GROUP BY 1;
+    SELECT company_id, count(*) FROM payments GROUP BY 1;
+    SELECT id, company_id, worker_id, site_id, assigned_by FROM worker_assignments;
+
+**This changes what the earlier census meant.** "The office half is in daily
+use" stands — 10 tenders and 23 logged actions are real and visible. But the
+higher SQL Editor figures include a population of orphans, and the difference
+is not small.
+
+## The provenance question, answered
+
+**The `worker_assignments` row is an orphan, not a hidden working path.**
+
+- It is invisible under the only company that exists.
+- `activity_logs` — which records every mutating request — contains **no
+  assignment action at all**. Its 23 rows are: payments create ×7, tenders
+  delete ×6, tenders create ×5, users create ×2, users update ×1,
+  worker_allocations create ×1, worker_expenses create ×1.
+
+No log entry and no valid tenant means it did not come through the API. That
+matches the code: `worker_assignments` has one writer, and it and the `site_id`
+requirement arrived in the same commit. **Nobody has a working path the UI does
+not expose.** It is a manual or imported row, and it belongs with the other
+orphans rather than with the assignment question.
+
+## One more correction to "the site half has never received a row"
+
+`worker_expenses` holds **1** and `worker_allocations` holds **1**, both created
+**2026-08-05, thirteen seconds apart**, both with activity-log entries — so both
+went through the API. The worker-money path has had exactly one round trip.
+
+The site-operations tables are still genuinely zero: `site_material_entries`,
+`labour`, `labour_work_entries`, `supervisor_expenses`,
+`supervisor_fund_receipts`, `entry_access_requests`, `daily_update_approvals`.

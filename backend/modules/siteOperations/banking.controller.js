@@ -68,6 +68,9 @@
 */
 
 const pool = require("../../database/pool");
+const {
+  resolveEntrySite,
+} = require("./siteScope.service");
 
 const asyncHandler = require("../../utils/asyncHandler");
 
@@ -456,6 +459,22 @@ exports.createReceipt = asyncHandler(
       });
     }
 
+    // Money handed to a supervisor is handed to them FOR a site; without
+    // one the float cannot be reconciled against what was spent there.
+    const receiptScope =
+      await resolveEntrySite({
+        siteId: site_id,
+        tenderId: tender_id,
+        companyId,
+        subject: "receipt",
+      });
+
+    if (receiptScope.error) {
+      return res
+        .status(receiptScope.error.status)
+        .json(receiptScope.error.body);
+    }
+
     const value = toNumber(amount);
 
     if (
@@ -504,8 +523,8 @@ exports.createReceipt = asyncHandler(
       `,
       [
         companyId,
-        tender_id,
-        site_id,
+        receiptScope.site.tender_id,
+        receiptScope.site.id,
         supervisor_user_id,
         receipt_date,
         receipt_type,
@@ -702,6 +721,20 @@ exports.createExpense = asyncHandler(
       });
     }
 
+    const expenseScope =
+      await resolveEntrySite({
+        siteId: site_id,
+        tenderId: tender_id,
+        companyId,
+        subject: "expense",
+      });
+
+    if (expenseScope.error) {
+      return res
+        .status(expenseScope.error.status)
+        .json(expenseScope.error.body);
+    }
+
     // Banking gets the extra grace day from the notes.
     const windowCheck =
       await checkEntryWindow({
@@ -742,8 +775,8 @@ exports.createExpense = asyncHandler(
       `,
       [
         companyId,
-        tender_id,
-        site_id,
+        expenseScope.site.tender_id,
+        expenseScope.site.id,
         getUserId(req),
         expense_date,
         category,
@@ -796,6 +829,39 @@ const setExpenseApproval = (
     );
 
     if (!expenseId) return;
+
+    // Segregation of duties — see the same guard on material entries.
+    const existing = await pool.query(
+      `
+      SELECT recorded_by
+        FROM supervisor_expenses
+       WHERE id = $1
+         AND company_id = $2
+         AND COALESCE(is_deleted, FALSE) = FALSE
+      `,
+      [expenseId, companyId]
+    );
+
+    if (existing.rows.length === 0) {
+      return sendNotFound(
+        res,
+        "Expense"
+      );
+    }
+
+    if (
+      nextStatus === "approved" &&
+      Number(
+        existing.rows[0].recorded_by
+      ) === Number(getUserId(req))
+    ) {
+      return res.status(409).json({
+        success: false,
+        reason: "SELF_APPROVAL",
+        message:
+          "You recorded this expense, so someone else has to approve it.",
+      });
+    }
 
     const result = await pool.query(
       `

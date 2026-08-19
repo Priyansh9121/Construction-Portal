@@ -58,6 +58,9 @@
 */
 
 const pool = require("../../database/pool");
+const {
+  resolveEntrySite,
+} = require("./siteScope.service");
 
 const asyncHandler = require("../../utils/asyncHandler");
 
@@ -164,38 +167,6 @@ const assessPhoto = ({
 /**
  * Confirms a tender belongs to the caller's company.
  */
-const tenderInCompany = async (
-  tenderId,
-  companyId
-) => {
-  if (!tenderId) return true;
-
-  const result = await pool.query(
-    `SELECT 1 FROM tenders
-      WHERE id = $1 AND company_id = $2
-        AND COALESCE(is_deleted, FALSE) = FALSE`,
-    [tenderId, companyId]
-  );
-
-  return result.rows.length > 0;
-};
-
-const siteInCompany = async (
-  siteId,
-  companyId
-) => {
-  if (!siteId) return true;
-
-  const result = await pool.query(
-    `SELECT 1 FROM sites
-      WHERE id = $1 AND company_id = $2
-        AND COALESCE(is_deleted, FALSE) = FALSE`,
-    [siteId, companyId]
-  );
-
-  return result.rows.length > 0;
-};
-
 /*
 |--------------------------------------------------------------------------
 | GET /api/site-operations/materials/catalog
@@ -496,29 +467,26 @@ exports.createEntry = asyncHandler(
       });
     }
 
-    if (
-      !(await tenderInCompany(
-        tender_id,
-        companyId
-      ))
-    ) {
-      return sendNotFound(
-        res,
-        "Tender"
-      );
+    /*
+     * The site is required, and the tender is derived from it. Both used
+     * to be optional and both defaulted to null, which is how entries
+     * naming no site came to exist. See siteScope.service.js.
+     */
+    const scope = await resolveEntrySite({
+      siteId: site_id,
+      tenderId: tender_id,
+      companyId,
+      subject: "material",
+    });
+
+    if (scope.error) {
+      return res
+        .status(scope.error.status)
+        .json(scope.error.body);
     }
 
-    if (
-      !(await siteInCompany(
-        site_id,
-        companyId
-      ))
-    ) {
-      return sendNotFound(
-        res,
-        "Site"
-      );
-    }
+    const scopedTenderId =
+      scope.site.tender_id;
 
     // The two-day rule.
     const windowCheck =
@@ -592,8 +560,8 @@ exports.createEntry = asyncHandler(
       `,
       [
         companyId,
-        tender_id,
-        site_id,
+        scopedTenderId,
+        scope.site.id,
         material_id,
         finalName,
         resolved?.main_section ||
@@ -712,6 +680,50 @@ const setApprovalStatus = (
     );
 
     if (!entryId) return;
+
+    /*
+     * Segregation of duties.
+     *
+     * The approve step exists so a second pair of eyes sees the entry; if
+     * the recorder can approve their own, the step is theatre. Until the
+     * gate opened on 2026-08-19 that was routine rather than rare — only
+     * admins could reach this screen, so the recorder and the approver
+     * were always the same person.
+     *
+     * Rejection is deliberately NOT blocked: withdrawing your own entry is
+     * not the thing this control exists to prevent.
+     */
+    const existing = await pool.query(
+      `
+      SELECT recorded_by
+        FROM site_material_entries
+       WHERE id = $1
+         AND company_id = $2
+         AND COALESCE(is_deleted, FALSE) = FALSE
+      `,
+      [entryId, companyId]
+    );
+
+    if (existing.rows.length === 0) {
+      return sendNotFound(
+        res,
+        "Material entry"
+      );
+    }
+
+    if (
+      nextStatus === "approved" &&
+      Number(
+        existing.rows[0].recorded_by
+      ) === Number(getUserId(req))
+    ) {
+      return res.status(409).json({
+        success: false,
+        reason: "SELF_APPROVAL",
+        message:
+          "You recorded this entry, so someone else has to approve it.",
+      });
+    }
 
     const result = await pool.query(
       `

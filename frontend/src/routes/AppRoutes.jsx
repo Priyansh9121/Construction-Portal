@@ -137,6 +137,52 @@ function AdminManagerLayout({
 }
 
 /**
+ * Protected layout for the two site-operations screens.
+ *
+ * Admin, manager AND worker — the last of those deliberately.
+ *
+ * §1.15 has the supervisor writing down the names of the labourers working
+ * under him, and those labourers are `labour` rows with no login. So the
+ * people holding `worker` logins ARE the supervisors; there is no separate
+ * role missing from the model.
+ *
+ * The backend has always encoded that: every recording endpoint in
+ * `modules/siteOperations` is open to any authenticated caller, and only
+ * approve/reject carry `requireOffice`. Until 2026-08-19 this router was
+ * the only thing that disagreed, and it silently redirected supervisors to
+ * `/worker-portal` — which is why every site-operations table in
+ * production holds zero rows.
+ *
+ * They are NOT promoted to `manager` to achieve this. `WINDOW_EXEMPT_ROLES`
+ * is `["admin", "manager"]`, so promoting them would exempt exactly the
+ * people §1.13's two-day entry window exists to constrain — the same inert
+ * composition, rebuilt on purpose.
+ */
+function SiteWorkLayout({
+  children,
+  activePage,
+  user,
+}) {
+  return (
+    <RoleRoute
+      user={user}
+      allowedRoles={[
+        "admin",
+        "manager",
+        "worker",
+      ]}
+    >
+      <AppLayout
+        activePage={activePage}
+        user={user}
+      >
+        {children}
+      </AppLayout>
+    </RoleRoute>
+  );
+}
+
+/**
  * Protected layout for administrators only.
  */
 function AdminLayout({
@@ -593,7 +639,7 @@ function AppRoutes({
       <Route
         path="/daily-site-updates"
         element={
-          <AdminManagerLayout
+          <SiteWorkLayout
             activePage="Daily Site Updates"
             user={user}
           >
@@ -607,7 +653,7 @@ function AppRoutes({
                 deleteSiteLog
               }
             />
-          </AdminManagerLayout>
+          </SiteWorkLayout>
         }
       />
 
@@ -630,12 +676,12 @@ function AppRoutes({
       <Route
         path="/site-operations"
         element={
-          <AdminManagerLayout
+          <SiteWorkLayout
             activePage="Site Operations"
             user={user}
           >
             <SiteOperationsPage />
-          </AdminManagerLayout>
+          </SiteWorkLayout>
         }
       />
 

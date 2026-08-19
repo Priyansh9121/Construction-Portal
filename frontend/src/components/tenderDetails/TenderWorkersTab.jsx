@@ -25,6 +25,7 @@
 
 function TenderWorkersTab({
   workers = [],
+  sites = [],
   assignedWorkers = [],
   workerForm,
   setWorkerForm,
@@ -83,14 +84,44 @@ function TenderWorkersTab({
         <div className="panel">
           <div className="section-title-row">
             <div>
-              <h2>Assign Worker to Tender</h2>
+              <h2>Assign Worker to a Site</h2>
               <p className="muted-text">
-                Allocate workers to this tender and track assignment status.
+                An assignment is to a site, not to the tender as a whole —
+                that is what the entries a supervisor records get attributed
+                against.
               </p>
             </div>
           </div>
 
           <form className="payment-form" onSubmit={handleAssignWorker}>
+            {/*
+              The site.
+
+              This prop was already being passed in and dropped on the
+              floor. The API has required `site_id` since 50aab56 and the
+              form never sent it, so every submission from this screen was
+              refused with "Tender site is required." — a field named in
+              the error and absent from the form.
+            */}
+            <select
+              value={workerForm.site_id}
+              onChange={(e) =>
+                setWorkerForm({
+                  ...workerForm,
+                  site_id: e.target.value,
+                })
+              }
+              required
+            >
+              <option value="">Select Site</option>
+
+              {sites.map((site) => (
+                <option key={site.id} value={site.id}>
+                  {site.site_name}
+                </option>
+              ))}
+            </select>
+
             <select
               value={workerForm.worker_id}
               onChange={(e) =>

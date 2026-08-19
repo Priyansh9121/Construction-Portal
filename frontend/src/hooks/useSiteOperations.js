@@ -50,6 +50,7 @@ export function useSiteOperations() {
     sections: {},
   });
 
+  const [sites, setSites] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [labour, setLabour] = useState([]);
   const [labourCategories, setLabourCategories] = useState([]);
@@ -95,6 +96,23 @@ export function useSiteOperations() {
           await siteOperationsService.getMaterialCatalog();
 
         setCatalog(result);
+
+        return result;
+      }),
+    [run]
+  );
+
+  /*
+   * Every write in this module requires a site as of 2026-08-19, so all
+   * three forms need this list before they can submit anything.
+   */
+  const loadSites = useCallback(
+    () =>
+      run(async () => {
+        const result =
+          await siteOperationsService.getOperationSites();
+
+        setSites(result);
 
         return result;
       }),
@@ -359,6 +377,9 @@ export function useSiteOperations() {
     loading,
     error,
     clearError: () => setError(null),
+
+    sites,
+    loadSites,
 
     loadCatalog,
     loadMaterials,
