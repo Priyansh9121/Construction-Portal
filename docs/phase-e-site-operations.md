@@ -227,3 +227,75 @@ it is marked **[AD]** and is yours, not mine.
 5. **`title`-only corroboration is an accessibility and mobile defect**, not
    just a redesign nicety. Worth fixing regardless of whether this route is
    migrated now.
+
+---
+
+# CORRECTION — the analysis above rests on a premise that is false
+
+Added after a parallel analysis surfaced it, then verified by hand. **The
+headline finding of this document — that a supervisor loses their work to an
+invisible entry window — cannot happen on this route.**
+
+## The defect is the composition, not any one of the three
+
+Three role sets, written in three places by three different concerns, are
+**byte-identical**:
+
+| where | what it decides | the set |
+|---|---|---|
+| `frontend/src/routes/AppRoutes.jsx:122-127` | who may open `/site-operations` | `["admin", "manager"]` |
+| `frontend/src/pages/SiteOperationsPage.jsx:86-92` | `isOffice`, which reveals approve / grant / issue | `["admin", "manager"]` |
+| `backend/modules/siteOperations/entryWindow.service.js:136` | `WINDOW_EXEMPT_ROLES` | `{admin, manager}` |
+
+Each is defensible alone. Composed, they produce a screen where:
+
+1. **A supervisor cannot open the page.** The router admits only office roles.
+2. **Every `isOffice &&` branch is unconditionally true**, and every implicit
+   non-office branch is unreachable code.
+3. **The entry window can never fire for anyone who can see the screen**, because
+   the set that may enter is exactly the set that is exempt.
+
+So the §1.13 anti-fraud control this screen is built around is, on this screen,
+inert — and the elaborate `ACCESS_REQUIRED` → `AccessPrompt` → grant flow at
+`SiteOperationsPage.jsx:122-133`, `:243`, `:1392` is unreachable in production
+for every user who can load it.
+
+**No single one of the three is the bug.** Each is a reasonable local decision.
+The defect only exists in their composition, which is why reading any one file —
+including this page's own header, which says it is "the one screen office staff
+and supervisors share" — gives no hint of it. That header is what I reasoned
+from, and it is the ninth instance of a comment that is not evidence.
+
+## The six other corrections, each verified independently
+
+| Claimed above | Actually |
+|---|---|
+| all four date inputs cap at today | **three do**; the receipt date input has no `max` |
+| the window could be shown in the UI | **`windowDays` never reaches the client** — `entryWindow.service.js:439` computes it, no controller relays it. A window control needs a backend change first |
+| §1.12 sections cleanly surfaced | `<optgroup>` labels render **raw machine codes** — `aggregate`, `binder`, `road` |
+| §1.15 trade grouping surfaced | the roster is a **flat list**; the backend supports a `category` filter the UI never uses |
+| approve/reject is complete | `admin_comment` is plumbed end to end but the page calls with two arguments, so it is **always empty** |
+| photo provenance surfaced | **material only** — `banking.controller.js` never calls `assessPhoto` |
+
+## What this changes
+
+- **The window control is not designed here.** On this route it would surface a
+  rule that cannot fire for anyone who can see it. §1.13's real surface belongs
+  wherever supervisors actually record — `/worker-portal`, if the data agrees.
+- **The gate is not to be changed.** Whether supervisors should reach
+  `/site-operations` is a product decision, pending the role census.
+- **Tier 1's ordering is on hold**, because both justifications for this route
+  leading it are gone.
+
+## The question the data must answer
+
+Which role does a real supervisor hold? Three answers, three different
+consequences:
+
+- **`manager`** — then `WINDOW_EXEMPT_ROLES` exempts exactly the people who
+  record, and **§1.13's entry window applies to nobody in production.** That is
+  a far larger finding than any redesign.
+- **`worker`** — the rule bites on `/worker-portal`, and Tier 1 should lead
+  there.
+- **nobody records site work at all** — the area is unexercised, and ordering
+  should weight routes people actually use.
