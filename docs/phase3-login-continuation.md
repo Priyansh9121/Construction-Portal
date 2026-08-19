@@ -6316,3 +6316,70 @@ prints a line for anything it had to adjust. Export the fixture credentials from
    moves toward intent" was true; "toward intent is safe" was the claim actually
    being relied on, and one measurement separated them. When a rule is about to
    drive a change, check which claim you are leaning on.
+
+---
+
+# HANDOFF — the first tender walked to step 6, where the UI cannot write (2026-08-19)
+
+**Branch** `phase-e/routes`. **Tree clean apart from the two docs this session
+wrote.** No code changed, no migration, no production access.
+
+## The finding
+
+**Step 6 of `docs/first-tender-walkthrough.md` cannot be completed in the real
+UI.** `/tenders/:id` → Workers tab offers worker, notes and status; the endpoint
+requires `site_id`; the form has no site control and the payload has no such
+key. Every submission returns `400 "Tender site is required."`, naming a field
+the screen does not contain. Full evidence in the walkthrough's **WALK RESULT**
+section, which is where this should be read from.
+
+This is the answer to the census's newest entry. `worker_assignments` is empty
+in production **not because nobody performed step 6, but because nobody can.**
+It is empty locally too, under 15 companies, 732 users and a green suite.
+
+Trap 2 in its sharpest form yet, and worth adding to the list as instance nine:
+`backend/tests/portals.test.js:101` assigns a worker by sending `site_id`
+itself. The same suite proves the endpoint works and proves nothing at all about
+the screen.
+
+## What passed first
+
+Steps 1, 2, 3, 4, 5 and 5b, in a real browser against local. Tender **1707**,
+site **1809**, worker **1242**, user **5012** — all verified as rows, not as
+toasts. Step 5b did exactly what it was built for last session: the new worker
+has a login, a membership and a linked register row, so Blocker 2 was avoided
+rather than met.
+
+Two plan corrections came out of walking it: **steps 3 and 4 are one step** (the
+Create Tender form requires at least one site inline, and issues no
+`POST /sites`), and **step 7 is not a blocker locally** — company 1 has 24
+materials and 13 labour categories, the same as production.
+
+## Where to pick up
+
+1. **Decide what step 6 should mean.** The form says *"Allocate workers to this
+   tender"*; the API says an assignment belongs to a site. `TenderWorkersTab`
+   is already handed a `sites` prop it does not destructure
+   (`TenderDetailsPage.jsx:1734` vs the parameter list at line 26), so the
+   intended shape was per-site. That is a product decision before it is a fix.
+2. **Then re-walk from step 6.** Steps 7–13 are unwalked and 9/10 sit behind the
+   assignment. The §1.13 entry window still has never been hit by a non-exempt
+   role.
+3. The friction list at the end of the walkthrough — four items, none blocking,
+   including a Dashboard headline that disagrees with its own list.
+
+## How to reproduce the walk
+
+```bash
+cd backend && RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=1000 \
+PASSWORD_RESET_RATE_LIMIT_MAX=100000 nohup npm start > /tmp/api.log 2>&1 &
+cd frontend && npm run dev
+```
+
+Kill whatever holds 5051 and 5173 first — both were days old this session. Check
+the limiters on the wire rather than in the command: `/api/health` must answer
+`RateLimit-Policy: 100000;w=900` and `/api/auth/login` `1000;w=900`.
+
+Local connects as `postgres`, which the boot log correctly reports as bypassing
+RLS, so local counts need no `SET app.company_id`. That caution is production's,
+and production was not touched this session.

@@ -113,3 +113,121 @@ Roles: **A** = admin, **W** = worker (supervisor). Route names as registered.
   production and is yours.
 - No decision on the `/site-operations` gate, which remains a product question.
 - No Phase E reordering until the walk produces a usage signal.
+
+---
+
+# WALK RESULT — steps 1–5b pass, step 6 is a genuine break (2026-08-19)
+
+Walked in a real browser against the **local** stack, not production. Chromium
+via Playwright driving the actual screens; every claim below is a screenshot, an
+HTTP status or a row count, not a reading of the code. Where I read code it was
+*after* the measurement, to explain it.
+
+**Environment.** Both servers were already up and were killed and restarted, so
+nothing here is trap 1. API with the three limiters raised — verified on the
+wire, `RateLimit-Policy: 100000;w=900` on `/api/health` and `1000;w=900` on
+`/api/auth/login`. Local DB connects as `postgres`, which the boot log correctly
+reports as bypassing RLS, so local counts need no `SET app.company_id`; that
+caution applies to production and production was not touched.
+
+## What happened, step by step
+
+| # | Step | Result |
+|---|---|---|
+| 1 | Sign in `/login` | ✅ `200 POST /api/auth/login`, lands on `/dashboard` |
+| 2 | Company exists | ✅ company 1 |
+| 3 | Create a tender | ✅ **merged with step 4** — see below. `201 POST /api/tenders`, tender **1707** |
+| 4 | Create a site under it | ✅ same request. Site **1809**, no `POST /api/sites` was issued |
+| 5 | Create a worker | ✅ `201 POST /api/workers`, worker **1242** "Kirit Patel" |
+| 5b | Give that worker a login | ✅ `201 POST /api/auth/users`. User **5012**, `role=worker`, `status=active`, `company_users` row present, `workers.user_id=5012` |
+| 6 | Assign the worker to the tender | 🛑 **BREAK.** `400 POST /api/tenders/1707/workers` — `"Tender site is required."` |
+
+The walk stopped there, unworked-around.
+
+## Step 6 — the break
+
+**The screen cannot satisfy the endpoint it calls.** The Workers tab renders
+exactly three controls — worker, notes, status — and no site control of any
+kind. `validateTenderWorker` requires `site_id`. So every submission from this
+screen is refused, for every tender, regardless of how many sites it has. The
+toast shows the backend's message verbatim: *Tender site is required.* — naming
+a field the form does not contain.
+
+Measured, then traced:
+
+    frontend/src/pages/TenderDetailsPage.jsx:923   posts { tender_id, worker_id, notes, status }
+    frontend/src/pages/TenderDetailsPage.jsx:111   EMPTY_WORKER_FORM has no site_id
+    backend/modules/tenders/tenderValidation.js:1604  site_id -> normaliseRequiredPositiveId(..., "Tender site")
+
+There is exactly one caller of `assignWorkerToTender` and the string `site_id`
+does not appear anywhere in `pages/TenderDetailsPage.jsx` or
+`components/tenderDetails/`. This is not a defaulting bug that a single-site
+tender could dodge; the field is absent from the payload's shape.
+
+**The vestige.** `TenderDetailsPage.jsx:1734` passes `sites={tenderSites}` to
+`TenderWorkersTab`, and that component's parameter list (line 26) does not
+destructure `sites`. The prop is supplied and dropped. The site selector was
+intended and is missing.
+
+**Why 254 green tests did not catch it.** `backend/tests/portals.test.js:101`
+assigns a worker by sending `site_id: siteId` itself. The endpoint is proven to
+work and the screen is proven unusable by the same suite. This is the ninth
+instance, and the cleanest one yet: the fixture supplied the field the UI cannot.
+
+**It also explains the census.** `worker_assignments` is empty in production —
+and empty locally too, across 15 companies and 732 users. The walkthrough
+recorded that as *"step 6 has never been performed."* Measured, the sharper
+statement is that **step 6 cannot be performed through the UI at all.** The
+office half of the product stops exactly here, which is also why the supervisor
+half has never been touched: steps 9 and 10 need an assignment that nothing can
+create.
+
+Corollary, settled in passing: `tender_workers` does not exist in the local
+database either — `to_regclass` returns null. The code writes
+`worker_assignments`. That half of the step-6 question needs no further work.
+
+## Corrections to this plan, from walking it
+
+**Steps 3 and 4 are one step.** `/tenders` carries a full Create Tender form
+with a "Tender Sites" block and an "Add Another Site" button, and the site name
+is `required` — native validation refuses the submit with *Please fill out this
+field.* A tender **cannot** be created without at least one site. So the
+prediction that step 4 is where someone hunts for a missing Sites screen did not
+happen: the site is created before the tender exists, in the same request. The
+observation that `/sites` and `/sites/:id` are redirects stands, and did not
+bite.
+
+**Step 7 is not a blocker locally.** Company 1 holds **24 materials and 13
+labour categories** — the same numbers migration 004 produces in production.
+Consistent with Blocker 1 already being retracted.
+
+**Step 5b works exactly as designed.** The row action is on the Workforce
+register, the dialog states plainly that no email is sent, and the three rows it
+must write were all written. Blocker 2 was avoided rather than hit, as predicted.
+
+## Friction noticed on the way, none of it blocking
+
+1. **Dashboard copy disagrees with itself.** The headline reads *"5 things need
+   you today."*, four items are listed, and the link below says *"1 more item
+   need attention"* — a missing "s", and a headline that counts an item the list
+   hides.
+2. **The Workforce register cannot show who has a login.** There is no email or
+   account column; the only tell is whether a row offers "Invite login". On 57
+   rows that is a scan, not an answer.
+3. **The assignment form has no site, and reads as if it needs none.** Its own
+   copy says *"Allocate workers to this tender"*, which is consistent with the
+   form and inconsistent with the API. Whoever writes the fix has to decide which
+   of the two is right — this is a product question, not only a missing input.
+4. **`/tenders` and `/tenders/:id` are visibly pre-redesign** — blue and red
+   buttons, boxed cards — against a Dashboard that is not. Two generations sit
+   one click apart on the critical path.
+5. Local `workers` is 57 rows of e2e churn (`… Invite Me`, `Orphan`, `Payroll
+   Only`). Not a product finding, but it makes the worker picker on the
+   assignment form nearly unreadable, and it is worth a cleanup.
+
+## What was NOT done
+
+No fix, no workaround, no code change. Steps 7–13 are unwalked: 8 and 11–13 were
+reachable but 9 and 10 sit behind the assignment, and walking the office end
+first would have reported a completion the product cannot actually deliver.
+Production was not read or written.
