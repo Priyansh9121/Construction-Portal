@@ -26,60 +26,52 @@ runs. It does not prove the code is reachable by a real user holding a real role
 
 ---
 
-## Predicted blockers, before the walk starts
+## CORRECTION — my census was wrong, and RLS is why
 
-These are measured, not guessed. Two of them stop the walk outright.
+**Retracted 2026-08-19, before the walk.** Every "0 rows" below came from a
+connection with **no company context set**. Production connects as
+`construction_app`, RLS is in force, and `current_company_id()` returns `null`
+without `SET app.company_id` — so **every tenant-scoped table read as empty.**
 
-### BLOCKER 1 — migration 004 was never applied to production
+    material_catalog   0 without context   ->   24 with company 1
+    tenders            0                   ->   10
+    sites              0                   ->   11
+    payments           0                   ->    7
+    activity_logs      0                   ->   23
 
-    material_catalog    0 rows
-    labour_categories   0 rows
+I established that RLS was in force **in the same session**, recorded it as a
+finding, and then never applied it to counts I had already taken. Measuring the
+environment was right; forgetting that the measurement itself is subject to what
+it measured was not.
 
-`004_seed_reference_data.sql` is what seeds the material taxonomy — including the
-notebook's Gujarati `name_local` values, `કપચી`, `રેતી`, `સિમેન્ટ` — and the
-labour trade categories.
+### What is actually true
 
-**Both target tables are empty in production.** The tables exist, so the schema
-migrations ran; the seed did not. **Material entry is impossible: there is
-nothing to select.** Labour entry loses its trade vocabulary.
+**The office side has been used.** Ten tenders (five created, six deleted),
+eleven sites, seven payments, one invoice, one subcontractor, 23 logged actions,
+most recently **2026-08-13**.
 
-This is a migration gap nobody has recorded. 006 and 007 were applied
-deliberately; 004 apparently never was, or was applied to a different database.
-**It must be resolved before step 6, and it is a data change to production, so it
-is yours to make.**
+**The site side has never been used.** These are genuinely zero *with* context:
 
-### BLOCKER 2 — every worker login in production is in BUG-002's broken state
+    site_material_entries      0
+    labour_work_entries        0
+    supervisor_expenses        0
+    supervisor_fund_receipts   0
+    worker_assignments         0
 
-    workers table                      0 rows
-    users with role 'worker'           3
-    worker users linked to a register  0
+So the useful finding is sharper than the wrong one: **the office half of the
+product is in use and the supervisor half has never been touched.** That is a
+real usage signal, and it is the first non-flat ordering axis this project has
+found.
 
-`workers` is empty, so **no worker login is linked to a register row**.
-`profileLink.service.js` refuses an unlinked worker login at seven call sites in
-`workerPortal.controller.js`. All three existing worker users will hit *"No
-worker profile is linked to this login user."*
+### Blocker status after the correction
 
-### BLOCKER 3 — half the users have no company membership
-
-| user | role | company membership |
+| # | Claim | Status |
 |---|---|---|
-| 1 | admin | ✅ |
-| 2 | worker | ❌ |
-| 6 | subcontractor | ❌ |
-| 7 | worker | ❌ |
-| 8 | admin | ✅ |
-| 9 | worker | ✅ |
-
-Portal admission needs a `company_users` row. Users 2, 6 and 7 cannot pass it
-regardless of anything else. **Only user 9 is a viable supervisor candidate**, and
-it still needs a register row per Blocker 2.
-
-### BLOCKER 4 — there are zero `manager` users
-
-`manager` exists in every role gate and in `WINDOW_EXEMPT_ROLES`, and **no user
-holds it**. Any step that assumes a manager cannot be walked at all.
-
----
+| 1 | Migration 004 never applied | **RETRACTED.** It is applied — 24 materials, 13 labour categories. Confirmed independently |
+| 2 | Worker logins unlinked | **STANDS, narrowed.** `workers` holds one row, *Priyansh*, with `user_id NULL`. Three `worker` users exist and none resolves a register row |
+| 3 | Users without company membership | **STANDS.** 1 of 3 workers has a membership; the subcontractor has none. Not an RLS artefact — identical with and without context |
+| 4 | Zero `manager` users | **STANDS.** 3 worker, 2 admin, 1 subcontractor |
+| — | No worker assigned to any tender | **NEW.** `worker_assignments` is empty, so step 6 has never been performed |
 
 ## The path
 
