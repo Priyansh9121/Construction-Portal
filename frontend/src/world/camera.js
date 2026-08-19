@@ -59,6 +59,10 @@ function smoothstep(t) {
   return k * k * (3 - 2 * k);
 }
 
+/* How far the user may dolly either side of a station's authored framing. */
+const DOLLY_MIN = 0.45;
+const DOLLY_MAX = 2.4;
+
 export class CameraRig {
   constructor(THREE, cam, journey, { portrait = false } = {}) {
     this.THREE = THREE;
@@ -80,6 +84,19 @@ export class CameraRig {
     /* True once the user has taken manual control, which suppresses the
      * ambient composition drift so the two never fight. */
     this.explored = false;
+
+    /*
+     * DOLLY: a multiplier on whatever radius the current station specifies,
+     * not an absolute distance.
+     *
+     * Multiplying rather than replacing keeps the authored journey intact —
+     * a station that frames the tower from 80 m and one that frames a corner
+     * from 19 m both stay themselves, and the user's zoom rides on top of
+     * whichever they are at. Clamped so the camera can neither end up inside
+     * the hero nor retreat until the site is a speck.
+     */
+    this.dolly = 1;
+    this.dollyTo = 1;
 
     /* Pointer drift: bounded and decaying. */
     this.driftAz = 0;
@@ -142,6 +159,22 @@ export class CameraRig {
   endDrag() {
     this.dragging = false;
     this.lastDrag = null;
+  }
+
+  /**
+   * Dolly in or out by a factor. 1 is the station's own framing.
+   *
+   * Deliberately NOT on the wheel: the wheel walks the journey, which is an
+   * authored decision `tools/fresh_ui/camera_probe.mjs` asserts on purpose —
+   * "if the only thing that varies across the journey is radius, it is a
+   * zoom". So this is driven by pinch on touch and a modifier-drag on mouse,
+   * and the journey keeps the wheel.
+   */
+  zoom(factor) {
+    const before = this.dollyTo;
+    this.dollyTo = Math.max(DOLLY_MIN, Math.min(DOLLY_MAX, this.dollyTo * factor));
+    if (this.dollyTo !== before) this.explored = true;
+    return this.dollyTo !== before;
   }
 
   /**
@@ -230,6 +263,8 @@ export class CameraRig {
     this.progress = damp(this.progress, this.progressTo, 2.6, dt);
     /* Drag is the heaviest input: it is the one the user is actively pushing,
      * and mass is what makes it feel like a body rather than a slider. */
+    /* Same damping as orbit, so zooming feels like the same instrument. */
+    this.dolly = damp(this.dolly, this.dollyTo, 4.5, dt);
     this.dragAz = damp(this.dragAz, this.dragAzTo, this.dragging ? 9 : 3.4, dt);
     this.dragEl = damp(this.dragEl, this.dragElTo, this.dragging ? 9 : 3.4, dt);
     this.driftAz = damp(this.driftAz, this.driftAzTo * this.calm, 2.2, dt);
@@ -239,7 +274,8 @@ export class CameraRig {
     const azimuth = s.azimuth + this.dragAz + this.driftAz;
     const elevation = s.elevation + this.dragEl + this.driftEl;
 
-    this.applySpherical(s.tx, s.ty, s.tz, s.radius, azimuth, elevation, s.fov);
+    this.applySpherical(s.tx, s.ty, s.tz, s.radius * this.dolly,
+                        azimuth, elevation, s.fov);
     this.settled = Math.abs(this.progress - this.progressTo) < 0.01;
   }
 
@@ -290,6 +326,7 @@ export class CameraRig {
       turnedDeg: +((this.dragAz / TAU) * 360).toFixed(1),
       elevation: +this.elevation.toFixed(3),
       radius: +this.radius.toFixed(2),
+      dolly: +this.dolly.toFixed(3),
       fov: +this.fov.toFixed(2),
       eye: [+this.cam.position.x.toFixed(2), +this.cam.position.y.toFixed(2),
             +this.cam.position.z.toFixed(2)],

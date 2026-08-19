@@ -1606,21 +1606,55 @@ export async function createAuthWorld(canvas, opts = {}) {
   const card = surface.querySelector?.(".auth-card") || null;
   const OWNED_BY_DOM = ".auth-card, .auth-brand-list, a, button, input, label, [role=\"button\"]";
 
+  /*
+   * PINCH.
+   *
+   * Two live pointers on the world are a zoom, and the second one must not be
+   * read as a second drag. Tracked here rather than in the rig because it is
+   * a DOM concern: the rig is given a factor and knows nothing about fingers.
+   */
+  const touches = new Map();
+  let pinchSpan = 0;
+
+  const spanOf = () => {
+    const [a, b] = [...touches.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
   const onPointerDown = (e) => {
     if (reduced || e.button !== 0) return;
     if (e.target?.closest?.(OWNED_BY_DOM)) return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) {
+      /* A pinch started, so whatever drag was running is abandoned rather
+       * than left to fight the zoom for the same finger. */
+      rig.endDrag();
+      pinchSpan = spanOf();
+      return;
+    }
     rig.beginDrag(e.clientX, e.clientY);
     surface.setPointerCapture?.(e.pointerId);
     surface.style.cursor = "grabbing";
   };
   /* Touch: no hover channel, so drag moves arrive here. */
   const onTouchDrag = (e) => {
+    if (touches.has(e.pointerId)) {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (touches.size === 2) {
+      const span = spanOf();
+      if (pinchSpan > 8 && span > 8) rig.zoom(pinchSpan / span);
+      pinchSpan = span;
+      return;
+    }
     if (!rig.dragging) return;
     rig.drag(e.clientX, e.clientY,
              { width: window.innerWidth, height: window.innerHeight });
   };
 
   const onPointerUp = (e) => {
+    touches.delete(e.pointerId);
+    if (touches.size < 2) pinchSpan = 0;
     if (!rig.dragging) return;
     rig.endDrag();
     surface.releasePointerCapture?.(e.pointerId);
@@ -1640,6 +1674,15 @@ export async function createAuthWorld(canvas, opts = {}) {
   const onWheel = (e) => {
     if (reduced) return;
     if (e.target?.closest?.(".auth-card")) return;
+    /*
+     * A modifier turns the wheel into a dolly, which is the mouse equivalent
+     * of the pinch. The BARE wheel still walks the journey, because that is
+     * an authored decision the camera probe asserts rather than an accident.
+     */
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      if (rig.zoom(e.deltaY > 0 ? 1.08 : 1 / 1.08)) e.preventDefault();
+      return;
+    }
     if (rig.wheel(e.deltaY)) e.preventDefault();
   };
 
