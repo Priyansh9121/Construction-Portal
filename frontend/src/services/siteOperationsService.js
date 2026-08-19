@@ -46,6 +46,19 @@ const base = "/site-operations";
 |--------------------------------------------------------------------------
 */
 
+/**
+ * The sites this company records against.
+ *
+ * NOT /api/sites — that register is office-only, and supervisors reach
+ * these screens as of 2026-08-19. See backend sites.controller.js.
+ */
+export const getOperationSites = async () => {
+  const response = await axiosClient.get("/site-operations/sites");
+
+  return response.data?.sites || [];
+};
+
+
 export const getMaterialCatalog = async () => {
   const { data } = await axiosClient.get(`${base}/materials/catalog`);
 
@@ -272,6 +285,8 @@ export const denyAccessRequest = async (id, admin_comment = "") => {
 };
 
 export default {
+  getOperationSites,
+
   getMaterialCatalog,
   getMaterialEntries,
   createMaterialEntry,

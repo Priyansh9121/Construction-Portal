@@ -38,10 +38,22 @@
  * Every destination the authenticated shell can offer, in the order the
  * sidebar presents them.
  *
- * `adminOnly` mirrors AdminLayout in AppRoutes.jsx. Everything else is
- * available to the roles that reach AppLayout at all, which is admin and
- * manager.
+ * `roles` mirrors the route wrapper in AppRoutes.jsx exactly, and is the
+ * whole point of this file: an item offered to a role the router bounces
+ * is a link that leads to a redirect.
+ *
+ *   OFFICE     -> AdminManagerLayout
+ *   ADMIN_ONLY -> AdminLayout
+ *   SITE_WORK  -> SiteWorkLayout, which admits supervisors
+ *
+ * Supervisors reach the shell as of 2026-08-19 and see exactly two
+ * entries. Every other destination here would bounce them, so none of them
+ * is offered.
  */
+const OFFICE = ["admin", "manager"];
+const ADMIN_ONLY = ["admin"];
+const SITE_WORK = ["admin", "manager", "worker"];
+
 const NAVIGATION_GROUPS = [
   {
     heading: "Overview",
@@ -51,13 +63,23 @@ const NAVIGATION_GROUPS = [
     heading: "Projects",
     items: [
       { label: "Tenders", path: "/tenders", icon: "tenders" },
-      { label: "Site Operations", path: "/site-operations", icon: "operations" },
-      { label: "Site Updates", path: "/daily-site-updates", icon: "updates" },
+      {
+        label: "Site Operations",
+        path: "/site-operations",
+        icon: "operations",
+        roles: SITE_WORK,
+      },
+      {
+        label: "Site Updates",
+        path: "/daily-site-updates",
+        icon: "updates",
+        roles: SITE_WORK,
+      },
       {
         label: "Update Approvals",
         path: "/daily-update-approvals",
         icon: "approvals",
-        adminOnly: true,
+        roles: ADMIN_ONLY,
       },
     ],
   },
@@ -66,7 +88,12 @@ const NAVIGATION_GROUPS = [
     items: [
       { label: "Workforce", path: "/workers", icon: "workers" },
       { label: "Subcontractors", path: "/subcontractors", icon: "subcontractors" },
-      { label: "User Management", path: "/users", icon: "users", adminOnly: true },
+      {
+        label: "User Management",
+        path: "/users",
+        icon: "users",
+        roles: ADMIN_ONLY,
+      },
     ],
   },
   {
@@ -104,11 +131,13 @@ function normaliseRole(user) {
  * @returns {Array<{heading: string, items: Array}>}
  */
 export function buildNavigationGroups(user) {
-  const isAdmin = normaliseRole(user) === "admin";
+  const role = normaliseRole(user);
 
   return NAVIGATION_GROUPS.map((group) => ({
     heading: group.heading,
-    items: group.items.filter((item) => !item.adminOnly || isAdmin),
+    items: group.items.filter((item) =>
+      (item.roles || OFFICE).includes(role)
+    ),
   })).filter((group) => group.items.length > 0);
 }
 

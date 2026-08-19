@@ -64,6 +64,9 @@
 */
 
 const pool = require("../../database/pool");
+const {
+  resolveEntrySite,
+} = require("./siteScope.service");
 
 const asyncHandler = require("../../utils/asyncHandler");
 
@@ -297,6 +300,25 @@ exports.createLabour = asyncHandler(
 
     // Pull the local-language label from the category lookup so the site
     // screens can show કડિયા rather than "kadiya".
+    /*
+     * A labourer belongs to a site, and every work entry recorded against
+     * them inherits that site (see the entries insert below). So this is
+     * the one place the site has to be established. See
+     * siteScope.service.js for why it stopped being optional.
+     */
+    const scope = await resolveEntrySite({
+      siteId: site_id,
+      tenderId: tender_id,
+      companyId,
+      subject: "labourer",
+    });
+
+    if (scope.error) {
+      return res
+        .status(scope.error.status)
+        .json(scope.error.body);
+    }
+
     const categoryResult =
       await pool.query(
         `
@@ -329,8 +351,8 @@ exports.createLabour = asyncHandler(
       `,
       [
         companyId,
-        tender_id,
-        site_id,
+        scope.site.tender_id,
+        scope.site.id,
         getUserId(req),
         name,
         cleanText(phone),

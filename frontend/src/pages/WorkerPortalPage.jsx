@@ -1397,13 +1397,13 @@ function WorkerPortalPage({
         {
           field: "Role",
           value:
-            worker?.role ||
+            worker?.worker_job_role ||
             "Worker",
         },
         {
           field: "Status",
           value:
-            worker?.status || "",
+            worker?.worker_status || "",
         },
       ],
       columns: [
@@ -1514,7 +1514,9 @@ function WorkerPortalPage({
           user?.email ||
           "Worker"
         }
-        context={worker?.role || "Worker"}
+        context={
+          worker?.worker_job_role || "Worker"
+        }
         actions={
           <>
             <ExportButtons
@@ -2633,7 +2635,7 @@ function WorkerPortalPage({
                   <th>Role</th>
 
                   <td>
-                    {worker?.role ||
+                    {worker?.worker_job_role ||
                       "Worker"}
                   </td>
                 </tr>
@@ -2644,11 +2646,11 @@ function WorkerPortalPage({
                   <td>
                     <span
                       className={getStatusClass(
-                        worker?.status
+                        worker?.worker_status
                       )}
                     >
                       {normaliseStatus(
-                        worker?.status
+                        worker?.worker_status
                       )}
                     </span>
                   </td>

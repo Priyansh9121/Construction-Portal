@@ -109,6 +109,7 @@ import {
 } from "../services/subcontractorService";
 
 const EMPTY_WORKER_FORM = {
+  site_id: "",
   worker_id: "",
   notes: "",
   status: "active",
@@ -917,6 +918,14 @@ function TenderDetailsPage() {
         return;
       }
 
+      if (!workerForm.site_id) {
+        toast.error(
+          "Please select the site they are assigned to."
+        );
+
+        return;
+      }
+
       try {
         setAssigningWorker(true);
 
@@ -928,6 +937,10 @@ function TenderDetailsPage() {
             Number(
               workerForm.worker_id
             ),
+
+          site_id: Number(
+            workerForm.site_id
+          ),
 
           notes:
             String(

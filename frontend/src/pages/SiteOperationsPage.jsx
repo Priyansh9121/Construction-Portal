@@ -92,6 +92,7 @@ function SiteOperationsPage() {
   );
 
   useEffect(() => {
+    ops.loadSites().catch(() => {});
     ops.loadCatalog().catch(() => {});
     ops.loadMaterials().catch(() => {});
     // Intentionally only on mount — each tab loads its own data below.
@@ -144,14 +145,12 @@ function SiteOperationsPage() {
       {/*
         Date-only context card.
 
-        There is deliberately no tender or site selector here — Site
-        Operations records carry no tender or site attribution today, and
-        adding selectors would change what gets written rather than how it
-        looks. Tracked as SITE-OPS-DATA-01; see UI_UX_AUDIT.md §8d.
-
-        This is presentational: it does not filter the register and does not
-        set the value any module submits. Each module keeps its own
-        `entry_date` field untouched.
+        SITE-OPS-DATA-01 is CLOSED as of 2026-08-19: every module now asks
+        for its own site and the API refuses an entry without one. The
+        selector deliberately lives on each FORM rather than up here,
+        because this card is presentational — it does not filter the
+        register and does not set what any module submits, and a site
+        chosen here would look like it did both.
       */}
       <SiteOpsContextCard
         workingDate={todayLocal()}
@@ -211,6 +210,7 @@ function SiteOperationsPage() {
             ops={ops}
             onBlocked={handleBlocked}
             isOffice={isOffice}
+            currentUserId={user?.id}
           />
         )}
 
@@ -223,6 +223,7 @@ function SiteOperationsPage() {
             ops={ops}
             onBlocked={handleBlocked}
             isOffice={isOffice}
+            currentUserId={user?.id}
           />
         )}
 
@@ -277,7 +278,35 @@ function AccessPrompt({ blocked, onCancel, onRequest }) {
 |--------------------------------------------------------------------------
 */
 
-function MaterialTab({ ops, onBlocked, isOffice }) {
+/**
+ * The site an entry is for.
+ *
+ * Required on every form in this module. Until 2026-08-19 none of them
+ * offered it and the API accepted the null, so entries existed that named
+ * no site and no tender — a cost that cannot be charged to the job it was
+ * incurred on. The label carries the tender because a site name alone
+ * ("Site 1") does not tell a supervisor which job they are filing against.
+ */
+function SiteField({ sites, value, onChange }) {
+  return (
+    <label>
+      Site
+      <select value={value} onChange={onChange} required>
+        <option value="">Select site…</option>
+
+        {sites.map((site) => (
+          <option key={site.id} value={site.id}>
+            {site.tender_title
+              ? `${site.site_name} — ${site.tender_title}`
+              : site.site_name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function MaterialTab({ ops, onBlocked, isOffice, currentUserId }) {
   const [deciding, setDeciding] = useState(null);
 
   const decide = async (id, decision) => {
@@ -298,6 +327,7 @@ function MaterialTab({ ops, onBlocked, isOffice }) {
   };
 
   const emptyForm = {
+    site_id: "",
     material_id: "",
     entry_date: todayLocal(),
     quantity: "",
@@ -387,6 +417,14 @@ function MaterialTab({ ops, onBlocked, isOffice }) {
     <div className="grid-2">
       <form onSubmit={submit} className="card">
         <h2>Record material received</h2>
+
+        <SiteField
+          sites={ops.sites}
+          value={form.site_id}
+          onChange={(e) =>
+            setForm({ ...form, site_id: e.target.value })
+          }
+        />
 
         <label>
           Material
@@ -642,6 +680,10 @@ function MaterialTab({ ops, onBlocked, isOffice }) {
                         <DecideCell
                           status={m.approval_status}
                           busy={deciding === m.id}
+                          isOwn={
+                            Number(m.recorded_by) ===
+                            Number(currentUserId)
+                          }
                           onDecide={(decision) => decide(m.id, decision)}
                         />
                       </td>
@@ -668,6 +710,7 @@ function LabourTab({ ops, onBlocked }) {
   const { ledger } = useLabourLedger(selectedId);
 
   const [newLabour, setNewLabour] = useState({
+    site_id: "",
     full_name: "",
     category: "kadiya",
     daily_rate: "",
@@ -738,6 +781,19 @@ function LabourTab({ ops, onBlocked }) {
         <h2>Labour</h2>
 
         <form onSubmit={addPerson} className="inline-form">
+          {/*
+            A labourer belongs to a site, and every work entry recorded
+            against them inherits it — so this is the one place it is
+            asked for.
+          */}
+          <SiteField
+            sites={ops.sites}
+            value={newLabour.site_id}
+            onChange={(e) =>
+              setNewLabour({ ...newLabour, site_id: e.target.value })
+            }
+          />
+
           <input
             type="text"
             placeholder="Name"
@@ -908,11 +964,12 @@ function LabourTab({ ops, onBlocked }) {
 |--------------------------------------------------------------------------
 */
 
-function BankingTab({ ops, onBlocked, isOffice }) {
+function BankingTab({ ops, onBlocked, isOffice, currentUserId }) {
   const [deciding, setDeciding] = useState(null);
   const [members, setMembers] = useState([]);
 
   const [receipt, setReceipt] = useState({
+    site_id: "",
     supervisor_user_id: "",
     receipt_date: todayLocal(),
     receipt_type: "bank",
@@ -997,6 +1054,7 @@ function BankingTab({ ops, onBlocked, isOffice }) {
   };
 
   const [expense, setExpense] = useState({
+    site_id: "",
     expense_date: todayLocal(),
     category: "material",
     amount: "",
@@ -1075,6 +1133,14 @@ function BankingTab({ ops, onBlocked, isOffice }) {
 
       <form onSubmit={submit} className="card">
         <h2>Record spending</h2>
+
+        <SiteField
+          sites={ops.sites}
+          value={expense.site_id}
+          onChange={(e) =>
+            setExpense({ ...expense, site_id: e.target.value })
+          }
+        />
 
         <label>
           Date
@@ -1169,6 +1235,14 @@ function BankingTab({ ops, onBlocked, isOffice }) {
             Recording them here is what the float is measured against;
             without it the balance could only ever fall.
           </p>
+
+          <SiteField
+            sites={ops.sites}
+            value={receipt.site_id}
+            onChange={(e) =>
+              setReceipt({ ...receipt, site_id: e.target.value })
+            }
+          />
 
           <label>
             Supervisor
@@ -1358,6 +1432,10 @@ function BankingTab({ ops, onBlocked, isOffice }) {
                         <DecideCell
                           status={row.approval_status}
                           busy={deciding === row.id}
+                          isOwn={
+                            Number(row.recorded_by) ===
+                            Number(currentUserId)
+                          }
                           onDecide={(decision) => decide(row.id, decision)}
                         />
                       </td>
@@ -1384,7 +1462,20 @@ function BankingTab({ ops, onBlocked, isOffice }) {
 |
 */
 
-function DecideCell({ status, onDecide, busy }) {
+/**
+ * Approve / reject for one row.
+ *
+ * `isOwn` is the segregation-of-duties case: the signed-in user recorded
+ * this entry, so the server will refuse to let them approve it (409,
+ * reason SELF_APPROVAL).
+ *
+ * Approve is DISABLED and labelled rather than hidden. A missing button
+ * reads as a bug or a permissions gap; a disabled one with a reason says
+ * what has to happen next, which is that somebody else looks at it.
+ * Reject stays live — withdrawing your own entry is not what the control
+ * exists to prevent.
+ */
+function DecideCell({ status, onDecide, busy, isOwn = false }) {
   if (status !== "pending") {
     return <span className="muted-text">—</span>;
   }
@@ -1394,10 +1485,15 @@ function DecideCell({ status, onDecide, busy }) {
       <button
         type="button"
         className="secondary-btn"
-        disabled={busy}
+        disabled={busy || isOwn}
+        title={
+          isOwn
+            ? "You recorded this entry, so someone else has to approve it."
+            : undefined
+        }
         onClick={() => onDecide("approve")}
       >
-        Approve
+        {isOwn ? "Yours to record" : "Approve"}
       </button>
 
       <button

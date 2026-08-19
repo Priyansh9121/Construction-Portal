@@ -30,6 +30,7 @@
 |
 |   Method Path                                    Roles
 |   ------ --------------------------------------- --------------
+|   GET    /sites                                  any authenticated
 |   GET    /materials/catalog                      any authenticated
 |   GET    /materials/summary                      any authenticated
 |   GET    /materials                              any authenticated
@@ -108,6 +109,7 @@ const asyncHandler = require("../../utils/asyncHandler");
 const roleMiddleware = require("../../middleware/roleMiddleware");
 
 const materialController = require("./material.controller");
+const sitesController = require("./sites.controller");
 const labourController = require("./labour.controller");
 const bankingController = require("./banking.controller");
 const accessRequestController = require("./accessRequest.controller");
@@ -183,6 +185,19 @@ const requireOffice = roleMiddleware(
 | Recording is open; approving is office-only.
 |
 */
+
+/*
+ * GET /api/site-operations/sites
+ *
+ * The site picker. /api/sites is office-only, and every write below now
+ * requires a site — see sites.controller.js.
+ */
+router.get(
+  "/sites",
+  asyncHandler(
+    sitesController.listSites
+  )
+);
 
 // GET /api/site-operations/materials/catalog
 router.get(

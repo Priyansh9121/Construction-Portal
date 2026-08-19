@@ -68,6 +68,9 @@ beforeAll(async () => {
     tender.body?.tender?.id ??
     tender.body?.data?.id;
 
+  alphaIds.site =
+    tender.body?.tender?.sites?.[0]?.id;
+
   const payment = await alpha
     .auth(request.post("/api/payments"))
     .send({
@@ -117,7 +120,17 @@ beforeAll(async () => {
       full_name: "Alpha Labourer",
       category: "kadiya",
       daily_rate: 800,
+      // Required as of 2026-08-19. Without it the create 400s, and the
+      // ledger test below silently returns instead of asserting anything.
+      site_id: alphaIds.site,
     });
+
+  if (!labour.body?.labour?.id) {
+    throw new Error(
+      `Alpha's labourer was not created, so the ledger isolation test would ` +
+        `skip rather than run: ${JSON.stringify(labour.body)}`
+    );
+  }
 
   alphaIds.labour = labour.body?.labour?.id;
 
