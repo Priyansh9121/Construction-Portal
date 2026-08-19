@@ -92,8 +92,9 @@ separately. All three do coexist and all three ship:
 | `/masters` | MastersPage | — | ✓ | legacy | 19 KB |
 | `/payments` | PaymentsPage | 1.9 partial; taxonomy implemented | ✓ | **v2** | 11 KB |
 
-Payments is the only page touched by the middle generation — 4 v2-only classes
-against 1 legacy.
+Payments is the only page whose *own markup* names v2 classes (4 v2-only
+against 1 legacy). **That is not the same as being v2's only consumer — see the
+correction below.**
 
 ---
 
@@ -107,36 +108,12 @@ The justification is the brief's own: *"Mobile is the constrained case, and it i
 the case that matters"* — field roles reach this product on phones, and the
 screens they use are the ones carrying the anti-fraud rules.
 
-### Tier 0 — make the migration cheaper for everything after it
+### Tier 0 — DISSOLVED
 
-Not merely "delete dead CSS". The point of this tier is that every route after
-it is cheaper, because there are two generations to reason about instead of
-three.
-
-**0a. Migrate `/payments` to `system`** (11 KB, the smallest unmigrated page).
-It is the sole consumer of the `v2` generation — 4 v2-only classes against 1
-legacy — so migrating it is what makes the deletion below possible.
-
-**0b. Delete `styles/v2/` entirely**, with its `@import` and its `@layer`
-entries in `index.css`. 2,100 lines, one consumer, removed once that consumer is
-gone. Anything in there that is genuinely wanted comes into `system` as a
-deliberate act rather than by surviving unexamined. The classifier built for the
-table is the tool that proves nothing else references it.
-
-**0c. Delete the dead Dashboard CSS** from `styles/pages/dashboard.css`, now
-that Dashboard is migrated. `css_inventory.py` independently lists
-`dashboard-cards`, `stat-card`, `animated-stat-card`, `quick-actions`,
-`filter-row` and `login-box` under *no consumer found*.
-
-**Before deleting anything, verify the no-consumer list by hand.**
-`css_inventory.py` names 112 such classes and warns explicitly that they must
-be checked, because dynamic class construction is exactly what a static scan
-cannot see. It already reports 7 dynamic prefixes. Deleting a class assembled at
-runtime from a template string is a silent visual regression — the kind that
-does not fail a test and does not throw.
-
-**Measure shipped CSS bytes before and after.** That number is what proves this
-tier was worth doing.
+It was going to collapse three generations to two by migrating `/payments` and
+deleting `v2`. **`v2` cannot be deleted, so nothing in the tier made anything
+cheaper, and a tier is not worth keeping alive because it was planned.**
+`/payments` returns to Tier 2.
 
 ### Tier 1 — the anti-fraud surfaces field roles use on phones
 
@@ -152,9 +129,11 @@ tier was worth doing.
 
 ### Tier 2 — money, and the one genuinely unverified rule
 
-4. **`/subcontractors`** (41 KB) — carries 1.9 "Generate Bill", the only rule the
+4. **`/payments`** (11 KB) — smallest unmigrated page, drives the 796-line
+   payment taxonomy.
+5. **`/subcontractors`** (41 KB) — carries 1.9 "Generate Bill", the only rule the
    gap list could not verify.
-5. **`/worker-money`** (51 KB)
+6. **`/worker-money`** (51 KB)
 
 ### Tier 3 — office registers, ascending by size
 
@@ -174,11 +153,62 @@ tier was worth doing.
 ## Decisions taken
 
 - **Ordering accepted**, with `/payments` moved into Tier 0.
-- **`v2` is deleted.** Not finished, not kept. Anything wanted from it re-enters
-  `system` deliberately.
+- **`v2` is deleted at the END of Phase E, not the start.** Its deletion is the
+  proof the migration finished, because it is the only test that no route still
+  depends on the old layer. The CSS baseline to measure it against is
+  **175,364 bytes uncompressed, 31,143 gzip** (recorded 2026-08-19), and that
+  number belongs to that moment rather than to today.
 - **Merge per tier, not at the end.** The redesign sitting unmerged for months
   is the failure this avoids — a tier that is done should be in front of users
   before the next one starts.
 - **1.9 "Generate Bill" is settled as a backend question first**, before
   `/subcontractors` comes up in Tier 2. Discovering mid-redesign that a rule
   does not exist is the wrong time to find out.
+
+
+---
+
+## CORRECTION — "v2 has one consumer" was wrong, and why the tool could not see it
+
+The table above originally read *"`v2`: 2,100 lines, one consumer
+(`/payments`)"*. **That is false.** It was measured with a classifier that
+scanned `className="..."` tokens in `src/pages/*.jsx`, and v2 is not built that
+way.
+
+**`.v2-root` sits on `AppLayout`** (`frontend/src/layouts/AppLayout.jsx:233`),
+so it wraps **every authenticated route**. `styles/v2/components/data.css` then
+restyles the shared vocabulary through descendant selectors from it:
+
+    .v2-root  .card  .panel  .stat-card  .badge  .badge--camera  .status--approved
+              .table-wrapper  .table-wrapper--cards  .tabs  .tender-tabs
+              .active-tab  .modal-card  .amount-cell  .number-cell
+              .empty-table-message  table  thead  tbody  td
+
+Those are in **32 files (`.card`), 42 (`.panel`), 25 (`.badge`), 21
+(`.empty-table-message`), 19 (`.table-wrapper`), 15 (`.tabs`)**. Deleting `v2`
+would have stripped the styling from every unmigrated route in production.
+
+**Why the classifier was blind to it, and the general lesson.** A `className=`
+token scan can only see a class a component *names*. v2's coupling is one root
+class on the layout plus descendant selectors, so the pages it styles never
+mention it. **The tool could not have found this no matter how carefully it was
+run** — it was the wrong instrument, not a badly used one. The failure is the
+same shape as the guard that watched `form:first` and missed an input outside
+it: *a measurement that watches one container is not a measurement.*
+
+So before quoting a scan as evidence of absence, state what the scan could not
+have seen. Two consequences here:
+
+1. **`v2` is not residue. It is the interim visual layer that makes all sixteen
+   unmigrated routes presentable**, and it must survive until the last of them
+   is migrated.
+2. **A migrated route must reference ZERO classes that v2 restyles.** If both
+   system classes and v2 descendant rules apply to a page, it is not migrated —
+   it is still inheriting the old layer. This is a mechanical check and belongs
+   in the acceptance bar for every route.
+
+`styles/pages/dashboard.css` was also listed for deletion. It is 142 lines
+declaring four classes, two of them live — `premium-chart-panel` and
+`premium-chart-shell` — and `premium-chart-panel` is in `css_inventory.py`'s
+**dynamic prefix** list, so it is assembled at runtime and no static scan
+resolves it. Deleting it would have been a silent visual regression.

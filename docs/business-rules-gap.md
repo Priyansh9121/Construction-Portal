@@ -55,8 +55,41 @@ which drives both validation and the rendered form.
 | 1.6 Income · TDS | **implemented** | `TDS` |
 | 1.7 Income · GST Return | **implemented** | `GST_RETURN` |
 | 1.8 Expense · Personal tender → Supervisor / Site A–E / Investor | **implemented** | `SUPERVISOR`, `MATERIAL`, `SALARY`, `LABOUR`, `GST`, `OTHER` |
-| 1.9 Expense · Subcontract → Investor / Government bill → generate bill | **partial** | Scope and sub-types present; **"Generate Bill" not verified** — see open items |
+| 1.9 Expense · Subcontract → Investor / Government bill → generate bill | **partial** | Scope and sub-types present; **"Generate Bill" DOES NOT EXIST** — verified 2026-08-19, see below |
 | 1.10 Expense · Office (Salary, PF, Tax, Other) | **implemented** | `SALARY`, `PF`, `TAX`, `OTHER` |
+
+---
+
+### 1.9 "Generate Bill" — verified absent 2026-08-19
+
+The gap list previously said "not verified". It is now verified, and the answer
+is that **there is no bill generation anywhere**.
+
+`modules/payments/payment.hierarchy.js:628` declares
+
+    // "Pay into subcontract company - Generate Bill"
+    generatesBill: true,
+
+and a repository-wide search for `generatesBill` across backend and frontend
+returns **that one line and nothing else**. No handler reads it, no route acts
+on it, no component renders differently because of it. It is a data flag with no
+behaviour behind it.
+
+**Recorded so the next reader does not assume behaviour exists behind the flag.**
+Its presence in the hierarchy makes the taxonomy correct — the notebook's
+Expense → Subcontract → Government Bill branch really does say "Generate Bill" —
+but the taxonomy is a description, not an implementation.
+
+Nor is there anything for a generated bill to attach to. `public.invoices`
+(`002_baseline_supabase.sql:626`) is scoped by `tender_id` and carries no
+`payment_id` and no `subcontractor_id`, so linking a bill to the payment that
+generated it needs a schema change.
+
+**Left undecided by decision.** What "generate a bill" should mean — a PDF
+(`jspdf` is already a frontend dependency), an `invoices` row (needs a link
+column, so a migration), or a counterpart income entry — is a product decision,
+and it will be made with the `/subcontractors` route in front of us rather than
+in the abstract.
 
 ---
 
