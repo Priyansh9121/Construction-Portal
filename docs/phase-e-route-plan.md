@@ -117,37 +117,32 @@ cheaper, and a tier is not worth keeping alive because it was planned.**
 
 ### Tier 1 — the anti-fraud surfaces field roles use on phones
 
-1. **`/site-operations`** (39 KB) — materials, labour and banking in one screen.
-   **The reasoning below was corrected after analysing it; the conclusion stands
-   and the argument for it does not.**
+1. **`/site-operations`** (39 KB) — **the reasoning for putting this first has
+   been wrong twice. Both arguments are now dead. See
+   `docs/phase-e-site-operations.md` and the role-set finding below.**
 
-   *What was claimed:* the most business rules per screen, all already enforced
-   server-side and **all needing a surface**.
+   *First argument (the plan's):* the most business rules per screen, all
+   needing a surface. **Dead** — it carries the most rules, but eight of ten are
+   already surfaced in the UI.
 
-   *What is true:* it does carry the most rules, and **eight of the ten are
-   already surfaced** — material sections with the Gujarati `name_local`, daily
-   quantity with the bill, photo upload, camera-vs-gallery provenance, the
-   future-date refusal (proactively, via `max={todayLocal()}`), the access
-   request flow, the three banking receipt modes, and the labour ledger with
-   trade grouping and outstanding dues. **The rule-completeness argument for
-   putting this route first is dead.** See `docs/phase-e-site-operations.md`.
+   *Second argument (mine, after the analysis):* the only route where a missing
+   surface costs a supervisor their work. **Dead** — a supervisor cannot open
+   this route at all, and everyone who can is exempt from the window.
 
-   *What survives, and is enough:*
-   - **Zero v2 dependence** — verified by `tools/ui_v2/v2_dependence.mjs` and by
-     hand. It imports one component, which uses its own `ops-*` vocabulary. That
-     makes it the cheapest route available to migrate: nothing to unwind.
-   - **It is the only route where a missing surface costs a supervisor their
-     work** rather than merely looking dated. The entry-window boundary is
-     invisible until crossed, so an entry is filled, photographed and submitted
-     before the refusal arrives — and the recovery path is slow by design,
-     because it is an anti-fraud control.
+   *What actually survives:* **zero v2 dependence**, which makes it the cheapest
+   route available to migrate and nothing more. That is a reason to find it
+   easy, not a reason to find it first.
+
+   **Ordering is on hold pending production data** on which role really records
+   site work. Until then this position is unjustified rather than justified.
 
    **Calibration for every route analysis after this one:** the gap list's
-   verdicts describe the *server*. This screen showed 8/10 already surfaced in
-   the UI too. Start the next analysis expecting rules to be present and look
-   for the specific ones that are not, rather than assuming a route is missing
-   surfaces because it looks old. The plan's original optimism about how much
-   was unsurfaced was wrong once and would have been wrong repeatedly.
+   verdicts describe the *server*, and this screen showed 8/10 already surfaced
+   in the UI too. Start the next analysis expecting rules to be present and hunt
+   the specific ones that are not. And **check who the router admits before
+   reasoning about who is inconvenienced** — a file header saying who a screen
+   is "for" is not evidence of who can reach it.
+
 2. **`/daily-site-updates`** (31 KB) — the same entry window and photo
    provenance, smaller. Second so the patterns from 1 are reused, not invented.
 3. **`/worker-portal`** (60 KB) — the field role's home, and the §1.11 "Personal
