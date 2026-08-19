@@ -137,7 +137,7 @@ function AdminManagerLayout({
 }
 
 /**
- * Protected layout for the two site-operations screens.
+ * Protected layout for Site Operations.
  *
  * Admin, manager AND worker — the last of those deliberately.
  *
@@ -157,6 +157,14 @@ function AdminManagerLayout({
  * is `["admin", "manager"]`, so promoting them would exempt exactly the
  * people §1.13's two-day entry window exists to constrain — the same inert
  * composition, rebuilt on purpose.
+ *
+ * `/daily-site-updates` was briefly wrapped in this too and has been put
+ * back behind AdminManagerLayout. That screen writes `daily_site_logs`
+ * directly, while a supervisor's update goes to `daily_update_approvals`
+ * via `/worker-portal` and only becomes a site log once the office approves
+ * it (dailyUpdateApproval.controller.js:301). Admitting them here would
+ * have handed them a way around their own approval step — the opposite of
+ * the segregation the approve control exists for.
  */
 function SiteWorkLayout({
   children,
@@ -639,7 +647,7 @@ function AppRoutes({
       <Route
         path="/daily-site-updates"
         element={
-          <SiteWorkLayout
+          <AdminManagerLayout
             activePage="Daily Site Updates"
             user={user}
           >
@@ -653,7 +661,7 @@ function AppRoutes({
                 deleteSiteLog
               }
             />
-          </SiteWorkLayout>
+          </AdminManagerLayout>
         }
       />
 

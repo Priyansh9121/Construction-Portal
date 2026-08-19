@@ -40,9 +40,16 @@
  *      guards the page from offering a control that would 403.
  *
  *   4. The navigation tells the truth. A supervisor's sidebar offers exactly
- *      the destinations they can open. `config/navigation.js` exists to stop
- *      a link that leads to a redirect, and admitting a new role to the
- *      shell is precisely when that can regress.
+ *      the destinations they can open — Site Operations, and nothing else.
+ *      `config/navigation.js` exists to stop a link that leads to a
+ *      redirect, and admitting a new role to the shell is precisely when
+ *      that can regress.
+ *
+ *   5. Site Updates stays shut. That screen writes `daily_site_logs`
+ *      directly; a supervisor's update belongs in `daily_update_approvals`
+ *      via the worker portal, and only becomes a site log once the office
+ *      approves it. Admitting them there would route them around their own
+ *      approval step.
  *
  * ---------------------------------------------------------------------------
  * SAFETY — READ BEFORE RUNNING
@@ -157,6 +164,15 @@ test.describe("a supervisor can reach Site Operations", () => {
     await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
   });
 
+  test("Site Updates stays office-only", async ({ context, page }) => {
+    await seedSession(context, session);
+    await page.goto(`${BASE_URL}/daily-site-updates`);
+
+    // Bounced on purpose: that screen writes daily_site_logs directly, and a
+    // supervisor's update belongs in the approval queue instead.
+    await expect(page).toHaveURL(/\/worker-portal$/);
+  });
+
 });
 
 /*
@@ -168,7 +184,7 @@ test.describe("a supervisor can reach Site Operations", () => {
 test.describe("the navigation tells a supervisor the truth", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("offers exactly the two destinations they may open", async ({
+  test("offers exactly the one destination they may open", async ({
     context,
     page,
   }) => {
@@ -177,9 +193,9 @@ test.describe("the navigation tells a supervisor the truth", () => {
 
     const links = page.locator("#app-sidebar a");
 
-    await expect(links).toHaveCount(2);
+    await expect(links).toHaveCount(1);
     expect(
       (await links.allTextContents()).map((label) => label.trim())
-    ).toEqual(["Site Operations", "Site Updates"]);
+    ).toEqual(["Site Operations"]);
   });
 });
