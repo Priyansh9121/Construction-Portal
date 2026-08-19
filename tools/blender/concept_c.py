@@ -1660,4 +1660,15 @@ def main():
                      exposure=0.25 if dusk else -0.35)
 
 
-main()
+# Guarded so this module can be IMPORTED for its helpers.
+#
+# It used to call main() bare, which meant `import concept_c` built the whole
+# C scene and, if --export happened to be on the command line, wrote C's layers
+# out before the importing script had run a line. Concept D imports layer_of()
+# and bake_production_materials() from here, and found three of C's layers in
+# its own export directory.
+#
+# Blender's -P runs a script with __name__ == "__main__", so build_assets.sh is
+# unaffected.
+if __name__ == "__main__":
+    main()
