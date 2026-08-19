@@ -13,9 +13,11 @@ produces that signal.
 
 ## Why this, and why now
 
-Production holds **one company, six users, and no business data at all** — zero
-tenders, sites, workers, payments, and an empty `activity_logs`, which records
-every mutating request. Nothing has been *done*, not merely nothing recorded.
+~~Production holds one company, six users, and no business data at all.~~
+**Retracted — see the census below.** Production holds one company, six users,
+and a **used office half**: 10 tenders, 13 sites, 13 payments, 12 tender
+documents, 5 subcontractors, 5 workers, 23 logged actions to 2026-08-13. What is
+genuinely untouched is the **site half**, where every table holds zero rows.
 
 Every path below has therefore only ever been exercised by **fixtures**, and this
 repository already knows what that hides: `createMember` manufactured the exact
@@ -35,8 +37,9 @@ without `SET app.company_id` — so **every tenant-scoped table read as empty.**
 
     material_catalog   0 without context   ->   24 with company 1
     tenders            0                   ->   10
-    sites              0                   ->   11
-    payments           0                   ->    7
+    sites              0                   ->   13
+    payments           0                   ->   13
+    tender_documents   0                   ->   12
     activity_logs      0                   ->   23
 
 I established that RLS was in force **in the same session**, recorded it as a
@@ -46,17 +49,31 @@ it measured was not.
 
 ### What is actually true
 
-**The office side has been used.** Ten tenders (five created, six deleted),
-eleven sites, seven payments, one invoice, one subcontractor, 23 logged actions,
-most recently **2026-08-13**.
+**The office side has been used.** Ten tenders, thirteen sites, thirteen
+payments, twelve tender documents, five subcontractors, five workers, 23 logged
+actions, most recently **2026-08-13**.
 
-**The site side has never been used.** These are genuinely zero *with* context:
+**The site side has never been used.** Authoritative counts, taken as `postgres`
+through the SQL Editor, which bypasses RLS rather than depending on context:
 
     site_material_entries      0
     labour_work_entries        0
     supervisor_expenses        0
     supervisor_fund_receipts   0
-    worker_assignments         0
+    daily_update_approvals     0
+    entry_access_requests      0
+    daily_site_logs            1
+    worker_assignments         1   (against 5 workers)
+
+**Second correction, 2026-08-19 (mine).** The figures above supersede an earlier
+set on this page that read *eleven sites, seven payments, worker_assignments 0*.
+Two of those were low and one was wrong in a way that mattered — see the
+correction inside WALK RESULT.
+
+The table name **`material_entries` does not exist**; the real table is
+`site_material_entries`. Four such names were carried in backend file headers
+(`material_entries`, `labour_entries`, `supervisor_banking`, `banking_expenses`)
+and have been corrected against what the controllers actually query.
 
 So the useful finding is sharper than the wrong one: **the office half of the
 product is in use and the supervisor half has never been touched.** That is a
@@ -71,7 +88,7 @@ found.
 | 2 | Worker logins unlinked | **STANDS, narrowed.** `workers` holds one row, *Priyansh*, with `user_id NULL`. Three `worker` users exist and none resolves a register row |
 | 3 | Users without company membership | **STANDS.** 1 of 3 workers has a membership; the subcontractor has none. Not an RLS artefact — identical with and without context |
 | 4 | Zero `manager` users | **STANDS.** 3 worker, 2 admin, 1 subcontractor |
-| — | No worker assigned to any tender | **NEW.** `worker_assignments` is empty, so step 6 has never been performed |
+| — | No worker assigned to any tender | **CORRECTED.** `worker_assignments` holds **1** row against **5** workers. Four of five workers have no assignment, and the one that exists cannot have come from the UI — see WALK RESULT |
 
 ## The path
 
@@ -174,13 +191,34 @@ assigns a worker by sending `site_id: siteId` itself. The endpoint is proven to
 work and the screen is proven unusable by the same suite. This is the ninth
 instance, and the cleanest one yet: the fixture supplied the field the UI cannot.
 
-**It also explains the census.** `worker_assignments` is empty in production —
-and empty locally too, across 15 companies and 732 users. The walkthrough
-recorded that as *"step 6 has never been performed."* Measured, the sharper
-statement is that **step 6 cannot be performed through the UI at all.** The
-office half of the product stops exactly here, which is also why the supervisor
-half has never been touched: steps 9 and 10 need an assignment that nothing can
-create.
+**It also explains the census — with one correction to my own claim.** I wrote
+that `worker_assignments` is empty in production. **It is not: it holds one row,
+against five workers.** Empty locally, across 15 companies and 732 users, but not
+empty in production. The measured statement that survives is narrower and still
+decisive: **step 6 cannot be performed through this screen.**
+
+The one production row therefore did not come from this screen, and the history
+says it never could have. `worker_assignments` has exactly one writer in the
+codebase (`tenderQueries.js:2722`, reached only from `assignWorker`), and both
+that writer and the `site_id` requirement arrived in the **same commit**,
+`50aab56` on 2026-08-01 — before it, no backend code inserted into the table at
+all. The form has never carried `site_id` in any revision reachable from
+`git log -S`. So there has been no window in which this screen could write an
+assignment.
+
+**Provenance of that row is unexplained and worth one query**, because it decides
+whether someone has a working path the UI does not expose:
+
+    SET LOCAL app.company_id = '1';
+    SELECT id, worker_id, site_id, assigned_by, assigned_at, created_at
+      FROM worker_assignments;
+    SELECT * FROM activity_logs WHERE entity_type ILIKE '%assign%';
+
+If `activity_logs` has no matching entry, it was not written through the API.
+
+Four of five workers having no assignment is the same finding seen from the
+other end. Steps 9 and 10 need an assignment, and only one worker in production
+has one.
 
 Corollary, settled in passing: `tender_workers` does not exist in the local
 database either — `to_regclass` returns null. The code writes

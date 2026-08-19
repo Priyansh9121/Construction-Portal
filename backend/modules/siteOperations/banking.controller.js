@@ -35,8 +35,8 @@
 |   ./entryWindow.service.js
 |
 | Database tables touched:
-|   supervisor_banking  SELECT, INSERT
-|   banking_expenses    SELECT, INSERT, UPDATE (approval)
+|   supervisor_fund_receipts  SELECT, INSERT
+|   supervisor_expenses       SELECT, INSERT, UPDATE (approval)
 |   sites, tenders      SELECT, for ownership checks
 |
 | API surface:
