@@ -39,6 +39,33 @@ const FRAG = /* glsl */ `
   uniform vec2 uWind;
   uniform float uCloud;
 
+  uniform vec3 uMoon;         // direction to the moon
+  uniform float uMoonFrac;    // illuminated fraction, 0..1
+  uniform float uMoonUp;      // 0 or 1
+  uniform float uNight;       // 0 by day, 1 at astronomical night
+
+  /*
+   * ANGULAR RADII, in tangent units (roughly radians for small angles).
+   *
+   * The real sun and moon are both about 0.53 degrees across — 0.0046 here.
+   * At that size neither is legible as anything but a speck on a login
+   * screen, so both are drawn several times over. This is art direction and
+   * it is the one number in this file that is deliberately untrue.
+   */
+  const float SUN_R  = 0.030;
+  const float MOON_R = 0.038;
+
+  /*
+   * The offset of a view ray from a body's centre, on the tangent plane at
+   * that body. Dividing by the dot product projects the ray onto the plane,
+   * so the result is a flat 2D offset that a disc test can use directly and
+   * that does not distort as the body approaches the zenith.
+   */
+  vec2 tangentOffset(vec3 d, vec3 body, vec3 axisX, vec3 axisY) {
+    vec3 off = d / max(dot(d, body), 1e-4) - body;
+    return vec2(dot(off, axisX), dot(off, axisY));
+  }
+
   // ---- Value noise and fBm, for cloud shape -----------------------------
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -83,12 +110,35 @@ const FRAG = /* glsl */ `
     float mie = pow(mu, 8.0) * 0.55 + pow(mu, 2.0) * 0.14;
     sky += uSunTint * mie * uHaze;
 
-    // The disk itself, soft-edged. A hard circle reads as a sticker.
-    float disk = smoothstep(0.9986, 0.99975, mu);
-    sky += uSunTint * disk * 3.2;
-
     // Horizon lift: atmosphere is thickest along the ground line.
     sky += uSunTint * pow(1.0 - abs(up), 9.0) * 0.16 * uHaze;
+
+    /*
+     * STARS.
+     *
+     * Night was a flat navy wash, which reads as "the lights are off" rather
+     * than as night. A hashed grid gives points at no cost; the cell centre
+     * offset stops them landing on a visible lattice, and only a small
+     * fraction of cells are allowed to hold a star at all.
+     *
+     * Faded out by uNight so they never appear in daylight, and by altitude
+     * so they do not sit in the horizon haze where real ones are extinct.
+     */
+    if (uNight > 0.001 && up > 0.02) {
+      vec2 sp = vec2(atan(d.z, d.x) * 1.9, asin(clamp(up, -1.0, 1.0)) * 2.6) * 42.0;
+      vec2 cell = floor(sp);
+      vec2 frac = fract(sp);
+      float pick = hash(cell);
+      if (pick > 0.86) {
+        vec2 centre = vec2(hash(cell + 3.1), hash(cell + 7.7));
+        float dd = length(frac - centre);
+        float mag = hash(cell + 11.3);
+        // Twinkle: slow, per-star phase, and shallow enough not to strobe.
+        float tw = 0.72 + 0.28 * sin(uTime * (0.8 + mag) + pick * 40.0);
+        float star = (1.0 - smoothstep(0.0, 0.10, dd)) * mag * tw;
+        sky += vec3(0.85, 0.9, 1.0) * star * uNight * smoothstep(0.02, 0.3, up);
+      }
+    }
 
     /*
      * CLOUD LAYER.
@@ -102,6 +152,7 @@ const FRAG = /* glsl */ `
      * the crane's load and the dust. Two octave sets at different scales and
      * speeds give the layer internal motion rather than sliding as one sheet.
      */
+    float cloudMask = 0.0;
     if (up > 0.005) {
       vec2 proj = d.xz / max(up, 0.02) * 0.35;
       vec2 drift = uWind * uTime * 0.006;
@@ -116,12 +167,92 @@ const FRAG = /* glsl */ `
       // having an edge rather than filling the dome.
       mask *= smoothstep(0.0, 0.1, up) * (1.0 - smoothstep(0.62, 1.0, up));
       mask *= uCloud;
+      cloudMask = clamp(mask, 0.0, 0.88);
 
       // Lit from the same sun: the side facing it is bright, the body is not.
       float lit = pow(max(mu, 0.0), 3.0);
       vec3 cloudCol = mix(uHorizon * 0.75, uSunTint * 1.25, lit * 0.8 + 0.12);
       sky = mix(sky, cloudCol, clamp(mask, 0.0, 0.88));
     }
+
+    /*
+     * SUN AND MOON, drawn AFTER the cloud layer.
+     *
+     * Drawn before it, they were painted over: a cloud mask of 0.88 all but
+     * deletes a disc, and at golden hour — exactly when the sun matters most —
+     * the layer is thickest and the sun vanished entirely.
+     *
+     * clarity keeps the physics honest without losing the subject: cloud
+     * dims a body rather than erasing it, so it can still be seen through
+     * thin cover and still disappears behind thick.
+     */
+    float clarity = 1.0 - cloudMask * 0.72;
+
+    /*
+     * THE SUN.
+     *
+     * A limb-darkened disc plus two glow terms. The inner glow is what makes
+     * it read as a light source rather than a decal; the outer is the
+     * aureole that sells haze.
+     */
+    {
+      vec3 S = normalize(uSun);
+      float facing = step(0.0, dot(d, S));
+      vec3 ax = normalize(cross(S, abs(S.y) > 0.95 ? vec3(1, 0, 0) : vec3(0, 1, 0)));
+      vec2 o = tangentOffset(d, S, ax, cross(S, ax));
+      float r = length(o) / SUN_R;
+
+      float disc = 1.0 - smoothstep(0.86, 1.0, r);
+      // Limb darkening: the edge of a real disc is dimmer than its centre.
+      float limb = mix(0.72, 1.0, sqrt(max(0.0, 1.0 - min(r, 1.0) * min(r, 1.0))));
+      float glow = exp(-r * 0.9) * 0.5 + exp(-r * 0.18) * 0.12 * uHaze;
+
+      sky += uSunTint * facing * (disc * limb * 6.0 + glow) * clarity;
+    }
+
+    /*
+     * THE MOON, with its phase.
+     *
+     * The terminator is the projection of a sphere's day/night boundary, so
+     * it is an ELLIPSE, not a straight line — a half-moon has a flat edge and
+     * every other phase has a curved one. k walks from +1 at new to -1 at
+     * full, and the lit side always faces the sun because the tangent basis
+     * is built from the sun direction rather than from anything arbitrary.
+     */
+    if (uMoonUp > 0.5) {
+      vec3 M = normalize(uMoon);
+      vec3 S = normalize(uSun);
+      float facing = step(0.0, dot(d, M));
+
+      // Toward the sun, projected onto the moon's tangent plane. Degenerate
+      // when sun and moon are nearly aligned (a new moon), so it falls back
+      // to a fixed axis rather than producing NaNs.
+      vec3 toSun = S - M * dot(S, M);
+      vec3 ax = length(toSun) > 1e-3
+        ? normalize(toSun)
+        : normalize(cross(M, abs(M.y) > 0.95 ? vec3(1, 0, 0) : vec3(0, 1, 0)));
+      vec2 o = tangentOffset(d, M, ax, cross(M, ax));
+      float r = length(o) / MOON_R;
+
+      float disc = 1.0 - smoothstep(0.9, 1.0, r);
+      vec2 n = o / MOON_R;
+      float k = 1.0 - 2.0 * clamp(uMoonFrac, 0.0, 1.0);
+      float term = k * sqrt(max(0.0, 1.0 - n.y * n.y));
+      float lit = smoothstep(term - 0.06, term + 0.06, n.x);
+
+      // Maria: a little large-scale mottling so the disc is not a plain
+      // white circle. Two blobs is enough at this size.
+      float mare = 0.86 + 0.14 * vnoise(n * 1.7 + 4.0);
+
+      // Earthshine: the unlit limb is faintly visible, strongest at crescent.
+      float earthshine = (1.0 - lit) * 0.055 * (1.0 - uMoonFrac);
+
+      vec3 moonCol = vec3(0.94, 0.95, 0.92);
+      sky += moonCol * facing * disc * (lit * mare * 2.4 + earthshine) * clarity;
+      // A small halo, so it lifts off the sky rather than being pasted on.
+      sky += moonCol * facing * exp(-r * 1.5) * 0.10 * uMoonFrac * uNight * clarity;
+    }
+
 
     gl_FragColor = vec4(sky * uExposure, 1.0);
   }
@@ -198,9 +329,10 @@ export const TIMES = {
  * old signature took the NAME of one of three hand-painted presets, which is
  * why the world was permanently at dusk regardless of the time of day.
  */
-export function createSky(THREE, scene, grade, sunDir) {
+export function createSky(THREE, scene, grade, sunDir, moon) {
   const T = grade || TIMES.dusk;
   const sun = new THREE.Vector3(...(sunDir || T.sun)).normalize();
+  const moonVec = new THREE.Vector3(...(moon?.dir || [0, -1, 0]));
 
   const material = new THREE.ShaderMaterial({
     vertexShader: VERT,
@@ -218,6 +350,10 @@ export function createSky(THREE, scene, grade, sunDir) {
       uTime: { value: 0 },
       uWind: { value: new THREE.Vector2(1, 0.3) },
       uCloud: { value: T.cloud ?? 0.85 },
+      uMoon: { value: moonVec },
+      uMoonFrac: { value: moon?.fraction ?? 0 },
+      uMoonUp: { value: moon?.up ? 1 : 0 },
+      uNight: { value: 0 },
     },
   });
 
@@ -234,8 +370,39 @@ export function createSky(THREE, scene, grade, sunDir) {
   dome.renderOrder = -1;
   scene.add(dome);
 
-  const applyGrade = (g, dir) => {
-    if (dir) material.uniforms.uSun.value.copy(dir).normalize();
+  /**
+   * Push a whole environment instant at the sky: the colour grade, where the
+   * sun is, and where the moon is with how much of it is lit.
+   *
+   * `env` is optional so the older two-argument call still works; when it is
+   * supplied the moon and the night factor come from the same instant as the
+   * grade, which is the only way they can be guaranteed to agree.
+   */
+  /*
+   * The sun direction arrives as a PLAIN ARRAY from worldEnvironment — every
+   * other consumer spreads it (`set(...env.sun.dir)`), and this one called
+   * `.copy()` on it.
+   *
+   * Vector3.copy reads .x/.y/.z, an array has none, so every component became
+   * undefined and then NaN through normalize(). The uniform has been NaN
+   * since the sun was first driven from SunCalc, which is why the sun disk
+   * this shader has always contained was never once visible, and why the Mie
+   * glow around it never appeared either. Nothing threw; the sky just quietly
+   * lost its sun.
+   */
+  const asVec = (v, out) =>
+    Array.isArray(v) ? out.fromArray(v) : out.copy(v);
+
+  const applyGrade = (g, dir, env) => {
+    if (dir) asVec(dir, material.uniforms.uSun.value).normalize();
+    if (env?.moon) {
+      asVec(env.moon.dir, material.uniforms.uMoon.value).normalize();
+      material.uniforms.uMoonFrac.value = env.moon.fraction;
+      material.uniforms.uMoonUp.value = env.moon.up ? 1 : 0;
+    }
+    if (typeof env?.nightness === "number") {
+      material.uniforms.uNight.value = env.nightness;
+    }
     material.uniforms.uZenith.value.setRGB(...g.zenith);
     material.uniforms.uHorizon.value.setRGB(...g.horizon);
     material.uniforms.uGround.value.setRGB(...g.ground);

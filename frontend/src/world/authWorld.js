@@ -963,7 +963,7 @@ export async function createAuthWorld(canvas, opts = {}) {
     900
   );
 
-  const sky = createSky(THREE, scene, env.grade, env.sun.dir);
+  const sky = createSky(THREE, scene, env.grade, env.sun.dir, env.moon);
 
   /*
    * ENVIRONMENT LIGHTING FROM THE SKY ITSELF.
@@ -1148,7 +1148,7 @@ export async function createAuthWorld(canvas, opts = {}) {
   let lastEnv = 0;
   const applyEnvironment = () => {
     const g = env.grade;
-    sky.applyGrade(g, env.sun.dir);
+    sky.applyGrade(g, env.sun.dir, env);
 
     lights.key.color.setHex(g.key);
     /* Below the horizon the sun contributes nothing. Without this the key

@@ -58,6 +58,10 @@ function AuthWorld({ onReady }) {
          * same build rather than from three branches. */
         const world = await createAuthWorld(canvas, {
           time: window.__AUTH_TIME || "dusk",
+          /* An instant to drive the world to, for looking at it. The sun and
+           * moon come from the real clock, so without this a night render
+           * means waiting until night. Never set in the product. */
+          at: window.__AUTH_AT || undefined,
           /* The world tells us when it is genuinely ready; we never guess.
            * DEGRADED and FAILED both keep the fallback on screen, which is the
            * whole point of routing this through state rather than a boolean. */
