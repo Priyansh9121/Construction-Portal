@@ -29,7 +29,7 @@
 |   ./entryWindow.service.js — the backdating rule
 |
 | Database tables touched:
-|   material_entries   SELECT, INSERT, UPDATE (approval and soft delete)
+|   site_material_entries  SELECT, INSERT, UPDATE (approval and soft delete)
 |   material_catalog   SELECT
 |   sites, tenders     SELECT, for ownership checks
 |

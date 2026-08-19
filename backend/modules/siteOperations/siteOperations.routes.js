@@ -85,8 +85,8 @@
 |   whether an entry may be recorded for a given date.
 |
 | Database tables touched (through the controllers):
-|   material_entries, material_catalog, labour, labour_entries,
-|   labour_categories, supervisor_banking, banking_expenses,
+|   site_material_entries, material_catalog, labour, labour_work_entries,
+|   labour_categories, supervisor_expenses, supervisor_fund_receipts,
 |   entry_access_requests, plus sites and tenders for ownership checks
 |
 | Frontend consumers:

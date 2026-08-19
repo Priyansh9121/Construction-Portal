@@ -7,7 +7,7 @@
 | entries recorded against each.
 |
 | A two-level structure, unlike materials. A `labour` row is the labourer
-| or gang; `labour_entries` are the days they worked. The ledger view puts
+| or gang; `labour_work_entries` are the days they worked. The ledger view puts
 | the two together into a running account — days worked, amount due,
 | amount paid.
 |
@@ -31,7 +31,7 @@
 |
 | Database tables touched:
 |   labour             SELECT, INSERT, UPDATE
-|   labour_entries     SELECT, INSERT
+|   labour_work_entries  SELECT, INSERT
 |   labour_categories  SELECT
 |   sites, tenders     SELECT, for ownership checks
 |

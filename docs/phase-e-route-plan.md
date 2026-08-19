@@ -1,29 +1,31 @@
-# Phase E — the ordered route plan  ·  **PAUSED 2026-08-19**
+# Phase E — the ordered route plan  ·  **REORDERED 2026-08-19**
 
-> **Phase E is paused, not abandoned.** A production census found the system has
-> **never been used**: one company, six users, and zero tenders, sites, workers,
-> payments — and an empty `activity_logs`, which records every mutating request.
+> **The pause is lifted, and the reason it was called was wrong twice over.**
 >
-> **CORRECTED 2026-08-19: the census was wrong.** It was read without company
-> context while RLS was in force, so every tenant-scoped table appeared empty.
-> Production **has** been used — 10 tenders, 11 sites, 7 payments, 23 logged
-> actions to 2026-08-13. What is genuinely unused is the **supervisor half**:
-> zero material entries, labour entries, supervisor expenses, receipts and
-> worker assignments. That is a real usage signal and the first non-flat axis
-> found, so **the reason for pausing no longer holds as stated** — the pause is
-> the user's to revisit.
+> Phase E was paused because a production census read the system as never used.
+> That census was taken without company context while RLS was in force, so every
+> tenant-scoped table read as empty. Read as `postgres` through the SQL Editor,
+> which bypasses RLS, production is:
 >
-> The rest of this note stands: two of the three axes were flat. The a11y
-> sweep passed 44/44. The business-rule gap list was 32 implemented / 3 partial.
-> And usage, the axis that should have broken the tie, does not exist at all.
-> The ordering below cannot be made non-arbitrary, because there is nothing to
-> order against.
+>     OFFICE                          SITE
+>     tenders            10           site_material_entries       0
+>     sites              13           labour_work_entries         0
+>     payments           13           supervisor_expenses         0
+>     tender_documents   12           supervisor_fund_receipts    0
+>     subcontractors      5           daily_update_approvals      0
+>     workers             5           entry_access_requests       0
+>     activity_logs      23           daily_site_logs             1
+>     companies 1 · users 6           worker_assignments          1
 >
-> Migrating twenty-two routes for a product nobody has used is the wrong next
-> thing. **`docs/first-tender-walkthrough.md` replaces it**: the shortest path to
-> one real tender end to end, which is what will produce the usage signal this
-> plan needs. Everything below stays valid as analysis and resumes when it has
-> one.
+> **The finding is a clean split.** The office half is in daily use — 23 logged
+> actions to 2026-08-13, across five distinct record types. The site half has
+> never received a single row, from any user, in the product's life. And four of
+> five workers have no tender assignment at all.
+>
+> That split is the **first non-flat ordering axis this project has found**, and
+> it inverts the tier order below. The ordering argument is rewritten against it
+> in "The usage axis" section. **Nothing is migrated yet** — the new order is a
+> proposal, held for your word.
 
 Both axes were run before deciding anything. **Neither discriminates**, and that
 is the headline finding: the ordering has to come from somewhere else.
@@ -123,83 +125,123 @@ correction below.**
 
 ---
 
-## Proposed order, and the principle behind it
+## The usage axis — measured, and it inverts Tier 1
 
-Since neither given axis ranks anything, the ordering principle proposed is
-**operational consequence first, weighted by device, with size used to sequence
-within a tier rather than across tiers.**
+The two axes this plan was built on are flat: a11y passes 44/44 on migrated and
+unmigrated routes alike, and the gap list is 32 implemented / 3 partial. Style
+generation discriminates perfectly but only tells you what is *done*, not what
+is *worth doing*. Usage is the axis that ranks by consequence, and it exists.
 
-The justification is the brief's own: *"Mobile is the constrained case, and it is
-the case that matters"* — field roles reach this product on phones, and the
-screens they use are the ones carrying the anti-fraud rules.
+**What the office actually touches.** Ten tenders, thirteen sites, thirteen
+payments, twelve tender documents, five subcontractors, five workers. Those rows
+were created through `/tenders`, `/tenders/:id` (sites and documents are its
+tabs), `/payments`, `/subcontractors` and `/workers`. Every one is **legacy**
+generation except `/payments`, which is v2.
 
-### Tier 0 — DISSOLVED
+**What the site half has never touched.** `/site-operations` writes to six
+tables through its four controllers:
 
-It was going to collapse three generations to two by migrating `/payments` and
-deleting `v2`. **`v2` cannot be deleted, so nothing in the tier made anything
-cheaper, and a tier is not worth keeping alive because it was planned.**
-`/payments` returns to Tier 2.
+    material.controller       site_material_entries        0 rows
+    labour.controller         labour_work_entries          0 rows
+    labour.controller         labour                       not yet counted
+    banking.controller        supervisor_fund_receipts     0 rows
+    banking.controller        supervisor_expenses          0 rows
+    accessRequest.controller  entry_access_requests        0 rows
 
-### Tier 1 — the anti-fraud surfaces field roles use on phones
+**Correction to the brief that prompted this:** it is five zero-row tables, not
+three, and a sixth (`labour`) that has not been counted in production. The
+understatement does not change the conclusion; it strengthens it.
 
-1. **`/site-operations`** (39 KB) — **the reasoning for putting this first has
-   been wrong twice. Both arguments are now dead. See
-   `docs/phase-e-site-operations.md` and the role-set finding below.**
+`/daily-site-updates` and `/daily-update-approvals` are the same story:
+`daily_site_logs` holds one row and `daily_update_approvals` holds none.
 
-   *First argument (the plan's):* the most business rules per screen, all
-   needing a surface. **Dead** — it carries the most rules, but eight of ten are
-   already surfaced in the UI.
+### The principle, restated
 
-   *Second argument (mine, after the analysis):* the only route where a missing
-   surface costs a supervisor their work. **Dead** — a supervisor cannot open
-   this route at all, and everyone who can is exempt from the window.
+**Migrate where the product is used. Do not migrate what has never worked.**
 
-   *What actually survives:* **zero v2 dependence**, which makes it the cheapest
-   route available to migrate and nothing more. That is a reason to find it
-   easy, not a reason to find it first.
+The old principle was *operational consequence first, weighted by device*, which
+put the supervisor surfaces at the front on the reasoning that field roles are
+the constrained case. That reasoning is still true about *importance* and now
+demonstrably false about *readiness*: those screens have never recorded anything,
+and the role-set composition explains why a supervisor cannot even open
+`/site-operations`. **A redesign cannot fix an unreachable screen, and doing it
+first would hide the fact that it is unreachable behind a fresh coat.** The site
+half needs a product decision and a code fix before it needs a migration.
 
-   **Ordering is on hold pending production data** on which role really records
-   site work. Until then this position is unjustified rather than justified.
+### Tier 1 — the routes carrying real usage  *(proposed, not started)*
 
-   **Calibration for every route analysis after this one:** the gap list's
-   verdicts describe the *server*, and this screen showed 8/10 already surfaced
-   in the UI too. Start the next analysis expecting rules to be present and hunt
-   the specific ones that are not. And **check who the router admits before
-   reasoning about who is inconvenienced** — a file header saying who a screen
-   is "for" is not evidence of who can reach it.
+Sequenced small-first so the shared patterns settle on the cheapest page.
 
-2. **`/daily-site-updates`** (31 KB) — the same entry window and photo
-   provenance, smaller. Second so the patterns from 1 are reused, not invented.
-3. **`/worker-portal`** (60 KB) — the field role's home, and the §1.11 "Personal
-   Banking" partial. Largest in the codebase, so it goes third, after two
-   smaller screens have settled the shared components.
+1. **`/payments`** (11 KB, **v2**) — 13 payment rows, the largest single body of
+   real data after tenders. Smallest unmigrated page, drives the 796-line payment
+   taxonomy, and the only page whose own markup names v2 classes. Migrating it
+   does not let `v2` be deleted — see the correction below — but it removes the
+   last page that names it directly.
+2. **`/tenders/:id`** (36 KB) — 13 sites and 12 documents live in its tabs, so it
+   carries more real rows than any other single route. It is also where the walk
+   broke: its Workers tab cannot write an assignment.
+3. **`/tenders`** (52 KB) — 10 tenders, and the only surface that creates a site
+   at all. Largest of the three, so last, once the patterns exist.
 
-### Tier 2 — money, and the one genuinely unverified rule
+### Tier 2 — the rest of the office, by evidence then size
 
-4. **`/payments`** (11 KB) — smallest unmigrated page, drives the 796-line
-   payment taxonomy.
-5. **`/subcontractors`** (41 KB) — carries 1.9 "Generate Bill", the only rule the
-   gap list could not verify.
-6. **`/worker-money`** (51 KB)
+4. **`/workers`** (28 KB) — 5 worker rows; the register the walk used at step 5.
+5. **`/subcontractors`** (41 KB) — 5 subcontractor rows, and 1.9 "Generate Bill",
+   the only rule the gap list could not verify. Settle that as a backend
+   question before this comes up.
+6. **`/invoices`** (24 KB) · 7. **`/users`** (42 KB) · 8. **`/worker-money`**
+   (51 KB) · 9. **`/reports`** (34 KB) · 10. **`/masters`** (19 KB)
 
-### Tier 3 — office registers, ascending by size
+### Tier 3 — the site half, AFTER it is made usable
 
-7. `/masters` (19) · 8. `/invoices` (24) · 9. `/workers` (28) ·
-10. `/daily-update-approvals` (31) · 11. `/reports` (34) ·
-12. `/tenders/:id` (36) · 13. `/users` (42) · 14. `/tenders` (52)
+Not last because it matters least. Last because **migrating it now would be the
+only work in this plan that cannot be validated by anyone using it.**
+
+11. **`/site-operations`** (39 KB) · 12. **`/daily-site-updates`** (31 KB) ·
+13. **`/worker-portal`** (60 KB) · 14. **`/daily-update-approvals`** (31 KB)
+
+**Precondition on this whole tier:** the role-set composition is resolved as a
+product decision, and the assignment path can write. Until then these four are
+blocked on something a redesign cannot supply.
 
 ### Tier 4 — last
 
-15. **`/subcontractor-portal`** (53 KB) — external-facing but low-traffic, and
-    S-01 is already fixed server-side.
-16. **`/settings`** (52 KB) — the largest page with the least rule content, and
-    the one whose churn risk buys the least.
+15. **`/subcontractor-portal`** (53 KB) — external-facing, low-traffic, S-01
+    already fixed server-side.
+16. **`/settings`** (52 KB) — the largest page with the least rule content.
+
+### What happened to Tier 0 and to the old Tier 1
+
+**Tier 0 dissolved** earlier and stays dissolved: it existed to delete `v2` after
+migrating `/payments`, and `v2` cannot be deleted.
+
+**`/site-operations` led the old Tier 1 on two arguments, both dead before this
+census** and recorded here so the reasoning is not re-derived:
+
+- *the plan's:* most business rules per screen, all needing surfaces. **Dead** —
+  eight of ten are already surfaced.
+- *mine, after the analysis:* the only route where a missing surface costs a
+  supervisor their work. **Dead** — a supervisor cannot open the route, and
+  everyone who can is exempt from the entry window.
+
+What survived was "zero v2 dependence", which is a reason to find it cheap, not
+first. The census now supplies the third and decisive argument: **the tables it
+writes have never held a row.** Its position is no longer unjustified-but-held;
+it is justified, and it is late.
+
+**Calibration that still applies to every route analysis:** the gap list's
+verdicts describe the *server*. Start expecting rules to be present in the UI and
+hunt the specific ones that are not. And check who the router admits before
+reasoning about who is inconvenienced — a file header saying who a screen is
+"for" is not evidence of who can reach it.
 
 ---
 
 ## Decisions taken
 
-- **Ordering accepted**, with `/payments` moved into Tier 0.
+- **The old ordering was accepted and is now superseded** by the usage axis
+  above. The new order is **proposed and not started** — no route has been
+  migrated under it.
 - **`v2` is deleted at the END of Phase E, not the start.** Its deletion is the
   proof the migration finished, because it is the only test that no route still
   depends on the old layer. The CSS baseline to measure it against is
@@ -209,7 +251,7 @@ cheaper, and a tier is not worth keeping alive because it was planned.**
   is the failure this avoids — a tier that is done should be in front of users
   before the next one starts.
 - **1.9 "Generate Bill" is settled as a backend question first**, before
-  `/subcontractors` comes up in Tier 2. Discovering mid-redesign that a rule
+  `/subcontractors` comes up in Tier 2 (it was Tier 2 under both orderings). Discovering mid-redesign that a rule
   does not exist is the wrong time to find out.
 
 
