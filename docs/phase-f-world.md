@@ -57,6 +57,39 @@ next to the third because the two are easy to break together. 12/12 pass.
 
 ---
 
+## Instancing — verified end to end before building on it (2026-08-19)
+
+Three checks, measured, because an instanced GLB the loader silently flattens
+buys nothing.
+
+**1. The runtime already supports it.** `GLTFMeshGpuInstancing` is registered in
+the `GLTFLoader` constructor immediately after the meshopt plugin, so the plain
+`new GLTFLoader()` at `assets.js:43` handles it. **No wiring change.**
+
+**2. Blender 4.5 emits it.** `export_gpu_instances` produces the extension
+rather than duplicating geometry — 200 linked duplicates went from 201 nodes to
+**one** node carrying TRANSLATION, ROTATION and SCALE for 200 instances. The
+tooltip warns "multiple materials might be omitted"; it did not bite, both
+materials survived as two primitives instanced 200× each. The constraint that
+IS real: instances must be **children of an Empty**.
+
+**3. The shipped `meshopt` command preserves it.** `EXT_mesh_gpu_instancing`,
+`EXT_meshopt_compression` and `KHR_mesh_quantization` coexist with the instanced
+node intact.
+
+Loaded end to end in three, with the exact wiring `assets.js` uses:
+
+    instanced     0 meshes   2 InstancedMesh    2 draw calls   60k tris   19.4 kB
+    plain       400 meshes   0 InstancedMesh  400 draw calls   60k tris   48.3 kB
+
+**The `gltf-transform optimize` question does not arise.** Its instancing pass
+exists to *find* repeated nodes and convert them; Blender emits the extension
+directly, so the pass is redundant and the 19 kB rejection recorded in
+`build_assets.sh` stands unchallenged rather than overturned.
+
+Worth carrying forward: **glTF already shares a mesh datablock across nodes**,
+so instancing is only a modest byte saving. The prize is draw calls — 200× here.
+
 ## Next: the tall hero and the open city
 
 **Read `concept_a2.py` as instructed. It holds the right form and cannot be
