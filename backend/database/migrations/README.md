@@ -223,3 +223,75 @@ npm test
    needs it, plus an RLS policy in the shape 003 uses.
 5. Add the file to the table at the top of this README.
 6. Note it in `DEPLOYMENT.md` under *Migration process*.
+
+---
+
+## Production has no applied-migrations tracking
+
+**Recorded 2026-08-19.** There is no `schema_migrations` table, no runner, and no
+log. Nothing in the database records which of `001`–`007` has been applied. The
+only way to answer "is migration N applied?" is to look for an object it creates
+and infer.
+
+All four questions asked so far were answered that way, by signature object:
+
+    006  idempotency_keys table exists              -> applied
+    007  ux_subcontractors_user_id index exists     -> applied
+    003  50 RLS policies present                    -> applied
+    005  tender_workers correctly absent            -> applied
+    004  material_catalog has 24 rows               -> applied
+
+### Why this is worth fixing, stated accurately
+
+The motivating incident was **not** a migration going missing. `004` was applied
+the whole time. What actually happened is worse in a quieter way:
+
+A session concluded that `004` had never been applied, because
+`material_catalog` read as **0 rows** — a count taken through `construction_app`
+with no company context while RLS was in force, so every tenant-scoped table
+appeared empty. That wrong conclusion was written into three documents and used
+to justify pausing a phase of work.
+
+**With a `schema_migrations` table it would have taken one query to disprove.**
+Without one, the only available check was the row count that was already
+lying — and inference from data is exactly the check that RLS, soft deletes,
+tenant scoping or an empty seed can all corrupt.
+
+So the value of tracking is not that it stops a migration being forgotten. It is
+that it gives an **authoritative answer that does not depend on reading tenant
+data correctly.**
+
+### Two ways to fix it, and what each costs
+
+**A. A `schema_migrations` table, written by hand on each apply.**
+
+    INSERT INTO public.schema_migrations (version, applied_at)
+    VALUES ('004', NOW());
+
+*Costs:* it is a manual step, so it is only as reliable as the person applying
+the migration remembers to be — and the failure mode is silent and identical to
+the problem it solves. Retro-filling `001`–`007` means asserting today what was
+applied historically, which is inference again, just written down once. It needs
+its own RLS decision, since a tenant-scoped policy on it would reproduce the
+exact blindness that caused this. **Cheapest to build, weakest guarantee.**
+
+**B. A boot-time check asserting each migration's signature object exists.**
+
+A table of `version -> a query that must return true`, run at startup, reporting
+anything missing.
+
+*Costs:* the signature list is hand-maintained and must be extended with every
+new migration — a migration added without its signature is invisible to the
+check, which is a quieter failure than A's. It runs at boot, so it costs a few
+queries per deploy. It cannot tell "applied" from "someone created that object
+by hand". **More code, but it verifies reality rather than recording a claim,
+and it cannot be corrupted by RLS if the signatures query `pg_catalog` rather
+than tenant tables.**
+
+**B fits this codebase's existing habit.** `reportEnvAdjustments()` prints what
+the environment actually resolved to at boot; the byte gate asserts the built
+artefact rather than the intent; `assertServerFresh()` checks the running server
+against the tree. All three verify reality at the moment it matters rather than
+trusting a record. A would be the first thing here that trusts a written claim.
+
+**Not built.** This is a proposal.
