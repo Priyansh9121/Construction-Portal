@@ -200,11 +200,16 @@ only work in this plan that cannot be validated by anyone using it.**
 11. **`/site-operations`** (39 KB) · 12. **`/daily-site-updates`** (31 KB) ·
 13. **`/worker-portal`** (60 KB) · 14. **`/daily-update-approvals`** (31 KB)
 
-**Precondition on this whole tier:** the role-set composition is resolved as a
-product decision, and the assignment path can write. Until then these four are
-blocked on something a redesign cannot supply.
+**Precondition on this whole tier — PARTLY MET 2026-08-19.** The gate is open:
+`worker` is admitted to `/site-operations` and `/daily-site-updates`, the
+assignment path writes, and a supervisor has recorded material in a browser.
+What is still outstanding is `/daily-site-updates`, which a supervisor can now
+reach but cannot use — its Site, Tender and Worker selects are fed from
+office-only collections that `canLoadAdminData` correctly suppresses for them,
+and two of the three are `required`. That is a product decision (does a
+supervisor pick a worker, or is the update implicitly theirs?), not a patch.
 
-**Measured 2026-08-19, in the browser** (`docs/first-tender-walkthrough.md` →
+**Measured 2026-08-19, in the browser, before the fix** (`docs/first-tender-walkthrough.md` →
 WALK RESULT 2): the backend puts **no role guard** on recording — only
 approve/reject are `requireOffice` — and the API answers a `worker` 200 on every
 site-operations read. `AppRoutes.jsx:631` is the whole obstruction, and the

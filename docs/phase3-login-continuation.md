@@ -6454,3 +6454,95 @@ gained its clearest instance yet in WALK RESULT 1, and this walk adds a companio
 to it: **a green suite plus an open API is still not evidence a role can reach
 the screen.** The API admits supervisors. The router does not. Only the browser
 showed that.
+
+---
+
+# HANDOFF — the gate is open, and four fixes landed (2026-08-19)
+
+**Branch** `phase-e/routes`. Backend **281/281**, a11y **44/44**, frontend lint
+and build clean, and a new browser spec at **4/4**. Nothing merged.
+
+## What changed
+
+**1. The gate.** `SiteWorkLayout` — admin, manager, **worker** — now wraps
+`/site-operations` and `/daily-site-updates`. Supervisors are **not** promoted to
+`manager`: `WINDOW_EXEMPT_ROLES` is `["admin", "manager"]`, so promoting them
+would exempt exactly the people §1.13 exists to constrain. `config/navigation.js`
+swapped `adminOnly` for an explicit `roles` list mirroring the route wrappers, so
+a supervisor's sidebar offers **exactly two destinations** rather than fourteen
+that bounce them.
+
+**2. The missing site — all four forms, not one.** Material, labour and both
+banking writes each declared `site_id = null` and let it through. A new
+`siteScope.service.js` resolves the site once, refuses a missing or foreign one,
+and **derives `tender_id` from `sites.tender_id`** so the two can never disagree;
+a contradicting `tender_id` in the body is reported rather than silently
+overridden. `TenderWorkersTab` now uses the `sites` prop it was already being
+passed and dropping.
+
+New endpoint `GET /api/site-operations/sites`, because `/api/sites` is mounted
+behind `requireOffice` and a supervisor cannot read the register they must now
+choose from. It deliberately does not narrow to assigned sites — that would hand
+supervisors an empty picker and rebuild the wall.
+
+**3. Self-approval.** `approved_by` must differ from `recorded_by`: 409 with
+`reason: "SELF_APPROVAL"` on material and expense approval. **Rejection is
+deliberately still allowed** — withdrawing your own entry is not what the control
+prevents. In the UI the Approve button is **disabled and relabelled "Yours to
+record"** with the reason on hover, rather than hidden: a missing button reads as
+a bug, a disabled one says what has to happen next.
+
+**4. Status: Pending.** The page read `worker.status`; the API returns
+`worker_status`. **`worker.role` was wrong in the same way** and had been hiding
+in plain sight, because its fallback string is `"Worker"` — plausible enough that
+nobody questioned it. The fixture's real job role is "Site Worker".
+
+**The spec.** `frontend/tests/supervisor-gate.spec.js` — signs in as the worker
+fixture at 390×844 and asserts the route opens, the form and a populated site
+picker are there, the office decision column is not, and the sidebar offers
+exactly two links.
+
+## What went wrong on the way, since it is the useful part
+
+- **My material self-approval guard landed in `deleteEntry`.** The anchor I
+  matched appeared twice. It referenced `nextStatus`, which does not exist in
+  that scope, so a delete would have thrown — and self-approval was still
+  allowed. **A 200 from a self-approval attempt is what found it**, not reading
+  the diff back. Banking's identical edit landed correctly, which is what made it
+  look fine.
+- **The site picker silently loaded nothing.** I added the named export and not
+  the entry in the service's default export object, so
+  `siteOperationsService.getOperationSites` was `undefined` — and
+  `loadSites().catch(() => {})` swallowed the TypeError whole. An empty `catch`
+  turned a crash into an empty dropdown.
+- **`tenantIsolation.test.js` went vacuously green.** Its labour create started
+  400ing without a site, `alphaIds.labour` became undefined, and
+  `if (!alphaIds.labour) return;` skipped the tenant-isolation assertion
+  entirely — 281/281 while testing less than before. Fixed by supplying the site
+  **and** throwing in `beforeAll` if the labourer is not created, so it cannot
+  skip silently again.
+
+## Still open, and deliberately not done
+
+- **`/daily-site-updates` is reachable but unusable for a supervisor.** Its
+  Site, Tender and Worker selects come from office-only collections that
+  `canLoadAdminData` suppresses for a worker; Site and Worker are `required`.
+  Feeding site and tender is easy — the new endpoint already does it — but
+  whether a supervisor picks a *worker* is a product question of the same kind
+  as the gate.
+- **Production's orphan rows.** All 12 tender documents, 6 of 13 payments, 4 of
+  5 workers and 4 of 5 subcontractors are invisible to the application. See the
+  census correction in `docs/first-tender-walkthrough.md`; the SQL Editor
+  queries that identify them are named there.
+- **One flaky backend failure**, seen once: `roleSeparation.test.js › re-enables
+  a disabled account`. Not reproduced in two subsequent full runs, and unrelated
+  to anything changed here. Recorded rather than chased.
+- Two `<h1>Site Operations</h1>` render on that page — the shell's topbar and
+  the page's own. a11y passes 44/44 regardless; worth a look, not a blocker.
+
+## Where to pick up
+
+1. **`/daily-site-updates`** — the product question above.
+2. **The orphan rows** — one SQL Editor query tells you whether it is a null
+   `company_id` or a deleted company, and those lead different places.
+3. **Tier 1: `/payments` → `/tenders/:id` → `/tenders`**, now unblocked.
