@@ -235,6 +235,146 @@ def build_typical_floor(name, mats, level, clad):
     return L.join_all(name, [p for p in parts if p])
 
 
+
+# ---------------------------------------------------------------------------
+# THE CITY
+# ---------------------------------------------------------------------------
+#
+# The old neighbours layer was three meshes of tight infill authored to ENCLOSE
+# the site — which was the point then, and is wrong now: it boxed the camera in
+# so an orbit was a wall, and the dolly added in this phase has nothing to move
+# through.
+#
+# So the city is pushed back to a ring that starts beyond the hoarding and
+# builds outward and upward, and it is built the same way the tower's
+# repetition is: a handful of ARCHETYPES, a couple of hundred instances, and
+# every bit of variety coming from the transform and a seeded PRNG rather than
+# from unique geometry. Four archetypes at a few hundred triangles each is
+# kilobytes; two hundred unique buildings is a budget.
+#
+# Seeded, because a skyline that reshuffles on every build is not a skyline you
+# can art-direct — and because the same seed has to produce the same city in a
+# render and in the browser.
+
+CITY_INNER = 96.0        # nothing closer than this: the orbit has to breathe
+CITY_OUTER = 620.0
+CITY_COUNT = 220
+
+# WHERE THE CAMERA STANDS, and therefore where no building may.
+#
+# The first city put a block on top of the establishing station and the hero
+# render came back as the inside of a wall. The stations are at 47-159 m and
+# the city ring starts at 96 m, so the two overlap by design — a city that
+# stopped beyond the furthest station would be too far away to read.
+#
+# So the blocks are kept off the camera instead of the camera kept out of the
+# city, which is also what a street does. Blender coordinates (Z up), from the
+# station eyes in SITE_JOURNEY: three (x, y, z) is Blender (x, -z, y).
+CAMERA_KEEPOUT = [
+    (-96.0, -132.0, 62.0),   # street establishing
+    (-30.0, -60.0, 46.0),    # footpath
+    (-8.0, -42.0, 42.0),     # site entry
+    (95.0, 70.0, 52.0),      # rear
+]
+
+
+def city_archetype(name, mats, w, d, floors, fh, kind):
+    """One building type, authored at the origin and instanced from there.
+
+    Four types rather than one scaled box, because a skyline reads as a city
+    through VARIETY OF KIND — a slab block, a tower, a podium block and a low
+    shed have different silhouettes, and no amount of scaling turns one into
+    another.
+    """
+    parts = []
+    h = floors * fh
+    x0, y0, x1, y1 = -w / 2, -d / 2, w / 2, d / 2
+
+    if kind == "tower":
+        body = M.chamfered(x0, y0, x1, y1, min(w, d) * 0.18)
+        parts.append(M.prism(f"{name}-b", body, 0.0, h, mats["conc"], bevel=0.12))
+        # A crown, so the tops are not all flat lids.
+        parts.append(M.prism(f"{name}-c", M.rect(x0 * 0.55, y0 * 0.55, x1 * 0.55, y1 * 0.55),
+                             h, fh * 1.4, mats["conc"], bevel=0.1))
+    elif kind == "slab":
+        parts.append(M.prism(f"{name}-b", M.rect(x0, y0, x1, y1), 0.0, h,
+                             mats["conc"], bevel=0.1))
+        parts.append(M.prism(f"{name}-p", M.rect(x0 - 0.4, y0 - 0.4, x1 + 0.4, y1 + 0.4),
+                             h, 0.5, mats["conc"], bevel=0.06))
+    elif kind == "podium":
+        parts.append(M.prism(f"{name}-p", M.rect(x0, y0, x1, y1), 0.0, fh * 2.2,
+                             mats["conc"], bevel=0.1))
+        parts.append(M.prism(f"{name}-b", M.rect(x0 * 0.62, y0 * 0.62, x1 * 0.62, y1 * 0.62),
+                             fh * 2.2, h, mats["conc"], bevel=0.1))
+    else:  # shed
+        parts.append(M.prism(f"{name}-b", M.rect(x0, y0, x1, y1), 0.0, h,
+                             mats["conc"], bevel=0.08))
+
+    # Glazing on two faces only. A city block seen from 150 m does not need
+    # four elevations, and the two that face the site are the two that show.
+    bands = max(2, int(floors * 0.7))
+    for i in range(bands):
+        z = fh * 0.6 + i * (h - fh) / max(1, bands)
+        if z + 1.2 > h:
+            break
+        parts.append(M.prism(f"{name}-g{i}", M.rect(x0 + 0.6, y0 - 0.12, x1 - 0.6, y0 + 0.06),
+                             z, 1.5, mats["glass"], bevel=0.02))
+        parts.append(M.prism(f"{name}-h{i}", M.rect(x0 - 0.12, y0 + 0.6, x0 + 0.06, y1 - 0.6),
+                             z, 1.5, mats["glass"], bevel=0.02))
+
+    return L.join_all(name, [o for o in parts if o])
+
+
+def build_city(mats, empties):
+    """A ring of instanced blocks, thinning and rising with distance."""
+    rng = random.Random(1907)
+
+    archetypes = [
+        ("nbtower", 26.0, 24.0, 22, 3.5, "tower"),
+        ("nbslab", 44.0, 18.0, 9, 3.6, "slab"),
+        ("nbpodium", 32.0, 30.0, 14, 3.5, "podium"),
+        ("nbshed", 38.0, 34.0, 3, 4.6, "shed"),
+    ]
+
+    placements = {name: [] for name, *_ in archetypes}
+    for _ in range(CITY_COUNT):
+        # Radius weighted outward so the ring does not crowd the near edge.
+        t = rng.random() ** 0.62
+        r = CITY_INNER + t * (CITY_OUTER - CITY_INNER)
+        a = rng.uniform(0.0, math.tau)
+        x, y = math.cos(a) * r, math.sin(a) * r * 0.82
+
+        # Kind by distance: sheds near, towers far, so the skyline rises
+        # AWAY from the site and the hero stays the tallest thing near it.
+        # Off the camera, and off the sight line between camera and site.
+        if any(math.hypot(x - kx, y - ky) < kr for kx, ky, kr in CAMERA_KEEPOUT):
+            continue
+
+        far = (r - CITY_INNER) / (CITY_OUTER - CITY_INNER)
+        roll = rng.random()
+        if far < 0.22:
+            kind = "nbshed" if roll < 0.7 else "nbslab"
+        elif far < 0.55:
+            kind = "nbslab" if roll < 0.45 else ("nbpodium" if roll < 0.85 else "nbtower")
+        else:
+            kind = "nbtower" if roll < 0.55 else "nbpodium"
+        placements[kind].append((x, y, 0.0))
+
+    for name, w, d, floors, fh, kind in archetypes:
+        src = city_archetype(name, mats, w, d, floors, fh, kind)
+        if not placements[name]:
+            bpy.data.objects.remove(src, do_unlink=True)
+            continue
+        e, made = instance_group(name, src, placements[name])
+        # Variety from the TRANSFORM, which costs 10 floats an instance.
+        for dup in made:
+            dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
+            sc = rng.uniform(0.72, 1.5)
+            dup.scale = (sc, sc, rng.uniform(0.55, 1.9))
+        empties.append(e)
+        print(f"CITY {name}: {len(made)} instances")
+
+
 def build(dusk=False):
     L.reset()
     rng = random.Random(31)
@@ -447,6 +587,8 @@ def build(dusk=False):
         M.prism("mcchook", M.rect(CRANE_X + 26.6, CRANE_Y - 0.4,
                                 CRANE_X + 27.8, CRANE_Y + 0.4),
                 TOP + 1.6, 0.9, mats["galv"], bevel=0.04))
+
+    build_city(mats, empties)
 
     return parts, empties, mats
 
