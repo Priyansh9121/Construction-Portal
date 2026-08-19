@@ -90,7 +90,47 @@ directly, so the pass is redundant and the 19 kB rejection recorded in
 Worth carrying forward: **glTF already shares a mesh datablock across nodes**,
 so instancing is only a modest byte saving. The prize is draw calls — 200× here.
 
-## Next: the tall hero and the open city
+## The hero — built (`concept_d.py`)
+
+A2's massing in C's export pipeline, grown to **30 floors / 106.4 m**: podium
+4 x 4.5 m, transfer level, tower 26 x 3.4 m offset to the street corner,
+setback at 21, core slipformed past the top slab as the lift overrun, and a
+**tower crane** with the hook at 118.4 m. The crane is what A2's 64 x 52 m plot
+buys — the rejection recorded in C was about C's 22 x 34 m infill site, not
+about tower cranes.
+
+**The three zones, instanced where they repeat:**
+
+    completed  tower levels 1-17    clad and glazed     1 mesh, 17 instances
+    fitout     tower levels 18-22   frame, no skin      1 mesh,  5 instances
+    frontier   tower levels 23-26   unique, every one   authored geometry
+
+**Measured, compressed, like for like against what ships today:**
+
+    login-site-architecture   500.6 KB   7 floors,  27.7 m   (today)
+    login-site-architecture   198.9 KB   30 floors, 106.4 m  (concept D)
+
+**4.3x taller and 60% smaller.** Twenty-two floors of unique geometry would
+have breached the 2.0 MB per-layer limit on its own; twenty-two floors that are
+two meshes and twenty-two transforms cost almost nothing, and the bytes go to
+the frontier where the eye is.
+
+**The byte gate has not been touched and does not yet need to be.** The set
+cannot be totalled honestly until street, scaffold, people and the city are
+rebuilt for the new plot — but the layer that was supposed to blow the budget
+came in at 40% of its old size, so the number to ask for is not yet a number.
+
+### One thing found while building it
+
+`concept_c.py` ended with a bare `main()`, so **importing it ran it**. Concept D
+imports `layer_of()` and `bake_production_materials()`, and the first export
+found three of C's layers sitting in D's output directory, written before D had
+run a line. Now guarded with `if __name__ == "__main__"`. Blender's `-P` sets
+`__name__` to `"__main__"`, so `build_assets.sh` is unaffected.
+
+## Next: the open city
+
+
 
 **Read `concept_a2.py` as instructed. It holds the right form and cannot be
 dropped in.**
