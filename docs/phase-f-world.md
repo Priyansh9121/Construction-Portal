@@ -301,3 +301,65 @@ triangle counts are the solid figures** and the millisecond is indicative.
 
 Mobile pays nothing, now confirmed rather than assumed: `castShadow = !portrait`
 holds, and the phone tier reports 0 calls and 0 triangles for the pass.
+
+---
+
+## Refinement — tone, grid, clipping (2026-08-20)
+
+### Tone: material beat geometry, measured both ways
+
+    baseline   4 archetypes, one tone                       33.7 KB
+    MATERIAL   4 archetypes x 3 materials                   52.0 KB
+    geometry   12 distinct archetypes, one tone             70.5 KB
+
+**The material route is 26% cheaper and keeps four archetypes**, so it is the
+one that shipped. Two of the three tones cost nothing at all to add: concept_lib
+already builds `city_warm` (brick) and `city_cool` (concrete), and both were
+already in `SITE_SURFACES` and `EXPORT_UV_TILE` from an older city.
+
+The mechanism is that the tone groups **share geometry**: the exported city has
+12 meshes referencing **8 distinct POSITION accessors, 20 times over**, because
+each tone is one object carrying the same mesh datablock with the material
+overridden at object level. Twelve real archetypes cannot share anything.
+
+Worth recording that the gap narrows under compression — raw it is 38 KB against
+79 KB, better than 2:1, and meshopt claws most of that back by compressing the
+twelve distinct geometries well. The decision holds either way, but the raw
+figure would have oversold it.
+
+**Varied by distance**, per the fog measurement: tone splits three ways inside
+`CITY_TONE_BAND` (260 m) and collapses to one beyond it, where day fog is
+already past 35% and night is total. That also keeps the instanced-node count
+down where the variation would not be seen.
+
+### The street grid
+
+Placement was random polar, which is what made blocks read as scattered objects
+rather than a built city. It now walks a **grid**: one building per 62 m cell,
+jittered inside it, with the 16 m gap between cells being the street. Roads are
+a few long slabs on the cell lines in the street layer — a road is the one thing
+here with no repetition worth instancing.
+
+First attempt used an 86 m pitch and placed **56 buildings where 205 had stood**:
+the grid, not the rejection test, was the limiter. At 62 m with footprints and
+max scale brought down to match the cell, it places **132**.
+
+### The clipping block
+
+Rejection sampling against a running list of placed centres and footprint radii,
+as prescribed. One condition, and no block grows through another.
+
+### Byte gate after all three
+
+    architecture  277,620      neighbours  49,704      people  79,584
+    scaffold       23,120      street      45,232      TOTAL  475,260
+
+**Passed, 475 KB against the 2.5 MB limit** — up 21 KB on 454 KB, which is the
+tone materials and the roads. Nothing doubled.
+
+### Not solved
+
+Tone variation is in the data — the shipped city carries `city_warm` and
+`city_cool` across 12 instanced nodes — but it **reads weakly in the browser**
+at midday, where the grade's exposure washes the blocks toward white. The next
+move is the tint factors on those two materials rather than more archetypes.

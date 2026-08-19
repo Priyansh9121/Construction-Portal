@@ -156,7 +156,7 @@ def tower_columns(level):
 # its linked duplicates. The duplicates share a mesh datablock, which is what
 # makes them one draw call rather than N.
 #
-def instance_group(name, source, placements):
+def instance_group(name, source, placements, keep_source=False):
     """Parent linked duplicates of `source` to a new Empty, one per placement.
 
     `placements` is a list of (x, y, z) translations. The source object itself
@@ -175,7 +175,10 @@ def instance_group(name, source, placements):
         bpy.context.scene.collection.objects.link(dup)
         made.append(dup)
 
-    bpy.data.objects.remove(source, do_unlink=True)
+    if not keep_source:
+        bpy.data.objects.remove(source, do_unlink=True)
+    else:
+        bpy.data.objects.remove(source, do_unlink=True)
     return empty, made
 
 
@@ -276,6 +279,19 @@ CITY_INNER = 96.0        # nothing closer than this: the orbit has to breathe
 # puts the same instances where they can actually be seen.
 CITY_OUTER = 420.0
 CITY_COUNT = 220
+# Past this, fog has eaten enough that a second tone is not worth an
+# instanced node. Day fog is 35% at 300 m; night is total well before it.
+CITY_TONE_BAND = 260.0
+
+# The grid the city stands on. Pitch is one block plus its street; the road is
+# the gap between cells and the blocks sit inside them.
+CITY_GRID = 62.0
+CITY_ROAD = 16.0
+# Footprint radius per kind, for the overlap test — the archetype's own
+# half-diagonal, which the transform scale then stretches up to 1.5x.
+CITY_FOOTPRINT = {
+    "nbtower": 20.0, "nbslab": 26.0, "nbpodium": 24.0, "nbshed": 27.0,
+}
 
 # WHERE THE CAMERA STANDS, and therefore where no building may.
 #
@@ -342,6 +358,27 @@ def city_archetype(name, mats, w, d, floors, fh, kind):
     return L.join_all(name, [o for o in parts if o])
 
 
+def build_streets(parts, mats):
+    """The grid the city stands on.
+
+    Long thin slabs on the cell lines. They are the reason blocks read as a
+    city rather than as objects on a table: a building with a road beside it is
+    in a place. Named "road" so LAYER_RULES routes them to the street layer,
+    and built as a few long meshes rather than per-cell tiles — a road is the
+    one thing here with no repetition worth instancing.
+    """
+    reach = CITY_OUTER + CITY_GRID
+    half = int(reach // CITY_GRID) + 1
+    for i in range(-half, half + 1):
+        c = i * CITY_GRID + CITY_GRID / 2.0
+        parts["paint"].append(
+            M.prism(f"road-x{i}", M.rect(-reach, c - CITY_ROAD / 2, reach, c + CITY_ROAD / 2),
+                    0.02, 0.10, mats["spandrel"], bevel=0.0))
+        parts["paint"].append(
+            M.prism(f"road-y{i}", M.rect(c - CITY_ROAD / 2, -reach, c + CITY_ROAD / 2, reach),
+                    0.02, 0.10, mats["spandrel"], bevel=0.0))
+
+
 def build_city(mats, empties):
     """A ring of instanced blocks, thinning and rising with distance."""
     rng = random.Random(1907)
@@ -354,19 +391,39 @@ def build_city(mats, empties):
     ]
 
     placements = {name: [] for name, *_ in archetypes}
-    for _ in range(CITY_COUNT):
-        # Radius weighted outward so the ring does not crowd the near edge.
-        t = rng.random() ** 0.78
-        r = CITY_INNER + t * (CITY_OUTER - CITY_INNER)
-        a = rng.uniform(0.0, math.tau)
-        x, y = math.cos(a) * r, math.sin(a) * r * 0.82
 
-        # Kind by distance: sheds near, towers far, so the skyline rises
-        # AWAY from the site and the hero stays the tallest thing near it.
+    # ---- ON A GRID, NOT SCATTERED ---------------------------------------
+    #
+    # Blocks on bare ground read as models on a table, and random polar
+    # placement is what made them look scattered rather than built. Real
+    # cities are blocks between streets, so placement walks a GRID: one
+    # building per cell, jittered inside it so the rows are not mechanical,
+    # and the gap between cells IS the street.
+    #
+    # Rejection sampling against what has already been placed is the one-line
+    # answer to buildings growing through each other: keep a running list of
+    # centres and footprint radii, and refuse anything that overlaps.
+    placed = []                                    # (x, y, footprint radius)
+    half = int(CITY_OUTER // CITY_GRID) + 1
+    cells = [(i, k) for i in range(-half, half + 1) for k in range(-half, half + 1)]
+    rng.shuffle(cells)
+
+    for (i, k) in cells:
+        cx, cy = i * CITY_GRID, k * CITY_GRID
+        r = math.hypot(cx, cy)
+        if r < CITY_INNER or r > CITY_OUTER or len(placed) >= CITY_COUNT:
+            continue
+
+        room = max(4.0, (CITY_GRID - CITY_ROAD) / 2.0 - 8.0)
+        x = cx + rng.uniform(-room, room)
+        y = cy + rng.uniform(-room, room)
+
         # Off the camera, and off the sight line between camera and site.
         if any(math.hypot(x - kx, y - ky) < kr for kx, ky, kr in CAMERA_KEEPOUT):
             continue
 
+        # Kind by distance: sheds near, towers far, so the skyline rises AWAY
+        # from the site and the hero stays the tallest thing near it.
         far = (r - CITY_INNER) / (CITY_OUTER - CITY_INNER)
         roll = rng.random()
         if far < 0.22:
@@ -375,21 +432,68 @@ def build_city(mats, empties):
             kind = "nbslab" if roll < 0.45 else ("nbpodium" if roll < 0.85 else "nbtower")
         else:
             kind = "nbtower" if roll < 0.55 else "nbpodium"
-        placements[kind].append((x, y, 0.0))
+
+        foot = CITY_FOOTPRINT[kind]
+        if any(math.hypot(x - px, y - py) < (foot + pr) * 0.62 for px, py, pr in placed):
+            continue
+        placed.append((x, y, foot))
+        placements[kind].append((x, y, 0.0, r))
+
+    # ---- TONE ------------------------------------------------------------
+    #
+    # A city reads through tonal variation, and per-instance colour is not
+    # available through EXT_mesh_gpu_instancing — an instanced node carries one
+    # mesh, and a mesh carries its material. So tone is a MATERIAL split, not a
+    # geometry one: the same four archetypes are instanced once per tone, with
+    # the material overridden at OBJECT level so every group still shares one
+    # mesh datablock and therefore one set of accessors.
+    #
+    # The two city materials already existed — concept_lib builds city_warm
+    # (brick) and city_cool (concrete), both already in SITE_SURFACES and in
+    # EXPORT_UV_TILE — so two of the three tones cost nothing at all to add.
+    #
+    # VARIED BY DISTANCE, because fog decides where variation is worth paying
+    # for: 35% fogged at 300 m and 57% at 420 m by day, and effectively total
+    # at night. Blocks past CITY_TONE_BAND get ONE tone, which also keeps the
+    # instanced-node count down where it buys nothing.
+    tones = [mats["conc"], mats.get("city_warm"), mats.get("city_cool")]
+    tones = [t for t in tones if t]
 
     for name, w, d, floors, fh, kind in archetypes:
-        src = city_archetype(name, mats, w, d, floors, fh, kind)
-        if not placements[name]:
-            bpy.data.objects.remove(src, do_unlink=True)
+        pl = placements[name]
+        if not pl:
             continue
-        e, made = instance_group(name, src, placements[name])
-        # Variety from the TRANSFORM, which costs 10 floats an instance.
-        for dup in made:
-            dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
-            sc = rng.uniform(0.72, 1.5)
-            dup.scale = (sc, sc, rng.uniform(0.55, 1.9))
-        empties.append(e)
-        print(f"CITY {name}: {len(made)} instances")
+        src = city_archetype(name, mats, w, d, floors, fh, kind)
+
+        # Near blocks split across the tones; far blocks share one.
+        groups = {i: [] for i in range(len(tones))}
+        for (x, y, z, r) in pl:
+            band = rng.randrange(len(tones)) if r < CITY_TONE_BAND else 0
+            groups[band].append((x, y, z))
+
+        first = True
+        for ti, places in groups.items():
+            if not places:
+                continue
+            # One object per tone, all sharing src's mesh data.
+            proxy = bpy.data.objects.new(f"{name}t{ti}", src.data)
+            bpy.context.scene.collection.objects.link(proxy)
+            if proxy.material_slots:
+                proxy.material_slots[0].link = "OBJECT"
+                proxy.material_slots[0].material = tones[ti]
+            e, made = instance_group(f"{name}t{ti}", proxy, places,
+                                     keep_source=True)
+            for dup in made:
+                if dup.material_slots:
+                    dup.material_slots[0].link = "OBJECT"
+                    dup.material_slots[0].material = tones[ti]
+                dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
+                sc = rng.uniform(0.68, 1.12)
+                dup.scale = (sc, sc, rng.uniform(0.55, 1.9))
+            empties.append(e)
+            print(f"CITY {name} tone{ti}: {len(made)} instances")
+            first = False
+        bpy.data.objects.remove(src, do_unlink=True)
 
 
 def build(dusk=False):
@@ -650,6 +754,7 @@ def build(dusk=False):
         w.location = (x, y, z)
         parts.setdefault("people", []).append(w)
 
+    build_streets(parts, mats)
     build_city(mats, empties)
 
     return parts, empties, mats
