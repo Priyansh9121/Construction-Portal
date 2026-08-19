@@ -1,0 +1,118 @@
+<!doctype html>
+<!--
+  SKY PREVIEW — a dev-only page, not part of the app bundle.
+
+  Why it exists: the login site is enclosed by neighbouring buildings, so most
+  camera azimuths inside it are looking at a wall. That is fine for the hero
+  framing and useless for judging a sky, which is the one thing in this scene
+  that has to be looked at across a whole day.
+
+  This renders the sky shader ALONE, driven by the same worldEnvironment() the
+  product uses, so what is judged here is exactly what ships. No site geometry,
+  no camera rig, nothing to occlude.
+
+    /sky-preview.html?at=2026-08-19T14:00:00Z&az=90&el=20
+
+  Sibling of proto3d.html. Vite serves it in dev; it is never imported by the
+  app, so it costs the bundle nothing.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sky preview</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      canvas { display: block; width: 100vw; height: 100vh; }
+      #hud {
+        position: fixed; left: 12px; top: 12px; z-index: 2;
+        font: 12px/1.5 ui-monospace, monospace; color: #cfd6e4;
+        background: rgba(8, 10, 16, 0.72); padding: 10px 12px; border-radius: 8px;
+        white-space: pre; pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">loading…</div>
+    <canvas id="c"></canvas>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { createSky } from "/src/world/sky.js";
+      import { worldEnvironment } from "/src/world/environment.js";
+
+      const q = new URLSearchParams(location.search);
+      const at = q.get("at") ? new Date(q.get("at")) : new Date();
+      const env = worldEnvironment(at);
+
+      // Default to looking at whichever body is up, because that is almost
+      // always why this page is open.
+      const body = env.sun.altitude > -2 ? env.sun : (env.moon.up ? env.moon : env.sun);
+      const az = q.has("az") ? +q.get("az") : null;
+      const el = q.has("el") ? +q.get("el") : null;
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas: document.getElementById("c"), antialias: true,
+      });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight, false);
+
+      const scene = new THREE.Scene();
+      const cam = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 100);
+      const sky = createSky(THREE, scene, env.grade, env.sun.dir, env.moon);
+      sky.applyGrade(env.grade, env.sun.dir, env);
+
+      // Aim: either explicit az/el, or straight at the chosen body.
+      const look = new THREE.Vector3();
+      if (az === null || el === null) look.set(...body.dir);
+      else {
+        const a = az * Math.PI / 180, e = el * Math.PI / 180;
+        look.set(Math.sin(a) * Math.cos(e), Math.sin(e), -Math.cos(a) * Math.cos(e));
+      }
+      cam.position.set(0, 0, 0);
+      cam.lookAt(look);
+
+      // Drag to look around, so a whole sky can be inspected without reloading.
+      let down = false, px = 0, py = 0;
+      let yaw = Math.atan2(look.x, -look.z);
+      let pitch = Math.asin(THREE.MathUtils.clamp(look.y, -1, 1));
+      addEventListener("pointerdown", (e) => { down = true; px = e.clientX; py = e.clientY; });
+      addEventListener("pointerup", () => { down = false; });
+      addEventListener("pointermove", (e) => {
+        if (!down) return;
+        yaw -= (e.clientX - px) * 0.004;
+        pitch = THREE.MathUtils.clamp(pitch + (e.clientY - py) * 0.004, -1.4, 1.4);
+        px = e.clientX; py = e.clientY;
+      });
+      addEventListener("resize", () => {
+        renderer.setSize(innerWidth, innerHeight, false);
+        cam.aspect = innerWidth / innerHeight;
+        cam.updateProjectionMatrix();
+      });
+
+      const hud = document.getElementById("hud");
+      const f = (n) => (n < 0 ? "" : " ") + n.toFixed(1);
+      hud.textContent =
+        `${env.localTime}  (${env.timezone})\n` +
+        `phase     ${env.phase}   nightness ${env.nightness.toFixed(2)}\n` +
+        `sun  alt ${f(env.sun.altitude)}  az ${f(env.sun.azimuth)}  up ${env.sun.up}\n` +
+        `moon alt ${f(env.moon.altitude)}  az ${f(env.moon.azimuth)}  up ${env.moon.up}\n` +
+        `moon ${env.moon.phaseName}  lit ${(env.moon.fraction * 100).toFixed(0)}%\n` +
+        `drag to look around`;
+
+      const clock = new THREE.Clock();
+      renderer.setAnimationLoop(() => {
+        const c = Math.cos(pitch);
+        cam.lookAt(Math.sin(yaw) * c, Math.sin(pitch), -Math.cos(yaw) * c);
+        sky.advance(clock.getElapsedTime(), { x: 1, z: 0.3 });
+        renderer.render(scene, cam);
+      });
+
+      // Exposed so a harness can read what the shader was actually given,
+      // rather than inferring it from a picture.
+      window.__cam = cam;
+      window.__sky = sky;
+      window.__env = env;
+      window.__skyReady = true;
+    </script>
+  </body>
+</html>
