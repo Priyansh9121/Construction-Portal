@@ -269,3 +269,105 @@ No fix, no workaround, no code change. Steps 7–13 are unwalked: 8 and 11–13 
 reachable but 9 and 10 sit behind the assignment, and walking the office end
 first would have reported a completion the product cannot actually deliver.
 Production was not read or written.
+
+---
+
+# WALK RESULT 2 — the site half is not broken, it is walled off (2026-08-19)
+
+The adjusted walk: not creating a first tender, but following what production
+already has and finding where the site half fails to start. Walked as the local
+supervisor fixture at **390 × 844**, a phone, because that is the condition the
+role actually works in. Local company 1 mirrors production — office data present,
+site half empty.
+
+**The answer is the gate, and it is measured end to end.**
+
+    backend      POST /site-operations/materials has NO role guard   any authenticated
+    API, as a worker   GET /materials/catalog · /materials · /labour  200 · 200 · 200
+    frontend router    /site-operations, /daily-site-updates          redirect to /worker-portal
+    worker portal      five tabs, zero material or labour surface
+    admin             records material successfully                   201
+
+The server was built for the product as described: **supervisors record, the
+office approves.** Only `/materials/:id/approve` and `/reject` carry
+`requireOffice`. The recording endpoints are open to any authenticated user, and
+the API serves a `worker` 200 on every site-operations read.
+
+The **frontend route is the entire obstruction.** `AppRoutes.jsx:631` wraps
+`/site-operations` in `AdminManagerLayout`, so the one role the API was designed
+for is bounced. Measured, not inferred: signed in as a worker, `/site-operations`
+and `/daily-site-updates` both land on `/worker-portal` **silently** — no error,
+no explanation, no trace that a screen was refused.
+
+And there is nowhere else to go. The worker portal's five tabs — Home, My
+Projects, Daily Updates, My Money, My Profile — contain **no material entry and
+no labour entry surface at all**. A text search of the whole portal for
+*material*, *labour*, *quantity* and *cement* returns nothing. `SiteOperationsPage`
+is the only consumer of `siteOperationsService` in the codebase.
+
+So the site half's zero rows are not a defect in the recording path. **The only
+people who can record are office admins who are not on site, and production has
+two of them and zero managers.** The supervisors who are on site have no surface
+anywhere. That is why nothing has ever been recorded.
+
+**This corrects the walkthrough's own step 9 and 10.** They place material and
+labour recording at `/worker-portal`. It is not there and never has been.
+
+## The second defect — recorded entries name no site
+
+Signed in as admin, `/site-operations` opens and recording works:
+`201 POST /api/site-operations/materials`, 50 bags of Cement (OPC 53) at ₹380,
+₹24,320.00 with 28% GST, arithmetic correct. The row it wrote:
+
+    id 371 · company_id 1 · tender_id NULL · site_id NULL · approval_status pending
+
+The form has nine controls — material, date, quantity, rate, bill number,
+supplier, vehicle number and two file inputs — and **not one of them is a site.**
+The screen's own header reads *"Record material, labour and banking for the
+site."* The definite article, with no site named anywhere and no way to name one.
+The pre-existing local row from 2026-08-02 has `site_id` NULL too, so this is not
+new.
+
+**This is the same defect shape as the step-6 break, with the safer half
+missing.** Both forms omit a site the schema and the copy expect. `POST
+/tenders/:id/workers` refuses and says so; `POST /site-operations/materials`
+accepts and writes NULL. The refusal is the better failure — it cannot
+accumulate. Every cost recorded on this screen lands in an unallocated
+company-wide pool, unattributable to a tender, on a product whose entire value
+is per-tender costing.
+
+## Friction, none of it blocking
+
+1. **The refusal is silent.** A supervisor who bookmarks `/site-operations`, or
+   follows a link to it, is moved to `/worker-portal` with no message. Nothing
+   distinguishes "you may not open this" from "that page does not exist".
+2. **The recorder can approve their own entry, one row away.** The entry landed
+   in "Recent entries" with **Approve** and **Reject** beside it, clickable by
+   the admin who had just created it. The role-set composition, made concrete on
+   screen: same person, same screen, both halves of the control.
+3. **Material optgroups render raw machine codes** — `aggregate`, `binder`,
+   `road`, `steel`, `masonry`, `finish`, `service`, `other`. Confirmed in the
+   real UI, as predicted. The options themselves are good: English with the
+   Gujarati name beside it, which is the right call for the audience.
+4. **Every supervisor reads as "Pending" forever.** My Profile renders
+   `getStatusClass(worker?.status)`, and `GET /worker-portal/me` returns
+   `worker_status`, not `status`. The value is `undefined`,
+   `normaliseStatus` (line 208) defaults to `"pending"`, and the screen shows
+   **Status: Pending** for a worker the database and the API both call `active`.
+   A wrong figure on real data, on the only screen this role has.
+5. **The empty state is good, and worth keeping.** *"You have not been assigned
+   to a site yet. Your supervisor will assign one — nothing is needed from you
+   right now."* It is calm, it explains, and it tells the reader they are not at
+   fault. That is the tone the rest of these screens should be held to — and it
+   is describing a wait that, per WALK RESULT 1, would never end.
+6. **The phone layout holds up.** No horizontal overflow, controls tappable, the
+   module switcher (Material · Labour · Banking · Access Requests) reads clearly
+   at 390 px. The screen a supervisor cannot open is the one best suited to their
+   device.
+
+## Where this stops
+
+Stopped at the gate, which is a product decision and not mine to change.
+Everything downstream of it — the entry window that §1.13 exists for, the
+approve/reject flow, the access-request path — is unreachable for the role it
+was written for and cannot be walked until the gate is answered.

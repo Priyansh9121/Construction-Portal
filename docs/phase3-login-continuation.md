@@ -6383,3 +6383,74 @@ the limiters on the wire rather than in the command: `/api/health` must answer
 Local connects as `postgres`, which the boot log correctly reports as bypassing
 RLS, so local counts need no `SET app.company_id`. That caution is production's,
 and production was not touched this session.
+
+---
+
+# HANDOFF — the site half is walled off by one layout wrapper (2026-08-19)
+
+**Branch** `phase-e/routes`. Two commits this session before this one. No product
+code changed; the only code edits were four wrong table names in file headers.
+
+## The finding
+
+**Supervisors have never recorded anything because they cannot reach the screen
+that records, and there is no other one.** Measured in a real browser at phone
+size, as the worker fixture:
+
+- `POST /site-operations/materials` carries **no role guard**. Only
+  `/materials/:id/approve` and `/reject` are `requireOffice`. The server was
+  built for supervisors to record and the office to approve.
+- The API answers a `worker` **200** on `/materials/catalog`, `/materials` and
+  `/labour`.
+- `AppRoutes.jsx:631` wraps `/site-operations` in `AdminManagerLayout`. A worker
+  is redirected to `/worker-portal` **silently**, and the same for
+  `/daily-site-updates`.
+- The worker portal has **no material or labour surface** in any of its five
+  tabs. `SiteOperationsPage` is the only consumer of `siteOperationsService`.
+
+So the fix is a frontend access decision, not a backend build. It is a product
+decision and it was deliberately not made here.
+
+**Second defect, separate and live:** an admin recording material writes
+`site_id NULL` and `tender_id NULL` — the form has nine controls and none is a
+site, while the screen's header says *"for the site"*. Same shape as the step-6
+break, minus the refusal: that one 400s, this one accepts and accumulates
+unattributable cost on a per-tender costing product.
+
+**Also corrected:** the walkthrough placed material and labour recording at
+`/worker-portal`. It is not there and never has been.
+
+## The census, and what it does to Phase E
+
+Production, read as `postgres` through the SQL Editor: office half in daily use
+(10 tenders, 13 sites, 13 payments, 12 documents, 5 subcontractors, 5 workers, 23
+logged actions to 2026-08-13); site half zero rows in every table; one
+`worker_assignments` row against five workers.
+
+`docs/phase-e-route-plan.md` is rewritten against that. **Proposed Tier 1 is
+`/payments`, `/tenders/:id`, `/tenders`** — the routes carrying the rows.
+`/site-operations` moves to Tier 3 behind a precondition, because migrating a
+screen nobody can open would hide the reason nobody can open it. **Nothing is
+migrated. The order awaits your word.**
+
+## Where to pick up, in order
+
+1. **The gate.** Who may open `/site-operations`? The backend already answers
+   "any authenticated to record, office to approve". The router disagrees. One
+   decision unblocks Tier 3 entirely.
+2. **The missing site on both forms** — the assignment form and the material
+   form. Same defect, two screens, and the tender-detail page already passes a
+   `sites` prop that its Workers tab drops on the floor.
+3. **Then re-walk from step 6.** The §1.13 entry window has still never been hit
+   by a non-exempt role, and cannot be until 1 is answered.
+4. The friction list in WALK RESULT 2 — six items, including every supervisor
+   reading as **Status: Pending** forever because the page reads `worker.status`
+   and the API returns `worker_status`.
+
+## Unchanged from the last handoff
+
+Run instructions, the seven traps, and SMTP on Render all still stand. Trap 2
+gained its clearest instance yet in WALK RESULT 1, and this walk adds a companion
+to it: **a green suite plus an open API is still not evidence a role can reach
+the screen.** The API admits supervisors. The router does not. Only the browser
+showed that.
