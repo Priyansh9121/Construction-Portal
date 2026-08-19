@@ -19,7 +19,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { SITE_INTENTS, SITE_JOURNEY, SITE_LAYERS, WORLD_STATE } from "./loginSite.js";
+import {
+  SITE_INTENTS, SITE_JOURNEY, SITE_LAYERS, SITE_METRICS, WORLD_STATE,
+} from "./loginSite.js";
 
 const stationNames = SITE_JOURNEY.map((s) => s.name);
 
@@ -30,6 +32,36 @@ test("every intent resolves to a station that actually exists", () => {
       `intent "${intent}" -> "${station}", which is not one of: ${stationNames.join(", ")}`,
     );
   }
+});
+
+/*
+ * The stations and the building have to be talking about the same building.
+ *
+ * When the hero went from 27.7 m to 106.4 m, every station still resolved,
+ * every intent still pointed somewhere real, and this file went on passing
+ * while the establishing shot framed the fourth floor of a thirty-floor tower.
+ * Names were checked; framing was not. These claims are the missing half.
+ */
+test("the stations frame the building SITE_METRICS describes", () => {
+  const h = SITE_METRICS.buildingHeight;
+
+  for (const st of SITE_JOURNEY) {
+    assert.ok(st.radius > 0, `${st.name} has no standing distance`);
+    assert.ok(
+      st.target[1] >= 0 && st.target[1] <= h,
+      `${st.name} looks at ${st.target[1]} m, outside a building 0-${h} m tall`,
+    );
+  }
+
+  /* You cannot photograph a 106 m tower from 30 m away and see it. The
+   * establishing shot in particular has to stand at least the building's own
+   * height back, which is the rule of thumb this failed by a factor of four. */
+  const establishing = SITE_JOURNEY.find((s) => s.name === SITE_INTENTS.establishing);
+  assert.ok(
+    establishing.radius >= h,
+    `the establishing station stands ${establishing.radius} m back from a `
+    + `${h} m building, which crops it`,
+  );
 });
 
 test("the intents the form actually dispatches are all present", () => {
