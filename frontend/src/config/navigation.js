@@ -46,9 +46,10 @@
  *   ADMIN_ONLY -> AdminLayout
  *   SITE_WORK  -> SiteWorkLayout, which admits supervisors
  *
- * Supervisors reach the shell as of 2026-08-19 and see exactly two
- * entries. Every other destination here would bounce them, so none of them
- * is offered.
+ * Supervisors reach the shell as of 2026-08-19 and see exactly ONE entry,
+ * Site Operations. Every other destination here would bounce them, so none
+ * is offered — including Site Updates, which writes daily_site_logs
+ * directly while a supervisor's update belongs in the approval queue.
  */
 const OFFICE = ["admin", "manager"];
 const ADMIN_ONLY = ["admin"];
@@ -73,7 +74,7 @@ const NAVIGATION_GROUPS = [
         label: "Site Updates",
         path: "/daily-site-updates",
         icon: "updates",
-        roles: SITE_WORK,
+        roles: OFFICE,
       },
       {
         label: "Update Approvals",

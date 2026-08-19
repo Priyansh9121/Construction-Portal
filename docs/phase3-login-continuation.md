@@ -6546,3 +6546,71 @@ exactly two links.
 2. **The orphan rows** — one SQL Editor query tells you whether it is a null
    `company_id` or a deleted company, and those lead different places.
 3. **Tier 1: `/payments` → `/tenders/:id` → `/tenders`**, now unblocked.
+
+---
+
+# HANDOFF — orphans diagnosed, Site Updates closed again, Tier 1 not started (2026-08-19)
+
+**Branch** `phase-e/routes`. Backend **281/281**, a11y **44/44**,
+`supervisor-gate` **5/5**, `worker-profile-link` **9/9**, lint and build clean.
+No production write.
+
+## The orphans
+
+**Every orphan is a NULL `company_id`** — not a dangling reference. Proven two
+ways: four of the tables carry an FK to `companies`, and for the two that do not
+a probe swept `app.company_id` from 1 to 5000 and found no value that reveals a
+row. Full diagnosis, per table, in `docs/first-tender-walkthrough.md`.
+
+**Two eras, and neither leaks now.** `tender_documents` is total because
+`64dc2cc`'s insert named no `company_id` at all; `payments` and `sites` are
+partial because they named it but read it *from the request body*, so it was
+NULL exactly when the client omitted it. Every live path now takes it from the
+token — checked on both document inserts, payments and sites. **A backfill is
+sufficient and will not be re-polluted**, which is the opposite of the risk that
+prompted the check.
+
+**The repair is written and NOT run.** It derives the owner from the parent row
+where one exists, asserts the single-company assumption rather than relying on
+it, verifies before `COMMIT`, and is followed by the `NOT NULL` and FK that stop
+recurrence — production's `tender_documents.company_id` is nullable where
+local's is not. One caveat is called out there: if any of those rows came from
+an import of someone else's data they should be deleted rather than adopted, and
+nothing readable from here distinguishes the two.
+
+## Site Updates is office-only again
+
+Reverted, on your call, after finding the premise did not hold. `/daily-site-updates`
+writes `daily_site_logs` **directly**; a supervisor's update goes to
+`daily_update_approvals` via the worker portal and only becomes a site log when
+the office approves it (`dailyUpdateApproval.controller.js:301`). Admitting them
+to the office screen would have routed them around their own approval step —
+the opposite of the segregation added to material and expense approval this
+week. Their existing path already does what was wanted: implicitly theirs, no
+worker picker, photo capture, on their phone.
+
+`/site-operations` stays open. A supervisor's sidebar now offers **one**
+destination, and the spec asserts both that and the bounce from Site Updates.
+
+## The test sweep
+
+All six silently-skipping guards were in `tenantIsolation.test.js`, and every one
+protected a tenant-isolation assertion. They are replaced by a single check at
+the end of setup that names what is missing. **Proven by breaking the fixture on
+purpose**: exit code 1 and a red file, where the same break previously produced
+green. No other test file carries the pattern.
+
+## Tier 1 — NOT STARTED
+
+`/payments` → `/tenders/:id` → `/tenders` is unblocked and untouched. It wants a
+fresh session: three route migrations against the design system, with the
+acceptance bar from the route plan — a migrated route must reference **zero**
+classes that `v2` restyles, and must still audit clean.
+
+## Open, in order
+
+1. **The backfill** — yours to approve and run.
+2. **Tier 1.**
+3. The friction list in WALK RESULT 2, still unaddressed: two `<h1>Site
+   Operations</h1>` on one page, and the material optgroups rendering raw
+   machine codes.
