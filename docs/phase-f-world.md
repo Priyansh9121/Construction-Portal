@@ -128,7 +128,41 @@ found three of C's layers sitting in D's output directory, written before D had
 run a line. Now guarded with `if __name__ == "__main__"`. Blender's `-P` sets
 `__name__` to `"__main__"`, so `build_assets.sh` is unaffected.
 
-## Next: the open city
+## The city — first pass (instanced)
+
+Four archetypes — tower, slab, podium block, low shed — placed as **216
+instances** on a ring from 96 m to 620 m, weighted outward, with kind chosen by
+distance so the skyline rises AWAY from the site and the hero stays the tallest
+thing near it. All variety is transform-and-seed: rotation, uniform scale
+0.72-1.5 and height scale 0.55-1.9, from `random.Random(1907)`.
+
+    login-site-neighbours   762.7 KB   3 meshes of tight infill   (before)
+    login-site-neighbours    33.6 KB   216 buildings, 620 m ring  (after)
+
+**96% smaller while covering roughly a hundred times the area.** The archetypes
+are right.
+
+**The first city put a block on top of the establishing camera** and the hero
+render came back as the inside of a wall. The stations sit at 47-159 m and the
+ring starts at 96 m, so they overlap by design — a city that stopped beyond the
+furthest station would be too far away to read. So the blocks are kept off the
+camera rather than the camera kept out of the city, which is also what a street
+does: `CAMERA_KEEPOUT` carries the four station eyes in Blender coordinates.
+
+Set so far, compressed:
+
+    architecture   192.6 KB      neighbours   33.6 KB
+    scaffold        14.2 KB      street        5.8 KB
+    ----------------------------------------------
+    total          246.2 KB      against 2.01 MB today, gate 2.5 MB
+
+Street dressing and people are not yet rebuilt for the new plot, so that total
+will grow — but the two layers that were meant to break the budget now cost
+226 KB between them where they used to cost 1.26 MB.
+
+## Still to do
+
+
 
 
 
