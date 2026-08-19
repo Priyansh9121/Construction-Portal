@@ -444,3 +444,147 @@ went through the API. The worker-money path has had exactly one round trip.
 The site-operations tables are still genuinely zero: `site_material_entries`,
 `labour`, `labour_work_entries`, `supervisor_expenses`,
 `supervisor_fund_receipts`, `entry_access_requests`, `daily_update_approvals`.
+
+---
+
+# ORPHAN DIAGNOSIS — one mechanism, two eras, no live leak (2026-08-19)
+
+Code first, then SQL, as instructed. Both answers came out different from the
+prediction, and one of them is good news.
+
+## The mechanism: every orphan is a NULL `company_id`
+
+Not a dangling reference — **NULL**, in all seven tables.
+
+Two independent measurements agree. `payments`, `sites`, `workers` and
+`subcontractors` carry a **foreign key to `companies`** in production, so a
+company_id pointing at no row is impossible for them; and `companies` holds
+exactly one row, id 1, so any non-null value would have to be 1 and therefore
+visible. For `tender_documents` and `worker_assignments`, which have **no FK**,
+a dangling id was possible — so I probed for one: a `DO` block that set
+`app.company_id` to every value from **1 to 5000** and counted rows under each.
+
+    tender_documents     0 rows under any company_id in 1..5000
+    worker_assignments   0 rows under any company_id in 1..5000
+    daily_site_logs      0 rows under any company_id in 1..5000
+    payments             7 rows, company_id = 1 only
+    sites               11 rows, company_id = 1 only
+    workers              1 row,  company_id = 1 only
+    subcontractors       1 row,  company_id = 1 only
+
+A row invisible under every possible context, in a table with no FK, has a NULL
+`company_id`. The RLS policy is `company_id = current_company_id()` on all five
+tenant tables, and `NULL = anything` is never true, so these rows are
+permanently unreachable by any application query.
+
+**Also found:** production's `tender_documents.company_id` is **nullable**;
+locally the same column is `NOT NULL`. The schemas have diverged, consistent
+with production tracking no applied migrations.
+
+## The cause: two eras, and neither is live
+
+**The prediction was that `tender_documents` 0/12 means a code path that never
+writes `company_id`, and that a backfill alone would fix nothing. The first half
+is right, the second is not — that path is history.**
+
+    64dc2cc  modules/tenderDetails/tenderDetails.controller.js
+             INSERT INTO tender_documents
+             (tender_id, document_name, document_type, file_url, uploaded_by)
+
+No `company_id` column at all. Every document written through it was orphaned at
+birth, which is why the shape is total rather than partial. It was replaced in
+`50aab56`, and **both** of today's document inserts name `company_id` —
+`tenderQueries.js:1798` takes it from `prepareChildOperation`, and
+`subcontractorPortal.controller.js:508` from the subcontractor's own row. Both
+trace back to a token-derived value, never the request body.
+
+The partial tables are the **second era of the same class of bug**. `payments`
+and `sites` named `company_id` from the first commit — but read it *from the
+request body*:
+
+    64dc2cc  const { company_id, site_type, site_name, address, status } = req.body;
+
+So it was NULL exactly when the client omitted it, which is what partial
+orphaning looks like. Today's `site.controller.js` carries the comment *"Always
+from the session, never from the body"* — the fix's own fingerprint.
+
+**Nothing live orphans anything.** Verified on all three insert paths named,
+plus the second document path. A backfill is sufficient and will not be
+re-polluted.
+
+Corroboration from the log: `activity_logs` records **payments create ×7**, and
+exactly **7** payments are visible. The rows with a log entry are the rows with
+a tenant.
+
+## Proposed repair — NOT RUN. This is a production write and it is yours.
+
+It must run as `postgres` (SQL Editor). `construction_app` cannot see these rows,
+so it cannot update them either — RLS applies to `UPDATE` as well.
+
+**Take a dump first.** Then, per table, prefer deriving the owner from the parent
+over assuming 1, so the repair stays correct if a second company ever exists:
+
+```sql
+BEGIN;
+
+-- Derived from the parent row.
+UPDATE tender_documents d SET company_id = t.company_id
+  FROM tenders t WHERE t.id = d.tender_id AND d.company_id IS NULL;
+
+UPDATE sites s SET company_id = t.company_id
+  FROM tenders t WHERE t.id = s.tender_id AND s.company_id IS NULL;
+
+UPDATE worker_assignments a SET company_id = t.company_id
+  FROM tenders t WHERE t.id = a.tender_id AND a.company_id IS NULL;
+
+UPDATE daily_site_logs l SET company_id = s.company_id
+  FROM sites s WHERE s.id = l.site_id AND l.company_id IS NULL;
+
+-- No parent to derive from. Sound only while exactly one company exists,
+-- so it asserts that rather than assuming it.
+DO $$
+BEGIN
+  IF (SELECT count(*) FROM companies) <> 1 THEN
+    RAISE EXCEPTION 'More than one company: assign these by hand.';
+  END IF;
+END $$;
+
+UPDATE payments       SET company_id = 1 WHERE company_id IS NULL;
+UPDATE workers        SET company_id = 1 WHERE company_id IS NULL;
+UPDATE subcontractors SET company_id = 1 WHERE company_id IS NULL;
+
+-- Verify BEFORE committing. Every count must be zero.
+SELECT 'tender_documents', count(*) FROM tender_documents WHERE company_id IS NULL
+UNION ALL SELECT 'payments', count(*) FROM payments WHERE company_id IS NULL
+UNION ALL SELECT 'sites', count(*) FROM sites WHERE company_id IS NULL
+UNION ALL SELECT 'workers', count(*) FROM workers WHERE company_id IS NULL
+UNION ALL SELECT 'subcontractors', count(*) FROM subcontractors WHERE company_id IS NULL
+UNION ALL SELECT 'worker_assignments', count(*) FROM worker_assignments WHERE company_id IS NULL
+UNION ALL SELECT 'daily_site_logs', count(*) FROM daily_site_logs WHERE company_id IS NULL;
+
+COMMIT;
+```
+
+**Then stop it recurring**, which the data alone cannot do — production's
+`tender_documents.company_id` is nullable where local's is not:
+
+```sql
+ALTER TABLE tender_documents   ALTER COLUMN company_id SET NOT NULL;
+ALTER TABLE worker_assignments ALTER COLUMN company_id SET NOT NULL;
+-- and the FK that four of these tables already have:
+ALTER TABLE tender_documents ADD CONSTRAINT tender_documents_company_id_fkey
+  FOREIGN KEY (company_id) REFERENCES companies (id);
+```
+
+Run those **after** the backfill, and only after the verify returns all zeros —
+`SET NOT NULL` fails while a NULL remains, which is the safe outcome.
+
+**One caveat worth stating plainly.** The repair assumes these rows belong to
+company 1 because it is the only company that has ever existed in this database.
+If any of them came from an import of someone else's data, that assumption is
+wrong and the rows should be deleted rather than adopted. Nothing I can read
+distinguishes the two — `created_at` and `uploaded_by` on the invisible rows are
+themselves invisible to me. One SQL Editor query settles it:
+
+    SELECT id, tender_id, document_name, uploaded_by, created_at
+      FROM tender_documents WHERE company_id IS NULL ORDER BY created_at;
