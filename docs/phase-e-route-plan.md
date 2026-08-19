@@ -204,6 +204,14 @@ only work in this plan that cannot be validated by anyone using it.**
 product decision, and the assignment path can write. Until then these four are
 blocked on something a redesign cannot supply.
 
+**Measured 2026-08-19, in the browser** (`docs/first-tender-walkthrough.md` →
+WALK RESULT 2): the backend puts **no role guard** on recording — only
+approve/reject are `requireOffice` — and the API answers a `worker` 200 on every
+site-operations read. `AppRoutes.jsx:631` is the whole obstruction, and the
+worker portal offers no material or labour surface to fall back on. So the fix
+these four routes wait on is a **frontend access decision**, not a backend
+build.
+
 ### Tier 4 — last
 
 15. **`/subcontractor-portal`** (53 KB) — external-facing, low-traffic, S-01
