@@ -540,9 +540,15 @@ function MaterialTab({ ops, onBlocked, isOffice }) {
           {photo && (
             <div className="photo-preview">
               <img src={photo.previewUrl} alt="Selected material" />
+              {/*
+                * "Taken now" asserted as fact what the server only treats as a
+                * claim. The source is what the device reported; whether the
+                * timestamp corroborates it is decided server-side and shown in
+                * the log once the entry is saved.
+                */}
               <span className={`badge badge--${photo.source}`}>
                 {photo.source === "camera"
-                  ? "Taken now"
+                  ? "Camera"
                   : "From gallery"}
               </span>
             </div>
@@ -585,18 +591,41 @@ function MaterialTab({ ops, onBlocked, isOffice }) {
                       {m.quantity} {m.unit}
                     </td>
                     <td>{formatCurrency(m.total_amount)}</td>
+                    {/*
+                     * THE CAVEAT IS TEXT, NOT A TOOLTIP.
+                     *
+                     * This used to carry the corroboration verdict in a
+                     * `title` attribute. A title needs hover, so on a
+                     * phone -- which is where site work is reviewed -- an
+                     * office user saw a bare source word and an
+                     * unexplained tick, and the one thing the rule
+                     * requires the UI to communicate was unreadable.
+                     *
+                     * The claim and its evidence are stated separately on
+                     * purpose. "camera" is what the supervisor's device
+                     * reported; "time matches" is what the server was able
+                     * to corroborate against capture time. Merging them
+                     * into a single verdict would assert as fact
+                     * something material.controller.js itself calls
+                     * "corroboration, not proof -- a determined user can
+                     * forge the timestamp".
+                     */}
                     <td>
                       {m.photo_url ? (
                         <span
                           className={`badge badge--${m.photo_source}`}
-                          title={
-                            m.photo_is_verified
-                              ? "Camera capture, timestamp corroborated"
-                              : "Source not corroborated"
-                          }
                         >
                           {m.photo_source}
-                          {m.photo_is_verified ? " ✓" : ""}
+                          {m.photo_source === "camera" && (
+                            <>
+                              {" · "}
+                              <span className="photo-corroboration">
+                                {m.photo_is_verified
+                                  ? "time matches"
+                                  : "time unverified"}
+                              </span>
+                            </>
+                          )}
                         </span>
                       ) : (
                         "—"
