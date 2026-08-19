@@ -91,6 +91,32 @@ CRANE_X, CRANE_Y = -24.0, 16.0
 CRANE_H = TOP + 12.0
 JIB = 46.0
 COUNTER_JIB = 17.0
+# 3.0 m lattice, not the 2.1 m one sized for a 27 m building.
+MAST_W = 3.0
+APEX_H = 11.0
+
+
+def strut(name, p0, p1, thick, mat):
+    """A member running between two points, at any angle.
+
+    concept_mesh builds prisms up Z, which is right for columns and useless for
+    a crane: the A-frame, its pendants and the mast diagonals are all diagonal
+    by definition, and a tower crane without them reads as a pole. This builds
+    the member along Z at the right length and then rotates it onto the line.
+    """
+    import mathutils
+    x0, y0, z0 = p0
+    x1, y1, z1 = p1
+    v = mathutils.Vector((x1 - x0, y1 - y0, z1 - z0))
+    length = v.length
+    if length < 1e-4:
+        return None
+    ob = M.prism(name, M.rect(-thick / 2, -thick / 2, thick / 2, thick / 2),
+                 0.0, length, mat, bevel=0.02)
+    ob.rotation_mode = "QUATERNION"
+    ob.rotation_quaternion = mathutils.Vector((0, 0, 1)).rotation_difference(v)
+    ob.location = (x0, y0, z0)
+    return ob
 
 
 def tower_plate(level):
@@ -167,19 +193,36 @@ def build_typical_floor(name, mats, level, clad):
                               mats["conc"]))
 
     if clad:
-        # The finished elevations: glazing in bays along the two long faces.
-        for i in range(5):
-            ax = TOWX0 + 2.0 + i * 6.6
+        # The finished elevations, set out from the ACTUAL face extents.
+        #
+        # chamfered() cuts the (x0, y0) corner, so the south face starts at
+        # x0 + c and the west face at y0 + c. The first version glazed from
+        # TOWX0 with an invented bay width and so ran off both ends of the
+        # face and stopped dead at the chamfer, which is exactly how it looked.
+        # The chamfer now carries a bay of its own and the corner turns.
+        cx, cy = TOWX0 + 4.0, TOWY0 + 4.0        # the chamfer's two ends
+        south = [(cx + i * (TOWX1 - cx) / 5.0, cx + (i + 1) * (TOWX1 - cx) / 5.0)
+                 for i in range(5)]
+        for i, (a, b) in enumerate(south):
             parts += [o for o in M.facade_bay(
-                f"{name}-fs{i}", (ax, TOWY0), (ax + 6.2, TOWY0),
+                f"{name}-fs{i}", (a, TOWY0), (b, TOWY0),
                 0.0 - TOWER_H, TOWER_H, mats["glass"], mats["spandrel"],
                 mullions=2) if o]
-        for i in range(4):
-            ay = TOWY0 + 3.0 + i * 7.0
+
+        east = [(TOWY0 + i * (TOWY1 - TOWY0) / 5.0,
+                 TOWY0 + (i + 1) * (TOWY1 - TOWY0) / 5.0) for i in range(5)]
+        for i, (a, b) in enumerate(east):
             parts += [o for o in M.facade_bay(
-                f"{name}-fe{i}", (TOWX1, ay), (TOWX1, ay + 6.4),
+                f"{name}-fe{i}", (TOWX1, a), (TOWX1, b),
                 0.0 - TOWER_H, TOWER_H, mats["glass"], mats["spandrel"],
                 mullions=2) if o]
+
+        # The corner itself. One bay on the diagonal, which is the whole point
+        # of chamfering it in the first place.
+        parts += [o for o in M.facade_bay(
+            f"{name}-fc", (cx, TOWY0), (TOWX0, cy),
+            0.0 - TOWER_H, TOWER_H, mats["glass"], mats["spandrel"],
+            mullions=2) if o]
     else:
         # Fitting out: the frame is up and the edge protection is on, but the
         # skin is not. This is what the middle of a live tower looks like.
@@ -305,39 +348,98 @@ def build(dusk=False):
 
     # ---- THE TOWER CRANE -------------------------------------------------
     #
-    # A saddle-jib crane standing off the podium's north-west corner, outside
-    # the tower footprint and inside the hoarding. On C's 22 x 34 m plot there
-    # was nowhere to put one; that finding was about that plot, not about
-    # tower cranes.
-    mast = 2.1
-    for s in range(int(CRANE_H // 6.0)):
+    # A saddle-jib crane off the podium's north-west corner, outside the tower
+    # footprint and inside the hoarding. On C's 22 x 34 m plot there was
+    # nowhere to put one; that finding was about that plot.
+    #
+    # The first version was sized for the 27 m building it replaced: a 2.1 m
+    # mast with 160 mm legs and no bracing, which at 118 m read as a washing
+    # line. A crane this tall is a 3 m lattice with visible diagonals and an
+    # A-FRAME above the slewing ring carrying pendants out to both jibs — the
+    # apex is the silhouette, and without it nothing says tower crane.
+    #
+    # The mast is INSTANCED: one braced section, repeated up the height. It is
+    # the same discipline as the floors and for the same reason.
+    SEC = 5.0
+    half = MAST_W / 2
+    sections = int((CRANE_H - 6.0) // SEC)
+
+    sec_parts = []
+    for cx in (-half, half):
+        for cy in (-half, half):
+            sec_parts.append(M.column(f"csleg{cx}{cy}", cx, cy, 0.0, SEC, 0.26,
+                                      mats["galv"]))
+    for cy in (-half, half):
+        sec_parts.append(M.prism(f"cstie{cy}", M.rect(-half, cy - 0.13, half, cy + 0.13),
+                                 SEC - 0.3, 0.26, mats["galv"], bevel=0.02))
+        sec_parts.append(strut(f"csdg{cy}", (-half, cy, 0.1), (half, cy, SEC - 0.35),
+                               0.17, mats["galv"]))
+    for cx in (-half, half):
+        sec_parts.append(M.prism(f"cstx{cx}", M.rect(cx - 0.13, -half, cx + 0.13, half),
+                                 SEC - 0.3, 0.26, mats["galv"], bevel=0.02))
+    section = L.join_all("cmastsec", [o for o in sec_parts if o])
+    e3, _ = instance_group(
+        "instmast", section,
+        [(CRANE_X, CRANE_Y, s * SEC) for s in range(sections)])
+    empties.append(e3)
+
+    slew = sections * SEC
+    parts["galv"].append(
+        M.prism("cslew", M.rect(CRANE_X - half - 0.3, CRANE_Y - half - 0.3,
+                                CRANE_X + half + 0.3, CRANE_Y + half + 0.3),
+                slew, 1.6, mats["galv"], bevel=0.04))
+
+    # Jib and counter-jib, deep enough to read against a skyline.
+    jib_z = slew + 1.6
+    parts["galv"].append(
+        M.prism("cjib", M.rect(CRANE_X - 0.9, CRANE_Y - 0.9,
+                               CRANE_X + JIB, CRANE_Y + 0.9),
+                jib_z, 2.1, mats["galv"], bevel=0.04))
+    parts["galv"].append(
+        M.prism("ccj", M.rect(CRANE_X - COUNTER_JIB, CRANE_Y - 1.0,
+                              CRANE_X - 0.9, CRANE_Y + 1.0),
+                jib_z, 2.3, mats["galv"], bevel=0.04))
+
+    # The A-frame and its pendants. This is the part that makes it a crane.
+    apex = (CRANE_X, CRANE_Y, jib_z + APEX_H)
+    for cy in (-half, half):
         parts["galv"].append(
-            M.prism(f"cmast{s}", M.rect(CRANE_X - mast / 2, CRANE_Y - mast / 2,
-                                        CRANE_X + mast / 2, CRANE_Y + mast / 2),
-                    s * 6.0, 0.22, mats["galv"], bevel=0.02))
-    for cx in (-1, 1):
-        for cy in (-1, 1):
-            parts["galv"].append(
-                M.column(f"cleg{cx}{cy}", CRANE_X + cx * mast / 2,
-                         CRANE_Y + cy * mast / 2, 0.0, CRANE_H, 0.16,
-                         mats["galv"]))
-    # Slewing above the top, jib out over the deck where the load lands.
+            strut(f"cap{cy}", (CRANE_X - half, CRANE_Y + cy, jib_z), apex,
+                  0.28, mats["galv"]))
+        parts["galv"].append(
+            strut(f"cap2{cy}", (CRANE_X + half, CRANE_Y + cy, jib_z), apex,
+                  0.28, mats["galv"]))
+    for frac in (0.42, 0.78):
+        parts["galv"].append(
+            strut(f"cpend{int(frac * 100)}",
+                  apex, (CRANE_X + JIB * frac, CRANE_Y, jib_z + 2.1),
+                  0.16, mats["galv"]))
     parts["galv"].append(
-        M.prism("cjib", M.rect(CRANE_X - 0.7, CRANE_Y - 0.7,
-                               CRANE_X + JIB, CRANE_Y + 0.7),
-                CRANE_H, 1.5, mats["galv"], bevel=0.03))
-    parts["galv"].append(
-        M.prism("ccj", M.rect(CRANE_X - COUNTER_JIB, CRANE_Y - 0.8,
-                              CRANE_X - 0.7, CRANE_Y + 0.8),
-                CRANE_H, 1.7, mats["galv"], bevel=0.03))
+        strut("cpendc", apex,
+              (CRANE_X - COUNTER_JIB + 1.5, CRANE_Y, jib_z + 2.3),
+              0.18, mats["galv"]))
+
     parts["conc"].append(
-        M.prism("cctw", M.rect(CRANE_X - COUNTER_JIB + 1.0, CRANE_Y - 1.3,
-                               CRANE_X - COUNTER_JIB + 5.0, CRANE_Y + 1.3),
-                CRANE_H + 0.4, 2.2, mats["conc"], bevel=0.05))
+        M.prism("cctw", M.rect(CRANE_X - COUNTER_JIB + 1.0, CRANE_Y - 1.6,
+                               CRANE_X - COUNTER_JIB + 5.5, CRANE_Y + 1.6),
+                jib_z + 0.5, 2.6, mats["conc"], bevel=0.05))
     parts["galv"].append(
-        M.prism("ccab", M.rect(CRANE_X + 1.2, CRANE_Y - 1.1,
-                               CRANE_X + 4.0, CRANE_Y + 1.1),
-                CRANE_H - 2.6, 2.6, mats["galv"], bevel=0.05))
+        M.prism("ccab", M.rect(CRANE_X + 1.4, CRANE_Y - 1.3,
+                               CRANE_X + 4.6, CRANE_Y + 1.3),
+                jib_z - 3.0, 3.0, mats["galv"], bevel=0.06))
+
+    # Trolley and hook block, out over the deck where the load lands.
+    parts["galv"].append(
+        M.prism("ctrolley", M.rect(CRANE_X + 26.0, CRANE_Y - 0.7,
+                                   CRANE_X + 28.4, CRANE_Y + 0.7),
+                jib_z - 0.7, 0.7, mats["galv"], bevel=0.03))
+    parts["galv"].append(
+        strut("crope", (CRANE_X + 27.2, CRANE_Y, jib_z - 0.7),
+              (CRANE_X + 27.2, CRANE_Y, TOP + 2.5), 0.06, mats["galv"]))
+    parts["galv"].append(
+        M.prism("chook", M.rect(CRANE_X + 26.6, CRANE_Y - 0.4,
+                                CRANE_X + 27.8, CRANE_Y + 0.4),
+                TOP + 1.6, 0.9, mats["galv"], bevel=0.04))
 
     return parts, empties, mats
 
