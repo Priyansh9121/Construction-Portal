@@ -99,3 +99,4 @@ tools/blender/__pycache__/
 
 # Ad-hoc world render captures (tools/fresh_ui writes its own elsewhere)
 frontend/world-shots/
+.prod-db.env
