@@ -961,3 +961,54 @@ keep-out passed it and swallowed the lens. It now tests `kr + footprint`.
 The bug was always there; only the shuffle made it visible. Worth remembering
 that a change which reorders a seeded sequence is a change to every result that
 sequence produces, and it can expose defects far from what was edited.
+
+---
+
+## TRAP 9, sharpened — a null result is only evidence if the instrument can see the axis
+
+The masked luminance probe reported that flattening the city's tints to white,
+and then exaggerating them to loud brick and slate, changed **nothing**:
+`p25 91.5`, `p75 107.2`, ratio `1.17`, identical in all three cases. It reported
+that null as confidently as it would have reported a real one.
+
+The tints differ from white and from each other **mostly in chroma**. A
+luminance histogram is structurally blind to a hue change. The instrument could
+not have detected the thing being varied, so its silence carried no information
+at all — and it nearly ended the work on a false negative.
+
+**When a measurement says nothing changed, check that it could have detected the
+change before believing it.** The check is usually cheap: vary the input to an
+absurd degree and confirm the number moves. If an exaggerated input still reads
+null, the instrument is wrong, not the hypothesis.
+
+The right instrument here was AREA — mark one surface emissive, count its
+pixels — which showed the "invisible" body is 40-48% of the city.
+
+---
+
+## The build could report success while the export crashed
+
+Found while adding the camera assert. `Blender -b` **exits 0 even when the
+script raises**, so an `UnboundLocalError` printed a traceback, the export never
+ran, and `build_assets.sh` went on to gate the **stale assets from the previous
+run** and print "byte gate passed".
+
+Every number in that run was real and described the wrong build.
+
+`concept_d.py` now wraps `main()` and exits non-zero on any exception. This is
+trap 10 one level up: the build script was the tool reporting success.
+
+## The camera-intrusion assert
+
+`assert_cameras_clear()` runs after placement and fails the export, naming the
+block, the station and the distance. Proven by disabling the keep-out:
+
+    EXIT: 1
+    CAMERA INTRUSION — a building stands where a camera stands:
+      nbslab at (-110.1, -115.9) is 21.4 m from the street camera and reaches 35.1 m
+      nbslab at (-69.0, -127.3) is 27.4 m from the street camera and reaches 35.1 m
+
+Every future change to placement, count or ordering reshuffles the entire city,
+so a keep-out that holds today holds by luck tomorrow. Same reasoning as the
+vertex-count assert in the VAT baker: the cheap invariant that speaks when the
+expensive silent one breaks.
