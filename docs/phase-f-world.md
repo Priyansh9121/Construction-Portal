@@ -664,3 +664,30 @@ empties. Placement is a distribution over START positions, not over positions.
 The fix is to spread the initial phase over the WRAP distance rather than over
 the cycle, so a figure's starting offset is anywhere along its route — which
 also removes the pop from being simultaneous for everyone sharing a wrap.
+
+### The crowd spreads, and stays off the camera (2026-08-20)
+
+Two changes, and the crowd is finished.
+
+**`aPhase` widened to `r() * (wrap / metresPerCycle)`.** It already drove both
+the pose and the travel offset, so widening it from one cycle to the number of
+cycles that fills a figure's whole wrap starts each one anywhere along its
+route rather than at its placement — no new attribute. Placement was only ever
+distributing START positions, which is why entry bunched at the near edge while
+the far end emptied, and why everyone sharing a wrap popped at the same instant.
+
+Safe because the shader already guards both uses: `fract()` before indexing the
+texture row, `mod()` before travelling. Confirmed by reading the shader rather
+than by rendering — a phase of 168 cycles is a legal pose and a legal distance.
+
+**A camera keep-out, 8 m, tested against the ROUTE.** The giant at entry was a
+proximity bug, not a distribution one. The station eyes are derived from
+`SITE_JOURNEY` in the rig's own spherical convention, so a station that moves
+takes its keep-out with it — and the test is point-to-SEGMENT, because these
+figures walk up to `wrap` metres from where they are placed and the placement
+was never the problem. The giant had a perfectly innocent starting position.
+
+Both stations confirmed in the browser. The giant is gone from entry, the
+figures read as hi-vis at both distances, and lane's camera was verified
+numerically rather than by eye: `eye [95.01, 3.00, -70.04]`, which is the lane
+station exactly as `SITE_JOURNEY` derives it.

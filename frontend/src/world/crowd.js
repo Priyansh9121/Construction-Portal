@@ -28,6 +28,8 @@
  * and the world carries on without a crowd.
  */
 
+import { SITE_JOURNEY } from "./loginSite";
+
 const BASE = "/world/textures";
 
 /**
@@ -248,6 +250,44 @@ function rng(seed) {
   };
 }
 
+/*
+ * WHERE THE CAMERA STANDS.
+ *
+ * Derived from SITE_JOURNEY rather than copied, in the rig's own spherical
+ * convention, so a station that moves takes its keep-out with it. The city
+ * already does this in concept_d.py; the crowd needs it for a different
+ * reason — a block that overlaps the camera is a wall, but a PERSON that
+ * overlaps the camera is a four-storey giant standing in the frame.
+ */
+function stationEyes() {
+  return SITE_JOURNEY.map((st) => {
+    const ce = Math.cos(st.elevation) * st.radius;
+    return [
+      st.target[0] + Math.sin(st.azimuth) * ce,
+      st.target[2] + Math.cos(st.azimuth) * ce,
+    ];
+  });
+}
+
+/*
+ * Distance from a point to a SEGMENT, not to a start.
+ *
+ * The keep-out has to cover the whole route: these figures walk up to `wrap`
+ * metres from where they are placed, so testing the placement alone rejects
+ * nothing that matters. The giant at entry had a perfectly innocent starting
+ * position.
+ */
+function distToRoute(px, pz, x, z, heading, wrap) {
+  const dx = -Math.sin(heading) * wrap;
+  const dz = -Math.cos(heading) * wrap;
+  const len2 = dx * dx + dz * dz;
+  let t = len2 > 0 ? ((px - x) * dx + (pz - z) * dz) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x + dx * t), pz - (z + dz * t));
+}
+
+const CAMERA_CLEAR = 8;
+
 const insidePodium = (x, z) => Math.abs(x) < POD_X + 1 && Math.abs(z) < POD_Z + 1;
 
 /**
@@ -258,8 +298,9 @@ const insidePodium = (x, z) => Math.abs(x) < POD_X + 1 && Math.abs(z) < POD_Z + 
  * unison is the one thing that would make this look worse than five static
  * figures.
  */
-export function placeCrowd(count, seed = 20260820) {
+export function placeCrowd(count, { metresPerCycle = 1.31, seed = 20260820 } = {}) {
   const r = rng(seed);
+  const eyes = stationEyes();
   const lines = [];
   for (let i = -Math.ceil(REACH / GRID); i <= Math.ceil(REACH / GRID); i += 1) {
     lines.push(i * GRID + GRID / 2);
@@ -317,12 +358,30 @@ export function placeCrowd(count, seed = 20260820) {
 
     if (insidePodium(x, z)) continue;
     if (Math.hypot(x, z) > REACH) continue;
+    /* Not through a camera. Tested against the ROUTE, because the figure
+     * walks it — the placement itself is never the problem. */
+    if (eyes.some(([ex, ez]) => distToRoute(ex, ez, x, z, heading, wrap) < CAMERA_CLEAR)) {
+      continue;
+    }
 
     out.push({
       p: [x, 0, z],
       ry: heading,
-      /* Phase and gait, per figure. A crowd in step is a parade. */
-      phase: r(),
+      /*
+       * Phase spread over the whole ROUTE, not over one cycle.
+       *
+       * It already drives both the pose and the travel offset, so widening it
+       * to the number of cycles that fills `wrap` starts each figure anywhere
+       * along its route instead of at its placement. Placement was only ever
+       * distributing START positions, which is why the crowd bunched at the
+       * near edge of entry while the far end emptied — and it is why everyone
+       * sharing a wrap used to pop at the same instant.
+       *
+       * Safe because the shader fracts the cycle count before indexing the
+       * texture and mods it before travelling; a phase of 168 cycles is a
+       * legal pose and a legal distance.
+       */
+      phase: r() * (wrap / metresPerCycle),
       speed: 0.72 + r() * 0.5,
       wrap,
       scale: 0.94 + r() * 0.12,

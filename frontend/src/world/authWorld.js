@@ -1410,7 +1410,9 @@ export async function createAuthWorld(canvas, opts = {}) {
             if (!prims?.length) return;
             const size = portrait ? CROWD_SIZE.mobile : CROWD_SIZE.desktop;
             const built = buildCrowd(THREE, prims[0].geometry, prims[0].material,
-                                     vat, placeCrowd(size));
+                                     vat, placeCrowd(size, {
+                                       metresPerCycle: vat.meta.metresPerCycle,
+                                     }));
             if (!built) return;
             built.mesh.castShadow = !portrait;
             built.mesh.receiveShadow = true;
