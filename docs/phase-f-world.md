@@ -1044,3 +1044,57 @@ count alone could not have distinguished from "roads are dim".
 
 Anything that sits on the ground now references `GROUND_TOP`, measured out of
 the built scene rather than derived from constructor arguments.
+
+## 2. The ground is a street section now, not a plane (2026-08-20)
+
+**No new surface slots.** Checked before adding any: Phase C already wired
+`asphalt`, `kerb`, `footpath`, `median_top` and `haul` end to end — maps and
+tints in `SITE_SURFACES`, tile sizes in `EXPORT_UV_TILE`, and every one already
+present in `standard_materials()`. The city grid needed none of its own, and
+reusing them inherits the correct tiles and a texture set already on the wire.
+
+The carriageway moved **off `spandrel`**, which is the facade band the city
+blocks wear — a road and a spandrel must not be tintable together. `asphalt`
+was already the right home.
+
+The section, summing to `CITY_ROAD` exactly:
+
+    carriageway  8.4 m   asphalt      top +0.10
+    kerb         0.25    kerb         top +0.26   (proud of the road)
+    footpath     2.0     footpath     top +0.22
+    verge        1.55    median_top   top +0.18
+
+The verge is **sized and placed deliberately, not left over**: it is where item
+3's street trees stand, so `VERGE_CENTRE` (7.225 m from each road centreline) is
+already a planting line and the trees cost no second pass over the layout.
+
+Area split, street-layer surfaces at `lane`:
+
+    before   spandrel 13,285   earth 13,790
+    after    earth 15,498   spandrel 3,332   footpath 2,512
+             median_top 2,195   asphalt 1,825   kerb 1,439
+
+    TOTAL 709,332 bytes
+
+### But at dusk none of it is visible, and that is the real finding
+
+Masked luminance of the lit geometry, dusk (sun -9.4°) against noon:
+
+              p05   p25   mean   p75    p95
+    street    3.1   3.4    7.6   8.4   20.6      (noon mean 65.7)
+    lane      3.1   5.1   11.2  12.6   33.3      (noon mean 69.6)
+    entry     2.1   4.1    8.3  10.9   18.9
+
+**Dusk renders the world at roughly an eighth of noon, with p25 at 3.4/255 —
+the lit geometry is crushed into the bottom 3% of the range.** The AO, the
+facades, the tone assignment and this street section are all invisible there.
+
+The cause is not the grade being wrong for the hour. It is that **the city has
+no artificial light.** At sun -9.4° the interpolated key is 0.146 and the fill
+0.655; a real city at that hour is carrying itself on lit windows and street
+lamps, and this one has neither, so it goes to black cardboard. The site has
+work lamps (`work` reaches 1.0 by -6°); the city beyond the hoarding has
+nothing.
+
+Recorded rather than acted on: it reorders what matters, and that is not mine
+to decide.

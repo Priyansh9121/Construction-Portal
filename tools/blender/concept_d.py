@@ -295,6 +295,19 @@ CITY_TONE_BAND = 420.0
 # Anything that has to sit ON the ground references this.
 GROUND_TOP = 0.30
 
+# ---- THE STREET SECTION, in metres ----------------------------------------
+#
+# Sums to CITY_ROAD exactly: 8.4 + 2 x (0.25 + 2.0 + 1.55) = 16.0.
+#
+# The verge is sized and placed on purpose rather than left over, because it is
+# where item 3's street trees stand. VERGE_CENTRE is therefore a planting line,
+# and having it now means the trees cost no second pass over the layout.
+ROAD_HALF = 4.2
+KERB_W = 0.25
+PATH_W = 2.0
+VERGE_W = 1.55
+VERGE_CENTRE = ROAD_HALF + KERB_W + PATH_W + VERGE_W / 2      # 7.225 m
+
 # The grid the city stands on. Pitch is one block plus its street; the road is
 # the gap between cells and the blocks sit inside them.
 CITY_GRID = 62.0
@@ -466,24 +479,60 @@ def city_archetype(name, mats, w, d, floors, fh, kind):
 
 
 def build_streets(parts, mats):
-    """The grid the city stands on.
+    """The grid the city stands on — as a real cross-section, not a strip.
 
-    Long thin slabs on the cell lines. They are the reason blocks read as a
-    city rather than as objects on a table: a building with a road beside it is
-    in a place. Named "road" so LAYER_RULES routes them to the street layer,
-    and built as a few long meshes rather than per-cell tiles — a road is the
-    one thing here with no repetition worth instancing.
+    A single earth slab under everything is why the city read as models on a
+    table. Real ground is differentiated, and the site's own street already
+    demonstrated the vocabulary: carriageway, kerb, footpath, verge. This runs
+    the same section outward along every grid line.
+
+    NO NEW SURFACE SLOTS. Phase C wired `asphalt`, `kerb`, `footpath`,
+    `median_top` and `haul` end to end — maps, tints and UV tiles in both
+    SITE_SURFACES and EXPORT_UV_TILE — and every one is already in
+    standard_materials(). Reusing them inherits the correct tile sizes and a
+    texture set that is already on the wire. The parts KEYS below deliberately
+    match the material names, because EXPORT_UV_TILE is looked up by key: the
+    right image at the wrong tile is the failure that table exists to prevent.
+
+    The carriageway moves OFF `spandrel`. That slot is the facade band the city
+    blocks wear, and a road and a spandrel must not be tintable together.
+    `asphalt` already exists and is the right home.
     """
     reach = CITY_OUTER + CITY_GRID
-    half = int(reach // CITY_GRID) + 1
-    for i in range(-half, half + 1):
-        c = i * CITY_GRID + CITY_GRID / 2.0
-        parts["paint"].append(
-            M.prism(f"road-x{i}", M.rect(-reach, c - CITY_ROAD / 2, reach, c + CITY_ROAD / 2),
-                    GROUND_TOP, 0.10, mats["spandrel"], bevel=0.0))
-        parts["paint"].append(
-            M.prism(f"road-y{i}", M.rect(c - CITY_ROAD / 2, -reach, c + CITY_ROAD / 2, reach),
-                    GROUND_TOP, 0.10, mats["spandrel"], bevel=0.0))
+    n = int(reach // CITY_GRID) + 1
+
+    def strip(bucket, tag, x0, y0, x1, y1, top, mat):
+        parts.setdefault(bucket, []).append(
+            M.prism(tag, M.rect(x0, y0, x1, y1), GROUND_TOP, top, mat, bevel=0.0))
+
+    for i in range(-n, n + 1):
+        c = i * CITY_GRID + CITY_GRID / 2
+        for axis in ("x", "y"):
+            def band(off0, off1, bucket, tag, top, mat):
+                """One longitudinal band of the section, on either axis."""
+                if axis == "x":
+                    strip(bucket, f"{tag}-x{i}", -reach, c + off0, reach, c + off1, top, mat)
+                else:
+                    strip(bucket, f"{tag}-y{i}", c + off0, -reach, c + off1, reach, top, mat)
+
+            # Carriageway.
+            band(-ROAD_HALF, ROAD_HALF, "asphalt", "road", 0.10, mats["asphalt"])
+            for side in (-1, 1):
+                a = ROAD_HALF * side
+                # Kerb, standing proud of the carriageway — the line that says
+                # a road is a road rather than a grey rectangle.
+                band(min(a, a + KERB_W * side), max(a, a + KERB_W * side),
+                     "kerb", f"kerb{'p' if side > 0 else 'm'}", 0.26, mats["kerb"])
+                b = a + KERB_W * side
+                band(min(b, b + PATH_W * side), max(b, b + PATH_W * side),
+                     "footpath", f"path{'p' if side > 0 else 'm'}", 0.22,
+                     mats["footpath"])
+                d = b + PATH_W * side
+                # Verge. Built deliberately rather than as leftover: it is the
+                # planting strip, and VERGE_CENTRE is where the street trees go.
+                band(min(d, d + VERGE_W * side), max(d, d + VERGE_W * side),
+                     "median_top", f"verge{'p' if side > 0 else 'm'}", 0.18,
+                     mats["median_top"])
 
 
 def build_city(mats, empties):
