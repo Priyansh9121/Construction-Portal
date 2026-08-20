@@ -267,9 +267,29 @@ def bake(frames=24, out_dir=None):
     img.file_format = "PNG"
     img.save()
 
+    # ---- HOW FAR ONE CYCLE CARRIES THE FIGURE ----------------------------
+    #
+    # Measured off the baked feet, not read off human.py's stride constant: if
+    # the gait ever changes, a derived number changes with it and a copied one
+    # silently stops matching. The runtime multiplies this by each figure's
+    # cycle rate, so ground speed and leg speed come from the same source and
+    # nobody ice-skates.
+    #
+    # The feet are the vertices in the bottom tenth of the figure. Step length
+    # is their full forward excursion across the cycle, and a gait cycle is two
+    # steps — one per leg.
+    floor_z = lo[2] + (hi[2] - lo[2]) * 0.10
+    feet = [vi for vi, p0 in enumerate(samples[0]) if p0[2] <= floor_z]
+    fy = [fr[vi][1] for fr in samples for vi in feet]
+    step = max(fy) - min(fy)
+    metres_per_cycle = round(step * 2.0, 4)
+    print(f"VAT  gait: {len(feet)} foot vertices, step {step:.3f} m, "
+          f"{metres_per_cycle:.3f} m per cycle")
+
     meta = {
         "vertices": vcount,
         "frames": frames,
+        "metresPerCycle": metres_per_cycle,
         "lo": lo,
         "hi": hi,
         "note": "RGB is position normalised into [lo, hi] per axis. "

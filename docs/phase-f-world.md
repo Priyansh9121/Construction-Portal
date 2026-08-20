@@ -627,3 +627,40 @@ it and never will.
 
 **Passed at 535 KB against the 2.5 MB limit**, with 59 KB of that newly visible
 rather than newly spent.
+
+### The crowd walks (2026-08-20)
+
+**Ground speed is derived, not chosen.** The baker measures it off the baked
+feet — the vertices in the bottom tenth of the figure, their full forward
+excursion across the cycle, doubled because a gait cycle is two steps — and
+writes `metresPerCycle` into `walk-vat.json` beside the bounds:
+
+    86 foot vertices, step 0.655 m, 1.310 m per cycle
+
+The shader multiplies that by each figure's own cycle rate, so the same number
+that chose the pose decides how far it has travelled. Choosing the speed
+separately is what makes a crowd ice-skate, and it is more noticeable than
+walking in place because the error accumulates.
+
+**Wrapping is per figure, at the distance its route allows**, not at a block
+edge: 220 m for footpath walkers, so the pop happens where day fog is already
+past a third; the width of the carriageway plus its footpaths for someone
+crossing, so they do not stroll on through the block opposite; the podium's own
+dimension along the hoarding; 14 m on the gate apron.
+
+**Shares rebalanced** — the boundary was reading as a queue:
+
+    footpath   58% -> 72%      hoarding line   17% -> 8%
+    crossing   18% -> 14%      gate apron       7% -> 6%
+
+Byte gate passed at 535,280 bytes.
+
+**Still not right at entry.** The figures bunch in front of the hoarding rather
+than distributing along it, and one walks close enough to the camera to read as
+a giant. The share change helped and did not fix it: the cause is that every
+figure starts at a placement and then walks a straight line, so the ones headed
+toward the camera pile up at the near end of the frame while the far end
+empties. Placement is a distribution over START positions, not over positions.
+The fix is to spread the initial phase over the WRAP distance rather than over
+the cycle, so a figure's starting offset is anywhere along its route — which
+also removes the pop from being simultaneous for everyone sharing a wrap.

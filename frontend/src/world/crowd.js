@@ -107,6 +107,11 @@ export function buildCrowd(THREE, geometry, material, vat, placements) {
     uVatSpan: { value: new THREE.Vector3(
       meta.hi[0] - meta.lo[0], meta.hi[1] - meta.lo[1], meta.hi[2] - meta.lo[2]) },
     uTime: { value: 0 },
+    /* How far one gait cycle carries a figure, MEASURED off the baked feet by
+     * the baker rather than chosen here. Ground speed is this times the
+     * figure's own cycle rate, so legs and travel come from one number and
+     * nobody ice-skates. */
+    uMetres: { value: meta.metresPerCycle ?? 0 },
   };
 
   /*
@@ -125,9 +130,11 @@ export function buildCrowd(THREE, geometry, material, vat, placements) {
         uniform vec3 uVatLo;
         uniform vec3 uVatSpan;
         uniform float uTime;
+        uniform float uMetres;
         attribute float aVertexId;
         attribute float aPhase;
         attribute float aSpeed;
+        attribute float aWrap;
       `)
       .replace("#include <begin_vertex>", `
         /*
@@ -147,6 +154,21 @@ export function buildCrowd(THREE, geometry, material, vat, placements) {
         /* Blender is Z-up and three is Y-up. The bake deliberately did not
          * convert, so the texture stays readable against the .blend. */
         vec3 transformed = vec3(baked.x, baked.z, -baked.y);
+
+        /*
+         * TRAVEL.
+         *
+         * The same cycle count that chose the pose also decides how far the
+         * figure has walked, so the feet and the ground agree by construction.
+         * Blender's +Y is the figure's forward, which is -Z here.
+         *
+         * Wrapped at aWrap, chosen per figure: a footpath runs the length of
+         * the grid so its walkers wrap far away where fog has them, while
+         * somebody crossing a road wraps at the width of the road rather than
+         * strolling through the block on the far side.
+         */
+        float cycles = uTime * aSpeed + aPhase;
+        transformed.z -= mod(cycles * uMetres, aWrap);
       `);
   };
   /* Changing the shader source means the program has to be rebuilt. */
@@ -157,6 +179,7 @@ export function buildCrowd(THREE, geometry, material, vat, placements) {
   const dummy = new THREE.Object3D();
   const phases = new Float32Array(placements.length);
   const speeds = new Float32Array(placements.length);
+  const wraps = new Float32Array(placements.length);
 
   placements.forEach((pl, i) => {
     dummy.position.set(pl.p[0], pl.p[1], pl.p[2]);
@@ -167,9 +190,11 @@ export function buildCrowd(THREE, geometry, material, vat, placements) {
     /* A crowd in step is a parade. Phase is the cure and it is free. */
     phases[i] = pl.phase ?? Math.random();
     speeds[i] = pl.speed ?? 0.7 + Math.random() * 0.5;
+    wraps[i] = pl.wrap ?? 240;
   });
   geo.setAttribute("aPhase", new THREE.InstancedBufferAttribute(phases, 1));
   geo.setAttribute("aSpeed", new THREE.InstancedBufferAttribute(speeds, 1));
+  geo.setAttribute("aWrap", new THREE.InstancedBufferAttribute(wraps, 1));
 
   mesh.instanceMatrix.needsUpdate = true;
   mesh.frustumCulled = false;
@@ -245,9 +270,9 @@ export function placeCrowd(count, seed = 20260820) {
   while (out.length < count && guard < count * 40) {
     guard += 1;
     const roll = r();
-    let x; let z; let heading;
+    let x; let z; let heading; let wrap;
 
-    if (roll < 0.58) {
+    if (roll < 0.72) {
       // FOOTPATH. Beside a road, walking along it.
       const along = r() < 0.5;
       const line = lines[Math.floor(r() * lines.length)];
@@ -255,14 +280,17 @@ export function placeCrowd(count, seed = 20260820) {
       const t = (r() * 2 - 1) * REACH;
       if (along) { x = t; z = line + side * PATH; heading = r() < 0.5 ? 0 : Math.PI; }
       else { x = line + side * PATH; z = t; heading = r() < 0.5 ? Math.PI / 2 : -Math.PI / 2; }
-    } else if (roll < 0.76) {
+      wrap = 220;
+    } else if (roll < 0.86) {
       // CROSSING. At a junction, heading across one of the two roads.
       const lx = lines[Math.floor(r() * lines.length)];
       const lz = lines[Math.floor(r() * lines.length)];
       const across = r() < 0.5;
       if (across) { x = lx + (r() * 2 - 1) * ROAD * 0.4; z = lz; heading = r() < 0.5 ? 0 : Math.PI; }
       else { x = lx; z = lz + (r() * 2 - 1) * ROAD * 0.4; heading = r() < 0.5 ? Math.PI / 2 : -Math.PI / 2; }
-    } else if (roll < 0.93) {
+      /* Across the carriageway and no further. */
+      wrap = ROAD + PATH * 2;
+    } else if (roll < 0.94) {
       // THE HOARDING LINE. Along the site's own boundary, which is where the
       // people who are here for this project walk.
       const perim = r();
@@ -271,10 +299,12 @@ export function placeCrowd(count, seed = 20260820) {
         x = (r() * 2 - 1) * (POD_X + HOARD);
         z = (perim < 0.25 ? 1 : -1) * (POD_Z + HOARD + 2.4) + jitter;
         heading = r() < 0.5 ? 0 : Math.PI;
+        wrap = POD_X * 2;
       } else {
         x = (perim < 0.75 ? 1 : -1) * (POD_X + HOARD + 2.4) + jitter;
         z = (r() * 2 - 1) * (POD_Z + HOARD);
         heading = r() < 0.5 ? Math.PI / 2 : -Math.PI / 2;
+        wrap = POD_Z * 2;
       }
     } else {
       // INSIDE THE GATE. The apron between the hoarding and the podium, on the
@@ -282,6 +312,7 @@ export function placeCrowd(count, seed = 20260820) {
       x = (r() * 2 - 1) * 9;
       z = POD_Z + 1.5 + r() * 2.4;
       heading = Math.PI + (r() * 2 - 1) * 0.5;
+      wrap = 14;
     }
 
     if (insidePodium(x, z)) continue;
@@ -293,6 +324,7 @@ export function placeCrowd(count, seed = 20260820) {
       /* Phase and gait, per figure. A crowd in step is a parade. */
       phase: r(),
       speed: 0.72 + r() * 0.5,
+      wrap,
       scale: 0.94 + r() * 0.12,
     });
   }
