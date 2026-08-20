@@ -36,7 +36,7 @@ import { createDust } from "./dust";
 import { CameraRig } from "./camera";
 import { worldEnvironment } from "./environment";
 import {
-  SITE_LAYERS, SITE_JOURNEY, SITE_INTENTS, WORLD_STATE,
+  SITE_LAYERS, SITE_JOURNEY, SITE_INTENTS, SITE_SURFACES, WORLD_STATE,
   checkSiteScale, loadSurfaceMaps,
 } from "./loginSite";
 
@@ -823,9 +823,18 @@ function dressSurface(THREE, material, surfaces, report) {
   /* Shallow. A strong normal on concrete reads as rock, and this is micro
    * relief -- aggregate and formwork grain, not geology. */
   material.normalScale = new THREE.Vector2(0.6, 0.6);
-  /* The albedo map already carries the colour, so the factor must go white or
-   * it multiplies the texture down and the surface reads muddy. */
-  material.color.setRGB(1, 1, 1);
+  /*
+   * The albedo map already carries the colour, so the factor goes white or it
+   * multiplies the texture down and the surface reads muddy.
+   *
+   * The exception is a surface that declares a `tint`, which exists for the
+   * city: its blocks share four archetypes and vary by material, and three
+   * materials that all resolve to #ffffff are three copies of one tone. Kept
+   * gentle for exactly the reason the white rule exists.
+   */
+  const tint = SITE_SURFACES[slot]?.tint;
+  if (tint) material.color.setHex(tint);
+  else material.color.setRGB(1, 1, 1);
   material.roughness = 1;
   material.metalness = material.metalness > 0.5 ? material.metalness : 0;
   /*
