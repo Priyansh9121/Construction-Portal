@@ -488,6 +488,85 @@ def city_archetype(name, mats, w, d, floors, fh, kind):
     return L.join_all(name, [o for o in parts if o])
 
 
+
+# ---------------------------------------------------------------------------
+# STREET FURNITURE — one placement pass, shared by lamps and trees
+# ---------------------------------------------------------------------------
+#
+# Both stand on the verge, both alternate sides by cell, and both need the same
+# camera keep-out. Walking the grid once and emitting both is cheaper to write
+# and impossible to get out of step.
+#
+# ALTERNATING SIDES rather than planting both: at 150 m nobody reads the
+# symmetry, and it halves the instances.
+
+LAMP_SPACING = 30.0
+LAMP_H = 7.2
+
+
+def build_lamp(name, mats):
+    """One lamp: a column, a bracket and a head that lights at night.
+
+    The head is its own material because the runtime drives night emissive by
+    material NAME — the same mechanism the lit windows use, for the same
+    reason: instancing carries transforms and nothing else.
+    """
+    parts = [
+        M.column(f"{name}-post", 0.0, 0.0, 0.0, LAMP_H, 0.085, mats["galv"]),
+        M.prism(f"{name}-arm", M.rect(-0.06, -0.06, 1.15, 0.06),
+                LAMP_H - 0.35, 0.12, mats["galv"], bevel=0.02),
+        M.prism(f"{name}-head", M.rect(0.80, -0.20, 1.35, 0.20),
+                LAMP_H - 0.52, 0.16, mats["lamp_lit"], bevel=0.04),
+    ]
+    return L.join_all(name, [o for o in parts if o])
+
+
+def verge_positions(rng, spacing, jitter=0.0):
+    """Every point on the verge where something can stand.
+
+    Yields (x, y, side, i, k) in Blender coordinates. `side` is which verge of
+    the corridor, chosen per CELL so a run of lamps sits on one side and the
+    next block's run sits on the other.
+    """
+    reach = CITY_OUTER
+    n = int(reach // CITY_GRID) + 1
+    out = []
+    for i in range(-n, n + 1):
+        c = i * CITY_GRID + CITY_GRID / 2
+        for axis in (0, 1):
+            steps = int((reach * 2) // spacing)
+            for j in range(steps + 1):
+                t = -reach + j * spacing
+                cell = int((t + reach) // CITY_GRID)
+                side = 1 if (cell + i + axis) % 2 == 0 else -1
+                off = VERGE_CENTRE * side
+                jx = rng.uniform(-jitter, jitter) if jitter else 0.0
+                x, y = (t + jx, c + off) if axis == 0 else (c + off, t + jx)
+                if math.hypot(x, y) > reach or math.hypot(x, y) < CITY_INNER * 0.55:
+                    continue
+                out.append((x, y, side, i, axis))
+    return out
+
+
+def build_street_furniture(mats, empties, rng):
+    """Lamps along the verge. Trees join this pass."""
+    lamp_src = build_lamp("lamp", mats)
+    lamp_at = []
+    for (x, y, _side, _i, _axis) in verge_positions(rng, LAMP_SPACING):
+        # Same keep-out as the buildings: a lamp post through the lens is no
+        # better than a tower through it.
+        if any(math.hypot(x - kx, y - ky) < kr * 0.35
+               for kx, ky, kr, _n in CAMERA_KEEPOUT):
+            continue
+        lamp_at.append((x, y, GROUND_TOP + 0.18))
+
+    e, made = instance_group("lamp", lamp_src, lamp_at)
+    for dup in made:
+        dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
+    empties.append(e)
+    print(f"STREET lamps: {len(made)} instances")
+
+
 def build_streets(parts, mats):
     """The grid the city stands on — as a real cross-section, not a strip.
 
@@ -878,6 +957,11 @@ def build(dusk=False):
     glass_lit = mats["glass"].copy()
     glass_lit.name = "glass_lit"
     mats["glass_lit"] = glass_lit
+
+    # Lamp heads. Warm, and lit by the same nightness signal.
+    lamp_lit = mats["galv"].copy()
+    lamp_lit.name = "lamp_lit"
+    mats["lamp_lit"] = lamp_lit
     parts = {"conc": [], "galv": [], "ply": [], "paint": [], "glass": []}
     empties = []
 
@@ -1135,6 +1219,7 @@ def build(dusk=False):
 
     build_streets(parts, mats)
     build_city(mats, empties)
+    build_street_furniture(mats, empties, random.Random(4211))
 
     return parts, empties, mats
 

@@ -970,6 +970,32 @@ export async function createAuthWorld(canvas, opts = {}) {
    * placement — instancing carries transforms and nothing else, so a state
    * that varies per building has to be a group, exactly as the tones are.
    */
+  /*
+   * STREET LAMPS THAT ACTUALLY CAST.
+   *
+   * Everything lighting this world so far is effectively at infinite distance:
+   * a sun, a hemisphere, a sky. Nothing has FALLOFF, and falloff is what tells
+   * the eye that ground is ground rather than a painted plane.
+   *
+   * 578 lamps carry emissive heads, which is free. A handful of them also get
+   * a real point light — near the station eyes only, because the cost is real
+   * and it is not linear. Measured GPU per frame at dusk, desktop 1440x900:
+   *
+   *     0 lights  6.28 ms      5 lights   7.48 ms
+   *     4 lights  8.11 ms      6 lights   8.65 ms
+   *                            7 lights  17.52 ms   <- the cliff
+   *                            8 lights  21.11 ms
+   *
+   * Six is the ceiling and seven is a doubling, so four leaves headroom and is
+   * NOT free — about 1.1-1.8 ms, a fifth of the frame's GPU at dusk. Worth it
+   * for the only human-scale light in the world; not worth spending twice.
+   *
+   * Unshadowed on purpose: a shadow-casting point light adds a cube render
+   * each, and the shadow that matters here is already the sun's.
+   */
+  const lampLights = [];
+  const LAMP_COUNT = portrait ? 2 : 4;
+
   const cityWindows = [];
   let crowd = null;
   let env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
@@ -1134,6 +1160,30 @@ export async function createAuthWorld(canvas, opts = {}) {
   const useProcedural = opts.procedural === true;
   const rigParts = buildSite(THREE, scene, portrait, MAT, { minimal: !useProcedural });
   const lights = buildLights(THREE, scene, portrait, preset, sky.sun);
+
+  /*
+   * One lamp light per station, placed ahead of that camera and out on the
+   * verge — VERGE_CENTRE is the same offset the instanced lamps stand on, so
+   * the light lands where a lamp visibly is rather than in mid-air.
+   */
+  for (const st of SITE_JOURNEY.slice(0, LAMP_COUNT)) {
+    const ce = Math.cos(st.elevation) * st.radius;
+    const ex = st.target[0] + Math.sin(st.azimuth) * ce;
+    const ez = st.target[2] + Math.cos(st.azimuth) * ce;
+    const dx = st.target[0] - ex;
+    const dz = st.target[2] - ez;
+    const len = Math.hypot(dx, dz) || 1;
+    const lamp = new THREE.PointLight(0xffc98a, 0, 95, 2);
+    lamp.castShadow = false;
+    lamp.visible = false;
+    lamp.position.set(
+      ex + (dx / len) * 20 - (dz / len) * 7.2,
+      7.0,
+      ez + (dz / len) * 20 + (dx / len) * 7.2,
+    );
+    scene.add(lamp);
+    lampLights.push(lamp);
+  }
   /* Travel ranges come from the crane ASSET, so the trolley can never run off
    * the end of a jib whose length the generator changed. */
   const wind = new Wind();
@@ -1235,10 +1285,28 @@ export async function createAuthWorld(canvas, opts = {}) {
      * evening rather than as a switch being thrown.
      */
     const windowGlow = env.nightness;
-    for (const m of cityWindows) {
-      m.emissive.setHex(0xffd2a1);
-      m.emissiveIntensity = windowGlow * 4.5;
-      m.needsUpdate = true;
+
+    /*
+     * Visibility-gated rather than intensity-gated: three compiles the light
+     * count into the shader, so a light left present at zero still costs what
+     * a lit one costs. Toggling recompiles once as dusk crosses, which is once
+     * per session rather than once per frame.
+     */
+    for (const l of lampLights) {
+      l.visible = windowGlow > 0.02;
+      /*
+       * CANDELA, not a small number. decay 2 is physically-correct falloff,
+       * so intensity is luminous intensity and a lamp 7 m up lighting ground
+       * 15 m away needs thousands of it. Measured at `street`: 161 reached
+       * 2.6% of the frame with a mean lift of 3.8 — nothing. 12,000 reaches
+       * 15% with a lift of 39, which is a pool of light on a pavement.
+       */
+      l.intensity = windowGlow * 9000;
+    }
+    for (const { material, gain, hex } of cityWindows) {
+      material.emissive.setHex(hex);
+      material.emissiveIntensity = windowGlow * gain;
+      material.needsUpdate = true;
     }
 
     scene.fog.color.setHex(g.fog);
@@ -1385,8 +1453,13 @@ export async function createAuthWorld(canvas, opts = {}) {
             /* Windows that can light. Collected here rather than searched for
              * later, because this is the one pass that sees every material
              * exactly once. */
-            if (String(material.name || "").startsWith("glass_lit")) {
-              cityWindows.push(material);
+            const nightSlot = String(material.name || "");
+            if (nightSlot.startsWith("glass_lit")) {
+              cityWindows.push({ material, gain: 4.5, hex: 0xffd2a1 });
+            } else if (nightSlot.startsWith("lamp_lit")) {
+              /* Lamp heads run hotter than windows and cooler in hue — a
+               * sodium-ish head is the one warm point in a blue dusk. */
+              cityWindows.push({ material, gain: 9.0, hex: 0xffc98a });
             }
             /* A prim carrying matrices came from EXT_mesh_gpu_instancing and
              * has to be rebuilt as an InstancedMesh, or its placements are
