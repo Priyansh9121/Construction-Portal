@@ -822,3 +822,84 @@ Grades now carry `envI`, interpolated with everything else, so the indirect term
 moves with the sun. Twilight and night stops are unchanged — the strong cool
 fill at dusk is doing real work there. Golden hour got a milder version of the
 same move (3.6 key / 1.5 fill) and is confirmed not to have regressed.
+
+---
+
+## TRAP 10 — a tool reporting success is not the work having landed
+
+Three instances, all in scripted edits, all reporting success:
+
+1. `str.replace` matched **nothing** because the target string had moved — the
+   city archetype loop had gained a tone-group structure since the patch was
+   written. Python does not complain when a replace matches zero times. The AO
+   bake shipped with `COLOR_0` on the hero and none on the city.
+2. A failed `cd` **short-circuited an `&&` chain**, so the environment.js edit
+   never ran while the next command in the same block did. The grade change
+   reported clean and was half applied.
+3. The same failed-`cd` shape once ran an edit against the wrong directory
+   entirely.
+
+None of these throws. All of them print what success prints.
+
+**The mitigation is to grep for the new content and assert a count after every
+scripted edit, never to trust the exit code.** In-script: `assert old in s`
+before replacing, and assert the expected occurrence count after. Out of script:
+`grep -c` the new token and compare. It costs one command and it has now caught
+three defects that a render would not have shown.
+
+Family: trap 8 (verify the product, not the pipeline) and trap 9 (read the
+values). All three are the same instruction — check the thing itself, not a
+proxy that reports on it.
+
+---
+
+## FOR THE WEATHER WORK — the overcast grade will need its fill back
+
+`fillI` is **0.0 at high sun**, so the shadowed side is carried entirely by the
+PMREM of the sky. That is correct under a bright sky and **wrong under an
+overcast one**: a dim sky bakes a dim environment, and with no hemisphere behind
+it the shadowed side will crush.
+
+So the overcast grade cannot simply reuse the clear-sky ratio. It needs fill
+back — plausibly a lot of it, since real overcast light IS omnidirectional, which
+is the one condition where the old hemisphere-dominant lighting was right.
+Measure it with the masked luminance probe against `p05`, which is the number
+that catches crushing.
+
+---
+
+## 3. The city has facades (2026-08-20)
+
+`facade_bay` says it in its own comment: *"glazing flush with the structure
+reads as a coloured face; glazing 200 mm behind a mullion grid reads as a
+facade, because the reveal casts a shadow that moves with the sun."* The city
+never got it — its glazing was a flat stripe **120 mm PROUD** of the wall, which
+is the opposite of a reveal.
+
+Each archetype now gets, per floor: a **spandrel band standing 240 mm off the
+face**, vision glass sitting back behind it, and full-height fins every 5.5 m.
+The recess is achieved by pushing the spandrel forward rather than cutting the
+glass back — identical from outside, and no boolean on a mesh that has to stay
+cheap enough to instance two hundred times.
+
+**Doing this after item 4 was the right order.** The reveal reads only because
+something directional casts its shadow; under the old 3.4 key against 3.8
+hemisphere fill there was barely a directional source to cast one.
+
+    login-site-neighbours   49,576 -> 91,772 bytes   (+42 KB, four archetypes)
+    TOTAL                  615,392 -> 649,604 bytes
+
+Masked luminance at noon, after:
+
+    street   p05 17.7   p25 33.4   mean 65.6   p75 84.8   p75/p25 2.54
+    entry    p05  7.9   p25 10.1   mean 54.6   p75 79.0   p75/p25 7.82
+    lane     p05 11.9   p25 27.4   mean 61.0   p75 75.9   p75/p25 2.77
+
+`street` contrast went 2.28 -> **2.54** from facades alone. `entry` reads 7.82
+because it is filled by one shadowed elevation against bright sky — a genuinely
+high-contrast frame rather than a flat one.
+
+**Tonal variation arrived as a byproduct, exactly as predicted.** Dark glass
+against pale spandrel gives every block strong internal contrast that survives
+distance and fog far better than a paint tint does. Item 2 should be judged
+against this, and it plainly needs fewer tints than the six-to-eight planned.
