@@ -343,17 +343,74 @@ def city_archetype(name, mats, w, d, floors, fh, kind):
         parts.append(M.prism(f"{name}-b", M.rect(x0, y0, x1, y1), 0.0, h,
                              mats["conc"], bevel=0.08))
 
-    # Glazing on two faces only. A city block seen from 150 m does not need
-    # four elevations, and the two that face the site are the two that show.
-    bands = max(2, int(floors * 0.7))
-    for i in range(bands):
-        z = fh * 0.6 + i * (h - fh) / max(1, bands)
-        if z + 1.2 > h:
-            break
-        parts.append(M.prism(f"{name}-g{i}", M.rect(x0 + 0.6, y0 - 0.12, x1 - 0.6, y0 + 0.06),
-                             z, 1.5, mats["glass"], bevel=0.02))
-        parts.append(M.prism(f"{name}-h{i}", M.rect(x0 - 0.12, y0 + 0.6, x0 + 0.06, y1 - 0.6),
-                             z, 1.5, mats["glass"], bevel=0.02))
+    # ---- THE FACADE ------------------------------------------------------
+    #
+    # facade_bay, which the hero uses, says it in its own comment: "glazing
+    # flush with the structure reads as a coloured face; glazing 200 mm behind
+    # a mullion grid reads as a facade, because the reveal casts a shadow that
+    # moves with the sun." The city never got it, and was a box with a flat
+    # stripe stuck 120 mm PROUD of the wall — the opposite of a reveal.
+    #
+    # The recess is achieved by pushing the SPANDREL forward rather than by
+    # cutting the glass back. Identical from outside, and it needs no boolean
+    # on a mesh that has to stay cheap enough to instance two hundred times.
+    #
+    # It only reads at all because noon is sun-dominant now (item 4). Under the
+    # old 3.4 key against 3.8 hemisphere fill there was barely a directional
+    # source to cast the shadow this depends on.
+    #
+    # Two faces only: a block seen from 150 m does not need four elevations,
+    # and the two that face the site are the two that show.
+    band_h = min(0.95, fh * 0.34)          # spandrel: the floor line, opaque
+    proud = 0.24                            # how far it stands off the glass
+    fin_every = 5.5
+
+    def facade_run(tag, fx0, fy0, fx1, fy1, z0, z1):
+        n = max(1, int(round((z1 - z0) / fh)))
+        for i in range(n):
+            zf = z0 + i * fh
+            if zf + band_h > z1:
+                break
+            # Spandrel, proud of the face. Its underside is the shadow line.
+            parts.append(M.prism(
+                f"{name}-{tag}s{i}", M.rect(fx0, fy0 - proud, fx1, fy0 + 0.03),
+                zf, band_h, mats["spandrel"], bevel=0.03))
+            parts.append(M.prism(
+                f"{name}-{tag}t{i}", M.rect(fx0 - proud, fy0, fx0 + 0.03, fy1),
+                zf, band_h, mats["spandrel"], bevel=0.03))
+            # Vision glass, sitting back behind it.
+            gz = zf + band_h
+            gh = max(0.4, fh - band_h - 0.12)
+            if gz + gh > z1:
+                break
+            parts.append(M.prism(
+                f"{name}-{tag}g{i}", M.rect(fx0 + 0.35, fy0 - 0.03, fx1 - 0.35, fy0 + 0.04),
+                gz, gh, mats["glass"], bevel=0.02))
+            parts.append(M.prism(
+                f"{name}-{tag}h{i}", M.rect(fx0 - 0.03, fy0 + 0.35, fx0 + 0.04, fy1 - 0.35),
+                gz, gh, mats["glass"], bevel=0.02))
+
+        # Vertical fins, full height, for a rhythm across the bands as well as
+        # up them. One run each way, not a grid: at this distance the vertical
+        # is what survives.
+        span_x = fx1 - fx0
+        for k in range(1, max(1, int(span_x / fin_every))):
+            fx = fx0 + k * (span_x / max(1, int(span_x / fin_every)))
+            parts.append(M.prism(
+                f"{name}-{tag}f{k}", M.rect(fx - 0.11, fy0 - proud * 0.8, fx + 0.11, fy0 + 0.02),
+                z0, z1 - z0, mats["spandrel"], bevel=0.02))
+        span_y = fy1 - fy0
+        for k in range(1, max(1, int(span_y / fin_every))):
+            fy = fy0 + k * (span_y / max(1, int(span_y / fin_every)))
+            parts.append(M.prism(
+                f"{name}-{tag}v{k}", M.rect(fx0 - proud * 0.8, fy - 0.11, fx0 + 0.02, fy + 0.11),
+                z0, z1 - z0, mats["spandrel"], bevel=0.02))
+
+    if kind == "podium":
+        facade_run("p", x0, y0, x1, y1, 0.0, fh * 2.2)
+        facade_run("t", x0 * 0.62, y0 * 0.62, x1 * 0.62, y1 * 0.62, fh * 2.2, fh * 2.2 + h)
+    else:
+        facade_run("b", x0, y0, x1, y1, 0.0, h)
 
     return L.join_all(name, [o for o in parts if o])
 
