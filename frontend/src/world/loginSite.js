@@ -67,7 +67,18 @@ export const SITE_LAYERS = [
   /* People carry their own materials and are small; they arrive last because
    * the site has to read before it can be populated. Also the densest layer
    * per byte, and static until the Phase F crowd work. */
-  { name: "login-site-people", essential: false, mobile: false },
+  /*
+   * PEOPLE ON PHONES, as of 2026-08-20.
+   *
+   * This was `mobile: false` — a decision inherited rather than made. Measured
+   * at 60 fps for 5,000 VAT figures at a phone viewport, and the field roles
+   * are the ones who open this screen most; a construction site with nobody on
+   * it is the least convincing version of this product. The phone crowd is 150
+   * against desktop's 400, because a 390x844 viewport on a development machine
+   * is not a phone GPU and that caveat is worth respecting until someone
+   * measures a real device.
+   */
+  { name: "login-site-people", essential: false, mobile: true },
 ];
 
 /**
@@ -208,6 +219,11 @@ export const WORLD_STATE = {
  * object is the only way to catch it, so the site's own bounding box is
  * checked against what the concept actually authored.
  */
+/* How many figures walk the streets, per tier. Well below the measured knee
+ * of 5,000-20,000 on purpose: the constraint here is composition, not frame
+ * time. A city block with five thousand people on it reads as an evacuation. */
+export const CROWD_SIZE = { desktop: 400, mobile: 150 };
+
 export const SITE_METRICS = {
   /*
    * Concept D: a 64 x 52 m plot carrying a podium-and-tower of 30 floors.

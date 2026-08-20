@@ -93,6 +93,13 @@ export function buildCrowd(THREE, geometry, material, vat, placements) {
   geo.setAttribute("aVertexId", new THREE.BufferAttribute(ids, 1));
 
   const mat = material.clone();
+  /*
+   * The figure's colour lives in COLOR_0 — one material carrying hi-vis,
+   * workwear, skin and hat as vertex colours, which is what let the body
+   * collapse to a single primitive. If the flag is off the whole crowd renders
+   * white, which is exactly how it first shipped.
+   */
+  if (geo.getAttribute("color")) mat.vertexColors = true;
   const uniforms = {
     uVat: { value: texture },
     uVatSize: { value: new THREE.Vector2(meta.vertices, meta.frames) },
@@ -177,4 +184,117 @@ export function buildCrowd(THREE, geometry, material, vat, placements) {
       texture.dispose();
     },
   };
+}
+
+/*
+ * WHERE PEOPLE ACTUALLY ARE
+ * -------------------------
+ * A crowd scattered on a disc reads as a field of people, not a city — and it
+ * walks through buildings. These figures are placed against the same street
+ * grid `concept_d.py` builds the city on, so they stand where a person stands:
+ * on the footpath beside a road, crossing at a junction, along the hoarding
+ * line, or on the apron inside the site gate.
+ *
+ * The constants MUST match concept_d.py. They are duplicated rather than
+ * exported because the city is baked at build time and the crowd is placed at
+ * runtime, and a shared file that only one side reads is worse than a stated
+ * dependency.
+ *
+ *   CITY_GRID 62   CITY_ROAD 16   podium -32..32 x -26..26   hoarding +3.5
+ *
+ * Blender is Z-up and three is Y-up: a road at Blender y = c is at three
+ * z = -c. The grid is symmetric about the origin, so it is generated directly
+ * in three's coordinates here.
+ */
+const GRID = 62;
+const ROAD = 16;
+const PATH = ROAD / 2 + 1.6;        // kerb to footpath centre
+const POD_X = 32;
+const POD_Z = 26;
+const HOARD = 3.5;
+const REACH = 250;                  // beyond this, fog has them anyway
+
+/** A seeded PRNG, so the same crowd comes back every load. */
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+const insidePodium = (x, z) => Math.abs(x) < POD_X + 1 && Math.abs(z) < POD_Z + 1;
+
+/**
+ * Place `count` figures on the streets around the site.
+ *
+ * Each carries a heading that matches where it is — people on a footpath walk
+ * along it, not across it — and a phase offset, because a crowd stepping in
+ * unison is the one thing that would make this look worse than five static
+ * figures.
+ */
+export function placeCrowd(count, seed = 20260820) {
+  const r = rng(seed);
+  const lines = [];
+  for (let i = -Math.ceil(REACH / GRID); i <= Math.ceil(REACH / GRID); i += 1) {
+    lines.push(i * GRID + GRID / 2);
+  }
+
+  const out = [];
+  let guard = 0;
+  while (out.length < count && guard < count * 40) {
+    guard += 1;
+    const roll = r();
+    let x; let z; let heading;
+
+    if (roll < 0.58) {
+      // FOOTPATH. Beside a road, walking along it.
+      const along = r() < 0.5;
+      const line = lines[Math.floor(r() * lines.length)];
+      const side = r() < 0.5 ? -1 : 1;
+      const t = (r() * 2 - 1) * REACH;
+      if (along) { x = t; z = line + side * PATH; heading = r() < 0.5 ? 0 : Math.PI; }
+      else { x = line + side * PATH; z = t; heading = r() < 0.5 ? Math.PI / 2 : -Math.PI / 2; }
+    } else if (roll < 0.76) {
+      // CROSSING. At a junction, heading across one of the two roads.
+      const lx = lines[Math.floor(r() * lines.length)];
+      const lz = lines[Math.floor(r() * lines.length)];
+      const across = r() < 0.5;
+      if (across) { x = lx + (r() * 2 - 1) * ROAD * 0.4; z = lz; heading = r() < 0.5 ? 0 : Math.PI; }
+      else { x = lx; z = lz + (r() * 2 - 1) * ROAD * 0.4; heading = r() < 0.5 ? Math.PI / 2 : -Math.PI / 2; }
+    } else if (roll < 0.93) {
+      // THE HOARDING LINE. Along the site's own boundary, which is where the
+      // people who are here for this project walk.
+      const perim = r();
+      const jitter = (r() * 2 - 1) * 2.0;
+      if (perim < 0.5) {
+        x = (r() * 2 - 1) * (POD_X + HOARD);
+        z = (perim < 0.25 ? 1 : -1) * (POD_Z + HOARD + 2.4) + jitter;
+        heading = r() < 0.5 ? 0 : Math.PI;
+      } else {
+        x = (perim < 0.75 ? 1 : -1) * (POD_X + HOARD + 2.4) + jitter;
+        z = (r() * 2 - 1) * (POD_Z + HOARD);
+        heading = r() < 0.5 ? Math.PI / 2 : -Math.PI / 2;
+      }
+    } else {
+      // INSIDE THE GATE. The apron between the hoarding and the podium, on the
+      // street side where the gate opening is.
+      x = (r() * 2 - 1) * 9;
+      z = POD_Z + 1.5 + r() * 2.4;
+      heading = Math.PI + (r() * 2 - 1) * 0.5;
+    }
+
+    if (insidePodium(x, z)) continue;
+    if (Math.hypot(x, z) > REACH) continue;
+
+    out.push({
+      p: [x, 0, z],
+      ry: heading,
+      /* Phase and gait, per figure. A crowd in step is a parade. */
+      phase: r(),
+      speed: 0.72 + r() * 0.5,
+      scale: 0.94 + r() * 0.12,
+    });
+  }
+  return out;
 }
