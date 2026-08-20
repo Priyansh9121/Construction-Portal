@@ -98,6 +98,30 @@ function mixHex(a, b, t) {
  *
  * The boundaries are the standard ones:
  *
+ * DAYLIGHT IS SUN-DOMINANT, as of 2026-08-20.
+ *
+ * The two daylight stops used to run fillI ABOVE keyI — 3.8 against 3.4 at
+ * alt 65, 3.4 against 3.0 at alt 25. A hemisphere fills every crevice equally,
+ * so that was a scene lit mostly by something with no direction, which is what
+ * flattened the facades and washed out the baked AO.
+ *
+ * Measured over the LIT GEOMETRY only. A whole-frame histogram is useless
+ * here: with every light switched off the frame's mean was still 65, because
+ * most of it is sky and the login card.
+ *
+ *     3.4 key / 3.8 fill / 1.0 env    p05 17.7  mean 70.6  p75/p25 2.03
+ *     9.0 key / 0.0 fill / 1.2 env    p05 17.7  mean 70.9  p75/p25 2.28
+ *
+ * Same brightness and the SAME SHADOW FLOOR, which is the number that had to
+ * hold: the strong fill was put here deliberately to stop north-facing
+ * concrete going dead, and that risk is real. It simply was not the hemisphere
+ * that had to carry it — scene.environment is a PMREM of this same sky, so the
+ * bounce now comes from the sky the viewer can see, horizon warmth included,
+ * instead of from a flat two-colour lamp.
+ *
+ * Exposure is deliberately NOT touched. It is already lowest at noon, which is
+ * the fingerprint of someone having tried to fix this from the wrong end.
+ *
  *   -18   astronomical twilight ends: true night
  *    -6   civil twilight: the blue hour, lights on, work continues
  *  -0.83  geometric sunrise/sunset including refraction
@@ -109,32 +133,32 @@ const STOPS = [
   { alt: -18, grade: {
     zenith: [0.012, 0.018, 0.045], horizon: [0.04, 0.05, 0.09],
     ground: [0.012, 0.014, 0.02], tint: [0.55, 0.62, 0.85], haze: 0.85,
-    key: 0x2c3c66, keyI: 0.06, fill: 0x243a5e, fillI: 0.16, bounce: 0x0a0b0e,
+    key: 0x2c3c66, keyI: 0.06, fill: 0x243a5e, fillI: 0.16, envI: 1.0, bounce: 0x0a0b0e,
     fog: 0x05070c, fogD: 0.0090, work: 1.0, exposure: 1.22 } },
   { alt: -6, grade: {
     zenith: [0.03, 0.05, 0.12], horizon: [0.16, 0.15, 0.24],
     ground: [0.03, 0.032, 0.042], tint: [0.85, 0.6, 0.55], haze: 1.35,
-    key: 0x6a6ea0, keyI: 0.18, fill: 0x44598c, fillI: 0.85, bounce: 0x14120f,
+    key: 0x6a6ea0, keyI: 0.18, fill: 0x44598c, fillI: 0.85, envI: 1.0, bounce: 0x14120f,
     fog: 0x0b0f18, fogD: 0.0078, work: 1.0, exposure: 1.12 } },
   { alt: -0.83, grade: {
     zenith: [0.05, 0.09, 0.2], horizon: [0.52, 0.3, 0.3],
     ground: [0.05, 0.055, 0.07], tint: [1.0, 0.5, 0.28], haze: 1.5,
-    key: 0xffc79a, keyI: 1.35, fill: 0x5b82c4, fillI: 1.9, bounce: 0x1a1712,
+    key: 0xffc79a, keyI: 1.35, fill: 0x5b82c4, fillI: 1.9, envI: 1.0, bounce: 0x1a1712,
     fog: 0x141821, fogD: 0.0068, work: 0.9, exposure: 1.05 } },
   { alt: 6, grade: {
     zenith: [0.13, 0.24, 0.46], horizon: [0.78, 0.6, 0.46],
     ground: [0.14, 0.14, 0.16], tint: [1.0, 0.78, 0.5], haze: 1.15,
-    key: 0xffd9ac, keyI: 2.5, fill: 0x8fb0dd, fillI: 2.5, bounce: 0x4a3d2c,
+    key: 0xffd9ac, keyI: 3.6, fill: 0x8fb0dd, fillI: 1.5, envI: 1.05, bounce: 0x4a3d2c,
     fog: 0x3a3a42, fogD: 0.0050, work: 0.35, exposure: 1.0 } },
   { alt: 25, grade: {
     zenith: [0.22, 0.4, 0.7], horizon: [0.64, 0.72, 0.83],
     ground: [0.28, 0.28, 0.3], tint: [1.0, 0.93, 0.8], haze: 0.85,
-    key: 0xfff0d8, keyI: 3.0, fill: 0xa6c4e8, fillI: 3.4, bounce: 0x8a7355,
+    key: 0xfff0d8, keyI: 8.0, fill: 0xa6c4e8, fillI: 0.2, envI: 1.15, bounce: 0x8a7355,
     fog: 0x8090a4, fogD: 0.0030, work: 0.0, exposure: 0.95 } },
   { alt: 65, grade: {
     zenith: [0.18, 0.36, 0.74], horizon: [0.7, 0.79, 0.88],
     ground: [0.33, 0.33, 0.34], tint: [1.0, 0.98, 0.93], haze: 0.62,
-    key: 0xfffaf0, keyI: 3.4, fill: 0xb2cdec, fillI: 3.8, bounce: 0x9c8462,
+    key: 0xfffaf0, keyI: 9.0, fill: 0xb2cdec, fillI: 0.0, envI: 1.2, bounce: 0x9c8462,
     fog: 0x9aa8bc, fogD: 0.0022, work: 0.0, exposure: 0.9 } },
 ];
 
@@ -160,6 +184,7 @@ function gradeFor(altitudeDeg) {
     keyI: mix(a.grade.keyI, b.grade.keyI, t),
     fill: mixHex(a.grade.fill, b.grade.fill, t),
     fillI: mix(a.grade.fillI, b.grade.fillI, t),
+    envI: mix(a.grade.envI ?? 1, b.grade.envI ?? 1, t),
     fog: mixHex(a.grade.fog, b.grade.fog, t),
     fogD: mix(a.grade.fogD, b.grade.fogD, t),
     work: mix(a.grade.work, b.grade.work, t),

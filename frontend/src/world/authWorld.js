@@ -1209,6 +1209,11 @@ export async function createAuthWorld(canvas, opts = {}) {
      * the world first ran in real daylight. */
     lights.hemi.groundColor.setHex(g.bounce);
     lights.hemi.intensity = g.fillI;
+    /* The indirect term the hemisphere used to fake. scene.environment is a
+     * PMREM of the same sky dome, so this is the real bounce rather than a
+     * flat lamp, and it is what lets fillI go to zero at noon without the
+     * shadowed side going dead. */
+    scene.environmentIntensity = g.envI ?? 1;
 
     scene.fog.color.setHex(g.fog);
     scene.fog.density = g.fogD * (portrait ? 1.25 : 1);
