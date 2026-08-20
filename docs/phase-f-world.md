@@ -1098,3 +1098,61 @@ nothing.
 
 Recorded rather than acted on: it reorders what matters, and that is not mine
 to decide.
+
+---
+
+## Night: windows first, and the measurement that redirected it (2026-08-20)
+
+### Lit windows, built as instructed
+
+`glass_lit` is a separate material slot, assigned to whole blocks at placement
+alongside the tone groups — instancing carries transforms and nothing else, so a
+state that varies per building has to be a group. Two states, and the archetype
+alternates the slot every other floor so a lit block shows a scatter up its face
+rather than reading as a lightbox. The runtime drives its emissive from
+`nightness`, continuous, so windows come up through dusk instead of snapping on.
+
+### The probe was blind to it, exactly as trap 9 warns
+
+After lighting them the masked luminance went **down**: street mean 7.6 -> 6.5.
+The probe masks on "differs from all-lights-off", and **an emissive surface
+looks identical with the lights off** — so lit windows were excluded from the
+sample entirely. The instrument could not see the axis being varied and
+confidently reported the opposite of the truth.
+
+The fix was to compare the frame against itself with the window emissive at
+zero, and to vary it absurdly to prove the instrument could see anything:
+
+    emissiveIntensity 1.27  ->   720 px changed (0.32% of frame)
+    emissiveIntensity   80  ->  1,148 px changed (0.50% of frame)
+
+### Which said windows can never carry it
+
+Doubling the lit floors moved the count from 720 to 721 pixels. The ceiling is
+the surface itself: `glass_lit` is **5.7-7.2% of the city, about 1% of the
+frame**. Meanwhile the tintable BODY is **70% of the city's pixels** and at dusk
+it had no light on it at all.
+
+So windows are worth having and cannot be the answer. The answer is that the
+sky shader models a **rural** night — its PMREM is nearly black — while a city
+at night is lit by itself. **Skyglow was the missing term.**
+
+    lane, sun -9.4      p05   p25   mean
+    env 1.0 / fill 0.66  3.1   5.1    9.1     (before)
+    env 4.0 / fill 2.0   3.0   6.1   24.3
+    env 6.0 / fill 3.0   3.1   7.1   33.7
+    env 9.0 / fill 4.0   4.9   9.4   48.9     (too close to noon)
+
+The night stops now interpolate to **env 4.85 / fill 2.60** at -9.4:
+
+    street   p05 3.1   p25 4.4   mean 16.5   (was 7.6)
+    lane     p05 3.0   p25 6.1   mean 27.8   (was 9.1)
+
+Roughly 40% of noon's mean at `lane` — night that reads as night rather than as
+the lights being off. The key stays low: after dark the only direct source is
+the moon, which is what `keyI` already said.
+
+Street lamps along `VERGE_CENTRE` remain to do, and will share the placement
+pass with the trees.
+
+    TOTAL 736,724 bytes

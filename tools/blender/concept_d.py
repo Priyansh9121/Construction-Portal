@@ -446,12 +446,22 @@ def city_archetype(name, mats, w, d, floors, fh, kind):
             gh = max(0.4, fh - band_h - 0.12)
             if gz + gh > z1:
                 break
+            # WHICH FLOORS CAN LIGHT UP.
+            #
+            # A building whose every window lights at once is a lightbox, not a
+            # skyline. Roughly a third of floors carry the `glass_lit` slot and
+            # the rest plain glass, so a lit block shows a scatter up its face.
+            # The pattern is baked into the archetype and therefore shared by
+            # every instance of it — rotation, scale and height variation are
+            # what stop that reading as tiling.
+            gmat = (mats["glass_lit"]
+                    if (i * 5 + len(tag)) % 2 == 0 else mats["glass"])
             parts.append(M.prism(
                 f"{name}-{tag}g{i}", M.rect(fx0 + 0.35, fy0 - 0.03, fx1 - 0.35, fy0 + 0.04),
-                gz, gh, mats["glass"], bevel=0.02))
+                gz, gh, gmat, bevel=0.02))
             parts.append(M.prism(
                 f"{name}-{tag}h{i}", M.rect(fx0 - 0.03, fy0 + 0.35, fx0 + 0.04, fy1 - 0.35),
-                gz, gh, mats["glass"], bevel=0.02))
+                gz, gh, gmat, bevel=0.02))
 
         # Vertical fins, full height, for a rhythm across the bands as well as
         # up them. One run each way, not a grid: at this distance the vertical
@@ -637,11 +647,16 @@ def build_city(mats, empties):
         fewest = min(near)
         candidates = [t for t in range(n_tones) if near[t] == fewest]
         blk["tone"] = candidates[rng.randrange(len(candidates))]
+        # LIT OR NOT, decided here for the same reason the tone is: a state
+        # that varies per building has to be a group, because instancing
+        # carries transforms and nothing else. Two states only.
+        blk["lit"] = rng.random() < 0.62
 
     assert_cameras_clear(blocks)
 
     for blk in blocks:
-        placements[blk["kind"]].append((blk["x"], blk["y"], 0.0, blk["tone"]))
+        placements[blk["kind"]].append(
+            (blk["x"], blk["y"], 0.0, blk["tone"], blk["lit"]))
 
     spread = [0, 0, 0]
     for blk in blocks:
@@ -680,31 +695,44 @@ def build_city(mats, empties):
         bake_vertex_ao([src], with_ground=True, strength=0.95)
 
         # Near blocks split across the tones; far blocks share one.
-        groups = {i: [] for i in range(len(tones))}
-        for (x, y, z, tone) in pl:
-            groups[min(tone, len(tones) - 1)].append((x, y, z))
+        groups = {}
+        for (x, y, z, tone, lit) in pl:
+            groups.setdefault((min(tone, len(tones) - 1), lit), []).append((x, y, z))
 
         first = True
-        for ti, places in groups.items():
+        for (ti, lit), places in groups.items():
             if not places:
                 continue
             # One object per tone, all sharing src's mesh data.
-            proxy = bpy.data.objects.new(f"{name}t{ti}", src.data)
+            gname = f"{name}t{ti}{'L' if lit else 'D'}"
+            proxy = bpy.data.objects.new(gname, src.data)
             bpy.context.scene.collection.objects.link(proxy)
             if proxy.material_slots:
                 proxy.material_slots[0].link = "OBJECT"
                 proxy.material_slots[0].material = tones[ti]
-            e, made = instance_group(f"{name}t{ti}", proxy, places,
+            # An unlit block swaps its lit-glazing slot back to plain glass, so
+            # only the lit groups carry a material the runtime will light.
+            if not lit:
+                for sl in proxy.material_slots:
+                    if sl.material and sl.material.name.startswith("glass_lit"):
+                        sl.link = "OBJECT"
+                        sl.material = mats["glass"]
+            e, made = instance_group(gname, proxy, places,
                                      keep_source=True)
             for dup in made:
                 if dup.material_slots:
                     dup.material_slots[0].link = "OBJECT"
                     dup.material_slots[0].material = tones[ti]
+                if not lit:
+                    for sl in dup.material_slots:
+                        if sl.material and sl.material.name.startswith("glass_lit"):
+                            sl.link = "OBJECT"
+                            sl.material = mats["glass"]
                 dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
                 sc = rng.uniform(0.68, 1.12)
                 dup.scale = (sc, sc, rng.uniform(0.55, 1.9))
             empties.append(e)
-            print(f"CITY {name} tone{ti}: {len(made)} instances")
+            print(f"CITY {gname}: {len(made)} instances")
             first = False
         bpy.data.objects.remove(src, do_unlink=True)
 
@@ -841,6 +869,15 @@ def build(dusk=False):
     L.reset()
     rng = random.Random(31)
     mats = L.standard_materials(wear=0.6, lit=0.4 if dusk else 0.0)
+
+    # Glazing that can light at night. A separate SLOT rather than a
+    # per-instance colour, for the same reason the tones are slots: EXT_mesh_
+    # gpu_instancing carries transforms and nothing else. The runtime drives
+    # its emissive from `nightness`, so it comes up gradually through dusk
+    # rather than snapping on at a threshold.
+    glass_lit = mats["glass"].copy()
+    glass_lit.name = "glass_lit"
+    mats["glass_lit"] = glass_lit
     parts = {"conc": [], "galv": [], "ply": [], "paint": [], "glass": []}
     empties = []
 
