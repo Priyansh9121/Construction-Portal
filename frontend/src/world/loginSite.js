@@ -123,16 +123,27 @@ export const SITE_JOURNEY = [
     mm: 24,
   },
   {
-    /* SITE ENTRY — at the gate, 47 m out and looking steeply up past the
-     * podium into the transfer level. The steepest elevation of the four,
-     * because that is the one view where the building is overhead. */
+    /*
+     * SITE ENTRY — the human-scale frame, REFRAMED 2026-08-20.
+     *
+     * It stood 47 m out at 20 mm looking steeply up, which against a 27.7 m
+     * building framed the whole of it and against a 106.4 m one framed
+     * nothing but curtain wall: no ground, no hoarding, no gate, no person.
+     * It survived the station re-derivation by being arithmetically correct
+     * rather than right, which is the thing to watch for in that whole pass.
+     *
+     * Now 56 m out at 24 mm with the target dropped from 30 m to 14 m, so the
+     * hoarding line, the gate and a figure are in shot and the tower runs out
+     * of the top of the frame — which is what a person at a site gate
+     * actually sees, and the only station where human scale is the subject.
+     */
     name: "entry",
-    target: [4, 30, 6],
-    radius: 47.3,
-    azimuth: -0.322,
-    elevation: -0.6408,
-    fov: 61.93,
-    mm: 20,
+    target: [2, 14, 6],
+    radius: 56.4,
+    azimuth: -0.333,
+    elevation: -0.2199,
+    fov: 53.13,
+    mm: 24,
   },
   {
     /* REAR — the far corner at 124 m, where the podium terrace, the offset

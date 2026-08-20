@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+  CROWD PREVIEW — dev only, never imported by the app.
+
+  Renders N walking figures from one mesh and one vertex animation texture, and
+  reports frame time. Crowd size is the question this page exists to answer:
+  the texture costs the same for ten figures or ten thousand, so what is being
+  chosen is vertex throughput and draw calls, not bytes.
+
+    /crowd-preview.html?n=2000
+-->
+<html lang="en"><head><meta charset="utf-8"><title>Crowd preview</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0e14;overflow:hidden}
+  canvas{display:block;width:100vw;height:100vh}
+  #hud{position:fixed;left:12px;top:12px;z-index:2;font:12px/1.5 ui-monospace,monospace;
+       color:#cfd6e4;background:rgba(8,10,16,.75);padding:10px 12px;border-radius:8px;white-space:pre}
+</style></head><body>
+<div id="hud">loading…</div><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { loadCrowdAssets, buildCrowd } from "/src/world/crowd.js";
+
+const q = new URLSearchParams(location.search);
+const N = +(q.get("n") || 500);
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("c"), antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.shadowMap.enabled = q.get("shadows") === "1";
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a2130);
+scene.fog = new THREE.FogExp2(0x1a2130, 0.0035);
+const cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 900);
+cam.position.set(0, 14, 62); cam.lookAt(0, 1, 0);
+scene.add(new THREE.HemisphereLight(0x9ab6d8, 0x3a3a42, 2.2));
+const sun = new THREE.DirectionalLight(0xfff2dd, 2.4);
+sun.position.set(60, 90, 40); scene.add(sun);
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200).rotateX(-Math.PI / 2),
+  new THREE.MeshStandardMaterial({ color: 0x3b3f47, roughness: 1 })));
+
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const [gltf, vat] = await Promise.all([
+  loader.loadAsync("/world/assets/crowd-figure.glb"),
+  loadCrowdAssets(THREE),
+]);
+let geo = null, mat = null;
+gltf.scene.traverse((o) => { if (o.isMesh && !geo) { geo = o.geometry; mat = o.material; } });
+
+const places = [];
+for (let i = 0; i < N; i += 1) {
+  const a = Math.random() * Math.PI * 2, r = 4 + Math.sqrt(Math.random()) * 120;
+  places.push({ p: [Math.cos(a) * r, 0, Math.sin(a) * r], ry: Math.random() * Math.PI * 2 });
+}
+const crowd = buildCrowd(THREE, geo, mat, vat, places);
+scene.add(crowd.mesh);
+
+const hud = document.getElementById("hud");
+const clock = new THREE.Clock();
+let frames = 0, acc = 0, shown = 0;
+renderer.setAnimationLoop(() => {
+  const t0 = performance.now();
+  crowd.advance(clock.getElapsedTime());
+  renderer.render(scene, cam);
+  // Wall time around render() alone is CPU submit time. finish() blocks until
+  // the GPU has done the work, which is the number a crowd size turns on.
+  renderer.getContext().finish();
+  acc += performance.now() - t0; frames += 1;
+  if (frames >= 30) {
+    shown = acc / frames;
+    window.__crowd = { n: N, ms: +shown.toFixed(3),
+      calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
+      verts: crowd.mesh.geometry.getAttribute("position").count };
+    hud.textContent = `figures ${N}\nframe   ${shown.toFixed(2)} ms\ncalls   ${renderer.info.render.calls}\ntris    ${renderer.info.render.triangles}`;
+    frames = 0; acc = 0;
+  }
+});
+window.__crowdReady = true;
+</script></body></html>
