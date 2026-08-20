@@ -760,3 +760,65 @@ undersides. At `street` the city is 100 m+ away through fog and the change is
 subtle. That is not an AO failure — it is item 4 arriving early: a 3.4 key with
 a strong hemisphere fill washes out a 0.7 multiplier, and the AO will not pay
 off fully until the noon grade stops flattening everything it touches.
+
+---
+
+## 4. Noon was lit mostly by something with no direction (2026-08-20)
+
+### The values, verified before touching them
+
+    alt 25   keyI 3.0   fillI 3.4
+    alt 65   keyI 3.4   fillI 3.8
+
+Confirmed: **fill exceeded key at both daylight stops.** A hemisphere light
+fills every crevice equally, so midday was a scene lit predominantly by a source
+with no direction — which is precisely what flattens facades and washes out the
+AO baked in item 1.
+
+### Measuring it needed a mask before it needed a number
+
+The first probe reported that killing every light in the scene barely changed
+the frame: mean 88.9 lit, **65.0 with everything off**. The frame is mostly sky
+— an emissive shader that ignores lights — plus the login card. A whole-frame
+histogram could never have shown a lighting change.
+
+So the sample is masked to the pixels that actually respond: capture once with
+all lights off, and count only pixels that differ from it. Read from a
+`WebGLRenderTarget` we own via `readRenderTargetPixels` — no
+`preserveDrawingBuffer`, no `finish()`, and the app's canvas untouched. That is
+the repeatable instrument the earlier pixel probe should have been.
+
+Which reach of each source, at `street`:
+
+    key only    57,595 px   mean 47.3
+    fill only   87,184 px   mean 47.9
+    env only   113,675 px   mean 42.4
+
+**The indirect sources touch twice the frame the sun does, for the same
+luminance.** That is the flattening, as a number.
+
+### The ratio, not the exposure
+
+    3.4 key / 3.8 fill / 1.0 env    p05 17.7   mean 70.6   p75/p25 2.03   range 125.1
+    9.0 key / 0.0 fill / 1.2 env    p05 17.7   mean 70.9   p75/p25 2.28   range 153.1
+
+Same overall brightness, **identical shadow floor**, +12% shadow-to-light
+contrast and +22% dynamic range. The shadow floor is the number that had to
+hold: the strong fill was there deliberately to stop north-facing concrete going
+dead, and that risk was real — it simply was not the hemisphere that had to
+carry it. `scene.environment` is already a PMREM of this same sky, so the bounce
+now comes from the sky the viewer can see, horizon warmth included, instead of
+from a flat two-colour lamp.
+
+Intermediate settings were measured and rejected rather than guessed: dropping
+fill without raising key darkened the image (mean 51.3 at 6.0/0.3/0.5), and
+raising env in place of fill did nothing for contrast, because swapping one
+omnidirectional source for another is not a gain in directionality.
+
+**Exposure is untouched**, as instructed. It is already lowest at noon, which is
+the fingerprint of the problem having been attacked from the wrong end before.
+
+Grades now carry `envI`, interpolated with everything else, so the indirect term
+moves with the sun. Twilight and night stops are unchanged — the strong cool
+fill at dusk is doing real work there. Golden hour got a milder version of the
+same move (3.6 key / 1.5 fill) and is confirmed not to have regressed.
