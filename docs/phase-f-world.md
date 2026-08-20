@@ -587,3 +587,43 @@ whose colour comes from elsewhere in the graph) and a linear/sRGB mismatch.
 
 **This is the next thing to fix, and trap 9 says how**: read the values. Dump
 the COLOR_0 accessor's actual contents rather than looking at another render.
+
+### The white crowd, diagnosed by dumping the accessor (2026-08-20)
+
+**One line settled what two renders could not.** The COLOR_0 accessor held
+**one distinct colour, `(0.8, 0.8, 0.8)`, 1596 times** — the baker's own
+fallback. So the export was innocent, colour space was innocent, the shader was
+innocent, and `base_colour()` had never read a colour at all.
+
+`concept_lib` builds these materials procedurally: Base Color is **linked** to a
+`MIX_RGB` that blends the material's own colour with a common grime, so the
+socket's `default_value` is an untouched 0.8 grey — and so is `diffuse_color`,
+which was the fallback. Both readings were of defaults nothing had set.
+
+The reader now follows the link one level and takes the mix's own inputs:
+
+    hi-vis      0.597, 0.745, 0.034      374 vertices
+    workwear    0.025, 0.036, 0.051      818
+    skin        0.254, 0.144, 0.084      264
+    hat         0.807, 0.776, 0.716      140
+
+Four distinct colours in the accessor, and hi-vis in the frame. **No colour
+space work was needed**, which is the other half of what the dump established:
+Blender's FLOAT_COLOR attribute, glTF COLOR_0 and three all agree on linear, so
+the branch that would have been a day of end-to-end comparison never opened.
+
+### The gate hole is closed
+
+It globbed `login-site-*.glb` only, so `crowd-figure.glb` and the VAT — 59 KB a
+user downloads — walked straight past it. It now covers every file the world
+fetches, the PNG counted at full size because the meshopt step does not touch
+it and never will.
+
+    login-site-architecture  277,836     crowd-figure.glb   22,580
+    login-site-people         79,584     walk-vat.png       37,484
+    login-site-neighbours     49,576     walk-vat.json         402
+    login-site-street         44,964
+    login-site-scaffold       23,088     TOTAL             535,514
+
+**Passed at 535 KB against the 2.5 MB limit**, with 59 KB of that newly visible
+rather than newly spent.

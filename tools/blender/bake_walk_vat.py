@@ -71,11 +71,43 @@ def flatten_to_vertex_colours(ob, mats):
     me = ob.data
 
     def base_colour(mat):
-        if mat and mat.use_nodes:
+        """The colour a material actually renders, not the socket's default.
+
+        concept_lib builds these procedurally: Base Color is LINKED to a mix
+        that blends the material's own colour with a common grime, so the
+        socket's `default_value` is an untouched 0.8 grey and so is
+        `diffuse_color`. Reading either produced a crowd of 1596 vertices all
+        carrying exactly (0.8, 0.8, 0.8) — which is what shipped, and what
+        dumping the COLOR_0 accessor said in one line after two renders had
+        failed to.
+
+        So follow the link one level and read the mix's own inputs, blending by
+        its factor to keep the weathering. One level is enough for every
+        material this figure wears; anything deeper falls back rather than
+        guessing.
+        """
+        if not mat:
+            return (0.8, 0.8, 0.8, 1.0)
+        if mat.use_nodes:
             for n in mat.node_tree.nodes:
-                if n.type == "BSDF_PRINCIPLED":
-                    return tuple(n.inputs["Base Color"].default_value)
-        return tuple(mat.diffuse_color) if mat else (0.8, 0.8, 0.8, 1.0)
+                if n.type != "BSDF_PRINCIPLED":
+                    continue
+                inp = n.inputs["Base Color"]
+                if not inp.is_linked:
+                    return tuple(inp.default_value)
+                src = inp.links[0].from_node
+                c1 = src.inputs.get("Color1")
+                c2 = src.inputs.get("Color2")
+                fac = src.inputs.get("Fac")
+                if c1 is not None and not c1.is_linked:
+                    a = tuple(c1.default_value)
+                    if (c2 is not None and not c2.is_linked
+                            and fac is not None and not fac.is_linked):
+                        f = float(fac.default_value)
+                        b = tuple(c2.default_value)
+                        return tuple(a[i] * (1 - f) + b[i] * f for i in range(4))
+                    return a
+        return tuple(mat.diffuse_color)
 
     slot_colour = [base_colour(sl.material) for sl in ob.material_slots] or [(0.8,) * 4]
 
