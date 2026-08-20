@@ -903,3 +903,61 @@ high-contrast frame rather than a flat one.
 against pale spandrel gives every block strong internal contrast that survives
 distance and fog far better than a paint tint does. Item 2 should be judged
 against this, and it plainly needs fewer tints than the six-to-eight planned.
+
+---
+
+## 2. Tone — measured first, and the first instrument was wrong (2026-08-20)
+
+**The read that the facades had made tints redundant was WRONG, and the way it
+was wrong is worth keeping.**
+
+The masked luminance probe said tinting reached nothing: flattening all three
+tone materials to white, and then exaggerating them to loud brick and slate,
+moved `p25`, `p75` and the contrast ratio **not at all** at `street`
+(91.5 / 107.2 / 1.17 in every case).
+
+That was a luminance metric applied to a **hue** change. `0xd8b9a0` and
+`0x9db2c6` differ from white and from each other mostly in chroma, and a
+luminance histogram is blind to exactly that. Same family as trap 9 — not
+"read the values" this time but **measure the quantity that actually varies**.
+
+The right instrument was area. Marking one surface at a time emissive and
+counting its pixels:
+
+    STREET   glass 34.8%   city_cool 29.4%   spandrel 17.6%   conc 12.5%   city_warm 5.7%
+    LANE     glass 41.0%   spandrel 18.9%    city_warm 16.1%  conc 12.3%   city_cool 11.7%
+
+**The tintable body is 40-48% of the city — the largest surface after glass,**
+not the least visible one. Tints reach plenty. They simply do not move a
+luminance histogram, because that is not what they change.
+
+### Neighbour-aware assignment, not more slots
+
+Three slots stay three; the effort went into which block gets which. Tone is now
+decided **globally at placement time** rather than randomly per archetype — a
+block's nearest neighbour is usually a different archetype, so a per-kind roll
+could never see it. Each block takes the tone least represented among blocks
+already placed within 95 m, ties broken on the seeded PRNG.
+
+    before   100 / 13 / 19     (random per kind, everything past 260 m forced to tone 0)
+    after     46 / 40 / 46     (neighbour-aware, whole ring)
+
+`CITY_TONE_BAND` went 260 m -> 420 m. The band existed to hold the instanced-node
+count down, and measured, it was buying 8 nodes out of 12 in exchange for a
+uniform far skyline — while fog at 300 m is only 35%, so two thirds of that
+skyline is still visible.
+
+    street   p05 17.7   p25 32.4   mean 65.8   p75 86.4   p75/p25 2.67
+    lane     p05 11.9   p25 29.9   mean 62.6   p75 82.0   p75/p25 2.74
+    TOTAL    655,568 bytes
+
+### A latent bug the reshuffle exposed
+
+Widening the tone band changed how much the PRNG consumed, which moved every
+block — and put a block **on top of the street camera**. The camera keep-out
+tested centre distance only, so a 26 m-wide block centred 63 m from a 62 m
+keep-out passed it and swallowed the lens. It now tests `kr + footprint`.
+
+The bug was always there; only the shuffle made it visible. Worth remembering
+that a change which reorders a seeded sequence is a change to every result that
+sequence produces, and it can expose defects far from what was edited.

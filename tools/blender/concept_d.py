@@ -281,7 +281,7 @@ CITY_OUTER = 420.0
 CITY_COUNT = 220
 # Past this, fog has eaten enough that a second tone is not worth an
 # instanced node. Day fog is 35% at 300 m; night is total well before it.
-CITY_TONE_BAND = 260.0
+CITY_TONE_BAND = 420.0
 
 # The grid the city stands on. Pitch is one block plus its street; the road is
 # the gap between cells and the blocks sit inside them.
@@ -461,6 +461,7 @@ def build_city(mats, empties):
     # answer to buildings growing through each other: keep a running list of
     # centres and footprint radii, and refuse anything that overlaps.
     placed = []                                    # (x, y, footprint radius)
+    blocks = []                                    # every block, in placement order
     half = int(CITY_OUTER // CITY_GRID) + 1
     cells = [(i, k) for i in range(-half, half + 1) for k in range(-half, half + 1)]
     rng.shuffle(cells)
@@ -476,7 +477,13 @@ def build_city(mats, empties):
         y = cy + rng.uniform(-room, room)
 
         # Off the camera, and off the sight line between camera and site.
-        if any(math.hypot(x - kx, y - ky) < kr for kx, ky, kr in CAMERA_KEEPOUT):
+        # The block's own FOOTPRINT counts, not just its centre. Testing the
+        # centre alone let a 26 m-wide block sit 63 m from a 62 m keep-out and
+        # still swallow the camera — which is exactly what happened the moment
+        # a tone change reshuffled the placement RNG and moved the blocks.
+        foot_here = CITY_FOOTPRINT[kind]
+        if any(math.hypot(x - kx, y - ky) < kr + foot_here
+               for kx, ky, kr in CAMERA_KEEPOUT):
             continue
 
         # Kind by distance: sheds near, towers far, so the skyline rises AWAY
@@ -494,7 +501,52 @@ def build_city(mats, empties):
         if any(math.hypot(x - px, y - py) < (foot + pr) * 0.62 for px, py, pr in placed):
             continue
         placed.append((x, y, foot))
-        placements[kind].append((x, y, 0.0, r))
+        # Order matters for tone assignment below, which is why the blocks are
+        # kept as one list rather than only bucketed by archetype: a block's
+        # nearest neighbour is usually a DIFFERENT archetype, and a per-kind
+        # random pick cannot see it.
+        blocks.append({"kind": kind, "x": x, "y": y, "r": r})
+
+    # ---- TONE, DECIDED BY NEIGHBOURS --------------------------------------
+    #
+    # The goal is narrower than a palette: stop adjacent blocks matching. That
+    # is an assignment problem, not a material-count problem, so the three
+    # slots already wired stay three and the effort goes into WHICH block gets
+    # which.
+    #
+    # The band was 260 m, past which every block took tone 0 to keep the
+    # instanced-node count down. Measured, that was 100 of 132 blocks on one
+    # tone and a uniform far skyline — and the saving it bought was 8 instanced
+    # nodes out of 12. Fog is only 35% at 300 m, so the far city is still two
+    # thirds visible and worth varying. The band now covers the whole ring.
+    #
+    # Each block takes the tone least represented among the blocks already
+    # placed within NEIGHBOUR_R of it. Ties break on the seeded PRNG, so the
+    # city is still deterministic. Blocks past CITY_TONE_BAND take tone 0: fog
+    # is 35% at 300 m and variation there is bought and thrown away.
+    NEIGHBOUR_R = 95.0
+    n_tones = 3
+    for i, blk in enumerate(blocks):
+        if blk["r"] >= CITY_TONE_BAND:
+            blk["tone"] = 0
+            continue
+        near = [0] * n_tones
+        for other in blocks[:i]:
+            if "tone" not in other:
+                continue
+            if math.hypot(blk["x"] - other["x"], blk["y"] - other["y"]) < NEIGHBOUR_R:
+                near[other["tone"]] += 1
+        fewest = min(near)
+        candidates = [t for t in range(n_tones) if near[t] == fewest]
+        blk["tone"] = candidates[rng.randrange(len(candidates))]
+
+    for blk in blocks:
+        placements[blk["kind"]].append((blk["x"], blk["y"], 0.0, blk["tone"]))
+
+    spread = [0, 0, 0]
+    for blk in blocks:
+        spread[blk["tone"]] += 1
+    print(f"CITY tones: {spread[0]} / {spread[1]} / {spread[2]}")
 
     # ---- TONE ------------------------------------------------------------
     #
@@ -529,9 +581,8 @@ def build_city(mats, empties):
 
         # Near blocks split across the tones; far blocks share one.
         groups = {i: [] for i in range(len(tones))}
-        for (x, y, z, r) in pl:
-            band = rng.randrange(len(tones)) if r < CITY_TONE_BAND else 0
-            groups[band].append((x, y, z))
+        for (x, y, z, tone) in pl:
+            groups[min(tone, len(tones) - 1)].append((x, y, z))
 
         first = True
         for ti, places in groups.items():
