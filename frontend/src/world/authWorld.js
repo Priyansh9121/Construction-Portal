@@ -37,8 +37,9 @@ import { CameraRig } from "./camera";
 import { worldEnvironment } from "./environment";
 import {
   SITE_LAYERS, SITE_JOURNEY, SITE_INTENTS, SITE_SURFACES, WORLD_STATE,
-  checkSiteScale, loadSurfaceMaps,
+  CROWD_SIZE, checkSiteScale, loadSurfaceMaps,
 } from "./loginSite";
+import { loadCrowdAssets, buildCrowd, placeCrowd } from "./crowd";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -957,6 +958,7 @@ export async function createAuthWorld(canvas, opts = {}) {
    * is now, in Asia/Kolkata, the same timezone the product's business logic
    * uses to decide what "today" means.
    */
+  let crowd = null;
   let env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
   const preset = env.grade;
 
@@ -1391,6 +1393,34 @@ export async function createAuthWorld(canvas, opts = {}) {
             tris += per * (matrices ? matrices.length : 1);
           }
         }
+        /*
+         * THE CROWD.
+         *
+         * Loaded after the site layers and never awaited by anything the form
+         * depends on: a missing figure, texture or bounds file returns null
+         * and the world simply has nobody on its streets.
+         */
+        if (wanted.some((l) => l.name === "login-site-people")) {
+          Promise.all([
+            loadAssets(THREE, ["crowd-figure"], { signal: siteAbort.signal }),
+            loadCrowdAssets(THREE, { signal: siteAbort.signal }),
+          ]).then(([figure, vat]) => {
+            if (!alive || !vat) return;
+            const prims = figure?.get("crowd-figure");
+            if (!prims?.length) return;
+            const size = portrait ? CROWD_SIZE.mobile : CROWD_SIZE.desktop;
+            const built = buildCrowd(THREE, prims[0].geometry, prims[0].material,
+                                     vat, placeCrowd(size));
+            if (!built) return;
+            built.mesh.castShadow = !portrait;
+            built.mesh.receiveShadow = true;
+            built.mesh.userData.worldLayer = "login-site-people";
+            scene.add(built.mesh);
+            crowd = built;
+            canvas.__authWorldDebug.crowd = { figures: size };
+          }).catch(() => {});
+        }
+
         canvas.__authWorldDebug.surfaces = surfaceReport;
         /* Which map sets this DEVICE actually pulled. The maps are fetched on
          * demand now, so on a phone this is the shorter list — and without it
@@ -1827,6 +1857,7 @@ export async function createAuthWorld(canvas, opts = {}) {
       /* The sun moves and the key light moves with it: shadows swing across
        * the concrete over minutes rather than seconds. */
       sky.advance(elapsed, wind);
+      crowd?.advance(elapsed);
 
       /*
        * THE WORLD FOLLOWS THE REAL CLOCK.
@@ -2006,6 +2037,7 @@ export async function createAuthWorld(canvas, opts = {}) {
       dust?.dispose();
       envRT?.dispose();
       pmrem.dispose();
+      crowd?.dispose();
       sky.dispose();
       renderer.dispose();
     },

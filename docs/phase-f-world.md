@@ -539,3 +539,51 @@ budget even before allowing for the viewport caveat, **the measurement supports
 putting people on phones** — and the field roles are the ones who see this
 screen most. A construction site with nobody on it is the least convincing
 version of this product.
+
+---
+
+## The crowd, wired in (2026-08-20)
+
+**400 desktop / 150 mobile**, well below the measured knee on purpose: the
+constraint is composition, not frame time. A city block with five thousand
+people on it reads as an evacuation. The measurement's value was establishing
+that the number is an art-direction choice rather than a budget one.
+
+**Phones get people.** `login-site-people` was `mobile: false` — inherited, not
+decided. It is now `true`, at 150 rather than 400 because a 390x844 viewport on
+a development machine is not a phone GPU and that caveat deserves respecting
+until someone measures a real device.
+
+### Placement follows the street grid
+
+Figures are placed against the same grid `concept_d.py` builds the city on —
+duplicated constants, stated as a dependency rather than hidden in a shared file
+only one side reads:
+
+    58%   footpath beside a road, heading ALONG it
+    18%   crossing at a junction, heading across one of the two roads
+    17%   the hoarding line, the boundary of this project
+     7%   the apron inside the site gate
+
+Rejected if inside the podium footprint or past 250 m, where fog has them
+anyway. Each figure carries a heading that matches where it stands, its own
+phase and its own gait speed — a crowd in step is a parade, and phase is free.
+
+Byte gate passed unchanged at 474,444 bytes: the crowd adds nothing to the
+gated layers, because the figure and its texture ship as their own files.
+**Note that `crowd-figure.glb` (22.4 KB) is NOT covered by the gate**, which
+only walks `login-site-*.glb`. Worth extending.
+
+### Outstanding: the figures render white
+
+The whole point of the single-material flatten was that hi-vis, workwear, skin
+and hat travel as vertex colours. `COLOR_0` is in the GLB and
+`mat.vertexColors` is set when the attribute is present, and the crowd still
+renders near-white while the five original static workers beside them are
+correctly hi-vis. So something between the Blender colour attribute and the
+shader is dropping it — the likely candidates are the colour Blender wrote
+(`base_colour()` reads Principled Base Color, which may be white on materials
+whose colour comes from elsewhere in the graph) and a linear/sRGB mismatch.
+
+**This is the next thing to fix, and trap 9 says how**: read the values. Dump
+the COLOR_0 accessor's actual contents rather than looking at another render.
