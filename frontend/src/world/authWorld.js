@@ -809,6 +809,50 @@ function buildSite(THREE, scene, portrait, MAT, opts = {}) {
  * and an albedo map would flatten that. So this reports rather than throws —
  * reading it is a human job.
  */
+
+/**
+ * A leaf-cluster alpha mask, drawn once on a 2D canvas.
+ *
+ * Generated rather than shipped for the same reason the VAT is fetched rather
+ * than embedded: `export_image_format: "NONE"` strips every image out of the
+ * GLBs, and a foliage texture would go with them. Drawing it costs zero bytes
+ * on the wire and one canvas at load.
+ *
+ * Alpha-TESTED, not blended: blended foliage needs back-to-front sorting that
+ * an InstancedMesh cannot do, and would z-fight itself from every angle.
+ */
+function leafMask(THREE) {
+  const S = 128;
+  const c = document.createElement("canvas");
+  c.width = S; c.height = S;
+  const g = c.getContext("2d");
+  g.clearRect(0, 0, S, S);
+  /* Deterministic: the same clump every load, so the world does not shimmer
+   * between sessions. */
+  let seed = 20260821;
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  for (let i = 0; i < 130; i += 1) {
+    const a = rnd() * Math.PI * 2;
+    const r = Math.pow(rnd(), 0.55) * S * 0.44;
+    const x = S / 2 + Math.cos(a) * r;
+    const y = S / 2 + Math.sin(a) * r;
+    const rad = 5 + rnd() * 11;
+    const tone = 120 + Math.floor(rnd() * 90);
+    g.fillStyle = `rgba(${Math.floor(tone * 0.55)}, ${tone}, ${Math.floor(tone * 0.42)}, 1)`;
+    g.beginPath();
+    g.ellipse(x, y, rad, rad * (0.55 + rnd() * 0.5), a, 0, Math.PI * 2);
+    g.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  return tex;
+}
+
 function dressSurface(THREE, material, surfaces, report) {
   const slot = String(material.name || "").split(".")[0];
   const surface = surfaces.get(slot);
@@ -996,6 +1040,7 @@ export async function createAuthWorld(canvas, opts = {}) {
   const lampLights = [];
   const LAMP_COUNT = portrait ? 2 : 4;
 
+  let leafTexture = null;
   const cityWindows = [];
   let crowd = null;
   let env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
@@ -1453,6 +1498,15 @@ export async function createAuthWorld(canvas, opts = {}) {
             /* Windows that can light. Collected here rather than searched for
              * later, because this is the one pass that sees every material
              * exactly once. */
+            const slotName = String(material.name || "").split(".")[0];
+            if (slotName === "leaf_card") {
+              material.map = leafTexture || (leafTexture = leafMask(THREE));
+              material.alphaTest = 0.5;
+              material.transparent = false;
+              material.side = THREE.DoubleSide;
+              material.color.setRGB(1, 1, 1);
+              material.needsUpdate = true;
+            }
             const nightSlot = String(material.name || "");
             if (nightSlot.startsWith("glass_lit")) {
               cityWindows.push({ material, gain: 4.5, hex: 0xffd2a1 });

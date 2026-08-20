@@ -1209,3 +1209,57 @@ fog would read as fake before it read as detailed, and the fog measurement says
 so.
 
     TOTAL 761,384 bytes
+
+## 3. Trees — clustered on the light, and cards lost on shape (2026-08-21)
+
+### Both canopies built and measured
+
+    modelled   395 verts/archetype   trunk, 4 branches, 5 overlapping masses
+    cards      116 verts/archetype   trunk, 4 branches, 9 crossed alpha planes
+
+    GPU at street, dusk, desktop:  none 8.14   modelled 7.25   cards 7.37   both 7.52
+
+**GPU is a wash** — every reading sits inside the run-to-run variance this
+instrument already showed (6.28-8.11 ms for one unchanged config). At ~90
+instances each, neither canopy is measurable against a 119k-triangle scene. The
+timer is not blind here: it resolved the point-light cliff at 6.28 -> 21.11 ms
+in the same session, so it can see a real difference when there is one.
+
+**So shape decided it, judged at noon as it had to be.** Modelled canopies hold
+a rounded silhouette at every distance; the cards read at close range as
+intersecting flat planes, which is broccoli wearing a different hat. Cards were
+removed — their numbers live here rather than as dead code.
+
+The card build did establish one useful thing: `export_image_format: "NONE"`
+would strip a foliage texture exactly as it strips everything else, so the leaf
+mask was generated at RUNTIME on a 2D canvas and attached by material name.
+Zero shipped bytes, and alpha-TESTED rather than blended because an
+InstancedMesh cannot sort back-to-front.
+
+### Clustered, because at dusk only the pools pay
+
+Two thirds of the planting sits within 6-26 m of the four lamp pools, derived
+the same way `authWorld` derives the lights — 20 m ahead of the station eye and
+7.2 m out on the verge — so the trees stand where the light actually lands. The
+rest are thin along the verge, silhouette at dusk and street trees at noon.
+
+### The pools survived, and improved
+
+Measured with the point lights toggled, before and after planting:
+
+    no trees   19,124 px lit (8.39% of frame)   mean lift 19.1
+    trees      19,347 px lit (8.49% of frame)   mean lift 23.6
+
+**A canopy over a lamp did not remove the pool — it gave the light something to
+fall on.** Lit pixels held and the mean lift rose by a quarter.
+
+### The camera assert earned itself on first use
+
+    tree at (-7.2, -42.1) is 0.8 m from the entry camera and reaches 5.5 m
+
+The clustered loop had no keep-out, and the pool centre is only 21 m from the
+eye, so a 26 m cluster radius reached back past the camera. The assert caught
+four intrusions and failed the export. `TREE_CLEAR` is now 11 m, and planting
+is covered by the invariant alongside the buildings.
+
+    STREET  578 lamps, 181 trees        TOTAL 775,908 bytes
