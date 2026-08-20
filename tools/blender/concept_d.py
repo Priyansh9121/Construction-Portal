@@ -465,6 +465,11 @@ def build_city(mats, empties):
             continue
         src = city_archetype(name, mats, w, d, floors, fh, kind)
 
+        # Rings first, then AO: the bake can only write what the mesh can hold,
+        # and a city body is eighteen vertices before this.
+        ground_rings(src)
+        bake_vertex_ao([src], with_ground=True, strength=0.95)
+
         # Near blocks split across the tones; far blocks share one.
         groups = {i: [] for i in range(len(tones))}
         for (x, y, z, r) in pl:
@@ -494,6 +499,134 @@ def build_city(mats, empties):
             print(f"CITY {name} tone{ti}: {len(made)} instances")
             first = False
         bpy.data.objects.remove(src, do_unlink=True)
+
+
+
+# ---------------------------------------------------------------------------
+# AMBIENT OCCLUSION, BAKED TO VERTEX COLOURS
+# ---------------------------------------------------------------------------
+#
+# The single biggest tell in the browser was that nothing was grounded: every
+# building met the ground on a hard flat line and every recess was as bright as
+# every face. That is what makes geometry look pasted onto a plane.
+#
+# WHY BAKED AND NOT SCREEN-SPACE. This world is entirely static except the
+# crowd, and SSAO measured 0.631 ms of GPU on desktop and 0.922 ms at a phone
+# viewport — costing MORE at the smaller size, because its cost here is the
+# second full geometry pass rather than the fullscreen AO. Paying that every
+# frame for something that never changes is the wrong trade.
+#
+# WHY IT NEEDED GEOMETRY FIRST. Measured before building: a city tower body is
+# EIGHTEEN vertices. Vertex AO on eight bottom corners and eight top ones is
+# not occlusion, it is a vertical ramp up a seventy-metre building. So the
+# archetypes get horizontal rings near the ground, close together low down
+# where contact shading actually lives, and the AO is carried on those.
+#
+# Analytic rather than Cycles: a BVH and a cosine-weighted hemisphere per
+# vertex is deterministic, needs no render engine, and takes seconds.
+
+AO_RAYS = 24
+AO_DIST = 14.0          # beyond this nothing is "contact"
+
+
+def ground_rings(ob, heights=(0.6, 1.4, 2.6, 4.5, 7.5, 12.0)):
+    """Cut horizontal rings into a box so it can carry a contact gradient.
+
+    Spaced geometrically: AO from the ground falls off fast, so the samples
+    have to be dense where the falloff is and sparse where it is not. A
+    uniform subdivision spends its vertices in the wrong place.
+    """
+    import bmesh
+    me = ob.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    zmax = max((v.co.z for v in bm.verts), default=0.0)
+    for h in heights:
+        if h >= zmax - 0.2:
+            break
+        bmesh.ops.bisect_plane(
+            bm, geom=list(bm.faces) + list(bm.edges) + list(bm.verts),
+            plane_co=(0.0, 0.0, h), plane_no=(0.0, 0.0, 1.0), clear_inner=False,
+            clear_outer=False)
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    return ob
+
+
+def bake_vertex_ao(objects, with_ground=True, strength=1.0):
+    """Write ambient occlusion into each object's colour attribute.
+
+    Occlusion is sampled against the object itself plus a ground plane. For an
+    INSTANCED archetype that is the whole truth available: every instance
+    shares one mesh, so occlusion between neighbours cannot be represented and
+    is not attempted. Ground contact and self-occlusion are, and they are the
+    two that carry the frame.
+    """
+    import bmesh
+    import mathutils
+    from mathutils.bvhtree import BVHTree
+
+    for ob in objects:
+        if ob is None or ob.type != "MESH":
+            continue
+        me = ob.data
+
+        verts = [v.co.copy() for v in me.vertices]
+        polys = [tuple(p.vertices) for p in me.polygons]
+        if with_ground:
+            base = len(verts)
+            R = 400.0
+            verts += [mathutils.Vector((-R, -R, 0.0)), mathutils.Vector((R, -R, 0.0)),
+                      mathutils.Vector((R, R, 0.0)), mathutils.Vector((-R, R, 0.0))]
+            polys.append((base, base + 1, base + 2, base + 3))
+        bvh = BVHTree.FromPolygons(verts, polys, all_triangles=False, epsilon=0.0)
+
+        attr = me.color_attributes.get("Col")
+        if attr is None:
+            attr = me.color_attributes.new(name="Col", type="FLOAT_COLOR",
+                                           domain="POINT")
+
+        # Cosine-weighted hemisphere, generated once and reoriented per vertex.
+        rays = []
+        golden = math.pi * (3.0 - math.sqrt(5.0))
+        for i in range(AO_RAYS):
+            z = math.sqrt((i + 0.5) / AO_RAYS)
+            r = math.sqrt(max(0.0, 1.0 - z * z))
+            a = i * golden
+            rays.append(mathutils.Vector((math.cos(a) * r, math.sin(a) * r, z)))
+
+        for vi, v in enumerate(me.vertices):
+            n = mathutils.Vector(v.normal)
+            if n.length < 1e-6:
+                n = mathutils.Vector((0.0, 0.0, 1.0))
+            n.normalize()
+            # A basis with n as up, so the cosine hemisphere lands correctly.
+            up = mathutils.Vector((0.0, 0.0, 1.0))
+            if abs(n.z) > 0.99:
+                up = mathutils.Vector((1.0, 0.0, 0.0))
+            t = n.cross(up).normalized()
+            bt = n.cross(t)
+            origin = v.co + n * 0.02
+
+            hits = 0
+            for d in rays:
+                world = t * d.x + bt * d.y + n * d.z
+                loc, _, _, dist = bvh.ray_cast(origin, world, AO_DIST)
+                if loc is not None:
+                    # Nearer occluders matter more than distant ones.
+                    hits += 1.0 - (dist / AO_DIST)
+            ao = 1.0 - (hits / AO_RAYS) * strength
+            ao = max(0.06, min(1.0, ao))
+
+            prev = attr.data[vi].color
+            attr.data[vi].color = (prev[0] * ao if prev[0] else ao,
+                                   prev[1] * ao if prev[1] else ao,
+                                   prev[2] * ao if prev[2] else ao, 1.0)
+        me.color_attributes.active_color = attr
+        vals = [attr.data[i].color[0] for i in range(len(me.vertices))]
+        print(f"AO   {ob.name}: {len(me.vertices)} verts  "
+              f"range {min(vals):.2f}-{max(vals):.2f}  mean {sum(vals)/len(vals):.2f}")
 
 
 def build(dusk=False):
@@ -558,6 +691,7 @@ def build(dusk=False):
     fit_at = [(0.0, 0.0, TRANSFER + lvl * TOWER_H)
               for lvl in range(COMPLETE_TO + 1, FITOUT_TO + 1)]
 
+    bake_vertex_ao([clad_src, fit_src], with_ground=False, strength=0.85)
     e1, _ = instance_group("instclad", clad_src, clad_at)
     e2, _ = instance_group("instfit", fit_src, fit_at)
     empties += [e1, e2]
@@ -801,6 +935,15 @@ def export_world(parts, empties):
             L.uv_project_for_export(ob, L.EXPORT_UV_TILE.get(key, L.DEFAULT_UV_TILE))
             merged.setdefault(layer, []).append(ob)
 
+    # AO on the authored geometry, after the join so the bake sees the whole
+    # layer occluding itself rather than each part in isolation. People are
+    # skipped: the five static figures are small, and the crowd carries its own
+    # colour attribute from the VAT bake.
+    for layer, objs in merged.items():
+        if layer == "people":
+            continue
+        bake_vertex_ao(objs, with_ground=True, strength=0.9)
+
     # Instances ride with the layer their Empty's name resolves to.
     for e in empties:
         merged.setdefault(C.layer_of(e.name), []).append(e)
@@ -847,6 +990,10 @@ def export_group_instanced(objs, path):
         "export_animations": False, "export_texcoords": True,
         "export_draco_mesh_compression_enable": False,
         "export_gpu_instances": True,
+        # ACTIVE, not MATERIAL — learned on the crowd figure: "MATERIAL"
+        # exports only colours the material graph is seen to consume and
+        # silently writes nothing when the graph does not read them.
+        "export_vertex_color": "ACTIVE",
     }
     props = {p.identifier for p in bpy.ops.export_scene.gltf.get_rna_type().properties}
     bpy.ops.export_scene.gltf(**{k: v for k, v in args.items() if k in props})
