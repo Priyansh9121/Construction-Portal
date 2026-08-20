@@ -55,9 +55,66 @@ import concept_lib as L
 import human as H
 
 
+
+def flatten_to_vertex_colours(ob, mats):
+    """Collapse a multi-material figure to ONE material carrying vertex colours.
+
+    A worker is forty pixels tall in the frame this crowd exists for, and four
+    material slots on a body that size buys nothing while costing everything:
+    four glTF primitives, four sets of accessors, four draw calls per figure,
+    and four vertex animation textures to keep in step with them.
+
+    So each material's base colour is written into the mesh's colour attribute
+    and every slot is replaced by one. The look is preserved — hi-vis stays
+    hi-vis — and the body becomes a single primitive.
+    """
+    me = ob.data
+
+    def base_colour(mat):
+        if mat and mat.use_nodes:
+            for n in mat.node_tree.nodes:
+                if n.type == "BSDF_PRINCIPLED":
+                    return tuple(n.inputs["Base Color"].default_value)
+        return tuple(mat.diffuse_color) if mat else (0.8, 0.8, 0.8, 1.0)
+
+    slot_colour = [base_colour(sl.material) for sl in ob.material_slots] or [(0.8,) * 4]
+
+    attr = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="POINT")
+    per_vert = [None] * len(me.vertices)
+    for poly in me.polygons:
+        col = slot_colour[min(poly.material_index, len(slot_colour) - 1)]
+        for vi in poly.vertices:
+            per_vert[vi] = col
+    for vi, col in enumerate(per_vert):
+        attr.data[vi].color = col or (0.8, 0.8, 0.8, 1.0)
+    me.color_attributes.active_color = attr
+
+    ob.data.materials.clear()
+    ob.data.materials.append(mats["crowd_flat"])
+    for poly in me.polygons:
+        poly.material_index = 0
+    return ob
+
+
 def bake(frames=24, out_dir=None):
     L.reset()
     mats = L.standard_materials(wear=0.6)
+
+    # The single slot the whole crowd wears. White base so the vertex colours
+    # are the colour rather than a tint of one.
+    flat = bpy.data.materials.new("crowd_flat")
+    flat.use_nodes = True
+    bsdf = next(n for n in flat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.82
+    # The material has to READ the colour attribute, or the exporter has no
+    # reason to write one: export_vertex_color="MATERIAL" means "export what
+    # the material uses", and a constant Base Color uses nothing. The first
+    # attempt shipped a figure with no COLOR_0 at all.
+    cattr = flat.node_tree.nodes.new("ShaderNodeVertexColor")
+    cattr.layer_name = "Col"
+    flat.node_tree.links.new(cattr.outputs["Color"], bsdf.inputs["Base Color"])
+    mats["crowd_flat"] = flat
 
     # ---- Sample the cycle ------------------------------------------------
     samples = []
@@ -92,6 +149,7 @@ def bake(frames=24, out_dir=None):
     # phase 0, which is what makes the map exact rather than nearest-fit.
     base = H.worker("crowd", mats, pose="walk", facing=0.0, height=1.75,
                     seed=0, phase=0.0)
+    flatten_to_vertex_colours(base, mats)
     out_dir = out_dir or os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
         "frontend", "public", "world", "textures")
@@ -104,7 +162,14 @@ def bake(frames=24, out_dir=None):
         filepath=glb, export_format="GLB", use_selection=True,
         export_yup=True, export_apply=True, export_normals=True,
         export_materials="EXPORT", export_image_format="NONE",
-        export_cameras=False, export_lights=False, export_animations=False)
+        export_cameras=False, export_lights=False, export_animations=False,
+        # ACTIVE, not MATERIAL. "MATERIAL" exports only colours the material
+        # graph is seen to consume, and it declined to write COLOR_0 even with
+        # a Vertex Color node wired into Base Color — the figure shipped with
+        # no colour at all, twice. ACTIVE writes the mesh's active colour
+        # attribute and does not depend on inferring intent from a node tree.
+        export_vertex_color="ACTIVE", export_all_vertex_colors=False,
+        export_texcoords=False)
 
     before = set(o.name for o in bpy.context.scene.objects)
     bpy.ops.import_scene.gltf(filepath=glb)
@@ -181,6 +246,35 @@ def bake(frames=24, out_dir=None):
     }
     with open(os.path.join(out_dir, "walk-vat.json"), "w") as fh:
         json.dump(meta, fh, indent=2)
+
+    # ---- THE COUNT IS THE THING THAT SPEAKS ------------------------------
+    #
+    # Both of this pipeline's bugs were silent and both would have been caught
+    # here. Blender's 456 vertices became 1662 in the GLB, and meshopt welded
+    # 1662 back to 374 — in each case a texture indexed by one order was used
+    # to pose a mesh in another, and the crowd still looked like people because
+    # it was the same cloud of points. Nothing threw. Only the count disagreed.
+    #
+    # So the count is asserted against the FILE THAT SHIPS, by reading its
+    # accessor back out of the GLB rather than trusting the exporter's report.
+    with open(glb, "rb") as fh:
+        blob = fh.read()
+    j_len = int.from_bytes(blob[12:16], "little")
+    gltf = json.loads(blob[20:20 + j_len])
+    prims = [pr for m in gltf["meshes"] for pr in m["primitives"]]
+    if len(prims) != 1:
+        raise SystemExit(
+            f"the figure exported as {len(prims)} primitives. A VAT indexes one "
+            "vertex list; more than one primitive means more than one texture "
+            "and a draw call each. Flatten it to a single material.")
+    shipped = gltf["accessors"][prims[0]["attributes"]["POSITION"]]["count"]
+    if shipped != vcount:
+        raise SystemExit(
+            f"VERTEX COUNT MISMATCH: the shipped GLB has {shipped} vertices and "
+            f"the texture is {vcount} wide. Every figure would be posed with the "
+            "wrong vertices, and it would still look like a person. Re-bake "
+            "against the file that ships.")
+    print(f"VAT  OK   shipped GLB {shipped} vertices == texture width {vcount}")
 
     png = os.path.getsize(path)
     gsz = os.path.getsize(glb)

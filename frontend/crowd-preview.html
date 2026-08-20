@@ -60,22 +60,31 @@ scene.add(crowd.mesh);
 
 const hud = document.getElementById("hud");
 const clock = new THREE.Clock();
-let frames = 0, acc = 0, shown = 0;
+/*
+ * FRAME INTERVAL, not time-around-render().
+ *
+ * gl.finish() did not force a real sync here: 15.6M triangles came back at
+ * 0.35 ms, which would be 44 billion triangles a second. The honest measure of
+ * "where does this stop being free" is the interval the browser can actually
+ * sustain between frames, so this records rAF deltas and reports the MEDIAN —
+ * a mean is dragged around by the first few frames while shaders compile.
+ */
+let last = performance.now();
+const deltas = [];
 renderer.setAnimationLoop(() => {
-  const t0 = performance.now();
+  const now = performance.now();
+  deltas.push(now - last);
+  last = now;
   crowd.advance(clock.getElapsedTime());
   renderer.render(scene, cam);
-  // Wall time around render() alone is CPU submit time. finish() blocks until
-  // the GPU has done the work, which is the number a crowd size turns on.
-  renderer.getContext().finish();
-  acc += performance.now() - t0; frames += 1;
-  if (frames >= 30) {
-    shown = acc / frames;
-    window.__crowd = { n: N, ms: +shown.toFixed(3),
+  if (deltas.length >= 120) {
+    const sorted = deltas.slice(20).sort((a, b) => a - b);
+    const med = sorted[Math.floor(sorted.length / 2)];
+    window.__crowd = { n: N, ms: +med.toFixed(2), fps: +(1000 / med).toFixed(1),
       calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
       verts: crowd.mesh.geometry.getAttribute("position").count };
-    hud.textContent = `figures ${N}\nframe   ${shown.toFixed(2)} ms\ncalls   ${renderer.info.render.calls}\ntris    ${renderer.info.render.triangles}`;
-    frames = 0; acc = 0;
+    hud.textContent = `figures ${N}\nframe   ${med.toFixed(2)} ms (${(1000 / med).toFixed(0)} fps)\ncalls   ${renderer.info.render.calls}\ntris    ${renderer.info.render.triangles}`;
+    deltas.length = 0;
   }
 });
 window.__crowdReady = true;

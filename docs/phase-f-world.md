@@ -462,3 +462,80 @@ only one.
 desktop-only by inheritance. The measurement says the phone tier renders 10,000
 figures in the same 2 draw calls, so the reason to exclude them would be
 fill-rate and memory, not draw calls — **a decision to make, not to inherit.**
+
+---
+
+## The crowd, single-material — measured (2026-08-20)
+
+### One material, and the 46 KB comes back
+
+A worker is forty pixels tall in the frame this crowd exists for, and four
+material slots on a body that size cost four glTF primitives, four sets of
+accessors, four draw calls and four textures to keep in step. Each material's
+base colour is now baked into the mesh's colour attribute and every slot
+replaced by one.
+
+**Vertex colours beat an atlas, measured:**
+
+    vertex colours   GLB 69.4 KB   COLOR_0, no UVs, no second file
+    atlas            GLB 73.1 KB   TEXCOORD_0, no colour, PLUS an atlas PNG
+
+**And the weld hypothesis was right.** With one material there is nothing left
+to weld, and meshopt now preserves the count exactly — verified by reading the
+accessor, not assumed:
+
+    crowd-figure.glb    1 prim   1596 verts   71.0 KB
+    crowd-mo.glb        1 prim   1596 verts   22.4 KB
+
+So the figure ships compressed again and the 46 KB penalty is recovered.
+
+    crowd-figure.glb   22.4 KB   meshopt, count preserved
+    walk-vat.png       36.6 KB   1596 vertices x 24 frames
+    walk-vat.json       0.4 KB
+    ----------------------------------------------------
+    TOTAL              59.4 KB   against 79.6 KB for five static figures today
+
+Getting `COLOR_0` out of Blender took three attempts, all silent:
+`export_vertex_color="MATERIAL"` exports only colours the material graph is
+*seen* to consume and declined even with a Vertex Color node wired into Base
+Color. `"ACTIVE"` writes the mesh's active colour attribute and does not depend
+on inferring intent from a node tree.
+
+### The baker now asserts the count
+
+Both of this pipeline's bugs were silent and both would have been caught by one
+number. The baker reads the **shipped GLB's own accessor** back out and fails
+loudly if it disagrees with the texture width, and refuses more than one
+primitive. It is deliberately a check against the file that ships rather than
+against the exporter's report.
+
+### Where it stops being free
+
+Frame interval, median over 100 frames — `gl.finish()` did **not** force a real
+sync here (15.6M triangles came back at 0.35 ms, which would be 44 billion a
+second), so this measures what the browser can actually sustain.
+
+    figures   desktop        mobile viewport   triangles   draw calls
+        200   60 fps         60 fps              0.62 M        2
+      1,000   60 fps         60 fps              3.12 M        2
+      5,000   60 fps         60 fps             15.60 M        2
+     20,000   23 fps         26 fps             62.40 M        2
+     60,000   6.5 fps        9 fps             187.20 M        2
+
+**Free to 5,000 on both tiers. The knee is between 5,000 and 20,000.** Two draw
+calls at every size, all the way to sixty thousand figures — the cost is vertex
+throughput, exactly as predicted, and nothing else.
+
+**One honesty about the mobile column: a 390x844 viewport on this machine is
+not a phone.** It is the same GPU rendering fewer pixels, so it under-states a
+real device by an unknown factor. What it does establish is that the work is
+vertex-bound rather than fill-bound, which is the part that transfers.
+
+### The mobile decision
+
+`SITE_LAYERS` skips `login-site-people` on phones, so a crowd would be
+desktop-only by inheritance. With 1,000 figures sitting five times inside the
+budget even before allowing for the viewport caveat, **the measurement supports
+putting people on phones** — and the field roles are the ones who see this
+screen most. A construction site with nobody on it is the least convincing
+version of this product.
