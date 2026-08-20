@@ -363,3 +363,40 @@ Tone variation is in the data — the shipped city carries `city_warm` and
 `city_cool` across 12 instanced nodes — but it **reads weakly in the browser**
 at midday, where the grade's exposure washes the blocks toward white. The next
 move is the tint factors on those two materials rather than more archetypes.
+
+### Tone, answered: the data was broken, not the noon grade (2026-08-20)
+
+Checked golden hour first, as instructed, and then stopped squinting at renders
+and read the materials out of the running world:
+
+    conc        #ffffff  rough 1  map concrete
+    city_warm   #ffffff  rough 1  map brick
+    city_cool   #ffffff  rough 1  map concrete
+
+**All three white, and `conc` and `city_cool` identical in every respect.** Two
+of the three "tones" were the same surface. Nothing was flattening them at
+noon — they were never different, and no exposure change would have helped.
+
+The cause is one deliberate line in `dressSurface`: *"the albedo map already
+carries the colour, so the factor must go white or it multiplies the texture
+down and the surface reads muddy."* That rule is right for concrete and wrong
+for a city that varies BY material, so `SITE_SURFACES` entries may now declare
+a `tint` and dressSurface treats it as the documented exception. Kept gentle for
+exactly the reason the white rule exists.
+
+    city_warm   #d8b9a0   brick
+    city_cool   #9db2c6   concrete
+    conc        #ffffff   concrete  (untinted, the third tone)
+
+Confirmed in the browser at the lane station: warm blocks right of frame, cool
+blue-grey behind them, white ones between. **No asset rebuild — this is runtime
+only, so the byte gate is untouched at 475 KB.**
+
+### The near ring has presence
+
+`lane` (124 m) is the strongest frame the world has produced: the tones read,
+the near blocks have mass, and the tower is plainly in a city rather than in a
+field. `entry` (47 m) is now the weak one — at 106 m the building fills the
+frame completely and neither the site nor the city is visible, so it reads as a
+facade study rather than as a place. It was framed for a 27.7 m building and
+survived the re-derivation by being mathematically correct rather than right.

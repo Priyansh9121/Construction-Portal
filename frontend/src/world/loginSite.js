@@ -331,8 +331,24 @@ export const SITE_SURFACES = {
   wet: { tex: "concrete" },
   earth: { tex: "ground" },
   ply: { tex: "ply" },
-  city_warm: { tex: "brick" },
-  city_cool: { tex: "concrete" },
+  /*
+   * THE CITY'S THREE TONES.
+   *
+   * A skyline reads through tonal variation, and per-instance colour is not
+   * available through EXT_mesh_gpu_instancing — so the variation has to live
+   * in the material, and there have to be materials that actually differ.
+   *
+   * Measured 2026-08-20, these three shipped as #ffffff / roughness 1 / no
+   * metalness — IDENTICAL, with `conc` and `city_cool` sharing the concrete
+   * map as well. Two of the three "tones" were the same surface. Nothing was
+   * flattening them at noon; they were never different.
+   *
+   * `tint` is the deliberate exception to dressSurface's white rule. It stays
+   * gentle on purpose: the albedo map carries the surface, and a strong factor
+   * multiplies the texture down until concrete reads as painted card.
+   */
+  city_warm: { tex: "brick", tint: 0xd8b9a0 },
+  city_cool: { tex: "concrete", tint: 0x9db2c6 },
   spandrel: { tex: "asphalt" },
 
   /*
