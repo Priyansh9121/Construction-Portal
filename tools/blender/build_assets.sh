@@ -18,6 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BLENDER="${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}"
 ASSETS="$ROOT/frontend/public/world/assets"
+TEXTURES="$ROOT/frontend/public/world/textures"
 OPTIMISE=1
 GATE=1
 for arg in "$@"; do
@@ -143,7 +144,18 @@ if [[ $GATE -eq 1 ]]; then
   echo "byte gate"
   gate_total=0
   gate_failed=0
-  for f in "$ASSETS"/login-site-*.glb; do
+  #
+  # EVERYTHING THE WORLD FETCHES, not everything named login-site-*.
+  #
+  # The crowd ships as its own figure and its own vertex animation texture --
+  # 59 KB that a user downloads and that this gate walked straight past,
+  # because it only ever globbed the layer files. A gate that covers most of
+  # the payload is a gate that will one day be surprised by the rest of it.
+  #
+  # The VAT is a PNG rather than a GLB and is counted at full size: it is not
+  # compressed by the meshopt step above and never will be.
+  for f in "$ASSETS"/login-site-*.glb "$ASSETS"/crowd-figure.glb \
+           "$TEXTURES"/walk-vat.png "$TEXTURES"/walk-vat.json; do
     [[ -e "$f" ]] || continue
     sz=$(stat -f%z "$f")
     gate_total=$((gate_total + sz))
