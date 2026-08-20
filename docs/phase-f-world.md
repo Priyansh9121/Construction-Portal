@@ -1012,3 +1012,35 @@ Every future change to placement, count or ordering reshuffles the entire city,
 so a keep-out that holds today holds by luck tomorrow. Same reasoning as the
 vertex-count assert in the VAT baker: the cheap invariant that speaks when the
 expensive silent one breaks.
+
+---
+
+## 1. The roads were buried, not fighting (2026-08-20)
+
+The offered diagnosis was z-fighting or poor contrast. **It was neither.**
+
+    roads   z 0.02 -> 0.12
+    ground  z -0.70 -> +0.30
+
+The ground's top is at **+0.30** and the roads topped out at **0.12**: the entire
+city road grid sat **180 mm underground** and had never once been rendered.
+
+The arithmetic that suggested z-fighting — `L.box((900, 900, 0.4), (0, 0, -0.2))`
+giving a top at 0.00 — was reading `L.box`'s size argument wrong. The measured
+box is 1.0 m tall, not 0.4. **Trap 9 in its plainest form: the values were
+available and the derivation was not.**
+
+Confirmed empirically before and after, with the street layer's surfaces marked
+emissive one at a time and counted off a render target:
+
+               street        lane
+    before    7,193 px    10,886 px      (the site's own street strip only)
+    after     8,444 px    13,285 px      (+17%, +22%)
+    earth     3,129 px    13,790 px      (down correspondingly — roads now cover it)
+
+The saved mask image is what settled it: before the fix the lit pixels formed a
+band in the immediate foreground and **nothing at all across the city**, which a
+count alone could not have distinguished from "roads are dim".
+
+Anything that sits on the ground now references `GROUND_TOP`, measured out of
+the built scene rather than derived from constructor arguments.

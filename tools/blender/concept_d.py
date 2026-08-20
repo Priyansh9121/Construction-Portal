@@ -283,6 +283,18 @@ CITY_COUNT = 220
 # instanced node. Day fog is 35% at 300 m; night is total well before it.
 CITY_TONE_BAND = 420.0
 
+# THE TOP OF THE EARTH SLAB, measured out of the built scene rather than
+# derived from L.box's arguments.
+#
+# The city roads were laid at z 0.02 with a height of 0.10 on the assumption
+# that the ground's top was 0.00. Measured, the ground spans -0.70 to +0.30:
+# the roads were buried 180 mm UNDER it and had never once been visible. The
+# diagnosis offered was z-fighting or poor contrast; it was neither, and the
+# arithmetic that suggested z-fighting was reading L.box's size argument wrong.
+#
+# Anything that has to sit ON the ground references this.
+GROUND_TOP = 0.30
+
 # The grid the city stands on. Pitch is one block plus its street; the road is
 # the gap between cells and the blocks sit inside them.
 CITY_GRID = 62.0
@@ -468,10 +480,10 @@ def build_streets(parts, mats):
         c = i * CITY_GRID + CITY_GRID / 2.0
         parts["paint"].append(
             M.prism(f"road-x{i}", M.rect(-reach, c - CITY_ROAD / 2, reach, c + CITY_ROAD / 2),
-                    0.02, 0.10, mats["spandrel"], bevel=0.0))
+                    GROUND_TOP, 0.10, mats["spandrel"], bevel=0.0))
         parts["paint"].append(
             M.prism(f"road-y{i}", M.rect(c - CITY_ROAD / 2, -reach, c + CITY_ROAD / 2, reach),
-                    0.02, 0.10, mats["spandrel"], bevel=0.0))
+                    GROUND_TOP, 0.10, mats["spandrel"], bevel=0.0))
 
 
 def build_city(mats, empties):
