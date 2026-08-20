@@ -691,3 +691,72 @@ Both stations confirmed in the browser. The giant is gone from entry, the
 figures read as hi-vis at both distances, and lane's camera was verified
 numerically rather than by eye: `eye [95.01, 3.00, -70.04]`, which is the lane
 station exactly as `SITE_JOURNEY` derives it.
+
+---
+
+## 1. Ambient occlusion — baked, and why (2026-08-20)
+
+### Both options measured
+
+**Screen-space, measured in the product** with `EXT_disjoint_timer_query_webgl2`
+— real GPU time, not `performance.now()` around a `render()` and not
+`gl.finish()`, both of which have already lied in this phase:
+
+    DESKTOP 1440x904   plain 5.963 ms   +SSAOPass 6.594 ms   SSAO = 0.631 ms
+    MOBILE   390x844   plain 2.806 ms   +SSAOPass 3.728 ms   SSAO = 0.922 ms
+
+**SSAO costs MORE at the smaller viewport**, which is the finding worth keeping:
+its cost here is dominated by the second full geometry pass over 119k triangles
+and 493 instances, not by the fullscreen AO. That part does not shrink with
+resolution, so a real phone would pay it in full.
+
+**Baked, measured in bytes:** 535,280 -> 615,392, **+80,112 bytes (+15%)**,
+against a 2.5 MB gate. Nothing at runtime, and it survives on mobile.
+
+**Baked wins**, and by more than the raw numbers suggest: this world is static
+except the crowd, so screen-space AO would recompute an unchanging result sixty
+times a second forever.
+
+### It needed geometry before it needed a bake
+
+Read the values first, and they settled the approach: **a city tower body is
+EIGHTEEN vertices.** Vertex AO across eight bottom corners and eight top ones is
+not occlusion, it is a vertical ramp up a seventy-metre building.
+
+So `ground_rings()` cuts horizontal rings at 0.6, 1.4, 2.6, 4.5, 7.5 and 12 m —
+spaced geometrically, because AO from the ground falls off fast and the samples
+have to be dense where the falloff is. Bodies go 18 -> 48 vertices.
+
+The bake itself is analytic: a BVH plus a cosine-weighted hemisphere of 24 rays
+per vertex, with a distance falloff so near occluders count for more. No Cycles,
+deterministic, and the whole world bakes in seven seconds. For an INSTANCED
+archetype it captures ground contact and self-occlusion, which is the whole
+truth available — every instance shares one mesh, so occlusion between
+neighbours cannot be represented and is not attempted.
+
+Baked ranges, read back rather than assumed:
+
+    tfclad    803 verts   0.15-1.00   mean 0.86
+    nbtower   312 verts   0.06-1.00   mean 0.72
+    nbslab    160 verts   0.08-1.00   mean 0.62
+
+### One edit that silently did nothing
+
+The first bake produced `COLOR_0` on the hero and **none on the city**, which a
+render would not have shown. The insertion point I patched against no longer
+existed — the archetype loop had gained a tone-group structure — and Python's
+`str.replace` does not complain when it matches nothing. Caught by reading the
+exported accessors, which is trap 9 pointed at my own edits rather than at the
+world. **An edit that reports success is not an edit that landed.**
+
+### The honest result
+
+Confirmed in the browser: `colorAttr=true, vertexColors=true` on every
+architecture and neighbours primitive, instanced and not.
+
+The effect is **real but modest at noon**, and strongest at `lane` where the
+near blocks show vertical falloff and the podium's slab edges finally have
+undersides. At `street` the city is 100 m+ away through fog and the change is
+subtle. That is not an AO failure — it is item 4 arriving early: a 3.4 key with
+a strong hemisphere fill washes out a 0.7 multiplier, and the AO will not pay
+off fully until the noon grade stops flattening everything it touches.
