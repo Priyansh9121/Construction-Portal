@@ -1307,7 +1307,7 @@ def light(dusk):
 # would swallow it.
 LAYER_RULES = (
     ("street", ("gate", "ground", "street", "kerb", "path", "lane", "sitepad",
-                "verge", "hoard", "cabin", "skip", "stack",
+                "verge", "lamp", "tree", "park", "hoard", "cabin", "skip", "stack",
                 # M3 terrain
                 "road", "pad", "ramp", "haul", "drain", "mark")),
     ("neighbours", ("nb", "np", "nw", "nplant", "city",

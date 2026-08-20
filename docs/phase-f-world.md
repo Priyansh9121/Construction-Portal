@@ -1156,3 +1156,56 @@ Street lamps along `VERGE_CENTRE` remain to do, and will share the placement
 pass with the trees.
 
     TOTAL 736,724 bytes
+
+## Street lamps — the first light in this world with falloff (2026-08-21)
+
+Everything lighting the scene until now was effectively at infinite distance: a
+sun, a hemisphere, a sky. **Nothing had falloff**, and falloff is what tells the
+eye that ground is ground rather than a painted plane.
+
+**578 emissive lamp heads**, instanced along `VERGE_CENTRE` from the shared
+placement pass, alternating sides **by cell** rather than planting both — at
+150 m nobody reads the symmetry and it halves the instances. Trees will join the
+same pass.
+
+### Real point lights: affordable at four, and there is a cliff at seven
+
+Measured with `EXT_disjoint_timer_query_webgl2`, dusk, desktop 1440x900:
+
+    0 lights   6.28 ms        5 lights   7.48 ms
+    4 lights   8.11 ms        6 lights   8.65 ms
+                              7 lights  17.52 ms   <- doubles
+                              8 lights  21.11 ms
+
+    mobile viewport, 0 -> 4 -> 8 -> 16:  3.53 / 4.29 / 5.88 / 8.27 ms (linear)
+
+So the honest answer to "are they free at that count": **no.** Four costs about
+1.1-1.8 ms, roughly a fifth of the frame's GPU at dusk. Six is the ceiling and
+seven is a doubling — almost certainly a shader-program threshold, since the
+mobile curve stays linear where the desktop one does not. Four leaves headroom
+and is worth it; more is not available on desktop at any price.
+
+Gated by **visibility, not intensity**: three compiles the light count into the
+shader, so a light left present at zero costs what a lit one costs. Toggling
+recompiles once as dusk crosses — once per session, not per frame.
+
+### Candela, not a small number
+
+At `intensity 161` the four lights reached 2.6% of the frame with a mean lift of
+**3.8** — nothing. `decay: 2` is physically-correct falloff, so intensity is
+luminous intensity, and a lamp 7 m up lighting ground 15 m away needs thousands:
+
+    intensity    161  ->   5,909 px (2.6%)   lift  3.8
+    intensity  2,000  ->  22,115 px (9.7%)   lift 13.3
+    intensity 12,000  ->  34,100 px (15.0%)  lift 39.1
+
+Set at `nightness * 9000`. Result at dusk:
+
+    street   mean 16.5 -> 30.7   p95 54.9 -> 130.5   range 51.8 -> 127.3
+    lane     mean 27.8 -> 34.8   p95 81.0 -> 110.9
+
+The far skyline stays silhouetted deliberately: lit windows punching through 84%
+fog would read as fake before it read as detailed, and the fog measurement says
+so.
+
+    TOTAL 761,384 bytes
