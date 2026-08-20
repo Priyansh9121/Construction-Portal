@@ -304,11 +304,49 @@ CITY_FOOTPRINT = {
 # city, which is also what a street does. Blender coordinates (Z up), from the
 # station eyes in SITE_JOURNEY: three (x, y, z) is Blender (x, -z, y).
 CAMERA_KEEPOUT = [
-    (-96.0, -132.0, 62.0),   # street establishing
-    (-30.0, -60.0, 46.0),    # footpath
-    (-8.0, -42.0, 42.0),     # site entry
-    (95.0, 70.0, 52.0),      # rear
+    (-96.0, -132.0, 62.0, "street"),
+    (-30.0, -60.0, 46.0, "footpath"),
+    (-8.0, -42.0, 42.0, "entry"),
+    (95.0, 70.0, 52.0, "lane"),
 ]
+
+# Instances are scaled up to this in plan, so a footprint reaches further than
+# the archetype's own half-width.
+CITY_MAX_SCALE = 1.12
+# Air between a facade and a lens. Below this the camera is inside the building
+# whether the maths says so or not.
+STATION_CLEAR = 6.0
+
+
+def assert_cameras_clear(blocks):
+    """No block may reach a station eye. Fails the EXPORT, naming both.
+
+    The keep-out that prevents this was latent-buggy for several sessions: it
+    tested centre distance only, so a 26 m block centred 63 m from a 62 m
+    keep-out passed and swallowed the street camera. Nothing caught it until a
+    tone change reshuffled the placement PRNG and moved that block into frame.
+
+    That is the point of asserting rather than trusting the rule: every future
+    change to placement, count or ordering reshuffles the ENTIRE city, so a
+    keep-out that happens to hold today holds by luck tomorrow. Same reasoning
+    as the vertex-count assert in the VAT baker — the cheap invariant that
+    speaks when the expensive silent one breaks.
+    """
+    bad = []
+    for kx, ky, _kr, name in CAMERA_KEEPOUT:
+        for blk in blocks:
+            reach = CITY_FOOTPRINT[blk["kind"]] * CITY_MAX_SCALE + STATION_CLEAR
+            d = math.hypot(blk["x"] - kx, blk["y"] - ky)
+            if d < reach:
+                bad.append(
+                    f"{blk['kind']} at ({blk['x']:.1f}, {blk['y']:.1f}) is "
+                    f"{d:.1f} m from the {name} camera and reaches {reach:.1f} m")
+    if bad:
+        raise SystemExit(
+            "CAMERA INTRUSION — a building stands where a camera stands, and "
+            "the frame will be the inside of a wall:\n  " + "\n  ".join(bad))
+    print(f"OK   cameras clear: {len(CAMERA_KEEPOUT)} stations vs "
+          f"{len(blocks)} blocks")
 
 
 def city_archetype(name, mats, w, d, floors, fh, kind):
@@ -476,16 +514,6 @@ def build_city(mats, empties):
         x = cx + rng.uniform(-room, room)
         y = cy + rng.uniform(-room, room)
 
-        # Off the camera, and off the sight line between camera and site.
-        # The block's own FOOTPRINT counts, not just its centre. Testing the
-        # centre alone let a 26 m-wide block sit 63 m from a 62 m keep-out and
-        # still swallow the camera — which is exactly what happened the moment
-        # a tone change reshuffled the placement RNG and moved the blocks.
-        foot_here = CITY_FOOTPRINT[kind]
-        if any(math.hypot(x - kx, y - ky) < kr + foot_here
-               for kx, ky, kr in CAMERA_KEEPOUT):
-            continue
-
         # Kind by distance: sheds near, towers far, so the skyline rises AWAY
         # from the site and the hero stays the tallest thing near it.
         far = (r - CITY_INNER) / (CITY_OUTER - CITY_INNER)
@@ -498,6 +526,15 @@ def build_city(mats, empties):
             kind = "nbtower" if roll < 0.55 else "nbpodium"
 
         foot = CITY_FOOTPRINT[kind]
+
+        # Off the cameras. The block's own FOOTPRINT counts, not just its
+        # centre: testing the centre alone let a 26 m-wide block sit 63 m from
+        # a 62 m keep-out and swallow the street camera. This has to come
+        # AFTER `kind`, which is what decides the footprint.
+        if any(math.hypot(x - kx, y - ky) < kr + foot
+               for kx, ky, kr, _n in CAMERA_KEEPOUT):
+            continue
+
         if any(math.hypot(x - px, y - py) < (foot + pr) * 0.62 for px, py, pr in placed):
             continue
         placed.append((x, y, foot))
@@ -539,6 +576,8 @@ def build_city(mats, empties):
         fewest = min(near)
         candidates = [t for t in range(n_tones) if near[t] == fewest]
         blk["tone"] = candidates[rng.randrange(len(candidates))]
+
+    assert_cameras_clear(blocks)
 
     for blk in blocks:
         placements[blk["kind"]].append((blk["x"], blk["y"], 0.0, blk["tone"]))
@@ -1158,4 +1197,17 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Blender's -b exits 0 even when the script raises, so a traceback would
+    # otherwise scroll past and build_assets.sh would go on to gate the STALE
+    # assets from the previous run and report success. Measured: that is
+    # exactly what happened when a keep-out referenced `kind` before it was
+    # assigned. Any failure here has to be a non-zero exit.
+    try:
+        main()
+    except SystemExit:
+        raise
+    except BaseException as exc:                       # noqa: BLE001
+        import traceback
+        traceback.print_exc()
+        print(f"FAILED: {type(exc).__name__}: {exc}")
+        sys.exit(1)
