@@ -400,3 +400,65 @@ field. `entry` (47 m) is now the weak one — at 106 m the building fills the
 frame completely and neither the site nor the city is visible, so it reads as a
 facade study rather than as a place. It was framed for a 27.7 m building and
 survived the re-derivation by being mathematically correct rather than right.
+
+---
+
+## TRAP 9 — when the question is whether two values differ, read the values
+
+The city's tones were judged across two renders — noon, then golden hour —
+before anyone dumped the materials. One `console.log` of colour, roughness and
+map answered in seconds what a second render was never going to settle: all
+three were `#ffffff` and two shared a texture. They had never differed.
+
+Renders answer *how does this look*. They cannot answer *are these two things
+the same*, because every difference in a render is confounded with light,
+distance, exposure and fog. **If the question is an equality, read the values.**
+
+Same family as trap 8: both spend effort on something adjacent to the question.
+
+## The crowd — baked, measured, and not finished
+
+### The byte number
+
+    walk-vat.png       37.3 KB    1662 vertices x 24 frames, RGB8
+    crowd-figure.glb   74.1 KB    the base mesh, UNCOMPRESSED (see below)
+    walk-vat.json       0.4 KB    decode bounds
+    -------------------------------------------------------------
+    TOTAL             111.8 KB    the same for ten figures or ten thousand
+
+Against `login-site-people.glb` at 79.6 KB for **five static figures** today.
+
+### The performance number is NOT yet established
+
+Measured 100 / 2,000 / 10,000 figures on both tiers, with `gl.finish()`:
+**2 draw calls at every size**, and frame time flat at 0.3–0.5 ms.
+
+**Flat is the tell, and it was right to distrust it.** The preview builds the
+crowd from the FIRST primitive of the figure only — the GLB has four, one per
+material (374 + 862 + 264 + 162 = 1662) — so it was measuring a quarter of a
+body. The draw-call figure stands; the per-figure vertex cost is understated by
+roughly 4.4x and the crowd-size question is still open.
+
+### Two findings worth keeping
+
+**Vertex order is not stable across the pipeline, twice over.**
+
+1. Blender's 456 vertices become 1662 in the GLB — the exporter applies
+   modifiers and splits by normal and UV. A VAT indexed by Blender's order
+   poses every figure with somebody else's vertices, and it still looks
+   human, because it is the same cloud of points. The baker now exports,
+   re-imports, and resamples through the order the runtime will see.
+2. **`meshopt` welds vertices**, taking that 1662 back to 374 — so compressing
+   the figure silently invalidates the texture baked against it. The figure
+   therefore ships UNCOMPRESSED, at a cost of 46 KB, and that is a deliberate
+   trade rather than an oversight.
+
+The next step is a VAT per primitive, or a single-material figure so there is
+only one.
+
+### Mobile
+
+`SITE_LAYERS` skips `login-site-people` on phones, so today a crowd would be
+desktop-only by inheritance. The measurement says the phone tier renders 10,000
+figures in the same 2 draw calls, so the reason to exclude them would be
+fill-rate and memory, not draw calls — **a decision to make, not to inherit.**

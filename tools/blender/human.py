@@ -94,7 +94,8 @@ def _limb(name, a, b, r0, r1, mat, bulge=1.0):
     return ob
 
 
-def worker(name, mats, pose="stand", facing=0.0, height=1.75, seed=0):
+def worker(name, mats, pose="stand", facing=0.0, height=1.75, seed=0,
+           phase=None):
     """
     One worker, in PPE.
 
@@ -102,6 +103,13 @@ def worker(name, mats, pose="stand", facing=0.0, height=1.75, seed=0):
     are seen, a changed silhouette is the whole of what a pose communicates,
     and a rig would cost an armature and skin weights to deliver the same
     forty pixels.
+
+    `phase` is the walk cycle, 0..1, and exists for ONE caller: the vertex
+    animation texture baker. It moves the same limb targets `pose` moves, so
+    the topology is identical at every phase — which is the whole requirement
+    for a VAT, since a texture of vertex positions has no way to describe a
+    mesh whose vertex count changed. Left at None every existing caller
+    behaves exactly as before.
     """
     import random
     rng = random.Random(seed)
@@ -154,11 +162,21 @@ def worker(name, mats, pose="stand", facing=0.0, height=1.75, seed=0):
 
     # ---- LEGS ------------------------------------------------------------
     stride = {"walk": 0.20, "stand": 0.05, "signal": 0.06}.get(pose, 0.05) * s
+    cyc = None if phase is None else phase * math.tau
     for side, sx in (("l", -1), ("r", 1)):
         hipx = sx * 0.085 * s
-        fwd = stride if sx > 0 else -stride
-        knee = (hipx, fwd * 0.5, 0.46 * s)
-        ankle = (hipx, fwd, 0.085 * s)
+        if cyc is None:
+            fwd = stride if sx > 0 else -stride
+            lift = 0.0
+        else:
+            # Opposed legs, and the knee rises on the swing rather than the
+            # stance -- a leg that stays straight through the cycle reads as
+            # a mannequin sliding.
+            ph = cyc + (0.0 if sx > 0 else math.pi)
+            fwd = stride * math.sin(ph)
+            lift = max(0.0, math.sin(ph + math.pi * 0.5)) * 0.055 * s
+        knee = (hipx, fwd * 0.5, 0.46 * s + lift)
+        ankle = (hipx, fwd, 0.085 * s + lift * 1.35)
         parts.append(_limb(f"{name}-thigh{side}", (hipx, 0, 0.86 * s), knee,
                            0.085 * s, 0.060 * s, wk, bulge=1.12))
         parts.append(_limb(f"{name}-shin{side}", knee, ankle,
@@ -176,6 +194,11 @@ def worker(name, mats, pose="stand", facing=0.0, height=1.75, seed=0):
         elif pose == "carry":
             elbow = (shx + sx * 0.03 * s, 0.02 * s, 1.08 * s)
             wrist = (shx - sx * 0.05 * s, -0.20 * s, 1.02 * s)
+        elif cyc is not None:
+            # Arms oppose the legs, which is the single cue that says walking.
+            swing = stride * 0.6 * math.sin(cyc + (math.pi if sx > 0 else 0.0))
+            elbow = (shx + sx * 0.02 * s, swing * 0.5, 1.08 * s)
+            wrist = (shx + sx * 0.03 * s, swing, 0.86 * s)
         else:
             swing = (stride * 0.6) * (-1 if sx > 0 else 1)
             elbow = (shx + sx * 0.02 * s, swing * 0.5, 1.08 * s)

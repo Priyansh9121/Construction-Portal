@@ -1,0 +1,15 @@
+{
+  "vertices": 1662,
+  "frames": 24,
+  "lo": [
+    -0.24849659204483032,
+    -0.29250001907348633,
+    0.0005000010132789612
+  ],
+  "hi": [
+    0.24849659204483032,
+    0.36250001192092896,
+    1.7619999647140503
+  ],
+  "note": "RGB is position normalised into [lo, hi] per axis. Row = frame, column = vertex. Y-up conversion is applied by the runtime, not here: these are Blender Z-up coordinates."
+}
