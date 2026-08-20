@@ -958,6 +958,19 @@ export async function createAuthWorld(canvas, opts = {}) {
    * is now, in Asia/Kolkata, the same timezone the product's business logic
    * uses to decide what "today" means.
    */
+  /*
+   * CITY WINDOWS.
+   *
+   * The city had no artificial light at all, so at sun -9.4 degrees it
+   * rendered as black cardboard: measured p25 3.4 and mean 7.6 against noon's
+   * 65.7, with every bit of the AO, facade and tone work invisible at the hour
+   * users actually arrive.
+   *
+   * Lit glazing is a separate material SLOT, assigned to whole blocks at
+   * placement — instancing carries transforms and nothing else, so a state
+   * that varies per building has to be a group, exactly as the tones are.
+   */
+  const cityWindows = [];
   let crowd = null;
   let env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
   const preset = env.grade;
@@ -1215,6 +1228,19 @@ export async function createAuthWorld(canvas, opts = {}) {
      * shadowed side going dead. */
     scene.environmentIntensity = g.envI ?? 1;
 
+    /*
+     * Driven by NIGHTNESS, which is continuous 0..1 from the sun's altitude —
+     * the same signal the site's work lamps use. Windows come up through dusk
+     * rather than snapping on at a threshold, which is what the eye reads as
+     * evening rather than as a switch being thrown.
+     */
+    const windowGlow = env.nightness;
+    for (const m of cityWindows) {
+      m.emissive.setHex(0xffd2a1);
+      m.emissiveIntensity = windowGlow * 4.5;
+      m.needsUpdate = true;
+    }
+
     scene.fog.color.setHex(g.fog);
     scene.fog.density = g.fogD * (portrait ? 1.25 : 1);
     renderer.toneMappingExposure = g.exposure;
@@ -1356,6 +1382,12 @@ export async function createAuthWorld(canvas, opts = {}) {
           const note = noteSurface(layer.name);
           for (const { geometry, material, matrices } of prims) {
             dressSurface(THREE, material, surfaces, note);
+            /* Windows that can light. Collected here rather than searched for
+             * later, because this is the one pass that sees every material
+             * exactly once. */
+            if (String(material.name || "").startsWith("glass_lit")) {
+              cityWindows.push(material);
+            }
             /* A prim carrying matrices came from EXT_mesh_gpu_instancing and
              * has to be rebuilt as an InstancedMesh, or its placements are
              * lost and every copy lands on top of the first. */

@@ -122,6 +122,34 @@ function mixHex(a, b, t) {
  * Exposure is deliberately NOT touched. It is already lowest at noon, which is
  * the fingerprint of someone having tried to fix this from the wrong end.
  *
+ * NIGHT IS SKYGLOW, as of 2026-08-20.
+ *
+ * At sun -9.4 degrees the world rendered at mean 7.6 of 255 with p25 at 3.4 —
+ * black cardboard at the hour users actually arrive, with the AO, facades,
+ * tones and street section all invisible. Lit windows were built first and
+ * measured: `glass_lit` reaches about 1% of the frame, so windows alone can
+ * never carry it. The BODY is 70% of the city's pixels and it had no light on
+ * it at all.
+ *
+ * The missing term is skyglow. This sky shader models a rural night, so its
+ * PMREM is nearly black — but a city at night is lit by itself, and that is
+ * the light the buildings are actually standing in. Raising the indirect at
+ * the two night stops is modelling that, not cheating it.
+ *
+ * Measured at `lane`, sun -9.4:
+ *
+ *     env 1.0 / fill 0.66    p05 3.1  p25 5.1  mean  9.1
+ *     env 4.0 / fill 2.0     p05 3.0  p25 6.1  mean 24.3
+ *     env 6.0 / fill 3.0     p05 3.1  p25 7.1  mean 33.7
+ *     env 9.0 / fill 4.0     p05 4.9  p25 9.4  mean 48.9   (too close to noon)
+ *
+ * The stops below interpolate to env 4.85 / fill 2.60 at -9.4, which is in the
+ * measured zone and lands at roughly a third of noon's mean — night that reads
+ * as night rather than as the lights being off.
+ *
+ * The KEY stays low: after dark the only direct source is the moon, and that
+ * is what keyI already says.
+ *
  *   -18   astronomical twilight ends: true night
  *    -6   civil twilight: the blue hour, lights on, work continues
  *  -0.83  geometric sunrise/sunset including refraction
@@ -133,17 +161,17 @@ const STOPS = [
   { alt: -18, grade: {
     zenith: [0.012, 0.018, 0.045], horizon: [0.04, 0.05, 0.09],
     ground: [0.012, 0.014, 0.02], tint: [0.55, 0.62, 0.85], haze: 0.85,
-    key: 0x2c3c66, keyI: 0.06, fill: 0x243a5e, fillI: 0.16, envI: 1.0, bounce: 0x0a0b0e,
+    key: 0x2c3c66, keyI: 0.06, fill: 0x243a5e, fillI: 1.6, envI: 3.2, bounce: 0x0a0b0e,
     fog: 0x05070c, fogD: 0.0090, work: 1.0, exposure: 1.22 } },
   { alt: -6, grade: {
     zenith: [0.03, 0.05, 0.12], horizon: [0.16, 0.15, 0.24],
     ground: [0.03, 0.032, 0.042], tint: [0.85, 0.6, 0.55], haze: 1.35,
-    key: 0x6a6ea0, keyI: 0.18, fill: 0x44598c, fillI: 0.85, envI: 1.0, bounce: 0x14120f,
+    key: 0x6a6ea0, keyI: 0.18, fill: 0x44598c, fillI: 3.0, envI: 5.5, bounce: 0x14120f,
     fog: 0x0b0f18, fogD: 0.0078, work: 1.0, exposure: 1.12 } },
   { alt: -0.83, grade: {
     zenith: [0.05, 0.09, 0.2], horizon: [0.52, 0.3, 0.3],
     ground: [0.05, 0.055, 0.07], tint: [1.0, 0.5, 0.28], haze: 1.5,
-    key: 0xffc79a, keyI: 1.35, fill: 0x5b82c4, fillI: 1.9, envI: 1.0, bounce: 0x1a1712,
+    key: 0xffc79a, keyI: 1.35, fill: 0x5b82c4, fillI: 1.9, envI: 2.0, bounce: 0x1a1712,
     fog: 0x141821, fogD: 0.0068, work: 0.9, exposure: 1.05 } },
   { alt: 6, grade: {
     zenith: [0.13, 0.24, 0.46], horizon: [0.78, 0.6, 0.46],
