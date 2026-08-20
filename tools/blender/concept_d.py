@@ -343,7 +343,7 @@ CITY_MAX_SCALE = 1.12
 STATION_CLEAR = 6.0
 
 
-def assert_cameras_clear(blocks):
+def assert_cameras_clear(blocks, planted=()):
     """No block may reach a station eye. Fails the EXPORT, naming both.
 
     The keep-out that prevents this was latent-buggy for several sessions: it
@@ -366,6 +366,15 @@ def assert_cameras_clear(blocks):
                 bad.append(
                     f"{blk['kind']} at ({blk['x']:.1f}, {blk['y']:.1f}) is "
                     f"{d:.1f} m from the {name} camera and reaches {reach:.1f} m")
+    # Trees and lamps too: a canopy through the lens is no better than a tower
+    # through it, and the planting pass reshuffles with every layout change.
+    for kx, ky, _kr, name in CAMERA_KEEPOUT:
+        for (px, py, reach, what) in planted:
+            d = math.hypot(px - kx, py - ky)
+            if d < reach:
+                bad.append(f"{what} at ({px:.1f}, {py:.1f}) is {d:.1f} m from "
+                           f"the {name} camera and reaches {reach:.1f} m")
+
     if bad:
         raise SystemExit(
             "CAMERA INTRUSION — a building stands where a camera stands, and "
@@ -504,6 +513,57 @@ LAMP_SPACING = 30.0
 LAMP_H = 7.2
 
 
+
+# ---------------------------------------------------------------------------
+# TREES — two canopies, measured against each other
+# ---------------------------------------------------------------------------
+#
+# A canopy of solid prisms reads as broccoli, which is a SHAPE problem, so it
+# is judged at noon where shape reads. Two builds are made so the choice is
+# measured rather than argued: modelled foliage masses against alpha-tested
+# cards. Alpha test has its own GPU cost, so both bytes and frame time are
+# compared before one is kept.
+
+TREE_H = 7.4
+# Air between a canopy and a lens. The assert below tests 5.5 m of reach, so
+# this leaves margin rather than sitting exactly on the limit.
+TREE_CLEAR = 11.0
+
+
+def _blob(name, x, y, z, r, mat, subdiv=2):
+    """One rounded foliage mass. Cheaper and rounder than a chamfered prism."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdiv, radius=r,
+                                          location=(x, y, z))
+    ob = bpy.context.active_object
+    ob.name = name
+    ob.data.materials.append(mat)
+    for pl in ob.data.polygons:
+        pl.use_smooth = True
+    return ob
+
+
+def build_tree_modelled(name, mats, rng):
+    """Trunk, branches and overlapping foliage masses."""
+    parts = [M.column(f"{name}-trunk", 0.0, 0.0, 0.0, TREE_H * 0.52, 0.16,
+                      mats["bark"])]
+    for k in range(4):
+        a = k * math.tau / 4 + rng.uniform(-0.3, 0.3)
+        parts.append(strut(f"{name}-br{k}", (0.0, 0.0, TREE_H * 0.42),
+                           (math.cos(a) * 1.3, math.sin(a) * 1.3, TREE_H * 0.72),
+                           0.09, mats["bark"]))
+    for k in range(5):
+        a = k * math.tau / 5
+        rad = 1.35 if k else 1.9
+        parts.append(_blob(
+            f"{name}-cn{k}",
+            0.0 if not k else math.cos(a) * 1.15,
+            0.0 if not k else math.sin(a) * 1.15,
+            TREE_H * (0.82 if not k else rng.uniform(0.70, 0.80)),
+            rad, mats["foliage"]))
+    return L.join_all(name, [o for o in parts if o])
+
+
+
 def build_lamp(name, mats):
     """One lamp: a column, a bracket and a head that lights at night.
 
@@ -565,6 +625,78 @@ def build_street_furniture(mats, empties, rng):
         dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
     empties.append(e)
     print(f"STREET lamps: {len(made)} instances")
+
+    # ---- TREES ----------------------------------------------------------
+    #
+    # CLUSTERED, not even. At dusk the only places near-field detail pays are
+    # the four lamp pools; everything outside them is silhouette. So most
+    # trees go where the light is and the rest are scattered thin, which is
+    # cheaper and better at the same time.
+    #
+    # The pool centres are derived the same way authWorld derives the lamp
+    # lights — 20 m ahead of the station eye and 7.2 m out on the verge — so
+    # the trees stand where the light actually lands. Blender is Z-up and the
+    # stations are authored in three's frame, hence the -z on every target.
+    stations = [
+        ((-96.0, -132.0), (-2.0, -14.0)),
+        ((-30.0, -60.0), (0.0, -10.0)),
+        ((-8.0, -42.0), (4.0, -6.0)),
+        ((95.0, 70.0), (0.0, 0.0)),
+    ]
+    pools = []
+    for (ex, ey), (tx, ty) in stations:
+        dx, dy = tx - ex, ty - ey
+        ln = math.hypot(dx, dy) or 1.0
+        ux, uy = dx / ln, dy / ln
+        pools.append((ex + ux * 20.0 + uy * 7.2, ey + uy * 20.0 - ux * 7.2))
+
+    # ONE archetype. Alpha-tested cards were built and measured against these
+    # modelled canopies: 116 vertices against 395, and GPU indistinguishable at
+    # this instance count — but at close range the cards read as intersecting
+    # flat planes, which is the same failure as broccoli wearing a different
+    # hat. Shape decided it, judged at noon, as it had to be.
+    tree_at = {"tree": []}
+    kinds = ["tree"]
+
+    # Two thirds around the pools.
+    for i in range(64):
+        px, py = pools[i % len(pools)]
+        a = rng.uniform(0.0, math.tau)
+        r = 6.0 + rng.random() ** 0.6 * 20.0
+        x, y = px + math.cos(a) * r, py + math.sin(a) * r
+        # The pool centre is only 21 m from the eye, so a cluster radius of 26
+        # reaches back PAST the camera. Caught by assert_cameras_clear on its
+        # first real use, at 0.8 m from the entry eye.
+        if any(math.hypot(x - kx, y - ky) < TREE_CLEAR
+               for kx, ky, _kr, _n in CAMERA_KEEPOUT):
+            continue
+        tree_at["tree"].append((x, y, GROUND_TOP + 0.12))
+
+    # The rest thin, on the verge, where they are silhouette at dusk and
+    # street trees at noon.
+    for j, (x, y, _s, _i, _ax) in enumerate(verge_positions(rng, LAMP_SPACING * 1.6)):
+        if rng.random() > 0.34:
+            continue
+        if any(math.hypot(x - kx, y - ky) < kr * 0.3
+               for kx, ky, kr, _n in CAMERA_KEEPOUT):
+            continue
+        tree_at["tree"].append((x, y, GROUND_TOP + 0.12))
+
+    # Everything planted, for the camera assert.
+    planted = ([(x, y, 4.0, "lamp") for (x, y, _z) in lamp_at]
+               + [(x, y, 5.5, "tree") for (x, y, _z) in tree_at["tree"]])
+    assert_cameras_clear([], planted=planted)
+
+    for kind in kinds:
+        src = build_tree_modelled(kind, mats, rng)
+        bake_vertex_ao([src], with_ground=False, strength=0.7)
+        e2, made2 = instance_group(kind, src, tree_at[kind])
+        for dup in made2:
+            dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
+            sc = rng.uniform(0.72, 1.28)
+            dup.scale = (sc, sc, rng.uniform(0.8, 1.25))
+        empties.append(e2)
+        print(f"STREET {kind}: {len(made2)} instances")
 
 
 def build_streets(parts, mats):
@@ -962,6 +1094,18 @@ def build(dusk=False):
     lamp_lit = mats["galv"].copy()
     lamp_lit.name = "lamp_lit"
     mats["lamp_lit"] = lamp_lit
+
+    # Vegetation. `foliage` is a solid mass, `leaf_card` is the alpha-tested
+    # variant whose mask the runtime generates; `bark` is shared by both.
+    for nm, rgb, rough in (("bark", (0.20, 0.15, 0.11, 1.0), 0.95),
+                           ("foliage", (0.16, 0.30, 0.13, 1.0), 0.88),
+                           ("leaf_card", (0.18, 0.34, 0.15, 1.0), 0.85)):
+        mm = bpy.data.materials.new(nm)
+        mm.use_nodes = True
+        bs = next(n for n in mm.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        bs.inputs["Base Color"].default_value = rgb
+        bs.inputs["Roughness"].default_value = rough
+        mats[nm] = mm
     parts = {"conc": [], "galv": [], "ply": [], "paint": [], "glass": []}
     empties = []
 
