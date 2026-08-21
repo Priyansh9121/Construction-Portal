@@ -41,6 +41,7 @@ import {
 } from "./loginSite";
 import { loadCrowdAssets, buildCrowd, placeCrowd } from "./crowd";
 import { fetchWeather, DEFAULT_WEATHER } from "./weather";
+import { createRain } from "./rain";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -1041,6 +1042,23 @@ export async function createAuthWorld(canvas, opts = {}) {
   const lampLights = [];
   const LAMP_COUNT = portrait ? 2 : 4;
 
+  /*
+   * WET GROUND.
+   *
+   * Cheaper than rain and it sells the weather harder. A wet surface is
+   * smoother and darker, and the PMREM already in the scene supplies what it
+   * then reflects — so this is two numbers per material and no new geometry,
+   * no new pass and no new texture.
+   *
+   * Only ground and horizontal-ish site surfaces: rain does not make a facade
+   * shine, and a wet wall reads as a mistake.
+   */
+  const WETTABLE = new Set([
+    "asphalt", "kerb", "footpath", "median_top", "haul", "earth", "conc",
+    "spandrel", "ply",
+  ]);
+  const wetSurfaces = [];
+  let rain = null;
   let leafTexture = null;
   const cityWindows = [];
   /*
@@ -1094,6 +1112,18 @@ export async function createAuthWorld(canvas, opts = {}) {
   );
 
   const sky = createSky(THREE, scene, env.grade, env.sun.dir, env.moon);
+
+  /*
+   * Rain. Fewer drops on a phone, and none drawn until it rains.
+   *
+   * Placed here because `scene` exists here. An earlier version declared it
+   * beside the wet-surface list, before the scene was constructed — the second
+   * temporal dead-zone throw of this session, and the second one that
+   * `npm run build` called clean. Trap 10 does not get less true with
+   * repetition.
+   */
+  rain = createRain(THREE, portrait ? 1100 : 2600);
+  scene.add(rain.points);
 
   /*
    * ENVIRONMENT LIGHTING FROM THE SKY ITSELF.
@@ -1336,6 +1366,30 @@ export async function createAuthWorld(canvas, opts = {}) {
      * rather than snapping on at a threshold, which is what the eye reads as
      * evening rather than as a switch being thrown.
      */
+    /*
+     * Wetness. Roughness falls toward a puddle and albedo darkens, both from
+     * the DRY values captured at load so repeated grades cannot compound.
+     *
+     * Note for anyone measuring this: the masked luminance probe CANNOT see
+     * the result cleanly, because most of what a wet street shows is the lamps
+     * reflected in it, and reflections of an emissive source behave like the
+     * emissive source did — invisible to a mask built on "differs from
+     * lights-off". Judge it against the frame with wetness forced to zero.
+     */
+    /* Rain follows the forecast, and takes the sky's own tint so it is not a
+     * grey curtain hanging in a warm dusk. */
+    rain?.setIntensity(env.weather?.rain ?? 0,
+                      new THREE.Color(env.grade.tint[0] * 0.72 + 0.2,
+                                      env.grade.tint[1] * 0.72 + 0.24,
+                                      env.grade.tint[2] * 0.72 + 0.3));
+
+    const wet = Math.max(0, Math.min(1, env.weather?.wet ?? 0));
+    for (const { material, dryRough, dryColor } of wetSurfaces) {
+      material.roughness = dryRough * (1 - 0.72 * wet);
+      material.color.copy(dryColor).multiplyScalar(1 - 0.34 * wet);
+      material.needsUpdate = true;
+    }
+
     const windowGlow = env.nightness;
 
     /*
@@ -1529,6 +1583,13 @@ export async function createAuthWorld(canvas, opts = {}) {
              * later, because this is the one pass that sees every material
              * exactly once. */
             const slotName = String(material.name || "").split(".")[0];
+            /* Surfaces that get wet. Roughness is captured now, dry, because
+             * wetting is a MULTIPLIER and a material re-wetted from an
+             * already-wet value would ratchet toward mirror. */
+            if (WETTABLE.has(slotName)) {
+              wetSurfaces.push({ material, dryRough: material.roughness,
+                                 dryColor: material.color.clone() });
+            }
             if (slotName === "leaf_card") {
               material.map = leafTexture || (leafTexture = leafMask(THREE));
               material.alphaTest = 0.5;
@@ -2054,6 +2115,7 @@ export async function createAuthWorld(canvas, opts = {}) {
        * the concrete over minutes rather than seconds. */
       sky.advance(elapsed, wind);
       crowd?.advance(elapsed);
+      rain?.advance(elapsed, rig.cam, wind);
 
       /*
        * THE WORLD FOLLOWS THE REAL CLOCK.
@@ -2235,6 +2297,7 @@ export async function createAuthWorld(canvas, opts = {}) {
       envRT?.dispose();
       pmrem.dispose();
       crowd?.dispose();
+      rain?.dispose();
       sky.dispose();
       renderer.dispose();
     },

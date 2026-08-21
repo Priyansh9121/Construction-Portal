@@ -1387,3 +1387,63 @@ and a bright flat day rather than a dark one.
 
 Nothing applies below 0.35 cloud, because a quarter-covered sky is a clear day
 with clouds in it.
+
+### Wet surfaces, before rain
+
+Nine ground and site slots capture their DRY roughness and albedo at load, and
+`applyEnvironment` scales from those rather than from current values — a
+material re-wetted from an already-wet value would ratchet toward a mirror.
+Roughness falls to 28% of dry at full wet and albedo darkens by a third.
+
+Verified in the browser: `median_top` roughness **1.00 -> 0.28**, colour
+`#ffffff -> #d4d4d4`.
+
+**It is invisible under heavy overcast and obvious near the lamps**, and that is
+correct rather than a bug: a smooth surface shows you what it reflects, and a
+uniform grey sky reflected off a smooth road looks exactly like a diffuse grey
+road. What sells it is a bright, directional thing to reflect — which at dusk is
+the four street lamps.
+
+Recorded for whoever measures this next: **the masked luminance probe cannot see
+it.** Most of what a wet street shows is reflected lamplight, and a reflection of
+an emissive source is as invisible to a "differs from lights-off" mask as the
+source was. Judge it against the same frame with wetness forced to zero.
+
+### Rain, last
+
+One `THREE.Points` draw call. Every drop falls on its own clock in the vertex
+shader from a per-drop seed, wrapping with `mod` so nothing pops, and the column
+follows the camera — rain only has to exist where it can be seen. 2,600 drops on
+desktop, 1,100 on a phone, and none drawn at all below 1% intensity.
+
+Normal blending, not additive: additive rain over a dark city glows like embers,
+and rain scatters light rather than emitting it. The drops take the sky's own
+tint so they are not a grey curtain hanging in a warm dusk.
+
+### Two stale specs, updated deliberately
+
+`world-runtime.spec.js` was asserting a world that no longer exists:
+
+- `scale.width` 22 -> **64**, and `scale.meshes` 1 -> **3**, because the tower's
+  clad and fitting-out floors are instanced and each instanced node carries its
+  own `conc` primitive. The load-bearing property is unchanged and still
+  guarded: fewer than thirteen, because thirteen means the identity collapsed
+  back to resolving by name.
+- `login-site-people` left the mobile skip-list, per the measured decision of
+  2026-08-20.
+- `asphalt` and `spandrel` left the "must not be fetched on a phone" list. The
+  city's facade bands are `spandrel`, which resolves to the asphalt texture, and
+  the city is essential — so a phone rightly pulls them. Measured: a portrait
+  page fetches asphalt, brick, concrete and ply, and no ground map. `ground`
+  remains street-exclusive and is still asserted.
+
+9/9 world-runtime, 8/8 a11y.
+
+### Trap 10, twice more in one session
+
+Both the weather fetch and the rain column were first written before the
+identifiers they use were declared — `siteAbort`/`alive` in one case, `scene` in
+the other. Both are temporal dead-zone throws at runtime. **`npm run build`
+reported clean for both**, because a build cannot see them, and the first was
+only caught by reading the page's console. A build passing is not the work
+running.
