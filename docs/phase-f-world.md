@@ -1263,3 +1263,69 @@ four intrusions and failed the export. `TREE_CLEAR` is now 11 m, and planting
 is covered by the invariant alongside the buildings.
 
     STREET  578 lamps, 181 trees        TOTAL 775,908 bytes
+
+## 4. The garden (2026-08-21)
+
+### Where, checked rather than guessed
+
+Every station's eye, target, radius and fov was read out of `loginSite.js` and
+every grid cell tested against both frustums. **The check corrected the plan.**
+
+    cell (-1,-1)   street 21.5/31 at  78 m    lane 17.8/34 at 205 m    EMPTY
+    cell ( 0,-1)   street 23.4/31 at 119 m    lane 24.7/34 at 163 m    EMPTY
+    cell (-1,-2)   street 41.1/31             lane 22.6/34             built
+    cell (-2,-1)   street 61.7/31             lane 18.2/34             built
+
+The brief was to replace two or three adjacent CITY cells. Measured, **every
+cell that carries a building is 41-62 degrees off-axis from `street`** and
+cannot be seen from it at all; the only cells both cameras frame are already
+empty, because they sit inside `CITY_INNER`. So the park fills bare ground
+rather than displacing blocks. The road corridor between the two cells stays,
+which is what a park either side of a street looks like.
+
+Vocabulary reused throughout: `median_top` lawn, `footpath` walks, the modelled
+tree archetype, `ply` and `galv` benches. Park trees ride the SAME instanced
+archetype as the street trees, scaled up for maturity — one mesh, one draw call.
+
+    STREET 578 lamps, 233 trees        TOTAL 804,200 bytes
+
+### The establishing shot had to be defended
+
+`TREE_CLEAR` at 11 m cleared the assert and still ruined `street`: the lamp pool
+sits 21 m ahead of the eye, so a cluster radius of 26 put canopies at 11-47 m,
+and a 7.4 m tree at 11 m through a 41-degree lens fills the frame and hides the
+hero. Raised to 26 m — still inside the pool, out of the way of the lens.
+
+`assert_cameras_clear` earned itself again, catching a garden tree 1.7 m from
+the `entry` eye. That station stands INSIDE cell (0,-1), so the park is built
+around it rather than moved.
+
+### Water: it renders, and it cannot be seen
+
+Not a PMREM fight and not fog. Two separate findings, both measured:
+
+**First it was buried.** Lawn 0.30-0.54, pond 0.32-0.44 — the pond was 100 mm
+under a solid lawn slab and measured **zero pixels**. Precisely the city-roads
+failure again: geometry placed by arithmetic about a height instead of against
+the thing it sits on. The lawn is now a RING around the pond.
+
+**Then it was still zero, and the reason is framing.** Projecting the pond
+centre through the real cameras:
+
+    street   NDC (-0.40, -0.95)   bottom 2.5% of frame, behind the login card
+    lane     NDC ( 0.31, -0.74)   z 1.006 — clipped
+
+Both stations **pitch up at a 106 m tower**, so ground 78 m ahead falls out of
+the bottom of the frame. A pond at ground level in this park cannot be seen from
+either station at any size.
+
+It is kept — 30 vertices, and the lawn ring is correct geometry regardless — but
+**it is not visible and should not be counted as delivered.** Making it visible
+means re-aiming a station, which is a composition decision and not one to take
+unilaterally.
+
+### At dusk the prediction held
+
+Mature trees near the lamps are lit from below and read as pale canopies against
+the dark city — exactly the near-field detail the pools were expected to buy,
+and the strongest thing in the dusk frame after the lamps themselves.
