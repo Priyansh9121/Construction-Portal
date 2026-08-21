@@ -50,6 +50,7 @@ import useWorkers from "./hooks/useWorkers";
 
 import { loginUser } from "./services/authService";
 import runAuthTransition from "./utils/authTransition";
+import { worldDepart } from "./components/auth/authWorldSignal";
 import { uploadFile } from "./services/uploadService";
 
 import AppRoutes from "./routes/AppRoutes";
@@ -226,6 +227,17 @@ function App() {
         setEmail("");
         setPassword("");
         setMessage("");
+
+        /*
+         * Presentation, dispatched INSIDE the commit and after every piece of
+         * it. The session is applied and the credentials are cleared before
+         * this line runs, so a world that is absent, degraded, reduced-motion
+         * or throwing changes nothing about being signed in.
+         *
+         * Not awaited, and there is nothing to await: it is a DOM event that
+         * may land in an empty room.
+         */
+        worldDepart();
       });
 
       return data;

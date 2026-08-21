@@ -2261,13 +2261,37 @@ export async function createAuthWorld(canvas, opts = {}) {
       lights.lamps.forEach((l) => { l.light.intensity = l.base; });
       if (!reduced) intent("authFailure");
     },
-    /*
-     * The cinematic handover into the destination is the next phase's work.
-     * It is deliberately NOT stubbed here: the camera stations it needs
-     * ("through", then "operational") are generated and waiting, but wiring a
+    /**
+     * The sign-in succeeded. Release the scene.
+     *
+     * THE OLD NOTE HERE SAID THIS WAS THE NEXT PHASE'S WORK, because "wiring a
      * departure that does not yet hand over would put a flight in front of a
-     * route change and make sign-in slower for no gain.
+     * route change and make sign-in slower for no gain." That reasoning was
+     * right about the failure and is answered by the structure rather than
+     * ignored: nothing waits for this.
+     *
+     * `runAuthTransition` commits the session BEFORE it calls anything, the
+     * route swaps behind an opaque layer, and this method is dispatched
+     * fire-and-forget through a DOM event that no caller awaits. The camera
+     * moves behind the curtain for the ~260 ms the layer is up, and the world
+     * is disposed by the unmount whether the move finished or not. There is no
+     * path where a flight is in front of anything.
+     *
+     * It is presentation over a fact that has already happened — the same
+     * posture as the weather fetch and the asset loader.
      */
+    depart() {
+      if (!alive || reduced) return;
+      /* `transitionEntry` has been in SITE_INTENTS since the stations were
+       * authored, asserted by stationContract.test.mjs and dispatched by
+       * nobody until now. */
+      intent("transitionEntry");
+      /* And a push in, so the scene reads as releasing the viewer toward the
+       * building rather than merely cutting. Small: the layer is opaque within
+       * 90 ms, so only the first moments are ever seen. */
+      rig.zoom?.(0.82);
+    },
+
 
     dispose() {
       alive = false;

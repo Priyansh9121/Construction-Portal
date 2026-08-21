@@ -1447,3 +1447,102 @@ the other. Both are temporal dead-zone throws at runtime. **`npm run build`
 reported clean for both**, because a build cannot see them, and the first was
 only caught by reading the page's console. A build passing is not the work
 running.
+
+---
+
+## The login → dashboard transition (2026-08-21)
+
+### Inventory first — most of it was already written
+
+`authTransition.js` already guaranteed everything that matters: `commit()` runs
+synchronously before a single frame is scheduled, the layer is inserted BEFORE
+the commit so it survives the render that unmounts the sign-in tree, teardown is
+on a timer rather than `animationend` (which can fail to fire), reduced motion is
+90 ms rather than disabled, and the module never sees a role, a route or a
+credential. Two View Transitions attempts are documented there with the measured
+reasons they failed.
+
+**Two things were already built for this exact moment and wired to nothing:**
+
+- `authWorld` publishes `--auth-world-horizon` (and zenith, sun, key, fill) on
+  `.auth-scene` every environment update. `transition.css` read none of them.
+- `SITE_INTENTS.transitionEntry` existed, was asserted by
+  `stationContract.test.mjs`, and was **dispatched by nobody**.
+
+So this was connective work, not new machinery.
+
+### The premise was inverted, and the measurement said so
+
+The concern was that the live horizon would be near-black at night and would
+slip past a `!== "#000000"` check. Measured across the day:
+
+    noon      #dae6f1  luminance 228.2      dusk    #64627b  100.2
+    golden    #d3b3a6            184.9      night   #383f55   63.1
+    sunset    #a78890            143.2      overcast #d5d9df 216.6
+    --auth-sky-deep #0d1114       16.4
+
+**The darkest hour is four times brighter than the static token**, and the
+horizon is never near black. The real failure is at the other end: a departure
+starting at 228 and resolving to `--ui-canvas` at 251 is not a dark-to-light
+moment. The mix is still needed, for the opposite reason.
+
+Mixed 55% toward `--auth-sky-deep`, the start lands between **42 and 133** at
+every hour and weather — never near black, never within reach of the
+destination.
+
+### How the world's colour reaches a layer outside the world
+
+`--auth-world-*` lives on `.auth-scene` because publishing on `documentElement`
+invalidated inherited custom properties document-wide and cost a measured 184 ms
+long task. Custom properties inherit downward, and the departure layer is a child
+of `<body>` because it must OUTLIVE the sign-in tree — so it can never see a
+property scoped inside that tree.
+
+The value is therefore read **once, at the instant of departure**, and pinned to
+the layer inline as `--auth-departure-sky`. One `getComputedStyle` on a click,
+no frame cost, no document-wide invalidation. Every failure path leaves it unset
+and the CSS falls back to `--auth-sky-deep` — byte-for-byte the old behaviour.
+
+### The camera departs, and the old note was answered rather than ignored
+
+The deferral note in `authWorld.js` said a departure that does not hand over
+"would put a flight in front of a route change and make sign-in slower for no
+gain." That was right about the failure, and the structure answers it: the
+commit applies the session before anything visual, the route swaps behind an
+opaque layer, and `depart()` is dispatched fire-and-forget through a DOM event
+nobody awaits. The camera moves behind the curtain; nothing is in front of
+anything. Skipped entirely under reduced motion, as `arm()` and `relax()`
+already are.
+
+### The probe now measures instead of comparing to literals
+
+It read the `--auth-sky-deep` token and compared it against two strings. That
+could not see the layer's actual background at all, and cannot see a `color-mix`.
+It now samples `getComputedStyle(layer).backgroundColor` from a real layer and
+asserts a **luminance band**:
+
+    floor  14   `--auth-sky-deep` is 16.4 and is the darkest the departure is
+                designed to be. 14 clears it and rejects #0a0d17 at 13.1.
+    ceiling 170 unmixed noon is 228, a few percent from the destination.
+
+    with no world          16.4    passes
+    at the brightest hour 132.9    passes
+    at the darkest hour    42.1    passes
+    near-black start        7.4    REJECTED
+
+**Proven to bite**, same discipline as the VAT vertex-count assert and
+`assert_cameras_clear`. Chrome resolves `color-mix` to CSS Color 4
+`color(srgb …)`, not `rgb()`, so the parser handles both — the first version
+returned `NaN` for every sample and failed all four checks, which is how that
+was found.
+
+### Verified, not assumed: nothing waits
+
+    commit applied at   0.8 ms
+    call returned at    0.9 ms
+    promise resolved  301.9 ms   (260 + 40 margin), layer count 0
+
+`App.jsx:220` calls `runAuthTransition` with **no `await`**. A real sign-in with
+the world running: route reached in 1045 ms — all of it the API round trip —
+with the layer present and `auth:depart` fired at the swap, the token stored, and
+the layer gone 600 ms later.

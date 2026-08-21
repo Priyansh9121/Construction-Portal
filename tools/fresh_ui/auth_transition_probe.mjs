@@ -94,7 +94,37 @@ for (const reduced of [false, true]) {
 
     out.timing = mod.authTransitionTiming;
 
-    /* 6 · dark-to-light endpoints. */
+    /*
+     * 6 · dark-to-light endpoints, READ OFF THE LAYER THAT RENDERS.
+     *
+     * This used to read the `--auth-sky-deep` token and compare it against two
+     * string literals. That could not see the layer's actual background at
+     * all — and since the departure now mixes the world's live horizon into
+     * that background, the token is no longer what the user sees.
+     *
+     * So the sample is `getComputedStyle(layer).backgroundColor` during a real
+     * run, resolved by the browser through `color-mix` and any inline
+     * override, which is the only value that can be wrong in a way that
+     * matters.
+     */
+    const sample = (override) => {
+      const probeLayer = document.createElement("div");
+      probeLayer.className = "auth-departure";
+      if (override) probeLayer.style.setProperty("--auth-departure-sky", override);
+      document.body.appendChild(probeLayer);
+      const bg = getComputedStyle(probeLayer).backgroundColor;
+      probeLayer.remove();
+      return bg;
+    };
+    out.startBg = sample(null);
+    /* The same measurement with the world's brightest and darkest published
+     * horizons forced in, so both ends of the real range are covered without
+     * waiting for a particular hour. */
+    out.startBgNoon = sample("#dae6f1");
+    out.startBgNight = sample("#383f55");
+    /* And a deliberately near-black value, to prove the assertion bites. */
+    out.startBgBlack = sample("#000000");
+
     const cs = getComputedStyle(document.documentElement);
     out.skyDeep = cs.getPropertyValue("--auth-sky-deep").trim();
     out.canvas = cs.getPropertyValue("--ui-canvas").trim();
@@ -112,12 +142,66 @@ for (const reduced of [false, true]) {
   check(results.cleared, `${tag} leaving state is cleared afterwards`);
   check(results.noCallbackSafe, `${tag} tolerates a missing callback`);
 
-  const sky = results.skyDeep.toLowerCase();
+  /*
+   * THE DARK-TO-LIGHT MOMENT, AS A MEASUREMENT RATHER THAN TWO INEQUALITIES.
+   *
+   * `!== "#000000"` passed anything that was not exactly black, including
+   * values that destroy the effect the check exists to protect. It is now a
+   * LUMINANCE BAND, with both ends chosen from measured values:
+   *
+   *   floor 14  — `--auth-sky-deep` itself is 16.4, and that is the darkest
+   *               the departure is ever designed to be (it is what renders
+   *               when there is no world). 14 clears it and rejects #0a0d17
+   *               at 13.1, which is the shape of near-black this guards.
+   *   ceiling 170 — the world's brightest horizon is 228 at noon. Unmixed,
+   *               that starts the departure a few percent from `--ui-canvas`
+   *               at 251 and there is no dark-to-light moment left. Mixed
+   *               55% toward the static sky it lands at 133, so 170 passes
+   *               every real hour and fails the unmixed regression.
+   */
+  const LUM_FLOOR = 14;
+  const LUM_CEIL = 170;
+  /* Chrome resolves `color-mix` to CSS Color 4 `color(srgb r g b)` with 0..1
+   * floats, not to `rgb()` with 0..255 bytes. Both forms are parsed, because
+   * which one comes back is the browser's business and not the check's. */
+  const lum = (css) => {
+    const text = String(css || "");
+    let rgb = null;
+    const modern = /color\(\s*srgb\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+([\d.eE+-]+)/.exec(text);
+    if (modern) rgb = [1, 2, 3].map((i) => parseFloat(modern[i]) * 255);
+    if (!rgb) {
+      const legacy = /rgba?\(([^)]+)\)/.exec(text);
+      if (legacy) rgb = legacy[1].split(/[,/\s]+/).filter(Boolean).slice(0, 3).map(parseFloat);
+    }
+    if (!rgb || rgb.some((v) => !Number.isFinite(v))) return NaN;
+    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  };
+
+  for (const [what, css] of [
+    ["with no world", results.startBg],
+    ["at the brightest hour", results.startBgNoon],
+    ["at the darkest hour", results.startBgNight],
+  ]) {
+    const L = lum(css);
+    check(
+      Number.isFinite(L) && L >= LUM_FLOOR && L <= LUM_CEIL,
+      `${tag} departure starts inside the dark-to-light band ${what}`,
+      `${css} → ${Number.isFinite(L) ? L.toFixed(1) : "?"}`
+    );
+  }
+
+  /*
+   * PROVE THE ASSERTION BITES. A near-black start must FAIL the band — a
+   * check that cannot fail is not a check. Same discipline as the VAT
+   * vertex-count assert and assert_cameras_clear.
+   */
+  const blackL = lum(results.startBgBlack);
   check(
-    sky !== "" && sky !== "#000" && sky !== "#000000",
-    `${tag} scene does not start at pure black`,
-    results.skyDeep
+    Number.isFinite(blackL) && blackL < LUM_FLOOR,
+    `${tag} a near-black start is REJECTED by the band`,
+    `${results.startBgBlack} → ${Number.isFinite(blackL) ? blackL.toFixed(1) : "?"} < ${LUM_FLOOR}`
   );
+
   const canvas = results.canvas.toLowerCase();
   check(
     canvas !== "" && canvas !== "#fff" && canvas !== "#ffffff",

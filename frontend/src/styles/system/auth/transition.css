@@ -139,7 +139,40 @@
     z-index: 2147483000;
 
     pointer-events: none;
+    /*
+     * THE SKY OF THIS MOMENT, MIXED BACK TOWARD THE STATIC ONE.
+     *
+     * `--auth-departure-sky` is pinned inline by authTransition.js from the
+     * world's live horizon; when there is no world it is simply absent and the
+     * first declaration stands, which is byte-for-byte the old behaviour.
+     *
+     * WHY IT IS MIXED AND NOT USED RAW — measured across the day:
+     *
+     *     noon      #dae6f1  luminance 228.2
+     *     golden    #d3b3a6            184.9
+     *     dusk      #64627b            100.2
+     *     night     #383f55             63.1
+     *     overcast  #d5d9df            216.6
+     *     --auth-sky-deep #0d1114       16.4
+     *
+     * The concern going in was that night would be near-black. It is not —
+     * the darkest hour is four times brighter than the static token. The real
+     * failure is at the OTHER end: a departure starting at 228 and resolving
+     * to `--ui-canvas` at 251 is not a dark-to-light moment, it is a shrug.
+     *
+     * Mixing 55% toward `--auth-sky-deep` holds the start between 42 and 133
+     * at every hour and weather: never near black, and never within reach of
+     * the destination. The probe asserts both bounds.
+     *
+     * The unprefixed declaration first, so a browser without color-mix keeps
+     * the static colour rather than no colour.
+     */
     background: var(--auth-sky-deep);
+    background: color-mix(
+      in srgb,
+      var(--auth-departure-sky, var(--auth-sky-deep)) 55%,
+      var(--auth-sky-deep)
+    );
     opacity: 1;
 
     animation: auth-depart var(--t-deliberate, 260ms) var(--e-dismiss, ease-in)

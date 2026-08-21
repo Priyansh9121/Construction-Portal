@@ -140,6 +140,36 @@ function openDeparture() {
   layer.className = "auth-departure";
 
   /*
+   * THE DEPARTURE BEGINS IN THE SKY THE USER IS ACTUALLY LOOKING AT.
+   *
+   * `authWorld` publishes `--auth-world-horizon` on `.auth-scene`, not on the
+   * document — publishing on documentElement invalidated inherited custom
+   * properties for the whole page and cost a 184 ms long task, which is why it
+   * lives where it does. Custom properties inherit downward, and this layer is
+   * a child of <body> because it has to OUTLIVE the sign-in tree, so it can
+   * never see a property scoped to a subtree of that tree.
+   *
+   * So the value is read once, here, at the instant of departure, and pinned
+   * to the layer inline. One `getComputedStyle` on a click, not a frame cost,
+   * and no document-wide invalidation.
+   *
+   * Every failure path leaves the property unset, and `transition.css` falls
+   * back to `--auth-sky-deep` — which is exactly what it did before the world
+   * had any say. There is no branch here that can strand it.
+   */
+  try {
+    const scene = document.querySelector(".auth-scene");
+    if (scene) {
+      const sky = getComputedStyle(scene)
+        .getPropertyValue("--auth-world-horizon").trim();
+      if (sky) layer.style.setProperty("--auth-departure-sky", sky);
+    }
+  } catch {
+    /* A missing scene, a detached node, a browser without custom properties.
+     * The layer simply keeps the static colour. */
+  }
+
+  /*
    * The structural content.
    *
    * Two rules and a set of plates, built as elements rather than SVG because
