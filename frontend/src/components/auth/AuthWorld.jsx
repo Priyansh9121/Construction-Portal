@@ -88,13 +88,16 @@ function AuthWorld({ onReady }) {
         const onFocus = (e) => world.focus(e.detail);
         const onArm = () => world.arm();
         const onRelax = () => world.relax();
+        const onDepart = () => world.depart?.();
         document.addEventListener("auth:focus", onFocus);
         document.addEventListener("auth:arm", onArm);
         document.addEventListener("auth:relax", onRelax);
+        document.addEventListener("auth:depart", onDepart);
         cleanupRef.current = () => {
           document.removeEventListener("auth:focus", onFocus);
           document.removeEventListener("auth:arm", onArm);
           document.removeEventListener("auth:relax", onRelax);
+          document.removeEventListener("auth:depart", onDepart);
         };
       } catch (error) {
         /* A world that fails to build is a missing decoration, not a broken

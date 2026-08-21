@@ -22,3 +22,12 @@ export const worldArm = () => send("auth:arm");
 
 /** The attempt resolved without leaving: put the world back. */
 export const worldRelax = () => send("auth:relax");
+
+/**
+ * The attempt succeeded and the session is already applied: release the scene.
+ *
+ * Dispatched AFTER the commit, never before, and nothing awaits it. If no
+ * world is listening — a software renderer, a failed load, a test — this is a
+ * DOM event into an empty room and sign-in is unchanged.
+ */
+export const worldDepart = () => send("auth:depart");
