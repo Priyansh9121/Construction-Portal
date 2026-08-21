@@ -525,9 +525,13 @@ LAMP_H = 7.2
 # compared before one is kept.
 
 TREE_H = 7.4
-# Air between a canopy and a lens. The assert below tests 5.5 m of reach, so
-# this leaves margin rather than sitting exactly on the limit.
-TREE_CLEAR = 11.0
+# Air between a canopy and a lens.
+#
+# 11 m cleared the assert and still ruined the establishing shot: the street
+# pool sits 21 m ahead of the eye, so a cluster radius of 26 puts canopies at
+# 11-47 m, and a 7.4 m tree at 11 m through a 41-degree lens fills the frame
+# and hides the hero. 26 m keeps them inside the pool and out of the way.
+TREE_CLEAR = 26.0
 
 
 def _blob(name, x, y, z, r, mat, subdiv=2):
@@ -562,6 +566,125 @@ def build_tree_modelled(name, mats, rng):
             rad, mats["foliage"]))
     return L.join_all(name, [o for o in parts if o])
 
+
+
+
+# ---------------------------------------------------------------------------
+# THE GARDEN
+# ---------------------------------------------------------------------------
+#
+# WHERE, checked rather than guessed. Every station's eye, target, radius and
+# fov were read out of loginSite.js and every grid cell tested against both
+# frustums. The result corrected the plan: the cells BOTH cameras frame are
+# (-1,-1) and (0,-1), and both are already empty because they sit inside
+# CITY_INNER. Every cell that actually carries a building is 41-62 degrees
+# off-axis from `street` and cannot be seen from it at all.
+#
+#     cell (-1,-1)  street 21.5/31 at  78 m   lane 17.8/34 at 205 m
+#     cell ( 0,-1)  street 23.4/31 at 119 m   lane 24.7/34 at 163 m
+#     cell (-1,-2)  street 41.1/31            <- built, and invisible
+#
+# So the park fills ground that was bare rather than displacing blocks. The
+# road corridor between the two cells stays, which is what a park either side
+# of a street looks like.
+#
+# Vocabulary is reused throughout: median_top for lawn, footpath for the walks,
+# and the modelled tree archetype kept last session.
+
+PARK_CELLS = ((-1, -1), (0, -1))
+
+
+def park_bounds(cell):
+    """The clear interior of a cell — between the two road corridors."""
+    cx, cy = cell[0] * CITY_GRID, cell[1] * CITY_GRID
+    h = CITY_GRID / 2 - CITY_ROAD / 2
+    return cx - h, cy - h, cx + h, cy + h
+
+
+def build_garden(parts, mats, empties, rng):
+    """Lawn, walks, benches, water and mature trees."""
+    tree_at = []
+    for ci, cell in enumerate(PARK_CELLS):
+        x0, y0, x1, y1 = park_bounds(cell)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+
+        # Lawn. In the cell that carries water it is built as a RING around the
+        # pond rather than a slab across the whole cell.
+        #
+        # The first version laid a solid lawn 0.30-0.54 and a pond 0.32-0.44,
+        # and the pond measured ZERO pixels from both stations: it was 100 mm
+        # under the grass. Exactly the failure the city roads had — geometry
+        # placed by arithmetic about a height rather than against the thing it
+        # has to sit on. Measured, not noticed in a render.
+        pw, ph = (15.0, 11.0)
+        if ci == 0:
+            for (lx0, ly0, lx1, ly1) in (
+                    (x0, y0, x1, cy - ph),
+                    (x0, cy + ph, x1, y1),
+                    (x0, cy - ph, cx - pw, cy + ph),
+                    (cx + pw, cy - ph, x1, cy + ph)):
+                parts.setdefault("median_top", []).append(
+                    M.prism(f"park-lawn{ci}{lx0:.0f}{ly0:.0f}",
+                            M.rect(lx0, ly0, lx1, ly1), GROUND_TOP, 0.24,
+                            mats["median_top"], bevel=0.0))
+        else:
+            parts.setdefault("median_top", []).append(
+                M.prism(f"park-lawn{ci}", M.rect(x0, y0, x1, y1), GROUND_TOP,
+                        0.24, mats["median_top"], bevel=0.0))
+
+        # Walks: a cross, and a loop set in from the edge.
+        parts.setdefault("footpath", []).append(
+            M.prism(f"park-walkx{ci}", M.rect(x0, cy - 1.5, x1, cy + 1.5),
+                    GROUND_TOP, 0.26, mats["footpath"], bevel=0.0))
+        parts.setdefault("footpath", []).append(
+            M.prism(f"park-walky{ci}", M.rect(cx - 1.5, y0, cx + 1.5, y1),
+                    GROUND_TOP, 0.26, mats["footpath"], bevel=0.0))
+        for (ax0, ay0, ax1, ay1) in (
+                (x0 + 4, y0 + 4, x1 - 4, y0 + 6.4),
+                (x0 + 4, y1 - 6.4, x1 - 4, y1 - 4),
+                (x0 + 4, y0 + 4, x0 + 6.4, y1 - 4),
+                (x1 - 6.4, y0 + 4, x1 - 4, y1 - 4)):
+            parts["footpath"].append(
+                M.prism(f"park-loop{ci}{ax0:.0f}{ay0:.0f}",
+                        M.rect(ax0, ay0, ax1, ay1), GROUND_TOP, 0.26,
+                        mats["footpath"], bevel=0.0))
+
+        # Benches along the cross walk, facing it.
+        for k in range(6):
+            t = y0 + 6 + k * ((y1 - y0 - 12) / 5)
+            side = 1 if k % 2 else -1
+            bx = cx + side * 2.6
+            parts.setdefault("ply", []).append(
+                M.prism(f"park-bench{ci}{k}", M.rect(bx - 0.28, t - 0.85, bx + 0.28, t + 0.85),
+                        GROUND_TOP + 0.26, 0.44, mats["ply"], bevel=0.04))
+            parts.setdefault("galv", []).append(
+                M.prism(f"park-leg{ci}{k}", M.rect(bx - 0.22, t - 0.75, bx + 0.22, t - 0.6),
+                        GROUND_TOP + 0.26, 0.42, mats["galv"], bevel=0.02))
+
+        # Water, in the first cell only. A still pond a shade BELOW the lawn,
+        # so its edge reads as a bank rather than a floating sheet.
+        if ci == 0:
+            parts.setdefault("water", []).append(
+                M.prism("park-pond",
+                        M.chamfered(cx - pw, cy - ph, cx + pw, cy + ph, 4.5),
+                        GROUND_TOP, 0.21, mats["water"], bevel=0.0))
+
+        # Mature trees, kept off the walks and the pond.
+        for _ in range(26):
+            tx = rng.uniform(x0 + 2.5, x1 - 2.5)
+            ty = rng.uniform(y0 + 2.5, y1 - 2.5)
+            if abs(tx - cx) < 3.0 or abs(ty - cy) < 3.0:
+                continue
+            if ci == 0 and abs(tx - cx) < 18 and abs(ty - cy) < 14:
+                continue
+            # The `entry` eye stands INSIDE cell (0,-1) — the park is built
+            # around it rather than moved, so that station looks across the
+            # lawn at the site. It still may not have a canopy in its face.
+            if any(math.hypot(tx - kx, ty - ky) < TREE_CLEAR
+                   for kx, ky, _kr, _n in CAMERA_KEEPOUT):
+                continue
+            tree_at.append((tx, ty, GROUND_TOP + 0.24))
+    return tree_at
 
 
 def build_lamp(name, mats):
@@ -608,7 +731,7 @@ def verge_positions(rng, spacing, jitter=0.0):
     return out
 
 
-def build_street_furniture(mats, empties, rng):
+def build_street_furniture(mats, empties, rng, extra_trees=()):
     """Lamps along the verge. Trees join this pass."""
     lamp_src = build_lamp("lamp", mats)
     lamp_at = []
@@ -682,6 +805,11 @@ def build_street_furniture(mats, empties, rng):
             continue
         tree_at["tree"].append((x, y, GROUND_TOP + 0.12))
 
+    # The garden's trees join the same instanced archetype: mature, so scaled
+    # up, but the same mesh and the same draw call.
+    park_from = len(tree_at["tree"])
+    tree_at["tree"].extend(extra_trees)
+
     # Everything planted, for the camera assert.
     planted = ([(x, y, 4.0, "lamp") for (x, y, _z) in lamp_at]
                + [(x, y, 5.5, "tree") for (x, y, _z) in tree_at["tree"]])
@@ -691,10 +819,13 @@ def build_street_furniture(mats, empties, rng):
         src = build_tree_modelled(kind, mats, rng)
         bake_vertex_ao([src], with_ground=False, strength=0.7)
         e2, made2 = instance_group(kind, src, tree_at[kind])
-        for dup in made2:
+        for di, dup in enumerate(made2):
             dup.rotation_euler = (0.0, 0.0, rng.uniform(0.0, math.tau))
-            sc = rng.uniform(0.72, 1.28)
-            dup.scale = (sc, sc, rng.uniform(0.8, 1.25))
+            # Park trees are mature; street trees are not.
+            mature = di >= park_from
+            sc = rng.uniform(1.15, 1.55) if mature else rng.uniform(0.72, 1.28)
+            dup.scale = (sc, sc, rng.uniform(1.05, 1.4) if mature
+                         else rng.uniform(0.8, 1.25))
         empties.append(e2)
         print(f"STREET {kind}: {len(made2)} instances")
 
@@ -1097,6 +1228,15 @@ def build(dusk=False):
 
     # Vegetation. `foliage` is a solid mass, `leaf_card` is the alpha-tested
     # variant whose mask the runtime generates; `bark` is shared by both.
+    # Water reads from the PMREM, like glass and steel: no albedo map, low
+    # roughness, and the sky it reflects is the sky the viewer can see.
+    wat = bpy.data.materials.new("water")
+    wat.use_nodes = True
+    _wb = next(n for n in wat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    _wb.inputs["Base Color"].default_value = (0.045, 0.075, 0.085, 1.0)
+    _wb.inputs["Roughness"].default_value = 0.07
+    mats["water"] = wat
+
     for nm, rgb, rough in (("bark", (0.20, 0.15, 0.11, 1.0), 0.95),
                            ("foliage", (0.16, 0.30, 0.13, 1.0), 0.88),
                            ("leaf_card", (0.18, 0.34, 0.15, 1.0), 0.85)):
@@ -1363,7 +1503,9 @@ def build(dusk=False):
 
     build_streets(parts, mats)
     build_city(mats, empties)
-    build_street_furniture(mats, empties, random.Random(4211))
+    garden_trees = build_garden(parts, mats, empties, random.Random(7788))
+    build_street_furniture(mats, empties, random.Random(4211),
+                           extra_trees=garden_trees)
 
     return parts, empties, mats
 
