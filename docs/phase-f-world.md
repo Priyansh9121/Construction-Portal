@@ -1329,3 +1329,61 @@ unilaterally.
 Mature trees near the lamps are lit from below and read as pale canopies against
 the dark city — exactly the near-field detail the pools were expected to buy,
 and the strongest thing in the dusk frame after the lamps themselves.
+
+---
+
+## The pond IS reachable (2026-08-21)
+
+Written off too early. The rig has drag and dolly, and the pond was projected
+through both across their full range from every station:
+
+    street    reachable   dragEl 0.82  dragAz 1.60  dolly 2.4   NDC (-0.29, -0.23)
+    lane      reachable   dragEl 0.75  dragAz 0.32  dolly 2.4   NDC ( 0.06,  0.01)
+    entry     reachable   dragEl 0.15  dragAz -0.48 dolly 2.4   NDC (-0.08, -0.31)
+    footpath  reachable   dragEl 0.22  dragAz -0.48 dolly 2.4   NDC ( 0.22, -0.36)
+
+At `lane` a user who drags down and dollies out puts the pond at **NDC (0.06,
+0.01) — the centre of the frame.** It is not dead weight and needs no further
+work. The resting frames still clip it, and neither station is re-aimed: both
+framings are working and a pond is not worth spending them.
+
+## Weather — the forecast (2026-08-21)
+
+`weather.js` reads Open-Meteo for Ahmedabad. Keyless, CORS-open, no account.
+**Never awaited**: `createAuthWorld` starts on `DEFAULT_WEATHER` and the fetch
+re-grades if and when it lands. It resolves rather than rejects on every failure
+path, so a caller cannot await it into a hang, and it carries its own 4 s
+timeout. The last good answer is cached in localStorage and used when the
+network fails — an hours-old cloud cover is a better guess than none.
+
+Confirmed live in the browser:
+
+    {"cloud":0.31,"rain":0,"wind":1.72,"source":"live"}
+
+**One bug worth recording.** The fetch was first placed beside `buildLights`,
+two hundred lines before `siteAbort` and `alive` are declared — a temporal
+dead-zone throw at runtime that `npm run build` reported as clean, because a
+build cannot see it. Trap 10 again: the tool reporting success is not the work
+being right.
+
+### Overcast, judged on p05
+
+    cloud  keyI  fillI  envI    p05    p25   mean    p75    p95
+     0.00  9.00   0.00  1.20   17.6   31.3   71.7   99.1  179.6
+     0.35  9.00   0.00  1.20   17.6   31.3   71.7   99.1  179.6   (below threshold)
+     0.60  5.56   2.09  1.16   17.7   37.7   72.4   95.1  153.9
+     0.85  2.13   4.18  1.11   17.7   39.7   72.2   95.9  139.0
+     1.00  1.44   4.60  1.10   17.7   39.4   72.0   96.4  139.0
+
+**p05 holds at 17.6-17.7 across the whole range — nothing crushes.** That is
+what the restored fill is for: the clear grade runs `fillI 0.0` at high sun with
+the PMREM carrying the shadowed side, and a PMREM of an overcast sky is dim and
+grey. Without the fill back, cloud would have darkened exactly the surfaces it
+should have been filling.
+
+p25 rises 31.3 -> 39.4 while p95 falls 179.6 -> 139.0: the range compresses and
+the mean holds near 72. That is what overcast is — less contrast, no crushing,
+and a bright flat day rather than a dark one.
+
+Nothing applies below 0.35 cloud, because a quarter-covered sky is a clear day
+with clouds in it.

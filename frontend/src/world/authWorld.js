@@ -40,6 +40,7 @@ import {
   CROWD_SIZE, checkSiteScale, loadSurfaceMaps,
 } from "./loginSite";
 import { loadCrowdAssets, buildCrowd, placeCrowd } from "./crowd";
+import { fetchWeather, DEFAULT_WEATHER } from "./weather";
 
 /* Cinematic construction palette. Materials carry identity, not just colour:
  * concrete is rough and matt, steel is smooth and metallic, plant is emissive
@@ -1042,8 +1043,14 @@ export async function createAuthWorld(canvas, opts = {}) {
 
   let leafTexture = null;
   const cityWindows = [];
+  /*
+   * WEATHER. Never awaited — the world starts on the default and the forecast
+   * replaces it whenever it arrives, or never. Same posture as loadAssets.
+   */
+  let weather = opts.weather || DEFAULT_WEATHER;
   let crowd = null;
-  let env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
+  let env = worldEnvironment(opts.at ? new Date(opts.at) : new Date(),
+                             undefined, weather);
   const preset = env.grade;
 
   const renderer = new THREE.WebGLRenderer({
@@ -1427,6 +1434,29 @@ export async function createAuthWorld(canvas, opts = {}) {
   publishState(useProcedural ? WORLD_STATE.READY : WORLD_STATE.LOADING);
 
   const siteAbort = new AbortController();
+
+  /*
+   * FIRE AND FORGET. No await on this path: the world is already running on
+   * DEFAULT_WEATHER, and if the forecast lands it re-grades. If it never
+   * lands, nothing waits and nothing knows.
+   *
+   * Placed AFTER siteAbort and `alive` exist. An earlier version sat beside
+   * buildLights, two hundred lines before either was declared — a temporal
+   * dead-zone throw that the build reported as clean, because a build cannot
+   * see it. Trap 10.
+   */
+  /* A forced forecast wins: nothing should overwrite what a harness asked for. */
+  if (!opts.weather) fetchWeather({ signal: siteAbort.signal })
+    .then((w) => {
+      if (!alive || !w) return;
+      weather = w;
+      env = worldEnvironment(opts.at ? new Date(opts.at) : new Date(),
+                            undefined, weather);
+      applyEnvironment();
+      canvas.__authWorldDebug = canvas.__authWorldDebug || {};
+      canvas.__authWorldDebug.weather = w;
+    })
+    .catch(() => {});
   if (!useProcedural) {
     const wanted = SITE_LAYERS.filter((l) => (portrait ? l.mobile : true));
     loadAssets(THREE, wanted.map((l) => l.name), { signal: siteAbort.signal })
@@ -2039,7 +2069,8 @@ export async function createAuthWorld(canvas, opts = {}) {
        */
       if (elapsed - lastEnv > 2) {
         lastEnv = elapsed;
-        env = worldEnvironment(opts.at ? new Date(opts.at) : new Date());
+        env = worldEnvironment(opts.at ? new Date(opts.at) : new Date(),
+                               undefined, weather);
         applyEnvironment();
       }
       /* Republish at ~2 Hz: the sun moves over minutes, so a per-frame write

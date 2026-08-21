@@ -268,7 +268,60 @@ function phaseName(sunAlt) {
  * chosen time for verification — a night scene must be testable without
  * waiting until night.
  */
-export function worldEnvironment(date = new Date(), site = WORLD_SITE) {
+/**
+ * Bend a clear-sky grade toward overcast.
+ *
+ * THIS IS THE ONE CONDITION WHERE HEMISPHERE-DOMINANT LIGHTING IS RIGHT.
+ *
+ * The daylight stops were made sun-dominant because a hemisphere fills every
+ * crevice equally and that flattened everything. Under cloud that is exactly
+ * what the light does: the sun becomes a sky-sized source with no direction,
+ * shadows go soft and then vanish, and the shadowed side of a wall is lit by
+ * the whole dome rather than by a bounce.
+ *
+ * So `fillI` comes BACK, and it has to. At high sun the clear grade runs
+ * fillI 0.0 with the PMREM carrying the shadowed side — and a PMREM of an
+ * overcast sky is dim and grey, so without the fill restored the shadows
+ * crush. `p05` is the number that catches that, which is why it is the one
+ * this was tuned against.
+ *
+ * `amount` is cloud cover 0..1, and nothing here is applied below 0.35: a
+ * quarter-covered sky is a clear day with clouds in it, not an overcast one.
+ */
+function overcast(grade, amount) {
+  const t = Math.max(0, Math.min(1, (amount - 0.35) / 0.55));
+  if (t <= 0) return grade;
+
+  const grey = (rgb, target, k) => rgb.map((c, i) => mix(c, target[i], k));
+  const g = { ...grade };
+
+  /* The sun stops being a source and becomes a bright patch of cloud. */
+  g.keyI = mix(grade.keyI, grade.keyI * 0.16, t);
+  /* And the dome becomes the source. Floor rather than scale, because the
+   * clear grade's fill is 0.0 at noon and scaling zero stays zero. */
+  g.fillI = mix(grade.fillI, Math.max(grade.fillI, 4.6), t);
+  g.envI = mix(grade.envI ?? 1, (grade.envI ?? 1) * 0.92, t);
+
+  /* Colour flattens toward a neutral grey-blue, and the sun's tint with it. */
+  g.zenith = grey(grade.zenith, [0.52, 0.55, 0.60], t * 0.85);
+  g.horizon = grey(grade.horizon, [0.66, 0.68, 0.71], t * 0.85);
+  g.tint = grey(grade.tint, [0.86, 0.88, 0.92], t * 0.9);
+  g.key = mixHex(grade.key, 0xdfe4ea, t * 0.85);
+  g.fill = mixHex(grade.fill, 0xc3ccd6, t * 0.8);
+
+  /* Thicker air and a flatter response. */
+  g.haze = mix(grade.haze, grade.haze * 1.5 + 0.25, t);
+  g.fogD = mix(grade.fogD, grade.fogD * 1.9, t);
+  g.fog = mixHex(grade.fog, 0x9aa1ab, t * 0.7);
+  g.exposure = mix(grade.exposure, grade.exposure * 1.06, t);
+  /* Work lamps come on under heavy cloud, as they do on a real site. */
+  g.work = Math.max(grade.work, t * 0.55);
+  g.cloudAmount = amount;
+  return g;
+}
+
+export function worldEnvironment(date = new Date(), site = WORLD_SITE,
+                                 weather = null) {
   const { latitude: lat, longitude: lon } = site;
 
   const sunPos = getPosition(date, lat, lon);
@@ -280,7 +333,8 @@ export function worldEnvironment(date = new Date(), site = WORLD_SITE) {
   const moonAlt = moonPos.altitude;
   const moonAz = moonPos.azimuth;
 
-  const grade = gradeFor(sunAlt);
+  const cloud = Math.max(0, Math.min(1, weather?.cloud ?? 0));
+  const grade = overcast(gradeFor(sunAlt), cloud);
 
   /*
    * THE MOON IS NOT A SECOND SUN.
@@ -332,6 +386,8 @@ export function worldEnvironment(date = new Date(), site = WORLD_SITE) {
       intensity: moonI,
     },
 
+    weather: weather || null,
+    cloud,
     phase: phaseName(sunAlt),
     nightness,
     grade,
