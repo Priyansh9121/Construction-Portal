@@ -1546,3 +1546,148 @@ was found.
 the world running: route reached in 1045 ms — all of it the API round trip —
 with the layer present and `auth:depart` fired at the swap, the token stored, and
 the layer gone 600 ms later.
+
+---
+---
+
+# START HERE — Phase F handoff (2026-08-21)
+
+**You are picking up `phase-f/world`, 47 commits ahead of `main`, tree clean.**
+This document is long and mostly chronological; this section is the part you can
+read cold. Everything above it is the evidence.
+
+## THE MOST IMPORTANT THING: THIS BRANCH IS NOT MERGED
+
+`redesign/ui-foundation` sat unmerged for months and that was **the single
+largest problem this project has had** — work that is finished but not in front
+of users is work nobody can react to, and it accumulates merge risk every day.
+`phase-f/world` is now carrying two months of work in the same shape.
+
+Everything is green (below). The branch is mergeable. **Getting it merged should
+outrank starting anything new.**
+
+## What shipped
+
+A login world that is a 30-floor tower under construction on a 64 × 52 m plot,
+in a city, at the real Ahmedabad time, in the real Ahmedabad weather.
+
+- **Hero** — podium, transfer level, offset tower, setback, slipformed core,
+  tower crane at 118 m. 30 floors / 106.4 m. Completed and fitting-out floors
+  are instanced; the top four are authored individually because that is where
+  the work is.
+- **City** — 126 blocks from 4 archetypes, neighbour-aware tone assignment,
+  recessed facades with spandrel bands and fins, on a real street section
+  (carriageway, kerb, footpath, verge). Baked vertex AO throughout.
+- **Sky** — SunCalc sun and phased moon at Ahmedabad coordinates, stars, cloud,
+  fog. Sun-dominant by day, skyglow at night.
+- **Life** — 400 walking figures (150 on phones) from one vertex animation
+  texture, 578 street lamps, 233 trees, a park with lawn, walks, benches and a
+  pond.
+- **Weather** — Open-Meteo, never awaited, cached fallback. Overcast restores
+  the hemisphere fill; wet surfaces drop roughness; rain is one Points draw.
+- **Departure** — the sign-in transition begins in the sky the user is looking
+  at, and the camera releases the scene behind an opaque layer.
+
+## The budget and what gates it
+
+    TOTAL 805,108 bytes   against a 2,500,000 hard gate
+
+`tools/blender/build_assets.sh` runs `concept_d.py`, compresses with meshopt and
+**refuses to pass** on 2.0 MB per layer / 2.5 MB total / 1.2 MB warn. It now also
+gates `crowd-figure.glb`, `walk-vat.png` and `walk-vat.json`.
+
+Two asserts fail the export rather than shipping something silently wrong:
+
+- `assert_cameras_clear()` — no building, lamp or tree may reach a station eye.
+  It has caught real intrusions three times.
+- The VAT baker asserts the **shipped GLB's** vertex count equals the texture
+  width, and refuses more than one primitive.
+
+## Green as of this commit
+
+    backend            281 tests, 19 files
+    world-runtime      9/9          a11y            8/8
+    stationContract    11/11        siteScale       9/9
+    supervisor-gate    5/5          auth transition 24/24 (12 × 2 modes)
+    byte gate          passed       lint + build    clean
+
+## The ten traps, in their sharpened forms
+
+1. The API on `:5051` can be days old — `assertServerFresh()` catches it.
+2. A green suite is not evidence a path is exercised.
+3. A foreground Bash command dies with its process group at the tool timeout.
+4. **A comment is not evidence, and neither is a passing check.**
+5. A fix can be half a fix.
+6. A guard that watches one container is not a guard.
+7. A rule that is true can still be applied to the wrong thing.
+8. **Verifying a pipeline is not verifying the product.** The instancing check
+   passed every claim it made against a raw `GLTFLoader` and missed a bug that
+   deleted seventeen floors, because the app's `extract()` was never in the
+   loop. Any "verified end to end" must name which end.
+9. **When the question is whether two values differ, read the values — and a
+   null result is only evidence if the instrument can see the axis being
+   varied.** The luminance probe reported "no difference" for a chroma change it
+   was structurally blind to, as confidently as a real null. Vary the input
+   absurdly and confirm the number moves before believing a null.
+10. **A tool reporting success is not the work having landed.** `str.replace`
+    matching nothing after a target moved; a failed `cd` short-circuiting an
+    `&&`; two temporal dead-zone throws that `npm run build` called clean. Grep
+    for the new content and assert a count after every scripted edit — never the
+    exit code.
+
+**And the habit that would have caught two of those in one command:** after
+wiring anything into `authWorld`, load the page and confirm
+`data-world-state` reads `ready` before measuring anything.
+
+## The instruments, and what each cannot see
+
+| instrument | measures | blind to |
+|---|---|---|
+| masked luminance (`lum.mjs`) | lit geometry, p05/p25/mean/p75/p95 | **emissive** — an emissive surface looks identical with the lights off, so lit windows, lamps and wet reflections are excluded from its own mask |
+| area probe (`area.mjs`) | screen area per material, by emissive marking | needs a baseline subtracted — the world's own green foliage and hi-vis form a ~4,700 px floor |
+| `EXT_disjoint_timer_query_webgl2` | real GPU ms per frame | nothing important; this is the reliable one |
+| `gl.finish()` + `performance.now()` | **nothing** | it does not force a sync on Metal — 15.6M triangles came back at 0.35 ms |
+| frame interval (rAF deltas) | sustained cost | vsync-locked at 60 fps until the knee, so it cannot resolve anything cheaper than the budget |
+| `readRenderTargetPixels` on an owned RT | any pixel measurement | the app's canvas has no `preserveDrawingBuffer`; this is the way to read pixels |
+
+Key numbers worth not re-deriving: fog is 35% at 300 m by day and 99.9% at night;
+the point-light cliff is between **6 and 7** lights on desktop (8.65 → 17.52 ms);
+the crowd is free to 5,000 figures and the knee is between 5,000 and 20,000.
+
+## What is left
+
+**Merge the branch.** Then, in rough order of value:
+
+1. **`entry` is framed for a 27.7 m building.** It survived the station
+   re-derivation by being arithmetically correct rather than right: at 106 m it
+   fills with facade and shows neither the site nor the city.
+2. **The pond is only reachable by exploring.** Both resting frames clip it;
+   drag and dolly bring it to frame centre at `lane`. Re-aiming a station would
+   fix it and would cost a working framing — a deliberate trade, not a bug.
+3. **Phase E, Tier 1** — `/payments` → `/tenders/:id` → `/tenders`, unblocked
+   and untouched since the usage census. See `docs/phase-e-route-plan.md`.
+4. **The orphan backfill** — production has NULL `company_id` rows; the repair
+   is written and NOT run, in `docs/first-tender-walkthrough.md`. Yours to
+   approve.
+5. **The `/site-operations` gate** — supervisors can reach it now, but
+   `/daily-site-updates` stayed office-only and the reasoning is recorded.
+6. Mobile is measured at a 390 × 844 **viewport**, which is this machine drawing
+   fewer pixels and not a phone GPU. Every mobile number in this document
+   carries that caveat.
+
+## How to run anything
+
+```bash
+# API — three limiters, and AUTH_RATE_LIMIT_MAX must not exceed 1000
+cd backend && RATE_LIMIT_MAX=100000 AUTH_RATE_LIMIT_MAX=1000 \
+  PASSWORD_RESET_RATE_LIMIT_MAX=100000 nohup npm start > /tmp/api.log 2>&1 &
+
+cd frontend && npm run dev            # world needs a real GPU: headless cannot
+bash tools/blender/build_assets.sh    # rebuild assets, run the byte gate
+node tools/fresh_ui/auth_transition_probe.mjs
+```
+
+Looking at the world needs **headed** Chrome (`channel: "chrome"`,
+`--use-angle=metal`); `CAPABLE()` rejects software renderers on purpose, so
+headless renders nothing. Drive the clock with `window.__AUTH_AT` and the
+forecast with `window.__AUTH_WEATHER`; neither is ever set in the product.
